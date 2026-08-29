@@ -1,6 +1,7 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MessageSquare } from 'lucide-react';
 import { Situation } from '../../api/types';
+import { getTriggeringComparison } from '../../utils/triggeringComparison';
 
 interface HeroBriefingProps {
   situation: Situation;
@@ -33,8 +34,12 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
   const dotColor    = isOpportunity ? 'bg-severity-opportunity'       : (severityDot[situation.severity]    ?? 'bg-severity-warning');
 
   const monthlyValues = situation.kpi_value?.monthly_values ?? [];
-  const percentChange  = situation.kpi_value?.percent_change;
   const inverseLogic   = situation.kpi_value?.inverse_logic ?? false;
+
+  // Show the number that actually fired the alert, not just always the YoY
+  // comparison — see triggeringComparison.ts / KPITile.tsx for the same fix.
+  const triggeringComparison = getTriggeringComparison(situation);
+  const percentChange = triggeringComparison?.value ?? situation.kpi_value?.percent_change;
 
   const isGoodTrend = isOpportunity
     ? true
@@ -42,9 +47,24 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
       ? (percentChange ?? 0) <= 0
       : (percentChange ?? 0) >= 0;
 
+  // See KPITile.tsx for the full rationale: a chart's colour must agree with
+  // what it draws, not with an unrelated top-line comparison. Null when
+  // there's no real monthly series, falling back to the YoY-based isGoodTrend
+  // — correct for that case since the synthetic fallback sparkline is itself
+  // derived from percentChange.
+  const recentTrendIsGood = (() => {
+    if (isOpportunity) return true;
+    if (monthlyValues.length < 2) return null;
+    const first = monthlyValues[0].value;
+    const last = monthlyValues[monthlyValues.length - 1].value;
+    const rising = last > first;
+    return inverseLogic ? !rising : rising;
+  })();
+  const chartTrendIsGood = recentTrendIsGood ?? isGoodTrend;
+
   const badgeLabelColor = (() => {
     if (isOpportunity) return 'text-severity-opportunity';
-    if (isGoodTrend && (situation.severity === 'medium' || situation.severity === 'low')) {
+    if (chartTrendIsGood && (situation.severity === 'medium' || situation.severity === 'low')) {
       return 'text-severity-healthy';
     }
     return 'text-slate-500';
@@ -77,6 +97,7 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
   })();
 
   const comparisonLabel = (() => {
+    if (triggeringComparison) return triggeringComparison.label;
     const comparisonType = situation.kpi_value?.comparison_type;
     if (!comparisonType) return null;
     const year = new Date().getFullYear();
@@ -91,7 +112,7 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
 
   const trendNote = situation.trend_note ?? null;
 
-  const lineColor = isOpportunity ? '#34d399' : (isGoodTrend ? '#34d399' : '#f87171');
+  const lineColor = isOpportunity ? '#34d399' : (chartTrendIsGood ? '#34d399' : '#f87171');
   const VB_W = 200; const VB_H = 80; const PLOT_TOP = 6; const PLOT_BOT = 72; const PLOT_H = PLOT_BOT - PLOT_TOP;
 
   const sparkline = (() => {
@@ -196,7 +217,7 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
               <p className="text-sm text-slate-300 leading-relaxed">{whyItMatters}</p>
             )}
             {trendNote && (
-              <p className="text-[11px] text-amber-400/80 leading-relaxed mt-2">{trendNote}</p>
+              <p className="text-[11px] text-severity-warning/80 leading-relaxed mt-2">{trendNote}</p>
             )}
             {situation.key_observations && situation.key_observations.length > 0 && (
               <ul className="mt-3 space-y-1">
@@ -211,13 +232,19 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
         )}
       </div>
 
-      {/* Hover action strip */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 border-t border-slate-800/60 px-6 py-3 flex items-center justify-between">
+      {/* Action strip — always visible, brightening on hover. Previously
+          opacity-0 until group-hover, which hid the card's primary action
+          until the mouse arrived and hid it permanently on touch. */}
+      <div className="opacity-70 group-hover:opacity-100 transition-opacity duration-150 border-t border-slate-800/60 px-6 py-3 flex items-center justify-between">
+        {/* G: named the actual next step. The click already leads to a
+            conversation (DeepFocusView auto-launches refinement chat once
+            analysis completes, non-mixed modes) — this caption previously
+            described only the first half of what happens. */}
         <span className="text-[10px] text-slate-600 uppercase tracking-wider">
-          Click to open deep analysis
+          Deep analysis, then a follow-up conversation
         </span>
         <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-indigo-400">
-          Analyze <ArrowRight className="w-3 h-3" />
+          <MessageSquare className="w-3 h-3" /> Analyze <ArrowRight className="w-3 h-3" />
         </span>
       </div>
 

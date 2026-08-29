@@ -25,7 +25,7 @@ export function OpportunityCard({ signal, onClick }: OpportunityCardProps) {
             {OPPORTUNITY_TYPE_LABELS[signal.opportunity_type] ?? signal.opportunity_type}
           </span>
         </div>
-        <span className="text-green-300 font-bold text-sm">
+        <span className="text-severity-healthy font-bold text-sm">
           +{signal.delta_pct.toFixed(1)}%
         </span>
       </div>

@@ -15,13 +15,13 @@ export const TradeOffAnalysis: React.FC<TradeOffAnalysisProps> = ({
 }) => {
   // Helper to format 0-1 scores
   const getRiskLabel = (score: number) => {
-    if (score >= 0.7) return { label: 'High', color: 'text-red-400 bg-red-900/20 border-red-500/30' };
-    if (score >= 0.4) return { label: 'Medium', color: 'text-amber-400 bg-amber-900/20 border-amber-500/30' };
-    return { label: 'Low', color: 'text-emerald-400 bg-emerald-900/20 border-emerald-500/30' };
+    if (score >= 0.7) return { label: 'High', color: 'text-severity-critical bg-severity-critical/20 border-severity-critical/30' };
+    if (score >= 0.4) return { label: 'Medium', color: 'text-severity-warning bg-severity-warning/20 border-severity-warning/30' };
+    return { label: 'Low', color: 'text-severity-opportunity bg-severity-opportunity/20 border-severity-opportunity/30' };
   };
 
   const getImpactLabel = (score: number) => {
-    if (score >= 0.7) return { label: 'High', color: 'text-emerald-400' };
+    if (score >= 0.7) return { label: 'High', color: 'text-severity-opportunity' };
     if (score >= 0.4) return { label: 'Medium', color: 'text-blue-400' };
     return { label: 'Low', color: 'text-slate-400' };
   };
@@ -29,7 +29,7 @@ export const TradeOffAnalysis: React.FC<TradeOffAnalysisProps> = ({
   const getCostLabel = (score: number) => {
     if (score >= 0.7) return { label: '$$$', color: 'text-slate-400' }; // High cost
     if (score >= 0.4) return { label: '$$', color: 'text-slate-400' };
-    return { label: '$', color: 'text-emerald-400' }; // Low cost
+    return { label: '$', color: 'text-severity-opportunity' }; // Low cost
   };
 
   if (!options || options.length === 0) {
@@ -129,7 +129,7 @@ export const TradeOffAnalysis: React.FC<TradeOffAnalysisProps> = ({
                     {/* Mock simple bar for visual flair */}
                     <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
                         <div 
-                            className={`h-full rounded-full ${opt.risk >= 0.7 ? 'bg-red-500' : opt.risk >= 0.4 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                            className={`h-full rounded-full ${opt.risk >= 0.7 ? 'bg-severity-critical' : opt.risk >= 0.4 ? 'bg-severity-warning' : 'bg-severity-opportunity'}`} 
                             style={{ width: `${opt.risk * 100}%` }}
                         />
                     </div>

@@ -168,6 +168,14 @@ This philosophy has implications for existing agent PRDs:
 ## 6. What This Is Not
 
 - **Not a chatbot.** The Q&A is scoped to a specific decision context (a single situation's analysis and recommendations). It is not a general-purpose conversational interface.
-- **Not a board collaboration tool.** Single principal as decision maker. Executives will not expose Agent9 to a board.
+- **Not a board collaboration tool.** One accountable decision maker per decision — not a multi-party
+  consensus or voting mechanism, and executives will not expose Agent9 to a board. This is narrower
+  than "one principal performs every step end to end": PIB's shipped delegation flow (a second
+  principal can be routed a decision) and the `workflow_role` framer/decision-maker split
+  (`decision_framer_and_decision_maker_personas_design.md`) both put more than one principal in
+  contact with a single decision. Neither breaks the invariant — a delegate or a framer never becomes
+  a second decision maker on the same decision, and the recommendation itself stays identical
+  regardless of who is viewing it (that document's M1). Reconciled 2026-08-28; this line previously
+  read as "one principal, full stop," which delegation had already de facto contradicted.
 - **Not a defense mechanism.** The system does not try to convince the principal that its recommendation is correct. It presents information for consideration.
 - **Not a replacement for organizational judgment.** The system narrows the gap through context agents (Principal Context, Business Context, Market Analysis), but when a question requires knowledge that genuinely isn't in the system — undocumented decisions, stakeholder politics, team dynamics — it says so clearly while sharing what it *does* know.

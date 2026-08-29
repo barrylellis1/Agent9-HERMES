@@ -32,6 +32,9 @@ interface PrincipalRecord {
   title?: string
   description?: string
   decision_style?: string
+  /** Workflow-stage default. STRICTLY a registry attribute set here by an
+   *  admin — never inferred from title/name anywhere in this codebase. */
+  workflow_role?: 'framer' | 'decision_maker'
   business_processes?: string[]
   kpis?: string[]
   responsibilities?: string[]
@@ -70,7 +73,7 @@ export function PrincipalForm({
   const [draft, setDraft] = useState<PrincipalRecord>(() => ({
     id: '', name: '', title: '', description: '',
     business_processes: [], kpis: [], responsibilities: [],
-    decision_style: 'analytical', email: '', metadata: {},
+    decision_style: 'analytical', workflow_role: 'framer', email: '', metadata: {},
   }))
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -137,7 +140,7 @@ export function PrincipalForm({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+        <div className="p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">{error}</div>
       )}
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -159,6 +162,17 @@ export function PrincipalForm({
           <label className={labelCls}>Decision Style</label>
           <input value={draft.decision_style || ''} onChange={(e) => update('decision_style', e.target.value)} className={inputCls} placeholder="analytical, visionary, pragmatic" />
         </div>
+      </div>
+      <div>
+        <label className={labelCls}>Workflow Role</label>
+        <select value={draft.workflow_role || 'framer'} onChange={(e) => update('workflow_role', e.target.value)} className={inputCls}>
+          <option value="framer">Framer — stewards SA → DA → SF, runs refinement</option>
+          <option value="decision_maker">Decision Maker — reviews a distilled brief, approves</option>
+        </select>
+        <p className="text-xs text-slate-600 mt-1">
+          Sets the default landing view only, never a permission — either role can always reach the
+          full pipeline.
+        </p>
       </div>
       <div>
         <label className={labelCls}>Email <span className="text-slate-600">(required for briefing delivery)</span></label>
@@ -286,11 +300,11 @@ export function PrincipalCardList({ clientId }: { clientId: string }) {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+        <div className="mb-4 p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">{error}</div>
       )}
 
       {principals.length > 0 && adminCount === 0 && (
-        <div className="mb-4 p-3 rounded-lg border border-amber-700/40 bg-amber-950/30 text-amber-200 text-sm">
+        <div className="mb-4 p-3 rounded-lg border border-severity-warning/40 bg-severity-warning/30 text-severity-warning text-sm">
           <span className="font-medium">No principal has Settings Admin rights yet.</span>{' '}
           Once onboarding is complete and this client logs in normally, nobody will be able to maintain
           KPIs or the registry unless at least one principal below has "Grant Settings Admin" checked.
@@ -346,6 +360,11 @@ export function PrincipalCardList({ clientId }: { clientId: string }) {
                   {p.decision_style && (
                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">{p.decision_style}</span>
                   )}
+                  <span
+                    className={`px-2 py-0.5 rounded ${p.workflow_role === 'decision_maker' ? 'bg-severity-opportunity/40 text-severity-opportunity' : 'bg-slate-800 text-slate-400'}`}
+                  >
+                    {p.workflow_role === 'decision_maker' ? 'Decision Maker' : 'Framer'}
+                  </span>
                   <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400">
                     {bpCount} process{bpCount === 1 ? '' : 'es'}
                   </span>
@@ -355,11 +374,11 @@ export function PrincipalCardList({ clientId }: { clientId: string }) {
                 </div>
                 <div className="mt-3 flex items-center gap-1.5 text-xs">
                   {p.email ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-400">
+                    <span className="inline-flex items-center gap-1 text-severity-opportunity">
                       <Mail className="w-3 h-3" /> {p.email}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-amber-400">
+                    <span className="inline-flex items-center gap-1 text-severity-warning">
                       <Mail className="w-3 h-3" /> No email — excluded from briefings
                     </span>
                   )}

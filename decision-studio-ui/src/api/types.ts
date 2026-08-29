@@ -283,6 +283,12 @@ export interface SolutionOption {
   impact_estimate?: ImpactEstimate; // business-unit ($/pp) recovery range — was untyped, now matches backend
   key_assumptions?: SolutionAssumption[]; // Phase 15 Stage B: what this option bets on
   flagged_side_effects?: string[]; // Phase 15 Stage E: critic-pass findings, grounded in the causal graph — not yet rendered (Stage G Risk block)
+  /** Deterministic Pareto-dominance flag (src/analysis/option_dominance.py) —
+   *  set to another option's id when this one matches or is worse on
+   *  modelled impact, cost, AND risk. Was computed and carried on the
+   *  backend since 2026-08-24 but never threaded to the frontend until the
+   *  Executive Briefing redesign (2026-08-25) rendered it. */
+  dominated_by?: string | null;
 }
 
 export interface Recommendation {
@@ -354,6 +360,10 @@ export interface Principal {
   initials: string;
   decision_style: 'analytical' | 'visionary' | 'pragmatic' | 'decisive';
   color: string;
+  /** Workflow-stage default (framer = situations dashboard, decision_maker =
+   *  pending-decisions queue). Strictly a registry attribute -- never
+   *  inferred from title/role. See PrincipalProfile.workflow_role. */
+  workflow_role: 'framer' | 'decision_maker';
 }
 
 export interface Client {

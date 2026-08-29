@@ -297,8 +297,8 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
                 <div className="mt-1.5">
                   <span className="text-[9px] font-mono font-semibold text-slate-600 uppercase">Conviction: </span>
                   <span className={`text-[10px] font-mono font-semibold ${
-                    hyp.conviction === 'High' ? 'text-emerald-400' :
-                    hyp.conviction === 'Medium' ? 'text-amber-400' : 'text-slate-400'
+                    hyp.conviction === 'High' ? 'text-severity-opportunity' :
+                    hyp.conviction === 'Medium' ? 'text-severity-warning' : 'text-slate-400'
                   }`}>{hyp.conviction}</span>
                 </div>
               )}

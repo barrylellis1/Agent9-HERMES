@@ -364,8 +364,8 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         {messages.map((msg, idx) => {
           // Tier badge color map
           const tierColor =
-            msg.transparency_tier === 3 ? 'text-amber-600' :
-            msg.transparency_tier === 4 ? 'text-red-500' :
+            msg.transparency_tier === 3 ? 'text-severity-warning' :
+            msg.transparency_tier === 4 ? 'text-severity-critical' :
             'text-slate-400';
 
           return (
@@ -401,7 +401,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         
         {error && (
           <div className="flex justify-center">
-            <div className="bg-red-900/50 text-red-300 rounded-lg px-4 py-2 flex items-center gap-2">
+            <div className="bg-severity-critical/50 text-severity-critical rounded-lg px-4 py-2 flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
               <span className="text-sm">{error}</span>
             </div>
@@ -447,8 +447,11 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         </div>
       )}
 
-      {/* Accumulated refinements summary */}
-      {(refinementState.exclusions?.length || refinementState.external_context?.length ||
+      {/* Accumulated refinements summary.
+          The guard must coerce to boolean: a bare `||` chain of `.length` values
+          yields 0 when every list is empty, and React renders that 0 as a visible
+          text node in the footer. Found live, Aug 2026. */}
+      {Boolean(refinementState.exclusions?.length || refinementState.external_context?.length ||
         refinementState.constraints?.length || refinementState.validated_hypotheses?.length) && (
         <div className="px-3 py-1.5 border-t border-slate-700 bg-slate-900 max-h-16 overflow-y-auto">
           <div className="text-[10px] text-slate-400 space-y-0.5">

@@ -224,7 +224,7 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
       {/* Required falsification criterion — every submission, no exceptions */}
       <div>
         <label className="block text-xs font-medium text-slate-300">
-          What would tell you this frame was wrong? <span className="text-red-400">*</span>
+          What would tell you this frame was wrong? <span className="text-severity-critical">*</span>
         </label>
         <textarea
           data-testid="framing-falsifier-input"

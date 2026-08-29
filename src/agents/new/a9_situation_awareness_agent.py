@@ -3656,7 +3656,17 @@ class A9_Situation_Awareness_Agent:
                 y = vt_cfg.get('yellow')
                 r = vt_cfg.get('red')
 
-                # Emulate registry KPI.evaluate() semantics
+                # Emulate registry KPI.evaluate() semantics.
+                #
+                # Bug fixed Aug 2026: the red-threshold branch and the final
+                # `else` both produced 'red', so a KPI that merely missed its
+                # yellow band (e.g. +3.3% growth against yellow=5) was
+                # indistinguishable from one that missed red too (e.g. -20%),
+                # and BOTH mapped to SituationSeverity.CRITICAL. Observed live:
+                # 14 of 15 KPIs flagged CRITICAL on a single scan. 'amber' is
+                # the real, distinct signal for "missed yellow but still
+                # within the red band" and maps to MEDIUM, not CRITICAL — kept
+                # in sync with KPI.evaluate() in src/registry/models/kpi.py.
                 evaluation = 'red'
                 if not inv:
                     if g is not None and percent_change >= g:
@@ -3664,7 +3674,7 @@ class A9_Situation_Awareness_Agent:
                     elif y is not None and percent_change >= y:
                         evaluation = 'yellow'
                     elif r is not None and percent_change >= r:
-                        evaluation = 'red'
+                        evaluation = 'amber'
                     else:
                         evaluation = 'red'
                 else:
@@ -3673,12 +3683,16 @@ class A9_Situation_Awareness_Agent:
                     elif y is not None and percent_change <= y:
                         evaluation = 'yellow'
                     elif r is not None and percent_change <= r:
-                        evaluation = 'red'
+                        evaluation = 'amber'
                     else:
                         evaluation = 'red'
 
-                if evaluation in ('yellow', 'red'):
-                    severity = SituationSeverity.HIGH if evaluation == 'yellow' else SituationSeverity.CRITICAL
+                if evaluation in ('yellow', 'amber', 'red'):
+                    severity = (
+                        SituationSeverity.HIGH if evaluation == 'yellow'
+                        else SituationSeverity.MEDIUM if evaluation == 'amber'
+                        else SituationSeverity.CRITICAL
+                    )
                     change_direction = "increased" if percent_change > 0 else "decreased"
                     situations.append(self._create_threshold_situation(
                         kpi_definition,

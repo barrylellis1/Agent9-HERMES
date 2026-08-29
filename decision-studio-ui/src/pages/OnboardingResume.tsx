@@ -102,7 +102,7 @@ export function OnboardingResume() {
           {clientId && (
             <div className="mt-2 flex items-center gap-2">
               <span className="text-xs text-slate-500">Client:</span>
-              <span className="text-xs font-mono text-amber-300 bg-amber-950/40 border border-amber-700/30 px-2 py-0.5 rounded">{clientId}</span>
+              <span className="text-xs font-mono text-severity-warning bg-severity-warning/40 border border-severity-warning/30 px-2 py-0.5 rounded">{clientId}</span>
             </div>
           )}
         </div>
@@ -115,7 +115,7 @@ export function OnboardingResume() {
               <div
                 key={s.step}
                 title={s.label}
-                className={`h-1.5 flex-1 rounded-full ${complete ? 'bg-emerald-600' : 'bg-slate-800'}`}
+                className={`h-1.5 flex-1 rounded-full ${complete ? 'bg-severity-opportunity' : 'bg-slate-800'}`}
               />
             )
           })}
@@ -123,7 +123,7 @@ export function OnboardingResume() {
 
         {allComplete ? (
           <div className="p-5 rounded-xl bg-card border border-border mb-6">
-            <p className="text-sm text-emerald-300">
+            <p className="text-sm text-severity-opportunity">
               All 6 onboarding steps are complete for this client. You can still revisit any step below.
             </p>
           </div>

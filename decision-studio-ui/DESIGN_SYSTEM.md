@@ -73,6 +73,31 @@ style={{ color: 'rgb(251 191 36)' }}    // warning
 style={{ color: 'rgb(52 211 153)' }}    // opportunity
 ```
 
+### Enforcement (2026-08-27)
+
+`scripts/severity_token_lint.py`, wired into `.pre-commit-config.yaml`, fails any new hardcoded
+`red/amber/emerald/green` on screen. 742 pre-existing sites were swept to tokens the same day (55 →
+797 uses); full write-up, including two real bugs found by rendering rather than reading the diff, is
+in `docs/architecture/ui_refinement_plan.md` under "Severity token sweep."
+
+**A single token is one fixed shade — this has two consequences, both learned the hard way:**
+
+1. **Never pair `bg-severity-X` and `text-severity-X` both solid (no alpha) on one element.** They
+   render as the identical color — invisible text. This exact bug shipped mid-sweep on `Portfolio.tsx`'s
+   verdict pills (blank pills where "Validated"/"Failed" should read) and was only caught by rendering
+   the page, not by reading the diff. If text needs to sit on a same-hue background, tint the background
+   (`bg-severity-X/20`), never both solid.
+2. **A light badge (`bg-X-100 text-X-800`) cannot be token-swapped directly** — it relies on two
+   *different* shades for contrast, and the token only has one. ~20 such call sites remain deliberately
+   unconverted (tracked in `ui_refinement_plan.md`, not silently declared compliant); redesigning them to
+   the dark-tinted idiom is a separate, larger change than a token rename.
+
+Two exception classes are permanent, not technical debt: `print:` variants (paper needs different
+literal shades than the single screen token provides) and the four Persuade-mode marketing pages
+(`LandingPage.tsx`, `LandingPageAlternate.tsx`, `HowItWorks.tsx`, `InsightsBIModernization.tsx` — their
+accent color is a brand choice, not a KPI-severity indicator, and coupling the two would make a rebrand
+of either break the other).
+
 ---
 
 ## 2. Color Palette
@@ -154,7 +179,9 @@ Dark-first. Color is scarce — used only for semantic meaning.
 
 | Component | File | Props | Usage |
 |---|---|---|---|
-| `AppHeader` | `AppHeader.tsx` | `selectedPrincipal, availablePrincipals, onSelectPrincipal, loading, onRefresh, statusMsg?` | Top nav bar — every view |
+| `AppShell` | `AppShell.tsx` | `children` | App-wide layout wrapper — `LeftNav` + content pane. Pages wrap themselves in it (no nested-route layout); see the component's own docstring for why |
+| `LeftNav` | `LeftNav.tsx` | none (reads `localStorage`/`settingsMode` itself) | Primary nav rail — Situations / Portfolio / Context / Settings, width-collapse (see §7) |
+| `AppHeader` | `AppHeader.tsx` | `selectedPrincipal, availablePrincipals, onSelectPrincipal, loading, onRefresh, statusMsg?` | Dashboard-local header — principal selector + scan control (global nav/branding live in `LeftNav` now) |
 | `PrincipalSelector` | `PrincipalSelector.tsx` | `principals, selectedId, onSelect` | Principal dropdown with "Viewing as" context cue |
 | `SummaryStrip` | `SummaryStrip.tsx` | `kpisScanned, breachCount, impactLevel, impactColor, situations` | Single-line scan results strip |
 | `SolutionsProgressBar` | `SolutionsProgressBar.tsx` | `portfolio, selectedPrincipal` | VA solutions segmented bar + legend |
@@ -209,18 +236,145 @@ Dark-first. Color is scarce — used only for semantic meaning.
 ## 7. Common Patterns
 
 ### Hover-reveal action overlay
-Used on KPITile and HeroBriefing — `group` on parent, `group-hover:opacity-100 opacity-0` on overlay:
+Used on KPITile and HeroBriefing — `group` on parent, `group-hover:opacity-100 opacity-0` on the
+**decorative gradient scrim only**. The action label itself must render unconditionally: hover-gating
+the label (not just the scrim) meant the tile's primary action was invisible across a full grid and
+unreachable on touch — found live, Aug 2026. Decoration is hover-only; the affordance is not:
 ```tsx
 <div className="group relative ...">
   {/* content */}
   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none ...">
-    Analyze →
+    {/* gradient scrim only — decoration */}
   </div>
+  <span className="absolute inset-x-0 bottom-0 ...">
+    Analyze → {/* always visible — the affordance */}
+  </span>
 </div>
 ```
 
 ### Accordion section
 Used in DeepFocusView for collapsible analysis sections. State managed with `Set<string>` of open section IDs.
+This is **content collapse** — a panel's contents hide in place, the panel itself doesn't change size.
+See "Width-collapse nav" and "Group-collapse nav" below for the other two collapse families.
+
+### Width-collapse nav (`LeftNav`)
+The app-wide nav rail (`src/components/shared/LeftNav.tsx`, wrapped via `AppShell.tsx`) collapses by
+shrinking its own width, not by hiding content in place — a different pattern from the accordion
+above, introduced 2026-08-25 (first precedent in the codebase). Two states, both fixed widths so the
+transition is a clean `transition-[width]`, not a reflow:
+
+| State | Width | Shows |
+|---|---|---|
+| Expanded | `w-56` | icon + label (+ the Settings sub-tree, see below, if active) |
+| Collapsed | `w-14` | icon rail only, `title` attribute for a native tooltip, sub-tree hidden |
+
+State persists per-viewer in `localStorage` (`a9_nav_collapsed`), read once at mount inside a
+`try/catch` (private browsing / blocked storage falls back to expanded, never throws). Apply this
+pattern — not a new accordion — to any future component that needs to reclaim horizontal space
+without losing its content entirely (e.g. a collapsible detail rail).
+
+`LeftNav` briefly had a same-day sibling: `SettingsLayout` rendered its own second full-height
+sidebar immediately to the right of this one, each anchoring its own brand mark — live-caught by a
+user screenshot within hours of shipping. That sidebar's entire nav tree (types, `MAINTENANCE_NAV`/
+`GOVERNANCE_NAV`, the onboarding step list) moved into `LeftNav.tsx` the same day and renders indented
+directly beneath the "Settings" destination whenever a `/settings/*` route is active — one panel, not
+two. `SettingsLayout` is now a one-line pass-through of `AppShell`. **There is exactly one `<aside>`
+in this app now; if a future change reintroduces a second one, that's the same defect recurring.**
+
+### Group-collapse nav (`LeftNav`'s `SettingsGroupNav`)
+A third collapse family, distinct from both above — a *list of groups* collapses independently, not
+the whole panel's width and not one panel's contents as a unit. Introduced 2026-08-25 when
+Maintenance mode's Registry/Intelligence/Ownership/Workspace (14 leaf items across 4 groups) forced
+an internal scrollbar rendered flat — found live, testing as a Maintenance-mode principal for the
+first time this session.
+
+- The group containing the **current page always renders open**, regardless of stored state — this
+  nav must never hide the page you're already on.
+- Manually-opened groups persist across navigation in `localStorage`
+  (`a9_settings_nav_open_groups`, a JSON array of group names) — necessary here, unlike a plain
+  accordion, because each Settings page wraps itself in a fresh `<SettingsLayout>` (same
+  self-wrapping pattern as `AppShell`), so `LeftNav` remounts on every route change within Settings.
+  Component-local state alone would silently re-collapse a group the moment you clicked one of its
+  own links.
+- Reach for this pattern (not the accordion, not width-collapse) whenever a **flat list of items is
+  itself long enough to need grouping** — the accordion pattern above collapses one section's
+  content in place; this collapses *which of several sibling groups* are expanded at once.
+
+### Responsive / breakpoint conventions
+
+**The convention, established on the Executive Briefing 2026-08-27. Follow it; don't improvise
+per-component.**
+
+| Pattern | Breakpoint | Rule |
+|---|---|---|
+| **Two-pane split** (content + fixed-width side rail) | `lg` (1024px) | Stack below it. A 320px rail needs ~1024px before *both* panes have room — at `md` (768px) it leaves the content 448px, narrower than a comparison table's own minimum. |
+| **Grid column count** | `sm` / `md` | `grid-cols-2 md:grid-cols-4`, `grid-cols-1 sm:grid-cols-3`. A 4-up metric row is unreadable below `sm`. |
+| **Wide tables** | `lg` | Hide below `lg` **only when an equivalent stacked representation already exists** (e.g. per-option cards). If a column has no equivalent — a baseline/status-quo column — render a compact card for it rather than dropping it silently. |
+| **Nav bars** | `sm` | `flex-wrap` plus `hidden sm:inline` on button labels, keeping the icon. |
+
+Why `lg` and not the `md` this section previously recommended: `md` is right for *column counts*,
+which is what the dashboard grids use it for. It is wrong for a **two-pane split against a fixed
+rail**, because the rail's width is absolute while the breakpoint is not.
+
+**What "no responsive layout" actually looked like**, measured before the fix: the Executive
+Briefing's rail was `w-80 flex-shrink-0` with no breakpoint at any width. At a 390px viewport that
+left the briefing column **70px wide**, rendering the document as a vertical column of one- and
+two-character fragments. Nothing in the type system or the tests could see this; it took a render.
+
+**When a fixed-height inner scroll pane becomes a document scroll below a breakpoint, re-check every
+`scrollIntoView` on the page.** A chat auto-scroll that was a harmless no-op inside a 320px rail
+dragged the whole mobile document to y=8504 of 9786 — the page opened on its own footer. Guard such
+effects on *content* (`if (messages.length === 0) return`), never on a `didMount` ref: StrictMode
+runs effects twice against the same refs in dev, so a mount flag is already spent by the second
+pass. Prefer `block: 'nearest'`, which does nothing when the anchor is already visible.
+
+`LeftNav` remains **rail-only at every width** — it does not yet collapse to an off-canvas drawer;
+that is an explicit open item in `collapsible_left_nav_design.md` §5, not an oversight.
+
+### Accessibility baseline (established 2026-08-27)
+
+Before this date `ExecutiveBriefing.tsx` had **0 `aria-*` and 0 `role=`** across 2,000+ lines, and
+`prefers-reduced-motion` appeared **0 times in the entire `src` tree**. What the foundation got
+right, and what to keep: there were **zero `<div onClick>`** — every control was a real `<button>`,
+`<Link>`, or `<input type="radio">` in a `<label>`, so all of them were already keyboard-reachable.
+The semantic layer was simply never added on top.
+
+Required on any new page or panel:
+
+- **Disclosure/accordion** — a heading whose only child is the toggle: `<h2><button aria-expanded
+  aria-controls>`, with the panel carrying `id`, `role="region"`, `aria-labelledby`. See
+  `AccordionSection` in `ExecutiveBriefing.tsx`; ten sections inherit it from one component.
+- **Modal / drawer** — `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing at a real
+  heading id, `tabIndex={-1}` on the panel, focus moved in on open, Tab trapped, focus restored to
+  the trigger on close, `document.body.style.overflow` locked and restored, overlay
+  `aria-hidden="true"`. Escape alone is **not** a dialog: it only helps a sighted keyboard user who
+  already knows the drawer opened. `OptionDetailDrawer` is the reference implementation.
+- **Async state** — `aria-live="polite"` on the region that receives new content, and `role="status"`
+  plus an `sr-only` label on every spinner. An icon that spins announces nothing.
+- **Icon-only controls** — `aria-label` on the control, `aria-hidden="true"` on the icon.
+- **Motion** — `useReducedMotion()` from framer-motion; swap transform-based entrances for a fade.
+- **Focus** — `focus-visible:ring-2` on interactive surfaces; the UA default outline disappears
+  against `bg-slate-800`.
+
+**Verify behaviourally, not by grep.** Attribute presence proves nothing about focus order. Drive it
+in a browser: does focus actually land inside the dialog, does Tab escape it, does Escape restore
+focus to the trigger, does the body still scroll behind the overlay.
+
+### Page headline / `<h1>`
+Every full-page route owes the document exactly one `<h1>`. The Executive Briefing had **zero** until
+2026-08-27 — it named itself only in `text-sm` truncated nav chrome. Where a page leads with a
+finding rather than a label, the finding *is* the `<h1>` (`ContradictionBanner`'s `headline`
+variant). Do not stack a `text-[10px] uppercase` kicker above it: an eyebrow over a heading is
+decoration the heading already earns, and it was how this page previously avoided having a real
+title at all.
+
+### Dark-first is not optional per-state
+A component with per-state styling must be dark in **every** state. `CostOfInactionBanner` had a
+dark `stable` state and light `bg-amber-50` / `bg-emerald-50` states, so it became the brightest
+object on a slate-950 page whenever the KPI happened to be moving. Centralize per-state colour in a
+single config object rather than repeating ternaries through the render — five scattered ternaries
+is how those three states drifted apart. Add `print:` variants there: on paper the light treatment
+is correct.
 
 ### Answer-first SCQA
 `parseScqa(raw: string)` in `DeepFocusView.tsx` extracts S/C/Q/A from the flat backend string. `ScqaBlock` component renders Answer first, hides S/C/Q behind "Show reasoning" toggle.

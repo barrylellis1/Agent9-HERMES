@@ -32,17 +32,17 @@ import {
 
 function VerdictBadge({ verdict }: { verdict: SliceValidityResponse['completeness_results'][number]['verdict'] }) {
   if (verdict === 'ok') return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-severity-opportunity">
       <CheckCircle2 className="w-3.5 h-3.5" /> ok
     </span>
   )
   if (verdict === 'INVALID') return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-severity-critical">
       <ShieldAlert className="w-3.5 h-3.5" /> INVALID
     </span>
   )
   if (verdict === 'degraded') return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-severity-warning">
       <AlertTriangle className="w-3.5 h-3.5" /> degraded
     </span>
   )
@@ -97,7 +97,7 @@ function staleness(checkedAt: string | null): { label: string; className: string
   if (!checkedAt) return { label: 'Never checked', className: 'text-slate-500' }
   const days = (Date.now() - new Date(checkedAt).getTime()) / 86_400_000
   const label = `Last checked: ${new Date(checkedAt).toLocaleString()}`
-  if (days > 90) return { label: `${label} (over 90 days ago)`, className: 'text-amber-400 font-medium' }
+  if (days > 90) return { label: `${label} (over 90 days ago)`, className: 'text-severity-warning font-medium' }
   return { label, className: 'text-slate-400' }
 }
 
@@ -181,22 +181,22 @@ export function SliceValidityPanel({ clientId }: { clientId?: string }) {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+        <div className="mb-4 p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">{error}</div>
       )}
 
       {result?.status === 'error' && result.error_message && (
-        <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{result.error_message}</div>
+        <div className="mb-4 p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">{result.error_message}</div>
       )}
 
       {notSliceableBy.length > 0 && (
-        <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">
+        <div className="mb-4 p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">
           <span className="font-semibold">Deep Analysis will not slice this KPI by:</span>{' '}
           {notSliceableBy.map((e) => e.dimension).join(', ')} — either some rows have no value for the dimension at
           all, or the component measures don't reach it the same way. Either way, slicing by it produces a
           confident, wrong number, so Deep Analysis excludes these dimensions before it runs (§4.5).
           <ul className="mt-2 space-y-0.5">
             {notSliceableBy.map((e) => (
-              <li key={e.dimension} className="text-xs text-red-300/80">
+              <li key={e.dimension} className="text-xs text-severity-critical/80">
                 <span className="font-mono">{e.dimension}</span> —{' '}
                 {e.reason_class === 'structural' ? 'structural (a permanent fact about how this business’s data works)' : 'data gap in this client’s source system — worth flagging to whoever owns their data pipeline'}
                 {e.note ? `: ${e.note}` : ''}

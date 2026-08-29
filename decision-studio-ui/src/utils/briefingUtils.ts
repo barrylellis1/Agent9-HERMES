@@ -15,6 +15,14 @@
 export const STABLE_MONTHLY_THRESHOLD = 0.0001
 const MAX_MONTHLY_RATE = 1.0 / 12
 
+// Format snake_case dimension names to human-readable Title Case, e.g.
+// "customer_region" → "Customer Region". Promoted to module scope 2026-08-24
+// so DivergingBarChart.tsx's Variance Breakdown can reuse it instead of
+// rendering the raw registry column name (e.g. "CUSTOMER_REGI…", truncated
+// mid-word by the fixed-width label column) directly.
+export const formatDimLabel = (dim: string): string =>
+  String(dim || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
 /**
  * How well one criterion separates the options — computed, not guessed.
  *
@@ -352,9 +360,8 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
     }
     const decisionDeadline = deadlineMap[situation?.severity?.toLowerCase()] || 'TBD'
 
-    // Format snake_case dimension names to human-readable Title Case
-    const formatDimLabel = (dim: string): string =>
-      String(dim || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    // formatDimLabel is now module-scope (see top of file) — reused by
+    // DivergingBarChart.tsx too.
 
     // Format a delta value at the appropriate scale (no unit assumption)
     // A ratio KPI's numbers are percentages, not counts. Without a unit the
@@ -577,6 +584,19 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       return roiMap(opt?.expected_impact || 0.5)
     }
 
+    // Which option the council actually recommended. Resolved ONCE here and
+    // reused by both the per-option `recommended` badge below and the
+    // `recommendation.optionId` field emitted further down, so the badge and
+    // the headline can never name different options.
+    //
+    // This previously read `idx === 0 || (id match)`, an unconditional override:
+    // whenever `sol.recommendation.id` named anything other than the first
+    // ranked option, TWO options came back flagged `recommended`, and every
+    // consumer using `.find(o => o.recommended)` silently took the first — while
+    // the headline (built from `sol.recommendation.title`) named the other one.
+    // Index position is not a substitute for the id; see the note below.
+    const recommendedOptionId = sol?.recommendation?.id || topOptions[0]?.id || null
+
     const options = topOptions.slice(0, 3).map((opt: any, idx: number) => ({
       // Carry the generation id. moderator_grades is keyed by it, and the
       // briefing previously had no way to resolve a grade back to an option, so
@@ -589,6 +609,20 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       description: opt?.description || opt?.rationale || '',
       roi: formatImpactEstimate(opt, idx),
       impactBasis: opt?.impact_estimate?.basis || null,
+      // Additive, for RangeBar (2026-08-28 compact-brief restructure). `roi`
+      // above stays the prose source of truth for display — this is the raw
+      // numeric pair alongside it, needed to draw a low-high bar on a shared
+      // scale. Never derived/guessed: null straight through when the backend
+      // didn't send a recovery_range, so a caller can tell "no range" from
+      // "zero range" rather than a RangeBar silently drawing a fake one.
+      impactRangeNumeric: opt?.impact_estimate?.recovery_range
+        ? {
+            low: opt.impact_estimate.recovery_range.low ?? null,
+            high: opt.impact_estimate.recovery_range.high ?? null,
+            unit: opt.impact_estimate.unit ?? null,
+            metric: opt.impact_estimate.metric ?? null,
+          }
+        : null,
       investment: (() => {
         const c = opt?.cost ?? 0.5
         const peers = topOptions.map((o: any) => o?.cost ?? 0.5)
@@ -601,7 +635,9 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
         return riskLevelMap(r) + relativeSuffix(r, peers, riskLevelMap(r), riskLevelMap)
       })(),
       reversibility: opt?.reversibility || 'medium',
-      recommended: idx === 0 || ((sol?.recommendation?.id && opt?.id) ? sol.recommendation.id === opt.id : false),
+      // Exactly one option can be recommended. Falls back to rank order only
+      // when the options carry no ids at all.
+      recommended: (recommendedOptionId && opt?.id) ? opt.id === recommendedOptionId : idx === 0,
       // `lens_views` is the current key; `perspectives` is the pre-2026-08-16 one
       // and still arrives from briefing snapshots replayed out of Supabase or
       // localStorage. Resolved once here so the three read sites below cannot
@@ -635,6 +671,21 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       // the API — and then discarded one map() short of the screen.
       key_assumptions: Array.isArray(opt?.key_assumptions) ? opt.key_assumptions : [],
       flagged_side_effects: Array.isArray(opt?.flagged_side_effects) ? opt.flagged_side_effects : [],
+      // Executive Briefing redesign moves #2/#3 (2026-08-25) — both fields
+      // already existed end-to-end on the backend (dominated_by added
+      // 2026-08-24 by src/analysis/option_dominance.py; scope/scope_label
+      // predate that) but neither was threaded to the frontend until now.
+      // dominated_by: labelled, not hidden — a dominated option stays a
+      // visible row with a flag, per the design doc's explicit instruction.
+      dominated_by: opt?.dominated_by ?? null,
+      // scopeQualifier: distinct from the `roi` string above, which already
+      // bakes scope into its own prose (formatImpactEstimate) — this is the
+      // same scope/scope_label pair as a structured value for a dedicated
+      // chip, so the scope signal survives even where the full roi string
+      // isn't rendered (e.g. a compact table cell).
+      scopeQualifier: opt?.impact_estimate?.scope
+        ? { scope: opt.impact_estimate.scope as 'enterprise' | 'segment', label: opt.impact_estimate.scope_label ?? null }
+        : null,
     }))
 
     const buildTitle = (): string => {
@@ -791,14 +842,20 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       decision_ask: sol?.decision_ask || null,
       immediate_actions: Array.isArray(sol?.immediate_actions) ? sol.immediate_actions : [],
       recommendation: {
+        // Fall back to the option `recommendedOptionId` actually resolved to —
+        // not options[0]. Defaulting to the first ranked option here would
+        // reintroduce the disagreement the single-source id above removes.
         headline: sol?.recommendation?.title
           ? `Proceed with: ${sol.recommendation.title}`
-          : (options[0]?.title ? `Proceed with: ${options[0].title}` : 'Review options and approve next steps'),
+          : (() => {
+              const rec = options.find((o: any) => o.recommended) || options[0]
+              return rec?.title ? `Proceed with: ${rec.title}` : 'Review options and approve next steps'
+            })(),
         rationale,
         nextSteps,
         decisionOwner: 'Finance Leadership',
         deadline: decisionDeadline,
-        optionId: sol?.recommendation?.id || topOptions[0]?.id || null,
+        optionId: recommendedOptionId,
       },
       // Hybrid Council artifacts — either the simulated cross_review (baseline
       // arm) or the theory-guided moderator grades (Stage H arm), never both.
@@ -883,6 +940,14 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
         } : null
       })(),
       principalId: situation?.principal_id || null,
+      // Executive Briefing redesign (2026-08-26) — the explicit situation
+      // statement needs to know whether this is a problem to solve or an
+      // opportunity to capture; the wording is not interchangeable ("cost
+      // of waiting" vs "upside available"). SA's own card_type was never
+      // carried through this transform before — found live when a user
+      // asked "no problem or opportunity situational statement?" and the
+      // answer was that nothing upstream of this even preserved the signal.
+      cardType: (situation?.card_type === 'opportunity' ? 'opportunity' : 'problem') as 'problem' | 'opportunity',
     }
 
     // Option 0 is built AFTER `transformed` so it reads the resolved kpiData

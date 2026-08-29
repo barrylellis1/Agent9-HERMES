@@ -100,14 +100,14 @@ function OwnershipMap({ clientId }: { clientId: string }) {
 
       {unowned.length > 0 && (
         <div>
-          <p className="text-sm font-medium text-amber-400 mb-2 flex items-center gap-2">
+          <p className="text-sm font-medium text-severity-warning mb-2 flex items-center gap-2">
             <Target className="w-4 h-4" />
             {unowned.length} KPI{unowned.length > 1 ? 's' : ''} without an owner
           </p>
           <div className="space-y-1.5">
             {unowned.map((k) => (
-              <div key={k.id} className="flex items-center gap-2 rounded-lg bg-amber-950/20 border border-amber-700/20 px-3 py-2">
-                <span className="text-sm text-amber-200">{k.name || k.id}</span>
+              <div key={k.id} className="flex items-center gap-2 rounded-lg bg-severity-warning/20 border border-severity-warning/20 px-3 py-2">
+                <span className="text-sm text-severity-warning">{k.name || k.id}</span>
               </div>
             ))}
           </div>
@@ -148,7 +148,7 @@ function CoverageSummary({ clientId }: { clientId: string }) {
       {/* Big number */}
       <div className="rounded-xl bg-card border border-border p-6 flex items-center gap-6">
         <div>
-          <p className={`text-5xl font-bold ${pct >= 100 ? 'text-emerald-400' : pct >= 75 ? 'text-amber-400' : 'text-red-400'}`}>
+          <p className={`text-5xl font-bold ${pct >= 100 ? 'text-severity-opportunity' : pct >= 75 ? 'text-severity-warning' : 'text-severity-critical'}`}>
             {pct}%
           </p>
           <p className="text-sm text-slate-400 mt-1">
@@ -157,7 +157,7 @@ function CoverageSummary({ clientId }: { clientId: string }) {
         </div>
         <div className="flex-1 h-3 rounded-full bg-slate-800 overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-emerald-500' : pct >= 75 ? 'bg-amber-500' : 'bg-red-500'}`}
+            className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-severity-opportunity' : pct >= 75 ? 'bg-severity-warning' : 'bg-severity-critical'}`}
             style={{ width: `${Math.min(pct, 100)}%` }}
           />
         </div>
@@ -166,10 +166,10 @@ function CoverageSummary({ clientId }: { clientId: string }) {
       {/* Unassigned */}
       {coverage.unassigned_kpis.length > 0 && (
         <div>
-          <p className="text-sm font-medium text-amber-400 mb-2">Unassigned KPIs ({coverage.unassigned_kpis.length})</p>
+          <p className="text-sm font-medium text-severity-warning mb-2">Unassigned KPIs ({coverage.unassigned_kpis.length})</p>
           <div className="space-y-1">
             {coverage.unassigned_kpis.map((k) => (
-              <div key={k.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-950/20 border border-amber-700/20 text-sm text-amber-200">
+              <div key={k.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-severity-warning/20 border border-severity-warning/20 text-sm text-severity-warning">
                 {k.name}
               </div>
             ))}
@@ -180,10 +180,10 @@ function CoverageSummary({ clientId }: { clientId: string }) {
       {/* Conflicts */}
       {coverage.conflicts.length > 0 && (
         <div>
-          <p className="text-sm font-medium text-red-400 mb-2">Conflicts ({coverage.conflicts.length})</p>
+          <p className="text-sm font-medium text-severity-critical mb-2">Conflicts ({coverage.conflicts.length})</p>
           <div className="space-y-1">
             {coverage.conflicts.map((c) => (
-              <div key={c.kpi_id} className="px-3 py-1.5 rounded-lg bg-red-950/20 border border-red-700/20 text-sm text-red-200">
+              <div key={c.kpi_id} className="px-3 py-1.5 rounded-lg bg-severity-critical/20 border border-severity-critical/20 text-sm text-severity-critical">
                 {c.kpi_name} — {c.principal_count} accountable principals
               </div>
             ))}
@@ -293,7 +293,7 @@ function PrincipalDirectory({ clientId }: { clientId: string }) {
               <p className="text-xs text-slate-500">{p.email}</p>
             )}
             {!p.email && (
-              <span className="text-[10px] text-amber-500 border border-amber-700/40 px-1.5 py-0.5 rounded">No email</span>
+              <span className="text-[10px] text-severity-warning border border-severity-warning/40 px-1.5 py-0.5 rounded">No email</span>
             )}
           </div>
         ))}

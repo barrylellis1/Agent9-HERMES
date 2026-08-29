@@ -147,12 +147,12 @@ export function PrincipalManagement() {
                 </div>
                 <div className="flex items-center gap-4">
                     {successMessage && (
-                        <span className="text-green-400 text-sm flex items-center gap-2 animate-fade-in">
+                        <span className="text-severity-healthy text-sm flex items-center gap-2 animate-fade-in">
                             <Check className="w-4 h-4" /> {successMessage}
                         </span>
                     )}
                     {error && (
-                        <span className="text-red-400 text-sm flex items-center gap-2 animate-fade-in">
+                        <span className="text-severity-critical text-sm flex items-center gap-2 animate-fade-in">
                             <XCircle className="w-4 h-4" /> {error}
                         </span>
                     )}
@@ -204,14 +204,14 @@ export function PrincipalManagement() {
                             {selectedPrincipal.business_processes?.map(bp => (
                                 <div key={bp} className="flex justify-between items-center bg-slate-800/60 p-3 rounded-lg border border-slate-700/50 group hover:border-slate-600 transition-colors">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-1.5 bg-green-500/10 text-green-500 rounded">
+                                        <div className="p-1.5 bg-severity-healthy/10 text-severity-healthy rounded">
                                             <Check className="w-3 h-3" />
                                         </div>
                                         <span className="text-sm text-slate-200">{getProcessDisplayName(bp)}</span>
                                     </div>
                                     <button 
                                         onClick={() => handleRemoveProcess(bp)} 
-                                        className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-500/10 rounded"
+                                        className="text-slate-500 hover:text-severity-critical opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-severity-critical/10 rounded"
                                         title="Remove assignment"
                                     >
                                         <XCircle className="w-4 h-4" />
@@ -242,7 +242,7 @@ export function PrincipalManagement() {
                                     </div>
                                     <button 
                                         onClick={() => handleAddProcess(bp.id)} 
-                                        className="text-slate-500 hover:text-green-400 p-1 hover:bg-green-500/10 rounded"
+                                        className="text-slate-500 hover:text-severity-healthy p-1 hover:bg-severity-healthy/10 rounded"
                                         title="Assign to principal"
                                     >
                                         <PlusCircle className="w-4 h-4" />

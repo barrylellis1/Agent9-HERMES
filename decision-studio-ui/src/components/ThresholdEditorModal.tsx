@@ -98,7 +98,7 @@ export function ThresholdEditorModal({ kpi, clientId, onClose, onSaved }: Thresh
                 </select>
                 <button
                   onClick={() => removeThreshold(i)}
-                  className="p-1.5 text-slate-600 hover:text-red-400 ml-auto transition-colors"
+                  className="p-1.5 text-slate-600 hover:text-severity-critical ml-auto transition-colors"
                   title="Remove threshold"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -111,10 +111,10 @@ export function ThresholdEditorModal({ kpi, clientId, onClose, onSaved }: Thresh
                     <label
                       className={`block text-[10px] font-semibold uppercase tracking-wider mb-1 ${
                         field === 'green_threshold'
-                          ? 'text-emerald-400'
+                          ? 'text-severity-opportunity'
                           : field === 'yellow_threshold'
-                          ? 'text-amber-400'
-                          : 'text-red-400'
+                          ? 'text-severity-warning'
+                          : 'text-severity-critical'
                       }`}
                     >
                       {field.split('_')[0]}
@@ -141,7 +141,7 @@ export function ThresholdEditorModal({ kpi, clientId, onClose, onSaved }: Thresh
             <Plus className="w-3.5 h-3.5" /> Add threshold rule
           </button>
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-severity-critical">{error}</p>}
         </div>
 
         {/* Footer */}

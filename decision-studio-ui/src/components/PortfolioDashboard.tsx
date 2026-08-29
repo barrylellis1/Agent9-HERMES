@@ -67,8 +67,8 @@ function humanizeKpiId(raw: string): string {
 
 const PHASE_STYLE: Record<SolutionPhase, { label: string; className: string }> = {
   APPROVED: { label: 'Approved', className: 'text-slate-300 bg-slate-700/50' },
-  IMPLEMENTING: { label: 'Implementing', className: 'text-amber-400 bg-amber-900/30' },
-  LIVE: { label: 'Live', className: 'text-emerald-400 bg-emerald-900/30' },
+  IMPLEMENTING: { label: 'Implementing', className: 'text-severity-warning bg-severity-warning/30' },
+  LIVE: { label: 'Live', className: 'text-severity-opportunity bg-severity-opportunity/30' },
   MEASURING: { label: 'Measuring', className: 'text-blue-400 bg-blue-900/30' },
   COMPLETE: { label: 'Complete', className: 'text-indigo-400 bg-indigo-900/30' },
 };
@@ -98,9 +98,9 @@ function VerdictBadge({ status }: { status: SolutionVerdict }) {
 function VsPlanBadge({ verdict }: { verdict?: VsPlanVerdict }) {
   if (!verdict || verdict === 'no_plan_data') return null;
   const map: Record<Exclude<VsPlanVerdict, 'no_plan_data'>, { label: string; className: string }> = {
-    ahead_of_plan: { label: 'Ahead of Plan', className: 'bg-amber-950 text-amber-400 border border-amber-800/50' },
+    ahead_of_plan: { label: 'Ahead of Plan', className: 'bg-severity-warning/20 text-severity-warning border border-severity-warning/50' },
     on_plan: { label: 'On Plan', className: 'bg-slate-800 text-slate-300 border border-slate-700' },
-    behind_plan: { label: 'Behind Plan', className: 'bg-amber-950 text-amber-500 border border-amber-800/50' },
+    behind_plan: { label: 'Behind Plan', className: 'bg-severity-warning/20 text-severity-warning border border-severity-warning/50' },
   };
   const cfg = map[verdict];
   return (
@@ -164,15 +164,15 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
           label="Total ROI (est.)"
           value={formatImpact(computedImpact)}
           subtext="Attributable impact across validated solutions"
-          valueClass={computedImpact >= 0 ? 'text-emerald-400' : 'text-red-400'}
-          borderClass="border-emerald-800/40"
+          valueClass={computedImpact >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'}
+          borderClass="border-severity-opportunity/40"
         />
         <SummaryCard
           label="Validated"
           value={`${validatedCount}`}
           subtext={`${pct(validatedCount)} of tracked solutions`}
-          valueClass="text-green-400"
-          borderClass="border-green-800/40"
+          valueClass="text-severity-healthy"
+          borderClass="border-severity-healthy/40"
         />
         <SummaryCard
           label="Partial"
@@ -185,8 +185,8 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
           label="Failed"
           value={`${failedCount}`}
           subtext={`${pct(failedCount)} of tracked solutions`}
-          valueClass="text-red-400"
-          borderClass="border-red-800/40"
+          valueClass="text-severity-critical"
+          borderClass="border-severity-critical/40"
         />
       </div>
 
@@ -200,9 +200,9 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
 
       {/* Executive attention banner */}
       {executiveAttentionRequired.length > 0 && (
-        <div className="flex items-start gap-3 bg-amber-900/15 border border-amber-500/30 rounded-lg px-4 py-3">
-          <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-300">
+        <div className="flex items-start gap-3 bg-severity-warning/15 border border-severity-warning/30 rounded-lg px-4 py-3">
+          <AlertTriangle className="w-4 h-4 text-severity-warning flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-severity-warning">
             <span className="font-semibold">{executiveAttentionRequired.length} solution{executiveAttentionRequired.length > 1 ? 's' : ''} require executive review</span>
             {' '}&mdash; strategic context has shifted since approval. See highlighted rows below.
           </p>
@@ -244,7 +244,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
                   key={sol.solution_id}
                   onClick={() => onSelectSolution?.(sol.solution_id)}
                   className={`grid grid-cols-[1.8fr_0.8fr_0.7fr_0.7fr_0.7fr_auto] gap-4 px-5 py-4 items-center transition-colors cursor-pointer hover:bg-slate-800/40 ${
-                    needsAttention ? 'border-l-4 border-amber-500' : 'border-l-4 border-transparent'
+                    needsAttention ? 'border-l-4 border-severity-warning' : 'border-l-4 border-transparent'
                   }`}
                 >
                   {/* KPI — humanized name + truncated description */}
@@ -275,7 +275,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
                   <span
                     className={`text-sm font-mono font-bold whitespace-nowrap text-right ${
                       attributable !== undefined
-                        ? attributable >= 0 ? 'text-emerald-400' : 'text-red-400'
+                        ? attributable >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'
                         : 'text-slate-600'
                     }`}
                   >

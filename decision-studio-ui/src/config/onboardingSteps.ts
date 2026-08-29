@@ -49,6 +49,7 @@ export const ONBOARDING_STEPS: OnboardingStepDef[] = [
     tips: [
       'Email is required for PIB briefing delivery. Principals without an email are excluded from briefings.',
       'Decision style (analytical / pragmatic / visionary / decisive) adapts how Solution Finder presents recommendations. It does not have to be set on Day 2.',
+      'Workflow Role (Framer / Decision Maker) sets each principal\'s default landing view — a steward who runs the investigation loop vs. an executive who reviews a distilled brief. It is never inferred; set it explicitly per principal, and either role can always reach the full pipeline.',
       'AI-assisted principal research is coming in Phase 12E — for now, add principals manually.',
     ],
   },

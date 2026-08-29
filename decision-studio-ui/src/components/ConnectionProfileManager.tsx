@@ -165,9 +165,9 @@ export function ConnectionProfileManager({
   return (
     <div className="space-y-4">
       {/* Security notice */}
-      <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
-        <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-        <p className="text-xs text-red-300">
+      <div className="p-3 bg-severity-critical/10 border border-severity-critical/30 rounded-lg flex items-start gap-2">
+        <AlertTriangle className="w-4 h-4 text-severity-critical mt-0.5 shrink-0" />
+        <p className="text-xs text-severity-critical">
           <strong>Credentials are encrypted server-side</strong> and never stored in the browser.
           Saved values shown as ••••••. Profiles are scoped to the active client tenant.
         </p>
@@ -200,7 +200,7 @@ export function ConnectionProfileManager({
 
       {/* Error */}
       {error && (
-        <div className="p-2 bg-red-900/30 border border-red-700 rounded text-xs text-red-300">
+        <div className="p-2 bg-severity-critical/30 border border-severity-critical rounded text-xs text-severity-critical">
           {error}
         </div>
       )}
@@ -252,7 +252,7 @@ export function ConnectionProfileManager({
                 </div>
                 <button
                   onClick={(e) => handleDeleteProfile(profile.id, e)}
-                  className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+                  className="p-2 text-slate-400 hover:text-severity-critical transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

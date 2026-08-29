@@ -136,9 +136,9 @@ export function OnboardingDayView() {
         )}
 
         {error && (
-          <div className="mb-4 flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-red-950/30 border border-red-700/40 text-red-300 text-xs">
+          <div className="mb-4 flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-severity-critical/30 border border-severity-critical/40 text-severity-critical text-xs">
             <span>Couldn't load onboarding progress — showing last known state.</span>
-            <button onClick={() => void refetch()} className="text-red-200 hover:text-white underline flex-shrink-0">
+            <button onClick={() => void refetch()} className="text-severity-critical hover:text-white underline flex-shrink-0">
               Retry
             </button>
           </div>
@@ -154,7 +154,7 @@ export function OnboardingDayView() {
                 key={s.step}
                 title={s.label}
                 className={`h-1.5 flex-1 rounded-full transition-colors ${
-                  active ? 'bg-indigo-400' : complete ? 'bg-emerald-600' : 'bg-slate-800'
+                  active ? 'bg-indigo-400' : complete ? 'bg-severity-opportunity' : 'bg-slate-800'
                 }`}
               />
             )
@@ -177,15 +177,15 @@ export function OnboardingDayView() {
         {clientId && (
           <div className="mb-4 flex items-center gap-2">
             <span className="text-xs text-slate-500">Onboarding client:</span>
-            <span className="text-xs font-mono text-amber-300 bg-amber-950/40 border border-amber-700/30 px-2 py-0.5 rounded">{clientId}</span>
+            <span className="text-xs font-mono text-severity-warning bg-severity-warning/40 border border-severity-warning/30 px-2 py-0.5 rounded">{clientId}</span>
           </div>
         )}
 
         {/* Non-linear jump banner — advisory only, never blocks navigation */}
         {!stepUnlocked && !jumpBannerDismissed && (
-          <div className="mb-4 flex items-start justify-between gap-3 px-4 py-3 rounded-lg bg-amber-950/30 border border-amber-700/40 text-amber-200 text-sm">
+          <div className="mb-4 flex items-start justify-between gap-3 px-4 py-3 rounded-lg bg-severity-warning/30 border border-severity-warning/40 text-severity-warning text-sm">
             <span>You're jumping ahead — Step {day} isn't complete yet.</span>
-            <button onClick={() => setJumpBannerDismissed(true)} className="text-amber-400 hover:text-white flex-shrink-0">
+            <button onClick={() => setJumpBannerDismissed(true)} className="text-severity-warning hover:text-white flex-shrink-0">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -196,7 +196,7 @@ export function OnboardingDayView() {
         {/* Day 3 sub-step indicator — two panels share this one wizard step */}
         {day === 3 && (
           <div className="mb-4 flex items-center gap-2 text-xs">
-            <span className={day3SubStep === 'business_processes' ? 'text-indigo-300 font-semibold' : 'text-emerald-400'}>
+            <span className={day3SubStep === 'business_processes' ? 'text-indigo-300 font-semibold' : 'text-severity-opportunity'}>
               1. Business Processes
             </span>
             <span className="text-slate-600">→</span>

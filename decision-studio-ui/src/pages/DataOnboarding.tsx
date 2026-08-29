@@ -196,7 +196,7 @@ function PlatformBadge({
   status: 'production' | 'supported' | 'local'
 }) {
   const statusStyles = {
-    production: 'text-emerald-400 bg-emerald-950/60 border-emerald-600/30',
+    production: 'text-severity-opportunity bg-severity-opportunity/60 border-severity-opportunity/30',
     supported: 'text-indigo-400 bg-indigo-950/60 border-indigo-600/30',
     local: 'text-slate-400 bg-slate-800/60 border-slate-700/40',
   }
@@ -372,25 +372,25 @@ export function DataOnboarding() {
 
             <motion.div variants={stagger} className="space-y-10">
               <ProblemBlock
-                icon={<Clock className="w-4 h-4 text-amber-400" />}
+                icon={<Clock className="w-4 h-4 text-severity-warning" />}
                 heading="Implementation timelines that outlast the decision"
                 body="Enterprise data integration projects can take long enough that the business decision moves on before anything useful comes out the other end. The vendor demo showed a live connection in minutes. The actual deployment involved data contracts, security reviews, schema mapping sessions, and a project plan that nobody has time to manage."
               />
 
               <ProblemBlock
-                icon={<Code2 className="w-4 h-4 text-amber-400" />}
+                icon={<Code2 className="w-4 h-4 text-severity-warning" />}
                 heading="Every new KPI requires a developer"
                 body="Someone on the business side identifies a metric they want to track. A ticket goes to the data engineering queue. Three sprints later, the KPI exists. By then, the initiative it was meant to support is halfway through its cycle and the measurement window has narrowed. Non-technical stakeholders can't define what matters without going through a developer."
               />
 
               <ProblemBlock
-                icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}
+                icon={<AlertTriangle className="w-4 h-4 text-severity-warning" />}
                 heading="Schema changes break everything downstream"
                 body="Warehouse tables get renamed. Columns get deprecated. A data engineering team remodels a fact table for performance reasons. Every pipeline that depended on the old structure now fails silently or loudly, and the root cause is a schema change that no downstream consumer was told about. Maintenance becomes a full-time job."
               />
 
               <ProblemBlock
-                icon={<Users className="w-4 h-4 text-amber-400" />}
+                icon={<Users className="w-4 h-4 text-severity-warning" />}
                 heading="Data readiness is the perpetual blocker"
                 body="Procurement signs off on the analytics platform. The rollout stalls at 'we need to finish the data prep first.' Six months later, the data prep is still in progress. The platform license is renewing and usage numbers are low. The business case erodes before the tool has had a real chance."
               />

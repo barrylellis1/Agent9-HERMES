@@ -101,6 +101,14 @@ _COLUMN_DEFAULTS: Dict[str, Any] = {
     # kpi_relationships.provenance is NOT NULL (DB default 'template') — a bare
     # None here would send an explicit null and bypass that default, not use it.
     "provenance": "template",
+    # business_glossary_terms.synonyms/technical_mappings — matches
+    # BusinessTerm's own Pydantic defaults ([]/{}) rather than None, since
+    # every existing row already stores '{}' (a DB-level default), and mixing
+    # rows that omit these keys (core terms) with rows that set them (new
+    # dimension-label terms) in one batch would otherwise send an explicit
+    # NULL for the omitted ones via _normalize_rows' uniform-key-set fill.
+    "synonyms": [],
+    "technical_mappings": {},
 }
 
 
@@ -305,10 +313,17 @@ def onboard_client(
         # 3. business_glossary_terms  (core + client extras)
         # ------------------------------------------------------------------
         print("[3/6] business_glossary_terms")
-        # Table columns: id, name, term, definition, aliases, tags, metadata, client_id
+        # Table columns: id, name, term, definition, aliases, tags, metadata,
+        # client_id, synonyms, technical_mappings.
         # 'name' is required (NOT NULL) — populate from 'term' if absent.
         # The canonical list includes a 'domain' field that doesn't exist in the table — strip it.
-        _GLOSSARY_COLS = {"id", "name", "term", "definition", "aliases", "tags", "metadata", "client_id"}
+        # 'synonyms'/'technical_mappings' added 2026-08-24 — BusinessGlossaryProvider's
+        # BusinessTerm model has carried both fields since this table's inception,
+        # but they were missing from this allow-list, so every EXTRA_GLOSSARY_TERMS
+        # entry supplying either was silently stripped before the upsert. Confirmed
+        # live: all 10 lubricants glossary rows had technical_mappings='{}' despite
+        # never being seeded that way deliberately — this is why.
+        _GLOSSARY_COLS = {"id", "name", "term", "definition", "aliases", "tags", "metadata", "client_id", "synonyms", "technical_mappings"}
         core_stamped = [
             {k: v for k, v in {**t, "name": t.get("name") or t.get("term", ""), "client_id": client_id}.items() if k in _GLOSSARY_COLS}
             for t in CORE_GLOSSARY_TERMS

@@ -19,9 +19,9 @@ const STATUS_ICON: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  confirmed: 'text-emerald-400',
-  modified:  'text-amber-400',
-  rejected:  'text-red-400',
+  confirmed: 'text-severity-opportunity',
+  modified:  'text-severity-warning',
+  rejected:  'text-severity-critical',
   proposed:  'text-slate-500',
 };
 
@@ -158,7 +158,7 @@ export function AccountabilityInterviewPanel({ clientId }: Props) {
             {PHASE_LABEL[interviewState.phase] ?? interviewState.phase}
           </span>
           {interviewState.interview_complete && (
-            <span className="flex items-center gap-1 text-xs text-emerald-400 font-semibold">
+            <span className="flex items-center gap-1 text-xs text-severity-opportunity font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" />
               Interview complete
             </span>
@@ -251,7 +251,7 @@ export function AccountabilityInterviewPanel({ clientId }: Props) {
             {interviewState && (
               <span className="text-xs text-slate-400">
                 Coverage:{' '}
-                <span className={coverage >= 80 ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
+                <span className={coverage >= 80 ? 'text-severity-opportunity font-semibold' : 'text-severity-warning font-semibold'}>
                   {coverage}%
                 </span>{' '}
                 ({(interviewState.proposed_assignments.filter(a => a.status !== 'rejected').length)} /{' '}
@@ -264,9 +264,9 @@ export function AccountabilityInterviewPanel({ clientId }: Props) {
           {(interviewState?.conflict_warnings ?? []).length > 0 && (
             <div className="mx-4 mt-3 space-y-1">
               {interviewState!.conflict_warnings.map((w, i) => (
-                <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
-                  <span className="text-xs text-amber-300">{w}</span>
+                <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-severity-warning/10 border border-severity-warning/20">
+                  <AlertTriangle className="w-3.5 h-3.5 text-severity-warning mt-0.5 shrink-0" />
+                  <span className="text-xs text-severity-warning">{w}</span>
                 </div>
               ))}
             </div>
@@ -330,7 +330,7 @@ export function AccountabilityInterviewPanel({ clientId }: Props) {
           {/* Footer: approve button */}
           <div className="px-4 py-3 border-t border-slate-800 flex items-center justify-between gap-3">
             {confirmed ? (
-              <span className="flex items-center gap-1.5 text-sm text-emerald-400 font-semibold">
+              <span className="flex items-center gap-1.5 text-sm text-severity-opportunity font-semibold">
                 <CheckCircle2 className="w-4 h-4" />
                 {confirmed.rows_written} row{confirmed.rows_written !== 1 ? 's' : ''} written to registry
               </span>
@@ -355,7 +355,7 @@ export function AccountabilityInterviewPanel({ clientId }: Props) {
 
       {/* Error display */}
       {error && (
-        <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">
+        <div className="p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">
           {error}
         </div>
       )}

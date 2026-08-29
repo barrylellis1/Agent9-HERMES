@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react';
-import { runSolutionFinder } from '../api/client';
+import { runSolutionFinder, storePendingDecisionSnapshot } from '../api/client';
 import { BrandLogo } from '../components/BrandLogo';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
 
@@ -22,15 +22,15 @@ const FIRM_COLORS: Record<string, { label: string; accent: string; border: strin
   },
   bcg: {
     label: 'BCG',
-    accent: 'text-emerald-300',
-    border: 'border-emerald-500/30',
-    badge: 'bg-emerald-900/30 text-emerald-300',
+    accent: 'text-severity-opportunity',
+    border: 'border-severity-opportunity/30',
+    badge: 'bg-severity-opportunity/30 text-severity-opportunity',
   },
   bain: {
     label: 'Bain',
-    accent: 'text-amber-300',
-    border: 'border-amber-500/30',
-    badge: 'bg-amber-900/30 text-amber-300',
+    accent: 'text-severity-warning',
+    border: 'border-severity-warning/30',
+    badge: 'bg-severity-warning/30 text-severity-warning',
   },
   commercial: {
     label: 'Commercial',
@@ -89,14 +89,14 @@ const StageProgress: React.FC<{ phase: number }> = ({ phase }) => (
       return (
         <div key={i} className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-xs font-bold uppercase tracking-wider ${isDone ? 'text-emerald-400' : isActive ? 'text-white' : 'text-slate-600'}`}>
+            <span className={`text-xs font-bold uppercase tracking-wider ${isDone ? 'text-severity-opportunity' : isActive ? 'text-white' : 'text-slate-600'}`}>
               {isDone ? <CheckCircle2 className="inline w-3.5 h-3.5 mr-1" /> : null}
               Stage {stageNum} — {label}
             </span>
           </div>
           <div className="h-1 rounded-full bg-slate-800 overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-700 ${isDone ? 'bg-emerald-400 w-full' : isActive ? 'bg-indigo-400 animate-pulse w-2/3' : 'w-0'}`}
+              className={`h-full rounded-full transition-all duration-700 ${isDone ? 'bg-severity-opportunity w-full' : isActive ? 'bg-indigo-400 animate-pulse w-2/3' : 'w-0'}`}
             />
           </div>
         </div>
@@ -229,12 +229,18 @@ export const CouncilDebatePage: React.FC = () => {
     if (!situation || !debateConfig) return;
 
     try {
-      // Clear stale solution data before starting a new debate run
-      try {
-        Object.keys(localStorage)
-          .filter(k => k.startsWith('solutions_') || k.startsWith('briefing_') || k.startsWith('solution_request_'))
-          .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
-      } catch (_) {}
+      // Clear stale solution data for THIS situation before re-running.
+      //
+      // This used to drop every solutions_*/briefing_*/solution_request_* key in
+      // localStorage regardless of which situation it belonged to — so
+      // re-running the debate for one KPI silently destroyed the solutions and
+      // briefings of every other situation the user had already generated.
+      // Scoped to the current id: the new run overwrites these three keys
+      // anyway (see the write below), so nothing else needs removing.
+      const sid = situation.situation_id;
+      for (const key of [`solutions_${sid}`, `briefing_${sid}`, `solution_request_${sid}`]) {
+        try { localStorage.removeItem(key); } catch (_) {}
+      }
 
       setPhase(1);
 
@@ -289,6 +295,22 @@ export const CouncilDebatePage: React.FC = () => {
         localStorage.getItem('a9_active_client_id') ||
         undefined;
 
+      // Same class of bug, same fix: `situation.principal_id || 'default'`
+      // below used to be the ONLY source, but Situation has no principal_id
+      // field at all -- every SF run ever made through this page tagged
+      // itself with the literal string "default", never a real principal.
+      // Invisible until something finally queried by principal_id (the new
+      // pending-decisions store, 2026-08-26) -- found live when a completed
+      // run never appeared in the Decision Maker's own queue. principalContext
+      // is the primary carrier (same object runClientId already reads above);
+      // the stored session principal is the same deep-link/refresh fallback
+      // runClientId uses for client_id.
+      const runPrincipalId =
+        principalContext?.principal_id ||
+        situation.principal_id ||
+        localStorage.getItem('a9_selected_principal_id') ||
+        'default';
+
       // Stage H collapse (2026-08-04): two dispatches, not four. The audited
       // `hypothesis` and `cross_review` stages were IDENTICAL requests to
       // synthesis (debate_stage only gates Stage-1 skipping; prior_transcript
@@ -299,7 +321,7 @@ export const CouncilDebatePage: React.FC = () => {
       // ── Stage 1: Hypotheses ────────────────────────────────────────────────
       const s1Result = await runSolutionFinder(
         deepAnalysisPayload, [], null,
-        situation.principal_id || 'default',
+        runPrincipalId,
         { ...preferencesBase, debate_stage: 'stage1_only' },
         principalContext || {}, situation.situation_id,
         runClientId
@@ -313,7 +335,7 @@ export const CouncilDebatePage: React.FC = () => {
       setPhase(3);
       const s4Result = await runSolutionFinder(
         deepAnalysisPayload, [], null,
-        situation.principal_id || 'default',
+        runPrincipalId,
         {
           ...preferencesBase,
           debate_stage: 'synthesis',
@@ -341,6 +363,15 @@ export const CouncilDebatePage: React.FC = () => {
           const bp = buildExecutiveBriefing(situation, deepAnalysisResults, enriched, marketSignals || []);
           localStorage.setItem(`briefing_${situationId}`, JSON.stringify(bp));
           if (lastRequestId) localStorage.setItem(`solution_request_${situationId}`, lastRequestId);
+          // Pending-decision snapshot (2026-08-26, user-caught) — the same
+          // payload just written to localStorage above, also persisted
+          // server-side so the Decision Maker landing view can show the
+          // actual completed recommendation without re-running DA/SF, and
+          // so it survives beyond this one browser session. Fire-and-forget,
+          // same non-fatal contract as VA's own storeBriefingSnapshot.
+          if (lastRequestId) {
+            storePendingDecisionSnapshot(lastRequestId, bp).catch(() => {});
+          }
         } catch (_) { /* quota still exceeded — skip persistence, state held in memory */ }
       }
 
@@ -487,11 +518,11 @@ export const CouncilDebatePage: React.FC = () => {
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-400 hover:text-white mb-8">
         <ArrowLeft className="w-4 h-4" /> Back
       </button>
-      <div className="max-w-xl bg-red-500/10 border border-red-500/30 rounded-lg p-6 flex gap-4">
-        <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+      <div className="max-w-xl bg-severity-critical/10 border border-severity-critical/30 rounded-lg p-6 flex gap-4">
+        <AlertTriangle className="w-5 h-5 text-severity-critical flex-shrink-0 mt-0.5" />
         <div>
-          <p className="text-red-400 font-semibold mb-1">Debate Error</p>
-          <p className="text-red-300 text-sm">{error}</p>
+          <p className="text-severity-critical font-semibold mb-1">Debate Error</p>
+          <p className="text-severity-critical text-sm">{error}</p>
         </div>
       </div>
     </div>
@@ -537,8 +568,8 @@ export const CouncilDebatePage: React.FC = () => {
                   <span className={`text-sm font-bold uppercase tracking-wider ${c.accent}`}>{c.label}</span>
                   {(phase >= 1 || phase === 4) && hyp?.conviction && (
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                      hyp.conviction === 'High' ? 'bg-emerald-900/40 text-emerald-300' :
-                      hyp.conviction === 'Medium' ? 'bg-amber-900/40 text-amber-300' :
+                      hyp.conviction === 'High' ? 'bg-severity-opportunity/40 text-severity-opportunity' :
+                      hyp.conviction === 'Medium' ? 'bg-severity-warning/40 text-severity-warning' :
                       'bg-slate-800 text-slate-400'
                     }`}>
                       {hyp.conviction} conviction
@@ -614,11 +645,11 @@ export const CouncilDebatePage: React.FC = () => {
                               </p>
                               {endorsements.length > 0 && (
                                 <div className="mb-2">
-                                  <p className="text-[10px] text-emerald-500 uppercase mb-1">Endorses</p>
+                                  <p className="text-[10px] text-severity-opportunity uppercase mb-1">Endorses</p>
                                   <ul className="space-y-1">
                                     {endorsements.slice(0, 2).map((e: any, i: number) => (
                                       <li key={i} className="flex items-start gap-1.5 text-xs text-slate-300">
-                                        <span className="text-emerald-500 mt-0.5 flex-shrink-0">+</span>
+                                        <span className="text-severity-opportunity mt-0.5 flex-shrink-0">+</span>
                                         <span>{e.reason}</span>
                                       </li>
                                     ))}
@@ -627,11 +658,11 @@ export const CouncilDebatePage: React.FC = () => {
                               )}
                               {critiques.length > 0 && (
                                 <div>
-                                  <p className="text-[10px] text-red-400 uppercase mb-1">Challenges</p>
+                                  <p className="text-[10px] text-severity-critical uppercase mb-1">Challenges</p>
                                   <ul className="space-y-1">
                                     {critiques.slice(0, 2).map((c: any, i: number) => (
                                       <li key={i} className="flex items-start gap-1.5 text-xs text-slate-400">
-                                        <span className="text-red-400 mt-0.5 flex-shrink-0">−</span>
+                                        <span className="text-severity-critical mt-0.5 flex-shrink-0">−</span>
                                         <span>{c.concern}</span>
                                       </li>
                                     ))}
@@ -665,9 +696,9 @@ export const CouncilDebatePage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {Object.entries(displayModeratorGrades || {}).map(([optId, g]: [string, any]) => {
                 const chip = (v: string | undefined) =>
-                  v === 'pass' ? 'text-emerald-400 border-emerald-700'
-                    : v === 'fail' || v === 'flag' ? 'text-red-400 border-red-700'
-                      : 'text-amber-400 border-amber-700';
+                  v === 'pass' ? 'text-severity-opportunity border-severity-opportunity'
+                    : v === 'fail' || v === 'flag' ? 'text-severity-critical border-severity-critical'
+                      : 'text-severity-warning border-severity-warning';
                 return (
                   <div key={optId} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
                     <p className="text-xs font-bold text-slate-200 mb-2">
@@ -687,16 +718,16 @@ export const CouncilDebatePage: React.FC = () => {
                       </p>
                     )}
                     {Array.isArray(g?.violated_constraints) && g.violated_constraints.length > 0 && (
-                      <p className="text-[11px] text-red-400 mb-1">Violates: {g.violated_constraints.join('; ')}</p>
+                      <p className="text-[11px] text-severity-critical mb-1">Violates: {g.violated_constraints.join('; ')}</p>
                     )}
                     {g?.arithmetic_note && (
-                      <p className="text-[11px] text-amber-400 mb-1">{g.arithmetic_note}</p>
+                      <p className="text-[11px] text-severity-warning mb-1">{g.arithmetic_note}</p>
                     )}
                     {Array.isArray(g?.critic_findings_response) && g.critic_findings_response.length > 0 && (
                       <ul className="space-y-0.5 mb-1">
                         {g.critic_findings_response.map((f: any, i: number) => (
                           <li key={i} className="text-[11px] text-slate-400">
-                            <span className={f?.disposition === 'answered' ? 'text-emerald-500' : 'text-amber-500'}>
+                            <span className={f?.disposition === 'answered' ? 'text-severity-opportunity' : 'text-severity-warning'}>
                               {f?.disposition === 'answered' ? '✓' : '!'}
                             </span>{' '}
                             {f?.finding}
@@ -746,14 +777,14 @@ export const CouncilDebatePage: React.FC = () => {
                         key={idx}
                         className={`rounded-xl border p-4 transition-all ${
                           isRec
-                            ? 'border-emerald-500/50 bg-emerald-950/20'
+                            ? 'border-severity-opportunity/50 bg-severity-opportunity/20'
                             : 'border-slate-700 bg-slate-900'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <h3 className="text-sm font-semibold text-white leading-snug">{option.title || `Option ${idx + 1}`}</h3>
                           {isRec && (
-                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 whitespace-nowrap flex-shrink-0">
+                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-severity-opportunity/20 text-severity-opportunity whitespace-nowrap flex-shrink-0">
                               Recommended
                             </span>
                           )}

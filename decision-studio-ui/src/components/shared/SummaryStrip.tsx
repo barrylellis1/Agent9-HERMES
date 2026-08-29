@@ -9,11 +9,20 @@ interface SummaryStripProps {
 }
 
 export function SummaryStrip({ kpisScanned, breachCount, situations }: SummaryStripProps) {
+  // 'critical' means only genuinely critical situations — it previously also
+  // counted 'high', which overstated the critical count (observed live:
+  // strip read "9 critical" against 5 tiles actually badged CRITICAL, the
+  // other 4 badged HIGH). 'high' and 'medium' both roll into "warning" here;
+  // there is no third strip colour today (DESIGN_SYSTEM.md defines only
+  // critical/warning/opportunity), so this is the honest two-bucket split
+  // rather than folding a real severity into the wrong bucket. Per-tile HIGH
+  // vs CRITICAL colour differentiation is a separate, Wave 3 design-token
+  // decision, not fixed here.
   const criticalCount = situations.filter(
-    s => s.card_type !== 'opportunity' && (s.severity === 'critical' || s.severity === 'high')
+    s => s.card_type !== 'opportunity' && s.severity === 'critical'
   ).length;
   const warningCount = situations.filter(
-    s => s.card_type !== 'opportunity' && s.severity === 'medium'
+    s => s.card_type !== 'opportunity' && (s.severity === 'high' || s.severity === 'medium')
   ).length;
   const opportunityCount = situations.filter(
     s => s.card_type === 'opportunity' || s.direction === 'up'

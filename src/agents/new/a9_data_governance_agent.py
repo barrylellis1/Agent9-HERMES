@@ -252,7 +252,30 @@ class A9_Data_Governance_Agent:
             human_action_type=human_action_type,
             human_action_context=human_action_context
         )
-    
+
+    async def resolve_dimension_label(self, field_name: str, client_id: Optional[str] = None) -> Optional[str]:
+        """Reverse translation: a raw technical dimension/column name (e.g.
+        'customer_region', from a data product contract's dimension_semantics
+        list) to its governed glossary display term (e.g. 'Customer Region').
+
+        Added 2026-08-24 so DA's dimensional breakdown (the Variance Breakdown
+        exhibit) can show a governed business label instead of either the raw
+        field name or an ungoverned client-side mechanical transform. An
+        enrichment, not a gate: returns None (never raises) when the glossary
+        doesn't yet carry an entry for this field — the caller falls back to
+        a plain mechanical Title Case transform in that case, same discipline
+        as translate_business_terms' unmapped_terms path, just non-blocking
+        since this is display-only, not a governance decision.
+        """
+        if not self.business_glossary_provider or not field_name:
+            return None
+        try:
+            term = self.business_glossary_provider.get_by_technical_name(field_name, client_id=client_id)
+            return term.name if term else None
+        except Exception as e:
+            self.logger.debug(f"resolve_dimension_label failed for '{field_name}' (non-fatal): {e}")
+            return None
+
     async def validate_data_access(
         self, request: DataAccessValidationRequest
     ) -> DataAccessValidationResponse:

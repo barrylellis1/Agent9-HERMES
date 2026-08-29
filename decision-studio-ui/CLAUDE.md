@@ -14,7 +14,12 @@ in the correct order with port cleanup. Running React independently connects to 
 
 - React 18 + TypeScript + Vite + Tailwind CSS
 - React Router 7, Framer Motion, Visx (D3 wrapper), Lucide icons
-- **No test suite** — no jest/vitest configured
+- **Playwright E2E suite** — `tests/e2e/*.spec.ts` (16+ files), config at `playwright.config.ts`
+  (`testDir: './tests/e2e'`, `baseURL: 'http://localhost:5173'`). Run with `npx playwright test`
+  (dev server must already be up via `restart_decision_studio_ui.ps1`). Several specs build a
+  briefing directly from `buildExecutiveBriefing` against real fixtures
+  (`tests/e2e/fixtures/live-briefing-payload.json`) and assert on the rendered DOM — not
+  screenshot diffing. No jest/vitest (no component-level unit tests) — coverage is E2E-only.
 - npm scripts: `dev`, `build`, `lint`, `preview` (but use restart script for dev)
 
 ## Directory Map
@@ -33,7 +38,15 @@ src/
 │   ├── dashboard/KPITile.tsx   — KPI display tile
 │   ├── briefing/               — Executive Briefing blocks (Phase 13 Cat 3):
 │   │                             DecisionAskBlock, ImmediateActionsChecklist,
-│   │                             AssumptionsPanel, OptionDetailDrawer
+│   │                             AssumptionsPanel, OptionDetailDrawer,
+│   │                             ContradictionBanner — plus the 2026-08-28
+│   │                             compact-brief restructure: DecisionMasthead,
+│   │                             RelatedOptionsFork, WhyNowBand,
+│   │                             CompactOptionRow, RangeBar,
+│   │                             VerificationLedger (replaced the old
+│   │                             comparison <table> + full option cards;
+│   │                             CompactOptionRow is now the printed
+│   │                             comparison exhibit too — see its docstring)
 │   └── (root)                  — CouncilDebate, VarianceDrawer, SituationCard, etc.
 ├── hooks/
 │   └── useDecisionStudio.ts    — 3-stage debate flow + full SA→DA→Solutions state

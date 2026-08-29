@@ -169,6 +169,7 @@ _RLS_TABLES = [
     "assessment_runs",
     "business_contexts",
     "assumptions",
+    "sf_pending_decisions",
 ]
 
 

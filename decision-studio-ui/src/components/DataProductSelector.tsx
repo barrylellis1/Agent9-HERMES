@@ -175,7 +175,7 @@ export function DataProductSelector({ clientId, onSelect, onCancel }: DataProduc
             </div>
           ) : error ? (
             <div className="text-center py-12">
-              <p className="text-red-400 mb-4">{error}</p>
+              <p className="text-severity-critical mb-4">{error}</p>
               <button
                 onClick={loadDataProducts}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"

@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertTriangle, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { ConfidenceLevel } from '../types/valueAssurance';
 
-interface CostOfInactionBannerProps {
+export interface CostOfInactionBannerProps {
   kpiName: string;
   currentValue: number;
   projected30d: number;
@@ -13,6 +13,12 @@ interface CostOfInactionBannerProps {
   estimatedRevenueImpact90d?: number;
   /** e.g. "%" or "$M" — defaults to "%" */
   kpiUnit?: string;
+  /** WhyNowBand (2026-08-28 compact-brief restructure) hosts this as the
+   *  right pane of a shared two-column band — its own card shell would
+   *  double up against the band's own border/background. `bare` renders the
+   *  header/intro/rows/footer only, no outer `rounded-xl` wrapper. Defaults
+   *  false so every existing standalone usage is unaffected. */
+  bare?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -56,34 +62,74 @@ function formatRevenue(value: number): string {
 
 type TrendKey = CostOfInactionBannerProps['trendDirection'];
 
+/**
+ * Dark-first, like every other surface in this app.
+ *
+ * `deteriorating` and `recovering` were `bg-severity-warning` and `bg-severity-opportunity` —
+ * light panels on a slate-950 page. Rendered, that made this banner the
+ * single brightest object in the Executive Briefing's first viewport, and it
+ * is not the decision; the decision sat next to it in slate. `stable` was
+ * already dark, so the component disagreed with itself depending on which way
+ * the KPI happened to be moving.
+ *
+ * Every per-trend colour now lives here rather than in five ternaries spread
+ * through the render, which is how the three states drifted apart in the first
+ * place. `print:` variants restore light backgrounds for Print/Export — on
+ * paper the original light treatment was right.
+ */
 const TREND_CONFIG: Record<
   TrendKey,
   {
     containerClass: string;
     headerClass: string;
     iconClass: string;
+    /** Intro line above the projections. */
+    introClass: string;
+    /** Projection list body text. */
+    bodyClass: string;
+    /** The delta — the primary figure in each row. */
+    deltaClass: string;
+    /** Projected level + supporting context. */
+    subtleClass: string;
+    /** Footer divider + trend/confidence text. */
+    footerClass: string;
     Icon: React.ElementType;
     label: string;
   }
 > = {
   deteriorating: {
-    containerClass: 'bg-amber-50 border border-amber-300',
-    headerClass: 'text-amber-900',
-    iconClass: 'text-amber-600',
+    containerClass: 'bg-severity-warning/20 border border-severity-warning/40 print:bg-amber-50 print:border-amber-300',
+    headerClass: 'text-severity-warning print:text-amber-900',
+    iconClass: 'text-severity-warning print:text-amber-600',
+    introClass: 'text-severity-warning/70 print:text-amber-800',
+    bodyClass: 'text-severity-warning print:text-amber-900',
+    deltaClass: 'text-severity-warning font-semibold print:text-amber-800',
+    subtleClass: 'text-severity-warning/70 print:text-amber-700',
+    footerClass: 'border-severity-warning/40 text-severity-warning/80 print:border-amber-200 print:text-amber-700',
     Icon: AlertTriangle,
     label: 'Deteriorating',
   },
   stable: {
-    containerClass: 'bg-slate-800 border border-slate-700',
-    headerClass: 'text-slate-200',
-    iconClass: 'text-slate-400',
+    containerClass: 'bg-slate-800 border border-slate-700 print:bg-slate-50 print:border-slate-300',
+    headerClass: 'text-slate-200 print:text-slate-900',
+    iconClass: 'text-slate-400 print:text-slate-600',
+    introClass: 'text-slate-400 print:text-slate-700',
+    bodyClass: 'text-slate-300 print:text-slate-900',
+    deltaClass: 'text-slate-200 font-semibold print:text-slate-900',
+    subtleClass: 'text-slate-400 print:text-slate-600',
+    footerClass: 'border-slate-700 text-slate-400 print:border-slate-200 print:text-slate-600',
     Icon: Minus,
     label: 'Stable',
   },
   recovering: {
-    containerClass: 'bg-emerald-50 border border-emerald-300',
-    headerClass: 'text-emerald-900',
-    iconClass: 'text-emerald-600',
+    containerClass: 'bg-severity-opportunity/20 border border-severity-opportunity/40 print:bg-emerald-50 print:border-emerald-300',
+    headerClass: 'text-severity-opportunity print:text-emerald-900',
+    iconClass: 'text-severity-opportunity print:text-emerald-600',
+    introClass: 'text-severity-opportunity/70 print:text-emerald-800',
+    bodyClass: 'text-severity-opportunity print:text-emerald-900',
+    deltaClass: 'text-severity-opportunity font-semibold print:text-emerald-700',
+    subtleClass: 'text-severity-opportunity/70 print:text-emerald-700',
+    footerClass: 'border-severity-opportunity/40 text-severity-opportunity/80 print:border-emerald-200 print:text-emerald-700',
     Icon: TrendingUp,
     label: 'Recovering',
   },
@@ -117,34 +163,42 @@ function ProjectionRow({
   const delta = projectedValue - currentValue;
   const isNegative = delta < 0;
 
-  const valueColorClass =
-    trendDirection === 'deteriorating'
-      ? 'text-amber-800 font-semibold'
-      : trendDirection === 'recovering'
-      ? 'text-emerald-700 font-semibold'
-      : 'text-slate-400';
-
+  // The DELTA is now the primary figure, the projected LEVEL the smaller
+  // supporting context — reversed 2026-08-24. Found live: the level (e.g.
+  // "$-74.0M", a projected EBITDA level) rendered semibold/normal-size while
+  // the delta (e.g. "$-618K", the actual 30-day erosion) rendered at
+  // text-xs in parentheses — an order of magnitude apart, with the smaller
+  // number answering the section's own question ("what does waiting cost?")
+  // and the larger, more prominent one answering a different question
+  // nobody asked here.
+  const cfg = TREND_CONFIG[trendDirection];
   const TrendIcon = isNegative ? TrendingDown : TrendingUp;
 
   return (
     <li className="flex items-start gap-2 text-sm">
       <TrendIcon
-        className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isNegative ? 'text-red-500' : 'text-emerald-500'}`}
+        className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+          isNegative ? 'text-severity-critical print:text-red-600' : 'text-severity-opportunity print:text-emerald-600'
+        }`}
       />
       <span>
         <span className="font-medium">In {horizon}:</span>{' '}
-        <span className={`font-mono ${valueColorClass}`}>
-          {formatValue(projectedValue, kpiUnit)}
+        <span className={`font-mono ${cfg.deltaClass}`}>
+          {formatDelta(delta, kpiUnit)}
         </span>{' '}
-        <span className={`font-mono text-xs ${isNegative ? 'text-red-600' : 'text-emerald-600'}`}>
-          ({formatDelta(delta, kpiUnit)})
+        <span className={`font-mono text-xs ${cfg.subtleClass}`}>
+          (projected: {formatValue(projectedValue, kpiUnit)})
         </span>
         {revenueImpact !== undefined && (
           <>
             {' — '}
-            <span className="text-xs text-slate-600">
+            <span className="text-xs text-slate-400 print:text-slate-600">
               est. revenue impact:{' '}
-              <span className={`font-semibold ${revenueImpact < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              <span className={`font-semibold ${
+                revenueImpact < 0
+                  ? 'text-severity-critical print:text-red-600'
+                  : 'text-severity-opportunity print:text-emerald-600'
+              }`}>
                 {formatRevenue(revenueImpact)}
               </span>
             </span>
@@ -167,12 +221,13 @@ export const CostOfInactionBanner: React.FC<CostOfInactionBannerProps> = ({
   estimatedRevenueImpact30d,
   estimatedRevenueImpact90d,
   kpiUnit = '',
+  bare = false,
 }) => {
   const cfg = TREND_CONFIG[trendDirection];
   const { Icon } = cfg;
 
   return (
-    <div className={`rounded-xl px-5 py-4 ${cfg.containerClass}`}>
+    <div className={bare ? '' : `rounded-xl px-5 py-4 ${cfg.containerClass}`}>
       {/* Header */}
       <div className={`flex items-center gap-2 mb-3 ${cfg.headerClass}`}>
         <Icon className={`w-4 h-4 flex-shrink-0 ${cfg.iconClass}`} />
@@ -180,12 +235,12 @@ export const CostOfInactionBanner: React.FC<CostOfInactionBannerProps> = ({
       </div>
 
       {/* Intro line */}
-      <p className={`text-xs mb-3 ${trendDirection === 'deteriorating' ? 'text-amber-800' : trendDirection === 'recovering' ? 'text-emerald-800' : 'text-slate-400'}`}>
+      <p className={`text-xs mb-3 ${cfg.introClass}`}>
         If no solution is implemented, {kpiName} is projected to:
       </p>
 
       {/* Projection rows */}
-      <ul className={`space-y-2 mb-4 ${trendDirection === 'deteriorating' ? 'text-amber-900' : trendDirection === 'recovering' ? 'text-emerald-900' : 'text-slate-300'}`}>
+      <ul className={`space-y-2 mb-4 ${cfg.bodyClass}`}>
         <ProjectionRow
           horizon="30 days"
           projectedValue={projected30d}
@@ -205,13 +260,7 @@ export const CostOfInactionBanner: React.FC<CostOfInactionBannerProps> = ({
       </ul>
 
       {/* Footer: trend + confidence */}
-      <div className={`flex items-center gap-3 text-xs pt-3 border-t ${
-        trendDirection === 'deteriorating'
-          ? 'border-amber-200 text-amber-700'
-          : trendDirection === 'recovering'
-          ? 'border-emerald-200 text-emerald-700'
-          : 'border-slate-700 text-slate-500'
-      }`}>
+      <div className={`flex items-center gap-3 text-xs pt-3 border-t ${cfg.footerClass}`}>
         <span>
           Trend:{' '}
           <span className="font-semibold capitalize">{cfg.label}</span>

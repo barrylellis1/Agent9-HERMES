@@ -25,11 +25,19 @@ import { setSettingsMode } from '../utils/settingsMode';
 
 // ── Principal mapping helpers ──────────────────────────────────────────────
 
+// Decision-style archetype badge, not severity. This maps FOUR identity
+// categories (analytical/visionary/pragmatic/decisive) to distinct hues —
+// blue and purple aren't governed by severity-* at all, so tokenising just
+// pragmatic/decisive would make two of four archetypes swappable via the
+// severity palette and two not, coupling an unrelated concept (KPI status)
+// to this one. Same shape as the persona-lens palette removed from
+// ExecutiveBriefing.tsx during the 2026-08-27 sweep. Left as literal Tailwind
+// colors deliberately; not an oversight.
 const STYLE_COLORS: Record<string, string> = {
   analytical: 'bg-blue-500/20 text-blue-400',
   visionary:  'bg-purple-500/20 text-purple-400',
-  pragmatic:  'bg-emerald-500/20 text-emerald-400',
-  decisive:   'bg-amber-500/20 text-amber-400',
+  pragmatic:  'bg-emerald-500/20 text-emerald-400',   // severity-lint-allow: categorical archetype badge, not severity meaning
+  decisive:   'bg-amber-500/20 text-amber-400',        // severity-lint-allow: categorical archetype badge, not severity meaning
 };
 
 function inferDecisionStyle(raw: any): Principal['decision_style'] {
@@ -54,6 +62,9 @@ function mapApiPrincipal(raw: any): Principal {
     initials: toInitials(raw.name || raw.id),
     decision_style: style,
     color: STYLE_COLORS[style] || 'bg-slate-500/20 text-slate-400',
+    // Strictly a registry attribute (2026-08-25) -- no title-keyword
+    // inference, matching useDecisionStudio.ts's resolveWorkflowRole.
+    workflow_role: raw.workflow_role === 'decision_maker' ? 'decision_maker' : 'framer',
   };
 }
 
@@ -349,9 +360,9 @@ export function Login() {
                 </div>
 
                 {authError && (
-                  <div className="flex items-start gap-2 p-3 bg-red-900/30 border border-red-700/50 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                    <p className="text-xs text-red-300">{authError}</p>
+                  <div className="flex items-start gap-2 p-3 bg-severity-critical/30 border border-severity-critical/50 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-severity-critical mt-0.5 shrink-0" />
+                    <p className="text-xs text-severity-critical">{authError}</p>
                   </div>
                 )}
 

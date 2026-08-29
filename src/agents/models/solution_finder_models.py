@@ -186,6 +186,17 @@ class SolutionOption(A9AgentBaseModel):
     # disabled or found no basis for concern (see Stage G: "Risk block
     # surfacing Stage E side-effects").
     flagged_side_effects: List[str] = Field(default_factory=list)
+    # Deterministic Pareto-dominance flag (src/analysis/option_dominance.py),
+    # computed after synthesis, not authored by the model. Set to another
+    # option's id when THIS option matches or is worse on modelled impact,
+    # cost, AND risk (same impact_estimate scope only — never compared across
+    # segment/enterprise scope, same caution ImpactEstimate's own docstring
+    # already applies). Found live 2026-08-24: two options modelled at an
+    # identical $3.8-5.2M recovery range while one took 12+ months and cost
+    # more than the other's 0-90 days — presented as equal peers in a table,
+    # that asymmetry was invisible. None means not dominated, or dominance
+    # could not be determined (impact_estimate/cost/risk unavailable).
+    dominated_by: Optional[str] = None
 
 
 class TradeOffMatrix(A9AgentBaseModel):

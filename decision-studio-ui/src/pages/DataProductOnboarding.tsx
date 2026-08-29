@@ -115,7 +115,7 @@ export function DataProductOnboarding() {
                                 const isCompleted = idx < currentStep
                                 return (
                                     <div key={step.id} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${isActive ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>
-                                        <div className={`p-2 rounded-md ${isActive ? 'bg-blue-500/20 text-blue-400' : isCompleted ? 'bg-green-500/10 text-green-400' : 'bg-slate-800'}`}>
+                                        <div className={`p-2 rounded-md ${isActive ? 'bg-blue-500/20 text-blue-400' : isCompleted ? 'bg-severity-healthy/10 text-severity-healthy' : 'bg-slate-800'}`}>
                                             <Icon className="w-4 h-4" />
                                         </div>
                                         <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-slate-400'}`}>{step.label}</span>
@@ -128,7 +128,7 @@ export function DataProductOnboarding() {
                     {/* Content Area */}
                     <div className="flex-1 bg-card border border-border rounded-xl p-8 min-h-[500px] relative">
                         {error && (
-                            <div className="absolute top-4 left-4 right-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                            <div className="absolute top-4 left-4 right-4 p-4 bg-severity-critical/10 border border-severity-critical/20 rounded-lg text-severity-critical text-sm">
                                 {error}
                             </div>
                         )}
@@ -166,7 +166,7 @@ export function DataProductOnboarding() {
                                         <h4 className="font-medium text-white">{uploadedFile?.filename}</h4>
                                         <p className="text-sm text-slate-400">{(uploadedFile?.size || 0) / 1024} KB • {uploadedFile?.content_type}</p>
                                     </div>
-                                    <div className="ml-auto text-green-400 text-sm flex items-center gap-1">
+                                    <div className="ml-auto text-severity-healthy text-sm flex items-center gap-1">
                                         <Check className="w-4 h-4" /> Ready
                                     </div>
                                 </div>
@@ -194,7 +194,7 @@ export function DataProductOnboarding() {
                                     <button 
                                         onClick={handleHydrate}
                                         disabled={hydrating}
-                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+ className="hover:brightness-110 w-full py-3 bg-severity-opportunity text-white rounded-lg font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
                                         {hydrating && <Loader2 className="w-4 h-4 animate-spin" />}
                                         {hydrating ? 'Provision Mock Table' : 'Start Provisioning'}
@@ -205,7 +205,7 @@ export function DataProductOnboarding() {
 
                         {currentStep === 2 && (
                             <div className="text-center py-20">
-                                <div className="w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <div className="w-16 h-16 bg-severity-healthy/10 text-severity-healthy rounded-full flex items-center justify-center mx-auto mb-6">
                                     <Check className="w-8 h-8" />
                                 </div>
                                 <h3 className="text-xl font-semibold text-white mb-2">Onboarding Complete!</h3>

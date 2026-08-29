@@ -767,6 +767,58 @@ export async function getPrincipalActions(
 }
 export type { PrincipalActionSummary };
 
+// Decision Framer/Decision Maker split (2026-08-25) — the Decision Maker
+// landing view's data source. Backed by PendingDecisionsStore via
+// GET /workflows/solutions/pending; see src/api/routes/workflows.py.
+export interface PendingDecisionSummary {
+  request_id: string;
+  client_id: string;
+  principal_id: string;
+  situation_id?: string | null;
+  kpi_id?: string | null;
+  human_action_type?: string | null;
+  summary?: string | null;
+  human_action_context?: Record<string, unknown> | null;
+  resolved: boolean;
+  created_at?: string | null;
+}
+export async function getPendingDecisions(
+  principalId: string,
+  clientId: string,
+): Promise<PendingDecisionSummary[]> {
+  const params = new URLSearchParams({ principal_id: principalId, client_id: clientId });
+  const envelope = await requestJson<Envelope<PendingDecisionSummary[]>>(
+    `/workflows/solutions/pending?${params.toString()}`
+  );
+  return envelope.data;
+}
+
+// Pre-approval counterpart to storeBriefingSnapshot/getBriefingSnapshot
+// below (VA's post-approval mechanism) — user-caught, live: the Decision
+// Maker landing view was re-running Deep Analysis for real instead of
+// showing the completed recommendation. Written by CouncilDebatePage.tsx
+// right after it computes the same payload for its own localStorage cache.
+export async function storePendingDecisionSnapshot(
+  requestId: string,
+  snapshot: Record<string, unknown>,
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/workflows/solutions/pending/${requestId}/briefing`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(snapshot),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to store pending-decision snapshot: ${response.status}`);
+  }
+}
+
+export async function getPendingDecisionSnapshot(requestId: string): Promise<Record<string, unknown>> {
+  const envelope = await requestJson<Envelope<Record<string, unknown>>>(
+    `/workflows/solutions/pending/${requestId}/briefing`
+  );
+  return envelope.data;
+}
+
 // ---------------------------------------------------------------------------
 // KPI Accountability — Phase 11A (read-only)
 // ---------------------------------------------------------------------------

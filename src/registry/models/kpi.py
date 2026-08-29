@@ -30,6 +30,8 @@ class KPIEvaluationStatus(str, Enum):
     """Possible evaluation statuses for KPIs."""
     GREEN = "green"  # Performing well
     YELLOW = "yellow"  # Warning/needs attention
+    AMBER = "amber"  # Missed yellow but still within the red band — a real
+                     # distinct signal, weaker than RED. See evaluate() below.
     RED = "red"  # Critical/not meeting expectations
     NEUTRAL = "neutral"  # Neutral or informational only
     UNKNOWN = "unknown"  # Not enough data to evaluate
@@ -282,21 +284,30 @@ class KPI(BaseModel):
     def evaluate(self, value: float, comparison_type: ComparisonType) -> KPIEvaluationStatus:
         """
         Evaluate the KPI based on the provided value and comparison type.
-        
+
         Args:
             value: The value to evaluate
             comparison_type: The type of comparison to use
-            
+
         Returns:
-            The evaluation status (GREEN, YELLOW, RED, etc.)
+            The evaluation status (GREEN, YELLOW, AMBER, RED, etc.)
         """
         # Find the threshold for the specified comparison type
         threshold = next((t for t in self.thresholds if t.comparison_type == comparison_type), None)
-        
+
         if not threshold:
             return KPIEvaluationStatus.UNKNOWN
-        
-        # Apply threshold logic
+
+        # Apply threshold logic.
+        #
+        # Bug fixed Aug 2026: the red_threshold branch and the final `else`
+        # both returned RED, so clearing red_threshold but missing yellow was
+        # indistinguishable from being genuinely below red. Every KPI that
+        # merely missed its yellow band — however slightly — was reported as
+        # the worst possible status. AMBER is the real, distinct signal for
+        # "missed yellow but still within the red band"; RED is now reserved
+        # for values that miss red_threshold too (or when no red_threshold is
+        # configured, preserving prior behaviour for that case).
         if threshold.inverse_logic:
             # For inverse logic, lower is better
             if threshold.green_threshold is not None and value <= threshold.green_threshold:
@@ -304,7 +315,7 @@ class KPI(BaseModel):
             elif threshold.yellow_threshold is not None and value <= threshold.yellow_threshold:
                 return KPIEvaluationStatus.YELLOW
             elif threshold.red_threshold is not None and value <= threshold.red_threshold:
-                return KPIEvaluationStatus.RED
+                return KPIEvaluationStatus.AMBER
             else:
                 return KPIEvaluationStatus.RED
         else:
@@ -314,6 +325,6 @@ class KPI(BaseModel):
             elif threshold.yellow_threshold is not None and value >= threshold.yellow_threshold:
                 return KPIEvaluationStatus.YELLOW
             elif threshold.red_threshold is not None and value >= threshold.red_threshold:
-                return KPIEvaluationStatus.RED
+                return KPIEvaluationStatus.AMBER
             else:
                 return KPIEvaluationStatus.RED

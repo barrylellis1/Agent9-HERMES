@@ -996,6 +996,7 @@ PRINCIPALS: List[Dict[str, Any]] = [
         "last_name": "Chen",
         "title": "Chief Financial Officer",
         "role": "CFO",
+        "workflow_role": "decision_maker",
         "department": "Finance",
         "source": "HR Database",
         "description": (
@@ -1049,6 +1050,7 @@ PRINCIPALS: List[Dict[str, Any]] = [
         "last_name": "Torres",
         "title": "Chief Executive Officer",
         "role": "CEO",
+        "workflow_role": "decision_maker",
         "department": "Executive",
         "source": "HR Database",
         "description": "CEO driving Lubricants Business strategy and market growth.",
@@ -1077,6 +1079,7 @@ PRINCIPALS: List[Dict[str, Any]] = [
         "last_name": "Kim",
         "title": "Chief Operating Officer",
         "role": "COO",
+        "workflow_role": "decision_maker",
         "department": "Operations",
         "source": "HR Database",
         "description": "COO overseeing production, supply chain, and operational efficiency.",
@@ -1104,6 +1107,7 @@ PRINCIPALS: List[Dict[str, Any]] = [
         "last_name": "Webb",
         "title": "Finance Manager",
         "role": "Finance Manager",
+        "workflow_role": "framer",
         "department": "Finance",
         "source": "HR Database",
         "description": "Finance Manager supporting P&L analysis and budget management.",
@@ -1136,7 +1140,107 @@ BUSINESS_PROCESS_IDS = [
 ]
 
 EXTRA_BUSINESS_PROCESSES: List[Dict[str, Any]] = []
-EXTRA_GLOSSARY_TERMS: List[Dict[str, Any]] = []
+
+# Dimension-label glossary terms — added 2026-08-24 so the Variance Breakdown
+# exhibit (DivergingBarChart.tsx / IsIsNotExhibit) can show a governed
+# business label instead of the raw dimension_semantics field name from
+# lubricants_star_schema.yaml (e.g. "customer_region" -> "Customer Region").
+# Resolved via A9_Data_Governance_Agent.resolve_dimension_label() ->
+# BusinessGlossaryProvider.get_by_technical_name(), which searches
+# technical_mappings values — the reverse direction from the core terms
+# above (which map a business term FORWARD to a technical name).
+#
+# One entry per entry in dimension_semantics (src/registry_references/
+# data_product_registry/data_products/lubricants_star_schema.yaml). If that
+# contract's dimension list changes, this list needs a matching update — it
+# is not derived automatically, the same manual-sync discipline as every
+# other registry seed file per root CLAUDE.md.
+EXTRA_GLOSSARY_TERMS: List[Dict[str, Any]] = [
+    {
+        "id": "dim_product_name", "term": "Product Name",
+        "definition": "The specific product SKU or item name.",
+        "domain": "Product", "tags": ["dimension", "product"],
+        "technical_mappings": {"bigquery": "product_name"},
+    },
+    {
+        "id": "dim_product_line", "term": "Product Line",
+        "definition": "The product family or line a SKU belongs to (e.g. Engine Oils, Compressor Oil).",
+        "domain": "Product", "tags": ["dimension", "product"],
+        "technical_mappings": {"bigquery": "product_line"},
+    },
+    {
+        "id": "dim_product_category", "term": "Product Category",
+        "definition": "The broad category a product line rolls up to.",
+        "domain": "Product", "tags": ["dimension", "product"],
+        "technical_mappings": {"bigquery": "product_category"},
+    },
+    {
+        "id": "dim_customer_name", "term": "Customer Name",
+        "definition": "The specific named customer account.",
+        "domain": "Customer", "tags": ["dimension", "customer"],
+        "technical_mappings": {"bigquery": "customer_name"},
+    },
+    {
+        "id": "dim_customer_segment", "term": "Customer Segment",
+        "definition": "The customer's market segment (e.g. Retail Partners, Commercial & Industrial).",
+        "domain": "Customer", "tags": ["dimension", "customer"],
+        "technical_mappings": {"bigquery": "customer_segment"},
+    },
+    {
+        "id": "dim_customer_region", "term": "Customer Region",
+        "definition": "The geographic region the customer is based in.",
+        "domain": "Customer", "tags": ["dimension", "customer"],
+        "technical_mappings": {"bigquery": "customer_region"},
+    },
+    {
+        "id": "dim_profit_center_name", "term": "Profit Center",
+        "definition": "The internal profit center the transaction is booked against.",
+        "domain": "Organization", "tags": ["dimension", "organization"],
+        "technical_mappings": {"bigquery": "profit_center_name"},
+    },
+    {
+        "id": "dim_business_unit", "term": "Business Unit",
+        "definition": "The business unit the transaction belongs to.",
+        "domain": "Organization", "tags": ["dimension", "organization"],
+        "technical_mappings": {"bigquery": "business_unit"},
+    },
+    {
+        "id": "dim_channel_name", "term": "Channel Name",
+        "definition": "The specific named sales or distribution channel.",
+        "domain": "Channel", "tags": ["dimension", "channel"],
+        "technical_mappings": {"bigquery": "channel_name"},
+    },
+    {
+        "id": "dim_channel_type", "term": "Channel Type",
+        "definition": "The category of sales or distribution channel (e.g. Direct, Distributor).",
+        "domain": "Channel", "tags": ["dimension", "channel"],
+        "technical_mappings": {"bigquery": "channel_type"},
+    },
+    {
+        "id": "dim_account_name", "term": "Account Name",
+        "definition": "The specific general ledger account name.",
+        "domain": "Finance", "tags": ["dimension", "account"],
+        "technical_mappings": {"bigquery": "account_name"},
+    },
+    {
+        "id": "dim_account_type", "term": "Account Type",
+        "definition": "The general ledger account type (e.g. Revenue, Expense, Cost of Sales).",
+        "domain": "Finance", "tags": ["dimension", "account"],
+        "technical_mappings": {"bigquery": "account_type"},
+    },
+    {
+        "id": "dim_account_category", "term": "Account Category",
+        "definition": "The category a general ledger account rolls up to within its account type.",
+        "domain": "Finance", "tags": ["dimension", "account"],
+        "technical_mappings": {"bigquery": "account_category"},
+    },
+    {
+        "id": "dim_account_group", "term": "Account Group",
+        "definition": "The broadest general ledger account grouping.",
+        "domain": "Finance", "tags": ["dimension", "account"],
+        "technical_mappings": {"bigquery": "account_group"},
+    },
+]
 
 # ---------------------------------------------------------------------------
 # Phase 11A: KPI Accountability assignments

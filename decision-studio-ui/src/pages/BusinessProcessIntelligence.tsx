@@ -32,7 +32,7 @@ type FlowState = 'input' | 'researching' | 'review' | 'committed' | 'error'
 function SourceBadge({ source }: { source: BusinessProcessSource }) {
   if (source === 'canonical') {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs border bg-emerald-950/60 text-emerald-300 border-emerald-700/50">
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs border bg-severity-opportunity/60 text-severity-opportunity border-severity-opportunity/50">
         <Library className="w-3 h-3" />
         Standard taxonomy
       </span>
@@ -204,9 +204,9 @@ export function BusinessProcessIntelligence({
 
       <main className="space-y-6">
         {!clientId && (
-          <div className="bg-amber-950/30 border border-amber-700/50 rounded-xl p-6 flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
-            <p className="text-sm text-amber-200">
+          <div className="bg-severity-warning/30 border border-severity-warning/50 rounded-xl p-6 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-severity-warning flex-shrink-0" />
+            <p className="text-sm text-severity-warning">
               {adminMode
                 ? 'Select or create a client workspace in Settings before selecting business processes.'
                 : 'Select a workspace client before selecting business processes.'}
@@ -226,9 +226,9 @@ export function BusinessProcessIntelligence({
             </div>
 
             {profileLoaded && profileIndustry && (
-              <div className="px-4 py-3 rounded-lg bg-emerald-950/30 border border-emerald-700/50 flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <p className="text-sm text-emerald-200">
+              <div className="px-4 py-3 rounded-lg bg-severity-opportunity/30 border border-severity-opportunity/50 flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-severity-opportunity flex-shrink-0" />
+                <p className="text-sm text-severity-opportunity">
                   Using industry from company profile: <span className="font-semibold">{profileIndustry}</span>
                 </p>
               </div>
@@ -236,12 +236,12 @@ export function BusinessProcessIntelligence({
 
             {profileLoaded && !profileIndustry && (
               <div className="space-y-3">
-                <div className="px-4 py-3 rounded-lg bg-amber-950/30 border border-amber-700/50 flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-amber-200">
+                <div className="px-4 py-3 rounded-lg bg-severity-warning/30 border border-severity-warning/50 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-severity-warning flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-severity-warning">
                     No company profile found for this client. Selection will use a generic cross-industry
                     subset unless you provide an industry below — or{' '}
-                    <Link to="/settings/onboarding/day-1" className="underline hover:text-amber-100">
+                    <Link to="/settings/onboarding/day-1" className="underline hover:text-severity-warning">
                       set up the company profile first
                     </Link>.
                   </p>
@@ -313,11 +313,11 @@ export function BusinessProcessIntelligence({
               </div>
 
               {profile.degraded && (
-                <div className="mt-4 px-4 py-3 rounded-lg bg-amber-950/30 border border-amber-700/50 flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="mt-4 px-4 py-3 rounded-lg bg-severity-warning/30 border border-severity-warning/50 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-severity-warning flex-shrink-0 mt-0.5" />
                   <div className="text-sm">
-                    <p className="text-amber-200 font-medium">No industry context available</p>
-                    <p className="text-amber-300/80 mt-0.5">
+                    <p className="text-severity-warning font-medium">No industry context available</p>
+                    <p className="text-severity-warning/80 mt-0.5">
                       Selection used a generic cross-industry subset of the standard taxonomy. Set up the
                       company profile for a more targeted selection.
                     </p>
@@ -374,9 +374,9 @@ export function BusinessProcessIntelligence({
             </div>
 
             {errorMsg && (
-              <div className="bg-red-950/30 border border-red-700/50 rounded-xl p-4 flex items-start gap-3">
-                <XCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-300">{errorMsg}</p>
+              <div className="bg-severity-critical/30 border border-severity-critical/50 rounded-xl p-4 flex items-start gap-3">
+                <XCircle className="w-4 h-4 text-severity-critical flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-severity-critical">{errorMsg}</p>
               </div>
             )}
 
@@ -390,7 +390,7 @@ export function BusinessProcessIntelligence({
               <button
                 onClick={handleCommit}
                 disabled={accepted.size === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-sm font-semibold"
+ className="hover:brightness-110 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-severity-opportunity disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-sm font-semibold"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Commit {accepted.size} process{accepted.size === 1 ? '' : 'es'} to registry
@@ -403,7 +403,7 @@ export function BusinessProcessIntelligence({
         {state === 'committed' && commitResult && (
           <div className="bg-card border border-border rounded-xl p-8 space-y-6">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+              <CheckCircle2 className="w-8 h-8 text-severity-opportunity" />
               <div>
                 <h2 className="text-xl font-semibold text-white">Business processes committed</h2>
                 <p className="text-sm text-slate-400">
@@ -413,24 +413,24 @@ export function BusinessProcessIntelligence({
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              <div className="rounded-lg bg-emerald-950/30 border border-emerald-700/50 px-4 py-3">
-                <p className="text-xs text-emerald-300 uppercase tracking-wider">Written</p>
-                <p className="text-2xl font-bold text-emerald-200">{commitResult.rows_written}</p>
+              <div className="rounded-lg bg-severity-opportunity/30 border border-severity-opportunity/50 px-4 py-3">
+                <p className="text-xs text-severity-opportunity uppercase tracking-wider">Written</p>
+                <p className="text-2xl font-bold text-severity-opportunity">{commitResult.rows_written}</p>
               </div>
               <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 px-4 py-3">
                 <p className="text-xs text-slate-400 uppercase tracking-wider">Skipped (duplicate)</p>
                 <p className="text-2xl font-bold text-slate-300">{commitResult.rows_skipped}</p>
               </div>
-              <div className="rounded-lg bg-red-950/30 border border-red-700/50 px-4 py-3">
-                <p className="text-xs text-red-300 uppercase tracking-wider">Failed</p>
-                <p className="text-2xl font-bold text-red-200">{commitResult.rows_failed}</p>
+              <div className="rounded-lg bg-severity-critical/30 border border-severity-critical/50 px-4 py-3">
+                <p className="text-xs text-severity-critical uppercase tracking-wider">Failed</p>
+                <p className="text-2xl font-bold text-severity-critical">{commitResult.rows_failed}</p>
               </div>
             </div>
 
             {commitResult.rows_failed > 0 && (
-              <div className="rounded-lg bg-red-950/30 border border-red-700/50 px-4 py-3">
-                <p className="text-sm font-medium text-red-300 mb-2">Errors:</p>
-                <ul className="text-xs text-red-200 space-y-1">
+              <div className="rounded-lg bg-severity-critical/30 border border-severity-critical/50 px-4 py-3">
+                <p className="text-sm font-medium text-severity-critical mb-2">Errors:</p>
+                <ul className="text-xs text-severity-critical space-y-1">
                   {commitResult.results
                     .filter((r) => r.status === 'error')
                     .map((r) => (
@@ -480,12 +480,12 @@ export function BusinessProcessIntelligence({
 
         {/* Error fallback */}
         {state === 'error' && (
-          <div className="bg-red-950/30 border border-red-700/50 rounded-xl p-6 space-y-4">
+          <div className="bg-severity-critical/30 border border-severity-critical/50 rounded-xl p-6 space-y-4">
             <div className="flex items-center gap-3">
-              <XCircle className="w-6 h-6 text-red-400" />
+              <XCircle className="w-6 h-6 text-severity-critical" />
               <h2 className="text-lg font-semibold text-white">Selection failed</h2>
             </div>
-            <p className="text-sm text-red-200">{errorMsg}</p>
+            <p className="text-sm text-severity-critical">{errorMsg}</p>
             <button
               onClick={handleReset}
               className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm"

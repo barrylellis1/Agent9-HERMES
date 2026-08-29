@@ -1,6 +1,7 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MessageSquare } from 'lucide-react';
 import { Situation } from '../../api/types';
+import { getTriggeringComparison } from '../../utils/triggeringComparison';
 
 interface KPITileProps {
   situation: Situation;
@@ -31,8 +32,13 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
 
   const monthlyValues  = situation.kpi_value?.monthly_values ?? [];
   const comparisonType = situation.kpi_value?.comparison_type;
-  const percentChange  = situation.kpi_value?.percent_change;
   const inverseLogic   = situation.kpi_value?.inverse_logic ?? false;
+
+  // Show the number that actually fired the alert, not just always the YoY
+  // comparison — e.g. a plan_variance situation's severity comes from a
+  // budget variance the YoY figure never reflects. See triggeringComparison.ts.
+  const triggeringComparison = getTriggeringComparison(situation);
+  const percentChange = triggeringComparison?.value ?? situation.kpi_value?.percent_change;
 
   // ── Trend direction — computed early so it drives label colour (#5) ──
   const isGoodTrend = isOpportunity
@@ -41,11 +47,35 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
       ? (percentChange ?? 0) <= 0
       : (percentChange ?? 0) >= 0;
 
+  // Whether the chart's OWN plotted series (not the unrelated top-line
+  // comparison) is actually trending in a good direction. Found live
+  // 2026-08-24: 7 of 12 real situations had a monthly series in genuine
+  // decline (e.g. "grew 3.5% YoY but declined 7.4% over the last three
+  // months") while isGoodTrend — computed purely from the YoY percentChange
+  // sign — called that a good trend, so the chart rendered green over data
+  // that was visibly falling left to right. A chart's colour must agree with
+  // what it draws. Null (not a boolean) when there's no real series to read;
+  // since the synthetic fallback series was removed no chart renders in that
+  // case at all, so the isGoodTrend fallback below now only colours the
+  // non-chart elements.
+  const recentTrendIsGood = (() => {
+    if (isOpportunity) return true;
+    if (monthlyValues.length < 2) return null;
+    const first = monthlyValues[0].value;
+    const last = monthlyValues[monthlyValues.length - 1].value;
+    const rising = last > first;
+    return inverseLogic ? !rising : rising;
+  })();
+  const chartTrendIsGood = recentTrendIsGood ?? isGoodTrend;
+
   // #4: Border-left is the primary severity signal — badge label is muted.
   // #5: For benign medium/low findings that are trending correctly, use healthy (green) not amber.
+  // Uses chartTrendIsGood (the real recent series), not isGoodTrend (YoY) —
+  // "trending correctly" should mean the actual recent trend, not a
+  // longer-window comparison the chart itself doesn't show.
   const badgeLabelColor = (() => {
     if (isOpportunity) return 'text-severity-opportunity';
-    if (isGoodTrend && (situation.severity === 'medium' || situation.severity === 'low')) {
+    if (chartTrendIsGood && (situation.severity === 'medium' || situation.severity === 'low')) {
       return 'text-severity-healthy';
     }
     return 'text-slate-500';
@@ -82,6 +112,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
 
   // #7: Temporal grounding — enrich generic comparison type labels with year context
   const comparisonLabel = (() => {
+    if (triggeringComparison) return triggeringComparison.label;
     if (!comparisonType) return null;
     const year = new Date().getFullYear();
     const lower = comparisonType.toLowerCase();
@@ -106,7 +137,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
 
   // ── Sparkline: taller with always-visible mean baseline ──
 
-  const lineColor = isOpportunity ? '#34d399' : (isGoodTrend ? '#34d399' : '#f87171');
+  const lineColor = isOpportunity ? '#34d399' : (chartTrendIsGood ? '#34d399' : '#f87171');
 
   const VB_W     = 200;
   const VB_H     = 80;
@@ -115,22 +146,22 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
   const PLOT_H   = PLOT_BOT - PLOT_TOP;
 
   const sparkline = (() => {
-    const vals = monthlyValues.length > 0
-      ? monthlyValues.map(m => m.value)
-      : (() => {
-          if (percentChange == null) return null;
-          const pct = Math.min(Math.abs(percentChange), 80) / 100;
-          const base = 100;
-          const pts: number[] = [];
-          const trendUp = (percentChange ?? 0) >= 0;
-          for (let i = 0; i < 9; i++) {
-            const t = i / 8;
-            const ease = t * t;
-            const drift = trendUp ? base * (1 + ease * pct) : base * (1 - ease * pct);
-            pts.push(drift);
-          }
-          return pts;
-        })();
+    // Real measured points only. No series, no chart.
+    //
+    // This used to synthesise a 9-point quadratic from the single
+    // `percent_change` scalar whenever `monthly_values` was absent, and render
+    // it identically to measured data — same stroke, same fill, same dashed
+    // "mean baseline", except the mean was computed from the invented numbers.
+    // Nothing on screen distinguished it, so it was undetectable by looking.
+    //
+    // `ui_brand_guidelines.md` §3 is "The Chart is the Receipt": the chart's
+    // only job is to prove the analysis did the arithmetic. A curve drawn from
+    // a shape function is not a receipt, and an unfalsifiable chart on a
+    // surface whose whole pitch is provable numbers costs more than a blank
+    // space does. Logged as §8.5 in ui_refinement_plan.md ("latent, not
+    // currently firing" — 0 of 15 live tiles were synthetic), never assigned a
+    // tier, removed 2026-08-27. Do not reintroduce a fallback series here.
+    const vals = monthlyValues.length > 1 ? monthlyValues.map(m => m.value) : null;
 
     if (!vals || vals.length < 2) return null;
 
@@ -222,7 +253,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
           {situation.compound_alert && (
             <span
               data-testid="compound-alert-badge"
-              className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/50"
+              className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-severity-warning/80 text-severity-warning border border-severity-warning/50"
             >
               Compound
             </span>
@@ -259,7 +290,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
       {/* ── Lead finding + sparkline (always together at bottom) ── */}
       <div className="mt-auto">
         {situation.trend_note ? (
-          <p className="text-[11px] text-amber-400/80 leading-snug px-0 pb-2 line-clamp-2">
+          <p className="text-[11px] text-severity-warning/80 leading-snug px-0 pb-2 line-clamp-2">
             {situation.trend_note}
           </p>
         ) : situation.key_observations && situation.key_observations.length > 0 ? (
@@ -274,13 +305,25 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
         )}
       </div>
 
-      {/* ── Hover action overlay ── */}
+      {/* ── Action affordance ──
+          The label is ALWAYS visible. Hover-gating it (opacity-0 until
+          group-hover) meant the tile's primary action was invisible on every
+          card in a grid of 15, and unreachable entirely on touch. The gradient
+          scrim stays hover-only — that is decoration; the label is the
+          affordance. Found live, Aug 2026. */}
       <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none flex items-end justify-end p-4"
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none"
         style={{ background: 'linear-gradient(to top, rgba(15,23,42,0.85) 0%, transparent 60%)' }}
-      >
-        <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-indigo-400">
-          Analyze <ArrowRight className="w-3 h-3" />
+      />
+      <div className="absolute inset-x-0 bottom-0 pointer-events-none flex items-end justify-end p-4">
+        {/* G: the click here already leads to an AI conversation, not just
+            deeper charts — DA runs, then DeepFocusView auto-launches
+            refinement chat once it completes (non-mixed modes). Nothing
+            on this tile signalled that; "Analyze" alone reads as "more
+            analysis," not "a conversation." One icon, no new click target,
+            no change to what the click already does. */}
+        <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-indigo-400/70 group-hover:text-indigo-400 transition-colors duration-150">
+          <MessageSquare className="w-3 h-3" /> Analyze <ArrowRight className="w-3 h-3" />
         </span>
       </div>
     </button>

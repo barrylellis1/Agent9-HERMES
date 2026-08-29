@@ -894,3 +894,33 @@ alternatives; `gross_margin_pct`'s is unaffected. 1 new test
 (`test_hop_one_excluded_when_neighbour_is_confirmed_effect`, both directions of the real case);
 `test_hop_two_excluded_when_second_edge_walked_backward` reworked onto a scenario this refinement
 doesn't also touch, so it still isolates what it was written to test.
+
+## Polarity-unaware "over/under-performing" wording; governed dimension labels (Aug 2026)
+
+**Defect 1 — SCQA narrative read backwards for inverse-logic KPIs.** `direction` in
+`_generate_scqa_summary`/`_build_situation_complication_facts` is a purely NUMERIC over/under-the-
+comparator fact (correctly computed for every `inv`/`analysis_mode` combination), but rendering it
+as "is over-performing"/"is under-performing" is a value judgment in English regardless of what
+it's applied to. Found live: "Raw Materials Cost is **over-performing** vs. yoy" for a cost up
+22.3%, flagged CRITICAL on the same screen — the exact opposite of what a reader takes "over-
+performing" to mean. Same bug runs the other way in opportunity mode for an inverse KPI (direction
+computes "under" alongside this function's own "The outperformance is concentrated in..." wording —
+literally "under-performing... outperformance" in two consecutive clauses). Fixed in both duplicate
+code paths (`_build_situation_complication_facts` and `_generate_scqa_summary`'s `_fallback()`, per
+this card's own "deliberately duplicates" design note) plus the LLM prompt itself, so the primary
+(non-fallback) path doesn't independently generate the same error. `movement_verb` ("risen"/
+"fallen") states the numeric fact plainly; severity/badges elsewhere already carry good-vs-bad.
+Tests: `TestDAPolarityAwareMovementWording` in `test_da_sf_va_opportunity_mode.py` (2 new,
+reproducing the exact live case in both modes), 1 existing test's assertion corrected to the fixed
+wording.
+
+**Defect 2 — raw dimension identifiers in the Variance Breakdown.** `_dims_from_contract()` returns
+raw `dimension_semantics` strings (`customer_region`, `product_category`) with no display label of
+their own. Added a governed resolution step: once per distinct dimension in `plan.dimensions`
+(never per-segment — `_format_where_entry` is a plain sync helper, an async DGA call per call site
+would need scattering `await` through dozens of invocations), calls
+`A9_Data_Governance_Agent.resolve_dimension_label()` and caches the result. Each `where_is`/
+`where_is_not` entry now carries `dimension_label` when the glossary has a real entry — absent, not
+a mechanical guess, when it doesn't. See `A9_Data_Governance_Agent_card.md`'s matching entry for the
+provider-side reverse lookup and the seed data. Verified live: 10/10 dimension labels resolved
+correctly.

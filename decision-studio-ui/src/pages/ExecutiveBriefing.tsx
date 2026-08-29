@@ -1,23 +1,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import html2pdf from 'html2pdf.js'
 import {
-  ArrowLeft, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
-  Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2,
+  ArrowLeft, ArrowRight, Download, Printer, AlertTriangle, ChevronRight,
+  Target, Zap, TrendingUp, ShieldCheck, Loader2, CheckCircle2,
   ChevronDown, Send, MessageSquare, FileText
 } from 'lucide-react'
-import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution } from '../api/client'
-import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
-import { projectKpiTrend, condenseTimeToValue, truncateProse, endsSentence, axisDiscrimination } from '../utils/briefingUtils'
+import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution, listPrincipals } from '../api/client'
+import { projectKpiTrend, truncateProse, endsSentence, axisDiscrimination } from '../utils/briefingUtils'
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
 import { AttributionBreakdown } from '../components/AttributionBreakdown'
 import { BrandLogo } from '../components/BrandLogo'
 import { DecisionAskBlock } from '../components/briefing/DecisionAskBlock'
 import { ImmediateActionsChecklist } from '../components/briefing/ImmediateActionsChecklist'
-import { AssumptionsPanel } from '../components/briefing/AssumptionsPanel'
 import { OptionDetailDrawer } from '../components/briefing/OptionDetailDrawer'
-import { personaDisplayLabel, councilCompositionLabel } from '../utils/personaLabels'
+import { DecisionMasthead } from '../components/briefing/DecisionMasthead'
+import { RelatedOptionsFork } from '../components/briefing/RelatedOptionsFork'
+import { ContradictionBanner } from '../components/briefing/ContradictionBanner'
+import { WhyNowBand } from '../components/briefing/WhyNowBand'
+import { CompactOptionRow } from '../components/briefing/CompactOptionRow'
+import { VerificationLedger } from '../components/briefing/VerificationLedger'
+import { councilCompositionLabel } from '../utils/personaLabels'
 import type { AcceptedSolution as VASolution } from '../types/valueAssurance'
 
 // ─────────────────────────────────────────────────
@@ -48,20 +52,37 @@ function AccordionSection({
   openSections: Set<string>; onToggle: (id: string) => void; children: React.ReactNode;
 }) {
   const isOpen = openSections.has(id)
+  const panelId = `accordion-panel-${id}`
+  const headerId = `accordion-header-${id}`
+  /* The standard disclosure pattern: a heading whose only child is the toggle
+     button. Ten sections inherit this, and until 2026-08-27 none of them
+     announced anything — no aria-expanded, no aria-controls, and the title was
+     a <span>, so a screen-reader user toggling a section got no confirmation
+     that anything happened and the page exposed no outline to navigate by. */
   return (
-    <div className="mb-3 rounded-xl overflow-hidden border border-slate-800 print:border-0 print:mb-8">
-      <button
-        onClick={() => onToggle(id)}
-        className="w-full flex items-center justify-between px-5 py-3 bg-slate-900 text-white hover:bg-slate-800 transition-colors border-b border-slate-800 print:hidden"
+    <div id={`accordion-${id}`} className="mb-3 rounded-xl overflow-hidden border border-slate-800 print:border-0 print:mb-8">
+      <h2 className="print:hidden">
+        <button
+          id={headerId}
+          onClick={() => onToggle(id)}
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          className="w-full flex items-center justify-between px-5 py-3 bg-slate-900 text-white hover:bg-slate-800 transition-colors border-b border-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-inset"
+        >
+          <span className="flex items-center gap-2">
+            {icon}
+            <span className="font-semibold text-sm">{title}</span>
+            {badge && <span className="px-2 py-0.5 text-[10px] bg-indigo-600 text-white rounded-full">{badge}</span>}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+      </h2>
+      <div
+        id={panelId}
+        role="region"
+        aria-labelledby={headerId}
+        className={`accordion-content ${isOpen ? 'block' : 'hidden'} print:block bg-slate-950 print:bg-white`}
       >
-        <div className="flex items-center gap-2">
-          {icon}
-          <span className="font-semibold text-sm">{title}</span>
-          {badge && <span className="px-2 py-0.5 text-[10px] bg-indigo-600 text-white rounded-full">{badge}</span>}
-        </div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      <div className={`accordion-content ${isOpen ? 'block' : 'hidden'} print:block bg-slate-950 print:bg-white`}>
         {children}
       </div>
     </div>
@@ -74,16 +95,17 @@ function AccordionSection({
 const TIER_BADGE_COLORS: Record<number, string> = {
   1: 'bg-slate-800 text-slate-400',
   2: 'bg-slate-800 text-slate-400',
-  3: 'bg-slate-800 text-amber-600',
-  4: 'bg-slate-800 text-red-500',
+  3: 'bg-slate-800 text-severity-warning',
+  4: 'bg-slate-800 text-severity-critical',
 }
 
 function DecisionChat({
   data, situationId, principalId,
-  approveState, onApprove,
+  approveState, approveError, onApprove,
 }: {
   data: any; situationId: string | undefined; principalId: string;
   approveState: 'idle' | 'approving' | 'approved' | 'error';
+  approveError: string | null;
   onApprove: (optionId: string) => void;
 }) {
   const [messages, setMessages] = useState<Array<{ role: string; content: string; qa?: BriefingQAResponse }>>([])
@@ -95,8 +117,33 @@ function DecisionChat({
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Two-step commit. Before this, "Approve & Track" committed on ONE click
+  // from a panel that showed only a letter, a REC chip, a TRUNCATED title,
+  // and ROI — no scope, no owner, no deadline, and no warning when the
+  // selected option was itself flagged dominated_by another one. An
+  // executive could approve a strictly dominated option in one click, from a
+  // screen that gave them nothing to warn against it. Step one shows what is
+  // actually being committed to, in full; step two commits.
+  const [confirming, setConfirming] = useState(false)
+  const [dominanceAck, setDominanceAck] = useState(false)
+
+  // Two guards, both needed once the workspace stacks BELOW the briefing on
+  // narrow screens instead of sitting in its own independently-scrolling rail.
+  //
+  //  - Empty check: this used to fire on first render with no conversation to
+  //    scroll to. Inside the old 320px rail that was a harmless no-op; with the
+  //    document itself scrolling on mobile it dragged the reader to y=8504 of
+  //    9786, so the briefing opened on its own footer. Caught by rendering at
+  //    390px — no type or lint check sees this.
+  //    Guard on the message count, NOT a didMount ref: StrictMode runs effects
+  //    twice against the same refs in dev, so a mount flag is already spent by
+  //    the second pass and the scroll fires anyway.
+  //  - `block: 'nearest'`: scrolls the chat's own container only, and does
+  //    nothing when the anchor is already visible, so answering a question
+  //    never jerks the whole page.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length === 0) return
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [messages])
 
   const sendQuestion = async (question: string) => {
@@ -145,7 +192,7 @@ function DecisionChat({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3" aria-live="polite" aria-atomic="false">
         {messages.length === 0 && (
           <div className="space-y-2 pt-2">
             <p className="text-xs text-slate-400 text-center mb-3">Ask a question about this briefing</p>
@@ -185,8 +232,9 @@ function DecisionChat({
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-slate-800 rounded-lg px-3 py-2">
-              <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+            <div className="bg-slate-800 rounded-lg px-3 py-2" role="status">
+              <Loader2 className="w-4 h-4 animate-spin text-indigo-400" aria-hidden="true" />
+              <span className="sr-only">Answering your question…</span>
             </div>
           </div>
         )}
@@ -203,21 +251,28 @@ function DecisionChat({
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about this briefing..."
+              aria-label="Ask a question about this briefing"
               disabled={loading}
               className="flex-1 px-3 py-1.5 text-xs bg-slate-800 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-slate-500 disabled:opacity-50"
             />
             <button
               onClick={() => sendQuestion(input)}
               disabled={!input.trim() || loading}
+              aria-label="Send question"
               className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>
 
-        {/* Initiative selection */}
-        {data?.options && data.options.length > 0 && approveState !== 'approved' && (
+        {/* Initiative selection — hidden during the confirm step, not merely
+            disabled underneath it. "One thing at a time" (cognitive-load
+            checklist): while confirming, the radio list and the confirm card
+            are two live decision points on screen at once, which is exactly
+            the failure the checklist flags. A compact "Change" link inside
+            the confirm card is the way back. */}
+        {data?.options && data.options.length > 0 && approveState !== 'approved' && !confirming && (
           <div className="px-3 py-2 border-b border-slate-700">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Select Initiative</p>
             <div className="space-y-1.5">
@@ -237,10 +292,11 @@ function DecisionChat({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] font-bold text-slate-400">{label}</span>
-                        {opt.recommended && <span className="text-[9px] bg-emerald-700 text-emerald-100 px-1 rounded">REC</span>}
+                        {opt.recommended && <span className="text-[9px] bg-severity-opportunity/20 text-severity-opportunity px-1 rounded">REC</span>}
+                        {opt.dominated_by && <span className="text-[9px] bg-severity-warning/20 text-severity-warning px-1 rounded">DOMINATED</span>}
                       </div>
                       <p className="text-xs text-slate-200 leading-snug truncate">{opt.title}</p>
-                      {opt.roi && <p className="text-[10px] text-emerald-400">{formatROI(opt.roi)}</p>}
+                      {opt.roi && <p className="text-[10px] text-severity-opportunity">{formatROI(opt.roi)}</p>}
                     </div>
                   </label>
                 )
@@ -249,14 +305,102 @@ function DecisionChat({
           </div>
         )}
 
+        {/* Confirm step. Everything the radio list left out, made visible
+            before the commit rather than only in the table/card the reader
+            may already have scrolled past: the full title, scope, the
+            dominance flag with a required acknowledgement, and who/when this
+            commits to. */}
+        {confirming && approveState !== 'approved' && (() => {
+          const selected = data?.options?.find((o: any) => (o.id || '') === selectedOption)
+          if (!selected) return null
+          const dominatorIdx = selected.dominated_by
+            ? data.options.findIndex((o: any) => o.id === selected.dominated_by)
+            : -1
+          const owner = data?.decision_ask?.decision_owner?.trim() || data?.recommendation?.decisionOwner || null
+          const deadline = data?.decision_ask?.deadline?.trim() || data?.recommendation?.deadline || null
+          const isDominated = dominatorIdx >= 0
+          return (
+            <div className="px-3 py-2 border-b border-slate-700 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Confirm approval</p>
+                <button
+                  type="button"
+                  onClick={() => { setConfirming(false); setDominanceAck(false) }}
+                  className="text-[10px] text-indigo-300 hover:brightness-125 underline"
+                >
+                  Change
+                </button>
+              </div>
+
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-2.5">
+                {/* I: unbounded before — a real title runs 80-100+ chars
+                    ("Rapid Volume/Price/Mix Diagnostic and Win-Back in
+                    Coolants & Antifreeze and International Franchise
+                    Network") and would overflow this card with nothing to
+                    stop it. Wording untouched — this bounds the container,
+                    it doesn't rewrite what the model said. */}
+                <p className="text-xs font-semibold text-slate-100 leading-snug line-clamp-2">{selected.title}</p>
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  {selected.roi && <span className="text-[10px] text-severity-opportunity">{formatROI(selected.roi)}</span>}
+                  {selected.scopeQualifier?.scope === 'enterprise' ? (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-slate-700/60 text-slate-300">Enterprise</span>
+                  ) : selected.scopeQualifier?.scope === 'segment' ? (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-900/40 text-indigo-300">
+                      Segment{selected.scopeQualifier.label ? `: ${selected.scopeQualifier.label}` : ''}
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-severity-warning/20 text-severity-warning/90">Scope unverified</span>
+                  )}
+                </div>
+              </div>
+
+              {(owner || deadline) && (
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  {owner && <span>Owner: <span className="text-slate-300">{owner}</span></span>}
+                  {deadline && <span>By: <span className="text-slate-300">{deadline}</span></span>}
+                </div>
+              )}
+
+              {data?.blind_spots?.length > 0 && (
+                <p className="text-[10px] text-slate-400">
+                  {data.blind_spots.length} consideration{data.blind_spots.length === 1 ? '' : 's'} noted in the full analysis — not blocking, worth a read first.
+                </p>
+              )}
+
+              {isDominated && (
+                <div className="flex items-start gap-2 px-2.5 py-2 bg-severity-warning/20 border border-severity-warning/40 rounded-lg">
+                  <AlertTriangle className="w-3.5 h-3.5 text-severity-warning flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-severity-warning leading-snug">
+                      This option is dominated by Option {String.fromCharCode(65 + dominatorIdx)} — it matches or
+                      underperforms it on modelled impact, cost, and risk.
+                    </p>
+                    <label className="flex items-start gap-1.5 mt-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={dominanceAck}
+                        onChange={e => setDominanceAck(e.target.checked)}
+                        className="mt-0.5 accent-severity-warning"
+                      />
+                      <span className="text-[10px] text-severity-warning/90 leading-snug">
+                        I understand this option is dominated and want to proceed anyway.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         {/* Approve button */}
-        <div className="px-3 py-2">
+        <div className="px-3 py-2 space-y-1.5">
           {approveState === 'approved' ? (
-            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-900/40 border border-emerald-700 rounded-lg">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <div className="flex items-center gap-2 px-3 py-2 bg-severity-opportunity/40 border border-severity-opportunity rounded-lg">
+              <CheckCircle2 className="w-4 h-4 text-severity-opportunity flex-shrink-0" />
               <div>
-                <p className="text-xs font-semibold text-emerald-300">Decision Approved</p>
-                <p className="text-[10px] text-emerald-500">Value Assurance tracking initiated</p>
+                <p className="text-xs font-semibold text-severity-opportunity">Decision Approved</p>
+                <p className="text-[10px] text-severity-opportunity">Value Assurance tracking initiated</p>
               </div>
             </div>
           ) : data?.analysis_degraded ? (
@@ -265,33 +409,63 @@ function DecisionChat({
             // scrolled past while the button beneath it still works is not a
             // guard — this is the discoverable half, handleApprove's own check
             // is the one that cannot be bypassed.
-            <div className="flex items-start gap-2 px-3 py-2 bg-red-950/40 border border-red-700/60 rounded-lg">
-              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-[10px] text-red-300 leading-snug">
+            <div className="flex items-start gap-2 px-3 py-2 bg-severity-critical/40 border border-severity-critical/60 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-severity-critical flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] text-severity-critical leading-snug">
                 Approval is disabled — these options were not produced by the analysis.
                 Re-run once the underlying problem is resolved.
               </p>
             </div>
           ) : (
-            <button
-              onClick={() => onApprove(selectedOption)}
-              disabled={approveState === 'approving' || !selectedOption}
-              className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              {approveState === 'approving' ? (
-                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Registering...</>
-              ) : approveState === 'error' ? (
-                <><AlertTriangle className="w-3.5 h-3.5" /> Retry Approval</>
-              ) : (
-                <><ShieldCheck className="w-3.5 h-3.5" /> Approve &amp; Track</>
+            <>
+              <button
+                onClick={() => {
+                  // Step one commits nothing — it only reveals the confirm
+                  // card above. Step two (below) is the one that calls
+                  // onApprove. A dominated selection additionally requires the
+                  // acknowledgement checkbox before step two is enabled.
+                  if (!confirming) { setConfirming(true); return }
+                  onApprove(selectedOption)
+                }}
+                disabled={
+                  approveState === 'approving' ||
+                  !selectedOption ||
+                  (confirming && data?.options?.find((o: any) => (o.id || '') === selectedOption)?.dominated_by && !dominanceAck)
+                }
+                aria-live="polite"
+                className="hover:brightness-110 w-full py-2 bg-severity-opportunity disabled:opacity-50 disabled:hover:brightness-100 text-white text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-severity-opportunity"
+              >
+                {approveState === 'approving' ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Registering...</>
+                ) : approveState === 'error' ? (
+                  <><AlertTriangle className="w-3.5 h-3.5" /> Retry Approval</>
+                ) : confirming ? (
+                  <><ShieldCheck className="w-3.5 h-3.5" /> Confirm Approval</>
+                ) : (
+                  <><ShieldCheck className="w-3.5 h-3.5" /> Approve &amp; Track</>
+                )}
+              </button>
+              {approveError && (
+                <p role="alert" className="text-[10px] text-severity-critical leading-snug">
+                  {approveError}
+                </p>
               )}
-            </button>
+            </>
           )}
         </div>
       </div>
     </div>
   )
 }
+
+// The "supporting analysis" sections that move together as one group behind
+// the single "Show/Hide the analysis" toggle.
+//
+// Was seven ids. Now three: market/stage1/crossreview/moderator moved off this
+// page entirely (see the note where they were rendered). What remains is what
+// actually bears on the DECISION — the situation, the risks, and the blind
+// spots — rather than the record of how the council argued.
+const ANALYSIS_SECTION_IDS = ['verification', 'situation', 'risks', 'blindspots']
 
 // ─────────────────────────────────────────────────
 // Main page
@@ -304,6 +478,11 @@ export function ExecutiveBriefing() {
   const [briefing, setBriefing] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [approveState, setApproveState] = useState<'idle' | 'approving' | 'approved' | 'error'>('idle')
+  // Was silently absent: approveState flipped to 'error' and the button
+  // became "Retry Approval" with NO explanation anywhere on screen — the
+  // actual diagnosis went to console.error only. Two real, distinguishable
+  // failure modes now get their own message instead of one generic retry.
+  const [approveError, setApproveError] = useState<string | null>(null)
   const [vaSolutionId, setVaSolutionId] = useState<string | null>(null)
   const [vaData, setVaData] = useState<VASolution | null>(null)
   const [showAttribution, setShowAttribution] = useState(false)
@@ -314,6 +493,14 @@ export function ExecutiveBriefing() {
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['options', 'recommendation', 'roadmap'])
   )
+  // Honours the OS "reduce motion" setting. Nothing in this codebase consulted
+  // it before 2026-08-27 — grep for prefers-reduced-motion returned zero files
+  // across the whole src tree while a drawer slid a full viewport width.
+  const reduceMotion = useReducedMotion()
+
+  // Stage 9 role-default effect lives further down, right after principalId
+  // is resolved from the briefing payload — see there.
+  const roleDefaultApplied = useRef(false)
 
   const toggleSection = (id: string) => {
     setOpenSections(prev => {
@@ -321,6 +508,37 @@ export function ExecutiveBriefing() {
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
+    })
+  }
+
+  const analysisAllOpen = ANALYSIS_SECTION_IDS.every(id => openSections.has(id))
+
+  // Open every analysis section at once. Shared by the toolbar toggle and the
+  // divider toggle, which previously carried byte-identical copies of this
+  // logic in two places.
+  const setAllAnalysisSections = (open: boolean) => {
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      ANALYSIS_SECTION_IDS.forEach(id => open ? next.add(id) : next.delete(id))
+      return next
+    })
+  }
+
+  // ContradictionBanner's "see the full analysis" link (move #1) — force-open
+  // (not toggle: clicking twice must not re-close it) then scroll, since the
+  // section's content is display:none while collapsed and a plain href anchor
+  // would scroll to an invisible target.
+  //
+  // Scrolls to #accordion-blindspots, NOT the group divider. Stage 9 retargeted
+  // this at the divider when blindspots was folded into a seven-section group,
+  // but the link's own label says "in Blind Spots & Tensions" — so the reader
+  // clicked it and landed seven sections short of the thing it named. This is
+  // the only path from the page's headline finding to its evidence; it has to
+  // land on the evidence.
+  const openBlindSpotsAndScroll = () => {
+    setAllAnalysisSections(true)
+    requestAnimationFrame(() => {
+      document.getElementById('accordion-blindspots')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
 
@@ -388,10 +606,23 @@ export function ExecutiveBriefing() {
         '[ExecutiveBriefing] Blocked approve on a degraded run — options were not produced by the analysis.',
         { degraded_reason: briefing?.degraded_reason }
       )
+      setApproveError('This run is degraded — the disabled-button banner above explains why. Re-run the analysis first.')
       return
     }
     const requestId = localStorage.getItem(`solution_request_${situationId}`)
-    if (!requestId) return
+    if (!requestId) {
+      // Was a bare `return` — a dead click with no state change and no console
+      // line, on the highest-stakes control on the page. Missing requestId
+      // means the localStorage key this page relies on to resolve back to the
+      // pending-decision record is gone (cleared storage, an old tab, a
+      // briefing reopened from a link days later) — distinct from a network
+      // failure, and worth telling the reader apart from "try again."
+      console.error('[ExecutiveBriefing] Approve blocked — no solution_request id in localStorage for', situationId)
+      setApproveError("Couldn't find this briefing's approval record — it may have been opened from an old link. Reload the briefing from Situations and try again.")
+      setApproveState('error')
+      return
+    }
+    setApproveError(null)
     setApproveState('approving')
     try {
       const result = await approveSolution(requestId, optionId)
@@ -412,6 +643,11 @@ export function ExecutiveBriefing() {
       setApproveState('approved')
     } catch (err) {
       console.error('Approve failed:', err)
+      setApproveError(
+        err instanceof Error && err.message
+          ? `Approval didn't go through: ${err.message}`
+          : "Approval didn't go through. The request may not have reached the server."
+      )
       setApproveState('error')
     }
   }, [situationId, briefing])
@@ -469,10 +705,38 @@ export function ExecutiveBriefing() {
     return () => { document.title = 'Decision Studio' }
   }, [canonicalTitle])
 
+  // Stage 9 (Decision Framer/Decision Maker split, 2026-08-26) — the single
+  // "Show the analysis" toggle (situation/market/stage1/crossreview/moderator/
+  // risks/blindspots, consolidated below) defaults OPEN for a framer, closed
+  // for a decision_maker. Applied once, the moment the role is known — a
+  // ref guard so it never fights a reader's own manual toggle afterward.
+  // This page has no other route into a Principal object (principalId is
+  // only ever a bare string here), so it fetches the list itself rather
+  // than threading a new prop through every caller.
+  useEffect(() => {
+    if (roleDefaultApplied.current || !principalId) return
+    const clientId = localStorage.getItem('a9_active_client_id') || undefined
+    listPrincipals(clientId)
+      .then((rows: any[]) => {
+        if (roleDefaultApplied.current) return
+        const match = rows.find((p) => p.id === principalId)
+        if (match?.workflow_role === 'framer') {
+          setOpenSections((prev) => {
+            const next = new Set(prev)
+            ANALYSIS_SECTION_IDS.forEach((id) => next.add(id))
+            return next
+          })
+        }
+        roleDefaultApplied.current = true
+      })
+      .catch(() => { roleDefaultApplied.current = true })
+  }, [principalId])
+
   if (loading) {
     return (
-      <div className="h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      <div className="h-screen bg-slate-950 flex items-center justify-center" role="status">
+        <Loader2 className="w-6 h-6 animate-spin text-slate-400" aria-hidden="true" />
+        <span className="sr-only">Loading briefing…</span>
       </div>
     )
   }
@@ -497,40 +761,23 @@ export function ExecutiveBriefing() {
 
   const data = briefing
 
-  // ── Council persona styling ────────────────────────────────────────────────
-  //
-  // De-branded 2026-08-16 (Phase 13 / Phase 18 reconciliation, resolved in favour
-  // of Phase 18). This block previously held full legal names — "McKinsey &
-  // Company", "Bain & Company" — each paired with an approximation of that firm's
-  // real brand colour, on the artifact an executive exports to PDF and forwards.
-  //
-  // Names now come from personaDisplayLabel(), which states the analytical
-  // tradition the persona prompt encodes rather than the firm that inspired it.
-  // The palette is assigned by POSITION, so a run keeps stable per-persona colours
-  // without any of them being a trademark approximation.
-  //
-  // Nothing about generation changes: the persona id is still the reasoning
-  // anchor inside the prompt (M3's substantive point, kept).
-  const PERSONA_PALETTE: Array<{ bar: string; border: string; badge: string; dot: string }> = [
-    { bar: 'bg-indigo-600',  border: 'border-l-indigo-600',  badge: 'bg-indigo-50 text-indigo-800',   dot: 'bg-indigo-600' },
-    { bar: 'bg-teal-600',    border: 'border-l-teal-600',    badge: 'bg-teal-50 text-teal-800',       dot: 'bg-teal-600' },
-    { bar: 'bg-amber-600',   border: 'border-l-amber-600',   badge: 'bg-amber-50 text-amber-800',     dot: 'bg-amber-600' },
-    { bar: 'bg-sky-700',     border: 'border-l-sky-700',     badge: 'bg-sky-50 text-sky-800',         dot: 'bg-sky-700' },
-    { bar: 'bg-violet-600',  border: 'border-l-violet-600',  badge: 'bg-violet-50 text-violet-800',   dot: 'bg-violet-600' },
-  ]
+  // Council persona ORDER, still needed by the audit footer's
+  // councilCompositionLabel(). The per-persona colour palette and conviction
+  // badge styles that used to sit here went with the Stage 1 / Stage 2
+  // accordions — that five-hue palette (indigo/teal/amber/sky/violet, each with
+  // a light-mode badge) was also the largest single source of non-semantic
+  // colour on a page whose brand rule is that colour is scarce.
   const personaOrder: string[] = Object.keys(data.stage_1_hypotheses || {})
-  const personaStyle = (personaId: string) => {
-    const idx = personaOrder.indexOf(personaId)
-    return PERSONA_PALETTE[(idx >= 0 ? idx : 0) % PERSONA_PALETTE.length]
-  }
-  const convictionStyle: Record<string, string> = {
-    High: 'bg-emerald-100 text-emerald-800', Medium: 'bg-amber-100 text-amber-800', Low: 'bg-slate-100 text-slate-600',
-  }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 overflow-hidden print:h-auto print:overflow-visible print:text-black print:bg-white">
+    <div className="min-h-screen lg:h-screen flex flex-col bg-slate-950 lg:overflow-hidden print:h-auto print:overflow-visible print:text-black print:bg-white">
       {/* Nav */}
-      <nav className="flex-shrink-0 bg-slate-900 border-b border-slate-800 py-3 px-6 flex justify-between items-center print:hidden z-50">
+      {/* The title span that sat in here was the ONLY place this page named
+          itself on screen — at text-sm, truncated, in the chrome. The document
+          now opens with a real <h1>, so repeating it here is duplication; it
+          stays from `lg` up purely as a scroll anchor and is dropped below that
+          where the space is needed. */}
+      <nav className="flex-shrink-0 bg-slate-900 border-b border-slate-800 py-3 px-4 sm:px-6 flex flex-wrap gap-y-2 justify-between items-center print:hidden z-50">
         <div className="flex items-center gap-4">
           <Link to="/dashboard" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-sm">
             <ArrowLeft className="w-4 h-4" />
@@ -539,22 +786,20 @@ export function ExecutiveBriefing() {
           <BrandLogo size={24} />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-white truncate max-w-xs mr-3">{canonicalTitle}</span>
+          <span className="hidden lg:block text-sm font-semibold text-white truncate max-w-xs mr-3">{canonicalTitle}</span>
           <button
-            onClick={() => {
-              // 'moderator' = Stage H verdicts; renders instead of 'crossreview'
-              // depending on which adjudication the backend ran, so both are listed.
-              const allIds = ['situation', 'market', 'stage1', 'crossreview', 'moderator', 'options', 'roadmap', 'risks', 'blindspots', 'inaction', 'recommendation']
-              const allOpen = allIds.every(id => openSections.has(id))
-              setOpenSections(allOpen ? new Set(['options', 'recommendation', 'roadmap']) : new Set(allIds))
-            }}
+            onClick={() => setAllAnalysisSections(!analysisAllOpen)}
             className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
           >
-            {['situation', 'market', 'stage1', 'crossreview', 'moderator', 'risks', 'blindspots', 'inaction'].every(id => openSections.has(id)) ? 'Collapse All' : 'Expand All'}
+            {analysisAllOpen ? 'Hide the analysis' : 'Show the analysis'}
           </button>
+          {/* Print and Export both produce a document and were competing with
+              View Report for the same intent with no hierarchy between them.
+              Export (a real file) is the one that survives at narrow widths;
+              Print stays on wider screens for hardcopy. */}
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
             title="Opens print dialog for multi-page PDF or hardcopy"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -566,7 +811,7 @@ export function ExecutiveBriefing() {
             title="Download as standalone PDF file"
           >
             <Download className="w-3.5 h-3.5" />
-            Export
+            <span className="hidden sm:inline">Export</span>
           </button>
           <button
             onClick={() => navigate(`/report/${situationId}`)}
@@ -574,15 +819,15 @@ export function ExecutiveBriefing() {
             title="Open narrative-arc white-paper report"
           >
             <FileText className="w-3.5 h-3.5" />
-            View Report
+            <span className="hidden sm:inline">View </span>Report
           </button>
         </div>
       </nav>
 
       {/* Two-panel body */}
-      <div className="flex-1 min-h-0 flex overflow-hidden print:overflow-visible print:block">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row lg:overflow-hidden print:overflow-visible print:block">
         {/* ── Left: Briefing content ── */}
-        <div className="briefing-content flex-1 overflow-y-auto bg-slate-950 p-4 print:p-0 print:bg-white print:overflow-visible">
+        <div className="briefing-content flex-1 lg:overflow-y-auto bg-slate-950 p-4 sm:p-6 print:p-0 print:bg-white print:overflow-visible">
           <div className="max-w-3xl mx-auto">
 
             {/* ── Print-only header ─────────────────────────────────────────── */}
@@ -660,14 +905,14 @@ export function ExecutiveBriefing() {
                 2026-08-09 with an exhausted API quota: state=completed, error=None,
                 two plausible options, no signal anywhere the reader could see. */}
             {(data as any).analysis_degraded && (
-              <div className="mb-6 rounded-lg border-2 border-red-500/60 bg-red-950/30 p-4 print:bg-red-50 print:border-red-400">
+              <div className="mb-6 rounded-lg border-2 border-severity-critical/60 bg-severity-critical/30 p-4 print:bg-red-50 print:border-red-400">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5 print:text-red-700" />
+                  <AlertTriangle className="w-5 h-5 text-severity-critical flex-shrink-0 mt-0.5 print:text-red-700" />
                   <div>
-                    <p className="text-sm font-bold text-red-300 mb-1 print:text-red-900">
+                    <p className="text-sm font-bold text-severity-critical mb-1 print:text-red-900">
                       These options were not produced by the analysis
                     </p>
-                    <p className="text-xs text-red-200/90 print:text-red-800">
+                    <p className="text-xs text-severity-critical/90 print:text-red-800">
                       {(data as any).degraded_reason === 'llm_unavailable'
                         ? 'The language model was unavailable for this run — an outage, a credentials problem, or an exhausted quota. No analysis took place.'
                         : 'The model responded but its output could not be read as a set of options, most often because the response was cut short.'}
@@ -681,21 +926,21 @@ export function ExecutiveBriefing() {
             )}
 
             {Array.isArray((data as any).narrative_warnings) && (data as any).narrative_warnings.length > 0 && (
-              <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-950/20 p-4 print:bg-amber-50 print:border-amber-300">
+              <div className="mb-6 rounded-lg border border-severity-warning/40 bg-severity-warning/20 p-4 print:bg-amber-50 print:border-amber-300">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5 print:text-amber-700" />
+                  <AlertTriangle className="w-4 h-4 text-severity-warning flex-shrink-0 mt-0.5 print:text-amber-700" />
                   <div>
-                    <p className="text-sm font-semibold text-amber-300 mb-1 print:text-amber-900">
+                    <p className="text-sm font-semibold text-severity-warning mb-1 print:text-amber-900">
                       Narrative figures disagree with the measured data
                     </p>
-                    <p className="text-xs text-amber-200/80 mb-2 print:text-amber-800">
+                    <p className="text-xs text-severity-warning/80 mb-2 print:text-amber-800">
                       The written summary below asserts {(data as any).narrative_warnings.length === 1 ? 'a figure that does' : 'figures that do'} not
                       match what the pipeline measured. The measured values are authoritative; treat the prose with caution.
                     </p>
                     <ul className="space-y-1">
                       {(data as any).narrative_warnings.map((w: any, i: number) => (
-                        <li key={i} className="text-xs text-amber-200/70 print:text-amber-800">
-                          <span className="font-mono text-[10px] uppercase tracking-wider text-amber-400/80 print:text-amber-700">
+                        <li key={i} className="text-xs text-severity-warning/70 print:text-amber-800">
+                          <span className="font-mono text-[10px] uppercase tracking-wider text-severity-warning/80 print:text-amber-700">
                             {String(w?.kind || 'mismatch').replace(/_/g, ' ')}
                           </span>
                           {' — '}{w?.detail}
@@ -802,120 +1047,160 @@ export function ExecutiveBriefing() {
                 Briefing and Situation & Context blocks above; rendering this as
                 well would put the same three facts on the page twice, which is
                 the duplicate-recommendation defect Cat 1 fixed once already. */}
+            {/* ── THE FOLD ──────────────────────────────────────────────────
+                Order here is load-bearing.
+
+                The pre-Stage-8 page opened: situation bullets → decision ask
+                → recommended path → owner → Cost of Inaction →
+                "Recommendation at a glance" → and only THEN the
+                contradiction, one full scroll below the fold — five
+                sequential assertions of confidence before the caveat that
+                would have changed how a reader weighed all five. That
+                critique (19/40, Aug 2026) still stands on its own terms.
+
+                Stage 8's fix was to lead with the contradiction instead —
+                literally the page's <h1>, ahead of the situation and the ask
+                themselves. 2026-08-29: reverted, on product judgment rather
+                than field data (no signal yet on how often a production run
+                actually carries an unresolved tension vs. this being an
+                artifact of happy-path testing) — leading with an open
+                question on EVERY run, including the common case where it's a
+                minor, bounded caveat, read as alarmist before a reader had
+                even been told what the situation and the ask were.
+
+                Now: situation + the ask (one card, not five separate
+                assertions) → why now → THEN the open question, as a warning,
+                immediately before the options it bears on — see
+                ContradictionBanner's own docstring. Not a full reversion to
+                the pre-Stage-8 order: there is still exactly one card before
+                the caveat, not five, and Cost of Inaction stays ahead of it
+                too — it asserts urgency about the KPI, not confidence in any
+                particular recommended path, so it isn't the kind of
+                assertion the original critique was about. */}
+            <DecisionMasthead
+              kpiName={data.kpiData?.kpi_name || canonicalTitle}
+              principalId={principalId}
+              deadline={data.recommendation?.deadline}
+            />
+
+            {/* Problem vs. opportunity framing — added 2026-08-26, found live
+                ("no problem or opportunity situational statement?"). Kept
+                OUTSIDE DecisionAskBlock rather than added as a prop to it:
+                that component's own M1 invariant comment says it "is
+                IDENTICAL for every principal" and stays untouched; this is a
+                framing label about the SITUATION, not a per-principal
+                variation of the ask. Only rendered for opportunity — a
+                problem situation is the majority case and already reads
+                correctly with no badge at all. */}
+            {data.cardType === 'opportunity' && (
+              <div className="print:hidden mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-severity-opportunity/30 border border-severity-opportunity/40 text-[11px] font-semibold uppercase tracking-wider text-severity-opportunity">
+                <TrendingUp className="w-3 h-3" /> Opportunity — upside available, not a problem to fix
+              </div>
+            )}
+
+            {/* "The ask" — trimmed to the decision statement + owner/deadline.
+                The situation bullets that used to live here moved to
+                WhyNowBand's "why now" pane below (2026-08-28 restructure) —
+                the mockup this mirrors treats "the ask" as one sentence, not
+                a sentence plus supporting bullets; the bullets belong beside
+                the cost-of-waiting number, not above it. */}
+            {/* recommendedPath/impactRange props were dropped 2026-08-28 along
+                with DecisionAskBlock's own footer grid that rendered them —
+                the recommended option's title and ROI are already stated in
+                the fork above and the option row below; see that component's
+                comment for the "stated three times" reasoning. */}
             <div className="print:hidden">
-              {(() => {
-                const recOption = data.options?.find((o: any) => o.recommended) ?? data.options?.[0]
-                // At most three, and the problem statement leads. Variance
-                // contributors carry their dimension label for the same reason
-                // the detail section does — "National Auto Parts Chain A" without
-                // it reads as a division.
-                const bullets: string[] = []
-                if (data.situation?.problem) bullets.push(String(data.situation.problem))
-                ;(data.situation?.rootCauses ?? []).slice(0, 2).forEach((c: any) => {
-                  const dim = c?.dimension ? ` (${c.dimension})` : ''
-                  const impact = c?.impact ? ` — ${c.impact}` : ''
-                  if (c?.driver) bullets.push(`${c.driver}${dim}${impact}`)
-                })
-                return (
-                  <DecisionAskBlock
-                    situationBullets={bullets.slice(0, 3)}
-                    decisionAsk={data.decision_ask ?? null}
-                    recommendedPath={recOption?.title ?? null}
-                    impactRange={recOption?.roi ?? null}
-                    fallbackOwner={data.recommendation?.decisionOwner}
-                    fallbackDeadline={data.recommendation?.deadline}
-                  />
-                )
-              })()}
+              <DecisionAskBlock
+                decisionAsk={data.decision_ask ?? null}
+                fallbackOwner={data.recommendation?.decisionOwner}
+                fallbackDeadline={data.recommendation?.deadline}
+              />
             </div>
 
-            {/* Cost of Inaction — shown pre-approval when KPI data is available */}
-            {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
+            {/* Why now + Cost of waiting, merged. Was two separate cards; the
+                mockup treats "why is this urgent" and "what does waiting
+                cost" as one question with two halves. The gate that used to
+                hide Cost of Inaction after approval is gone (see the prior
+                comment history in git — getBriefingSnapshot sets approved on
+                load, so a Portfolio replay could never show the cost of
+                waiting that drove the decision; the most persuasive artifact
+                was the one thing the record dropped). WhyNowBand renders in
+                both states. */}
+            {(() => {
+              const bullets: string[] = []
+              ;(data.situation?.rootCauses ?? []).slice(0, 2).forEach((c: any) => {
+                const dim = c?.dimension ? ` (${c.dimension})` : ''
+                const impact = c?.impact ? ` — ${c.impact}` : ''
+                if (c?.driver) bullets.push(`${c.driver}${dim}${impact}`)
+              })
               const kd = data.kpiData
-              // Projection + trend live in briefingUtils.projectKpiTrend so the
-              // number an executive reads first is unit-testable rather than
-              // buried in JSX. Two sign traps are handled there — see its
-              // docstring; both were live in a real briefing.
-              const { projected30d, projected90d, trend: trendDir } =
-                projectKpiTrend(kd.current_value, kd.percent_change, kd.comparison_value)
-              const confidenceLevelMap: Record<string, 'HIGH' | 'MODERATE' | 'LOW'> = {
-                'Low': 'LOW', 'Medium': 'MODERATE', 'High': 'HIGH', 'Very High': 'HIGH',
-              }
+              const headlineDelta = kd?.current_value != null && kd?.comparison_value != null
+                ? kd.current_value - kd.comparison_value
+                : null
+              const costOfInaction = kd?.current_value != null ? (() => {
+                const { projected30d, projected90d, trend: trendDir } =
+                  projectKpiTrend(kd.current_value, kd.percent_change, kd.comparison_value)
+                const confidenceLevelMap: Record<string, 'HIGH' | 'MODERATE' | 'LOW'> = {
+                  'Low': 'LOW', 'Medium': 'MODERATE', 'High': 'HIGH', 'Very High': 'HIGH',
+                }
+                return {
+                  kpiName: kd.kpi_name,
+                  currentValue: kd.current_value,
+                  projected30d, projected90d,
+                  trendDirection: trendDir,
+                  trendConfidence: confidenceLevelMap[data.metrics?.confidence] || 'LOW' as const,
+                  kpiUnit: kd.unit,
+                }
+              })() : null
               return (
-                <div className="mb-4">
-                  <CostOfInactionBanner
-                    kpiName={kd.kpi_name}
-                    currentValue={kd.current_value}
-                    projected30d={projected30d}
-                    projected90d={projected90d}
-                    trendDirection={trendDir}
-                    trendConfidence={confidenceLevelMap[data.metrics?.confidence] || 'LOW'}
-                    kpiUnit={kd.unit}
-                  />
-                </div>
+                <WhyNowBand
+                  problem={data.situation?.problem}
+                  bullets={bullets}
+                  headlineDelta={headlineDelta}
+                  headlineUnit={kd?.unit}
+                  isOpportunity={data.cardType === 'opportunity'}
+                  costOfInaction={costOfInaction}
+                />
               )
             })()}
 
-            {/* Hero Recommendation Card */}
-            {(() => {
-              const recOption = data.options?.find((o: any) => o.recommended) ?? data.options?.[0]
-              if (!recOption) return null
-              const roi = recOption?.roi || recOption?.expected_roi || '—'
-              const timeline = recOption?.timeline || '—'
-              const investment = recOption?.investment || recOption?.effort || 'Moderate'
-              const risk = recOption?.riskLevel || recOption?.risk || '—'
-              const riskColor = risk === 'Low' ? 'text-emerald-400' : risk === 'Medium' ? 'text-amber-400' : risk === 'High' ? 'text-red-400' : 'text-slate-300'
-              return (
-                <div className="print:hidden mb-4">
-                  {/* Kicker */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="h-px flex-1 bg-slate-700" />
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Recommendation at a glance</span>
-                    <div className="h-px flex-1 bg-slate-700" />
-                  </div>
-                  {/* Main card.
-                      The option TITLE and the owner/deadline row used to live here
-                      as well. Both now sit in the block above the Cost of Inaction
-                      banner, so this card carries only what that block does not:
-                      the four metrics and the approval state. Repeating the
-                      recommendation two panels apart is the duplicate-headline
-                      defect Cat 1 removed from the Hero Card once already. */}
-                  <div className="border border-slate-700 border-l-4 border-l-emerald-500 bg-slate-900 rounded-xl p-6">
-                    {approveState === 'approved' && (
-                      <div className="flex justify-end mb-3">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/50 border border-emerald-600 rounded-full">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-xs font-semibold text-emerald-300">Approved</span>
-                        </div>
-                      </div>
-                    )}
-                    {/* 4-metric grid */}
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="bg-slate-800/60 rounded-lg p-3">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Est. ROI</p>
-                        <p className="text-sm font-bold text-emerald-400">{formatROI(roi)}</p>
-                      </div>
-                      <div className="bg-slate-800/60 rounded-lg p-3 min-w-0">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Time to Value</p>
-                        {/* The model writes time_to_value as prose and is often expansive;
-                            condense for the tile, keep the full text on hover. */}
-                        <p className="text-sm font-bold text-amber-400 break-words" title={timeline}>
-                          {condenseTimeToValue(timeline)}
-                        </p>
-                      </div>
-                      <div className="bg-slate-800/60 rounded-lg p-3">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Investment</p>
-                        <p className="text-sm font-bold text-blue-400">{investment}</p>
-                      </div>
-                      <div className="bg-slate-800/60 rounded-lg p-3">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Risk Level</p>
-                        <p className={`text-sm font-bold ${riskColor}`}>{risk}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
+            {/* The "Recommendation at a glance" hero card stood here and was
+                DELETED in the Aug 2026 composition pass. It was the third
+                statement of one recommendation: DecisionAskBlock already gives
+                the recommended path and impact range above it, and every
+                option card below carries the same four metrics per option.
+
+                It was also the source of the page's colour problem. Its four
+                tiles rendered emerald / amber / blue / white — and "Investment"
+                was blue for no semantic reason at all, purely because it was
+                the fourth tile and the other three hues were taken. The brand
+                rule is that colour is scarce and strictly semantic; a
+                four-metric row is exactly where that rule quietly dies.
+
+                The approved badge it carried is not lost: the approval
+                confirmation card below and the workspace rail both already
+                report that state. Three simultaneous confirmations was itself
+                a finding. Do not restore this card. */}
+
+            {/* The open question, as a warning — moved here 2026-08-29 from
+                the page's <h1> (see the fold-order comment above). Sits
+                immediately before the options it bears on, paired with the
+                real affected-options fork rather than split from it. Real
+                data only in the fork — the affected options' own titles/ROI,
+                not synthesized "if it's X / if it's Y" interpretive framing;
+                see RelatedOptionsFork's own docstring for why. */}
+            {data.unresolved_tensions?.[0] && (
+              <>
+                <ContradictionBanner
+                  tension={data.unresolved_tensions[0]}
+                  onViewDetail={openBlindSpotsAndScroll}
+                />
+                <RelatedOptionsFork
+                  optionsAffected={data.unresolved_tensions[0]?.options_affected}
+                  options={data.options || []}
+                />
+              </>
+            )}
 
             {/* [D] Strategic Options */}
             <AccordionSection id="options" title="Strategic Options" openSections={openSections} onToggle={toggleSection}
@@ -929,240 +1214,148 @@ export function ExecutiveBriefing() {
                   financial impact, complexity, risk, and priority alignment
                   {data.statusQuo ? ', measured against doing nothing (Option 0)' : ''}.
                 </p>
-                {/* Comparison table */}
-                <div className="overflow-x-auto rounded-lg border border-slate-700 mb-6 print:border-slate-200">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-800 text-slate-300 font-bold uppercase print:bg-slate-100 print:text-slate-900">
-                      <tr>
-                        <th className="p-3 border-b border-slate-700 min-w-[120px] print:border-slate-200">Criteria</th>
-                        {/* Option 0 leads, on the left, because it is the reference
-                            the other columns are measured against — not a fourth
-                            candidate appended after them. */}
-                        {data.statusQuo && (
-                          <th data-testid="status-quo-column" className="p-3 border-b border-r-2 border-slate-700 border-r-slate-600 min-w-[150px] bg-slate-800/40 print:border-slate-200 print:bg-slate-50">
-                            <div className="text-[9px] text-slate-500 mb-0.5">BASELINE</div>
-                            Option 0
-                          </th>
-                        )}
-                        {data.options?.map((opt: any, i: number) => (
-                          <th key={i} className={`p-3 border-b border-slate-700 min-w-[160px] print:border-slate-200 ${opt.recommended ? 'bg-emerald-900/30 print:bg-emerald-50 print:text-emerald-800' : ''}`}>
-                            {opt.recommended && <div className="text-[9px] text-emerald-400 mb-0.5 flex items-center gap-1 print:text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
-                            Option {String.fromCharCode(65 + i)}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800 print:divide-slate-100">
+                {/* Option 0 — baseline row, every breakpoint (was `lg:hidden`,
+                    a fallback for the deleted table's leading column; now the
+                    reference row every other row is measured against, styled
+                    consistently with them rather than a special-cased mini
+                    card). Still simpler than CompactOptionRow's shape — no
+                    dominance, no scope, no narrative — so it stays its own
+                    small block rather than forcing a shared component across
+                    two genuinely different data shapes. */}
+                {data.statusQuo && (
+                  <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/40 p-4">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 print:text-slate-500">Baseline · Option 0</p>
+                    <p className="text-sm font-semibold text-white mb-2 print:text-slate-900">{data.statusQuo.title}</p>
+                    <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
                       {[
-                        { label: 'Strategy', key: 'title', cls: 'font-medium text-slate-200 print:text-slate-900' },
-                        { label: 'Est. ROI', key: 'roi', cls: 'font-bold text-emerald-400 print:text-emerald-600' },
-                        { label: 'Investment', key: 'investment', cls: 'text-slate-400 print:text-slate-600' },
-                        { label: 'Timeline', key: 'timeline', cls: 'text-slate-400 print:text-slate-600' },
-                        // Reversibility varies (high/medium/low) and was already on the
-                        // payload but absent from this table — so the exhibit showed
-                        // three criteria that separated nothing while omitting one that did.
-                        { label: 'Reversibility', key: 'reversibility', cls: 'text-slate-400 print:text-slate-600 capitalize' },
-                      ].map(({ label, key, cls }) => {
-                        // Say plainly when a criterion cannot inform the choice. Laying
-                        // out identical values as though they were a comparison is what
-                        // made this table misleading — two options carried the SAME Est.
-                        // ROI and all three the same effort and risk.
-                        const shown = (data.options ?? []).map((o: any) => key === 'roi' ? formatROI(o[key]) : o[key])
-                        // Discrimination is computed over the PROPOSED options only.
-                        // Option 0 is a reference, and its values differ from all of
-                        // them almost by construction ($0 investment, a negative
-                        // return) — folding it in would turn "all three proposals
-                        // score the same here" into a cheerful "3 of 4 distinct" and
-                        // suppress the exact finding this annotation exists to make.
-                        const disc = axisDiscrimination(shown)
-                        const sqValue = data.statusQuo ? (data.statusQuo as any)[key] : null
-                        return (
-                        <tr key={key}>
-                          <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">
-                            {label}
-                            {disc.uniform && (
-                              <div className="text-[9px] font-normal text-amber-500/90 mt-0.5 print:text-amber-700"
-                                   title="Every proposed option scores the same here, so this row cannot separate them.">
-                                same for all — does not inform the choice
-                              </div>
-                            )}
-                            {disc.partial && (
-                              <div className="text-[9px] font-normal text-slate-500 mt-0.5 print:text-slate-500"
-                                   title="Some proposed options are identical on this criterion.">
-                                {disc.distinct} of {disc.total} distinct
-                              </div>
-                            )}
-                          </td>
-                          {data.statusQuo && (
-                            <td className="p-3 border-r-2 border-slate-600 bg-slate-800/20 text-slate-400 print:bg-slate-50 print:text-slate-600">
-                              {sqValue ?? '—'}
-                            </td>
-                          )}
-                          {data.options?.map((opt: any, i: number) => (
-                            <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
-                              {shown[i] ?? '—'}
-                            </td>
-                          ))}
-                        </tr>
-                      )})}
-                      <tr>
-                        <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">Risk</td>
-                        {data.statusQuo && (
-                          <td className="p-3 border-r-2 border-slate-600 bg-slate-800/20 print:bg-slate-50">
-                            {/* Deliberately NOT badged Low/Medium/High. The status
-                                quo's risk is a trajectory, not a score on the same
-                                scale as an intervention's execution risk, and giving
-                                it a matching pill would invite a comparison that the
-                                two quantities do not support. */}
-                            <span className="text-[10px] text-slate-400 print:text-slate-600">{data.statusQuo.riskLevel}</span>
-                          </td>
-                        )}
-                        {data.options?.map((opt: any, i: number) => (
-                          <td key={i} className={`p-3 ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              opt.riskLevel === 'Low' ? 'bg-emerald-900/40 text-emerald-400 print:bg-emerald-100 print:text-emerald-700' :
-                              opt.riskLevel === 'Medium' ? 'bg-amber-900/40 text-amber-400 print:bg-amber-100 print:text-amber-700' : 'bg-red-900/40 text-red-400 print:bg-red-100 print:text-red-700'}`}>
-                              {opt.riskLevel}
-                            </span>
-                          </td>
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                {/* Option 0's caveat travels with the column. A baseline showing
-                    "Flat — no measured drift" or "Improving without intervention"
-                    changes how every other column should be read, and that is
-                    exactly the case where the reader must not have to infer it. */}
-                {data.statusQuo?.caveat && (
-                  <p className="-mt-4 mb-6 text-xs text-slate-500 print:text-slate-600">
-                    <span className="font-semibold text-slate-400 print:text-slate-700">Option 0 — </span>
-                    {data.statusQuo.caveat}
-                  </p>
+                        { k: 'Est. ROI', v: data.statusQuo.roi },
+                        { k: 'Timeline', v: data.statusQuo.timeline },
+                        { k: 'Investment', v: data.statusQuo.investment },
+                        { k: 'Risk', v: data.statusQuo.riskLevel },
+                      ].filter(x => x.v).map(({ k, v }) => (
+                        <div key={k} className="min-w-0">
+                          <dt className="text-[10px] text-slate-400 uppercase print:text-slate-500">{k}</dt>
+                          <dd className="text-xs text-slate-200 break-words print:text-slate-700">{v}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    {/* Caveat travels with the row. A baseline showing "Flat —
+                        no measured drift" changes how every option below
+                        should be read. */}
+                    {data.statusQuo.caveat && (
+                      <p className="mt-2 text-xs text-slate-500 print:text-slate-600">{data.statusQuo.caveat}</p>
+                    )}
+                  </div>
                 )}
-                {/* Option detail cards */}
-                <div className="space-y-6">
-                  {data.options?.map((option: any, i: number) => (
-                    <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                      // print:overflow-visible only — NOT break-inside-avoid. These
-                      // cards are frequently taller than a page, and forbidding a break
-                      // would push the whole card past the page end and clip more, not
-                      // less. Releasing overflow lets the content flow across pages.
-                      className={`rounded-xl overflow-hidden border print:overflow-visible ${option.recommended ? 'border-slate-600 border-l-4 border-l-emerald-500 bg-slate-900' : 'border-slate-700 bg-slate-900'} print:bg-white print:border-slate-200 ${option.recommended ? 'print:border-l-slate-800' : ''}`}>
-                      {option.recommended && (
-                        <div className="bg-emerald-900/40 text-emerald-300 px-4 py-1.5 text-xs font-semibold flex items-center gap-2 print:bg-slate-800 print:text-white">
-                          <CheckCircle className="w-3.5 h-3.5" /> RECOMMENDED
-                        </div>
-                      )}
-                      <div className="p-5">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h3 className="text-lg font-bold text-white print:text-slate-900">Option {String.fromCharCode(65 + i)}: {option.title}</h3>
-                            <p className="text-slate-400 text-sm mt-0.5 print:text-slate-600">{option.subtitle}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-slate-500">Est. ROI</p>
-                            <p className="text-xl font-bold text-emerald-400 print:text-emerald-600">{formatROI(option.roi)}</p>
-                          </div>
-                        </div>
-                        <p className="text-slate-300 text-sm leading-relaxed mb-4 print:text-slate-700">{option.description}</p>
-                        <div className="grid grid-cols-4 gap-3 mb-4">
-                          {[{ label: 'Investment', val: option.investment }, { label: 'Timeline', val: option.timeline },
-                            { label: 'Risk', val: option.riskLevel, cls: option.riskLevel === 'Low' ? 'text-emerald-400 print:text-emerald-600' : option.riskLevel === 'Medium' ? 'text-amber-400 print:text-amber-600' : 'text-red-400 print:text-red-600' },
-                            { label: 'Reversibility', val: option.reversibility }].map(({ label, val, cls }) => (
-                            <div key={label} className="text-center p-2 bg-slate-800/60 rounded-lg print:bg-slate-100">
-                              <p className="text-[10px] text-slate-500 uppercase">{label}</p>
-                              <p className={`font-bold text-xs text-slate-200 print:text-slate-900 ${cls || ''}`}>{val}</p>
-                            </div>
-                          ))}
-                        </div>
-                        {/* ── Full narrative: PRINT ONLY ────────────────────────
-                            On screen this moves into the option drawer. Three
-                            complete analyses expanded inline is what pushed the
-                            briefing past a 2-minute read (Cat 3). On paper there is
-                            no drawer to open, so print keeps them where they were —
-                            the exported PDF loses nothing. */}
-                        <div className="hidden print:block">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <h4 className="font-semibold text-slate-300 mb-2 flex items-center gap-1.5 text-sm print:text-slate-700">
-                              <CheckCircle className="w-3.5 h-3.5 text-slate-500" /> Arguments For
-                            </h4>
-                            <ul className="space-y-1.5">
-                              {option.prosDetailed?.map((pro: any, j: number) => (
-                                <li key={j} className="text-xs text-slate-400 flex items-start gap-1.5 print:text-slate-700">
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
-                                  <span>{pro.point?.replace(/[:]+$/, '')}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <h4 className="font-semibold text-slate-300 mb-2 flex items-center gap-1.5 text-sm print:text-slate-700">
-                              <AlertTriangle className="w-3.5 h-3.5 text-slate-500" /> Arguments Against
-                            </h4>
-                            <ul className="space-y-1.5">
-                              {option.consDetailed?.map((con: any, j: number) => (
-                                <li key={j} className="text-xs text-slate-400 flex items-start gap-1.5 print:text-slate-700">
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
-                                  <span>{con.point?.replace(/[:]+$/, '')}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                        {option.lens_views && (
-                          <div className="mt-4 pt-4 border-t border-slate-700 print:border-slate-200">
-                            <h4 className="font-semibold text-slate-200 mb-2 flex items-center gap-1.5 text-sm print:text-slate-900">
-                              <Users className="w-3.5 h-3.5" /> Council Lenses
-                            </h4>
-                            <div className="grid grid-cols-3 gap-3">
-                              {option.lens_views.map((p: any, j: number) => (
-                                <div key={j} className="bg-slate-800/60 p-2.5 rounded-lg print:bg-slate-50">
-                                  <p className="font-medium text-slate-200 text-xs print:text-slate-900">{p.role}</p>
-                                  <p className="text-xs text-slate-400 mt-0.5 print:text-slate-600">{p.view}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        </div>
 
-                        {/* Critic-pass findings stay ON the card, not behind the
-                            drawer click. A flagged side effect is a reason to look
-                            harder at an option; hiding it one interaction deeper
-                            than the option's own sales pitch inverts that. */}
-                        {option.flagged_side_effects?.length > 0 && (
-                          <div data-testid="side-effects-chip" className="print:hidden mt-3 flex items-start gap-2 rounded-lg border border-amber-700/50 bg-amber-950/20 px-3 py-2">
-                            <Zap className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                            <p className="text-xs text-amber-200/90">
-                              {option.flagged_side_effects.length} side effect{option.flagged_side_effects.length === 1 ? '' : 's'} flagged
-                              against the causal model — see full analysis.
-                            </p>
-                          </div>
-                        )}
+                {/* Discrimination finding, preserved from the deleted table —
+                    same computed function (axisDiscrimination), presentation
+                    adapted from per-column annotations to one summary line.
+                    Computed over PROPOSED options only, same reasoning as
+                    before: Option 0 differs from all of them almost by
+                    construction and would suppress the finding. */}
+                {(() => {
+                  const uniformCriteria: string[] = []
+                  const CRITERIA: Array<{ label: string; key: string }> = [
+                    { label: 'Investment', key: 'investment' },
+                    { label: 'Timeline', key: 'timeline' },
+                    { label: 'Est. ROI', key: 'roi' },
+                    { label: 'Reversibility', key: 'reversibility' },
+                  ]
+                  CRITERIA.forEach(({ label, key }) => {
+                    const shown = (data.options ?? []).map((o: any) => key === 'roi' ? formatROI(o[key]) : o[key])
+                    if (axisDiscrimination(shown).uniform) uniformCriteria.push(label)
+                  })
+                  if (uniformCriteria.length === 0) return null
+                  // "same for all" is the stable anchor phrase this finding has
+                  // used since the table version — kept literally, not just in
+                  // spirit, so it stays a checkable signal rather than prose
+                  // that can drift.
+                  return (
+                    <p className="text-[11px] text-severity-warning/80 mb-4 print:text-amber-700">
+                      {uniformCriteria.join(', ')} — same for all, does not inform the choice
+                      {uniformCriteria.length < CRITERIA.length ? '; the rest is what actually separates them' : ''}.
+                    </p>
+                  )
+                })()}
 
-                        {/* M6: the ROI range above does not stand alone — and that
-                            has to hold on the exported PDF too, which is the copy
-                            that gets forwarded and challenged. The panel prints
-                            fully expanded (its toggle is print:hidden, its body
-                            print:block), so it is deliberately NOT wrapped in a
-                            print:hidden div like the rest of the screen-only chrome. */}
-                        <AssumptionsPanel assumptions={option.key_assumptions || []} impactLabel={formatROI(option.roi)} />
-
-                        <button
-                          onClick={() => setDrawerIdx(i)}
-                          className="print:hidden mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white"
-                        >
-                          View full analysis
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                {/* Option rows — one format at every breakpoint. Replaces
+                    both the desktop/print-only comparison table (whose
+                    print:!block forced it visible on paper at every screen
+                    width, so this row list is now the printed comparison
+                    exhibit — see CompactOptionRow's own print handling) and
+                    the separate full-detail cards; narrative content
+                    (description, print-only pros/cons, AssumptionsPanel,
+                    drawer trigger) is unchanged, nested in each row. */}
+                {(() => {
+                  const maxRange = (data.options ?? []).reduce((max: number, o: any) => {
+                    const h = o?.impactRangeNumeric?.high
+                    return typeof h === 'number' && h > max ? h : max
+                  }, 0) * 1.1 || null
+                  return (
+                    <div className="space-y-6">
+                      {data.options?.map((option: any, i: number) => {
+                        const dominatorIdx = option.dominated_by
+                          ? data.options.findIndex((o: any) => o.id === option.dominated_by)
+                          : -1
+                        return (
+                          <motion.div key={i}
+                            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                            transition={{ delay: reduceMotion ? 0 : i * 0.05 }}
+                          >
+                            <CompactOptionRow
+                              option={option}
+                              letter={String.fromCharCode(65 + i)}
+                              dominatorLetter={dominatorIdx >= 0 ? String.fromCharCode(65 + dominatorIdx) : null}
+                              maxRange={maxRange}
+                              onOpenDrawer={() => setDrawerIdx(i)}
+                            />
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </div>
             </AccordionSection>
+
+            {/* "Before you approve" — Executive Briefing redesign, 2026-08-26.
+                narrative_warnings (data-vs-prose mismatches) already rendered
+                above the fold; blind_spots did not — they only ever lived in
+                the collapsed accordion at the bottom, alongside a full
+                Supporting Analysis a reader would have to open to find them.
+                Genuine caveats that could change a reader's confidence belong
+                above the fold; that is a different axis from "is this
+                technical detail", which the rest of Supporting Analysis
+                correctly stays collapsed for. Shows at most 2 — a link to the
+                same Supporting Analysis toggle (already wired for
+                ContradictionBanner above) surfaces the rest, never silently
+                drops them. */}
+            {data.blind_spots?.length > 0 && (
+              <div className="print:hidden mb-6 rounded-xl border border-severity-warning/40 bg-severity-warning/10 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-severity-warning/90 mb-2">
+                  Before you approve
+                </p>
+                <ul className="space-y-1.5">
+                  {data.blind_spots.slice(0, 2).map((bs: string, i: number) => (
+                    <li key={i} className="text-sm text-severity-warning/90 leading-relaxed flex items-start gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-severity-warning shrink-0 mt-0.5" />
+                      <span>{bs}</span>
+                    </li>
+                  ))}
+                </ul>
+                {data.blind_spots.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={openBlindSpotsAndScroll}
+ className="hover:brightness-125 text-xs text-severity-warning underline mt-2"
+                  >
+                    {data.blind_spots.length - 2} more consideration{data.blind_spots.length - 2 === 1 ? '' : 's'} in the full analysis ↓
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* [E] Next Steps & Implementation */}
             <AccordionSection id="recommendation" title="Next Steps & Implementation" openSections={openSections} onToggle={toggleSection}
@@ -1201,37 +1394,37 @@ export function ExecutiveBriefing() {
                 {approveState === 'approved' && (() => {
                   const approvedOption = data.options?.find((o: any) => o.recommended) || data.options?.[0]
                   return (
-                    <div className="mt-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl p-5 print:hidden">
+                    <div className="mt-4 bg-severity-opportunity border-2 border-severity-opportunity rounded-xl p-5 print:hidden">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 bg-emerald-600 rounded-full flex items-center justify-center">
+                        <div className="w-9 h-9 bg-severity-opportunity rounded-full flex items-center justify-center">
                           <CheckCircle2 className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <h3 className="text-base font-bold text-emerald-900">Decision Approved</h3>
-                          <p className="text-xs text-emerald-700">Value Assurance tracking has been initiated</p>
+                          <h3 className="text-base font-bold text-severity-opportunity">Decision Approved</h3>
+                          <p className="text-xs text-severity-opportunity">Value Assurance tracking has been initiated</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-3 mb-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                         {[
                           { label: 'Approved Strategy', val: approvedOption?.title || data.recommendation?.headline },
                           { label: 'Expected Recovery', val: formatROI(approvedOption?.roi || '') || 'See option details' },
                           { label: 'Monitoring Window', val: approvedOption?.timeline || '30 days' },
                         ].map(({ label, val }) => (
-                          <div key={label} className="bg-white rounded-lg p-2.5 border border-emerald-200">
+                          <div key={label} className="bg-white rounded-lg p-2.5 border border-severity-opportunity">
                             <p className="text-[10px] text-slate-500 uppercase mb-0.5">{label}</p>
                             <p className="text-xs font-semibold text-slate-900">{val}</p>
                           </div>
                         ))}
                       </div>
                       {vaSolutionId && (
-                        <div className="bg-white rounded-lg p-2.5 border border-emerald-200 mb-3">
+                        <div className="bg-white rounded-lg p-2.5 border border-severity-opportunity mb-3">
                           <p className="text-[10px] text-slate-500 uppercase mb-0.5">VA Reference</p>
                           <p className="text-xs font-mono text-slate-700">{vaSolutionId.slice(0, 8)}...</p>
                         </div>
                       )}
                       <div className="bg-emerald-100/50 rounded-lg p-3 text-xs text-emerald-800">
                         <p className="font-medium mb-1">What happens next:</p>
-                        <ol className="space-y-0.5 text-emerald-700 list-decimal list-inside">
+                        <ol className="space-y-0.5 text-severity-opportunity list-decimal list-inside">
                           <li>Value Assurance Agent monitors KPI performance against the expected recovery range</li>
                           <li>Difference-in-Differences attribution separates your intervention's impact from market movements</li>
                           <li>Results will appear in your Solutions Portfolio</li>
@@ -1239,7 +1432,7 @@ export function ExecutiveBriefing() {
                       </div>
                       <Link
                         to={`/portfolio?principal=${encodeURIComponent(principalId)}`}
-                        className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-500 transition-colors"
+ className="hover:brightness-110 mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-severity-opportunity text-white text-xs font-semibold rounded-lg transition-all"
                       >
                         View Portfolio <ChevronRight className="w-3.5 h-3.5" />
                       </Link>
@@ -1278,52 +1471,20 @@ export function ExecutiveBriefing() {
               </div>
             </AccordionSection>
 
-            {/* [F] Implementation Roadmap */}
-            {data.roadmap?.length > 0 && (
-              <AccordionSection id="roadmap" title="Implementation Roadmap" openSections={openSections} onToggle={toggleSection}
-                icon={<Clock className="w-4 h-4 text-slate-400" />}>
-                <div className="p-5">
-                  <div className="relative">
-                    <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-700 print:bg-slate-300" />
-                    <div className="space-y-4">
-                      {data.roadmap.map((phase: any, i: number) => (
-                        <div key={i} className="relative pl-12">
-                          <div className={`absolute left-3.5 w-4 h-4 rounded-full border-2 ${i === 0 ? 'bg-emerald-600 border-emerald-600 print:bg-blue-600 print:border-blue-600' : 'bg-slate-900 border-slate-600 print:bg-white print:border-slate-300'}`} />
-                          <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg print:bg-slate-50 print:border-0">
-                            <div className="flex justify-between items-start mb-1.5">
-                              <h4 className="font-semibold text-slate-200 text-sm print:text-slate-900">{phase.phase}</h4>
-                              <span className="text-xs text-slate-500 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />{phase.timeline || phase.duration}
-                              </span>
-                            </div>
-                            {phase.description && <p className="text-slate-400 text-xs mb-2 print:text-slate-700">{phase.description}</p>}
-                            <div className="flex flex-wrap gap-1.5">
-                              {(phase.items || phase.deliverables || []).map((d: string, j: number) => (
-                                <span key={j} className="px-2 py-0.5 bg-slate-800 text-slate-300 text-xs rounded-full print:bg-blue-100 print:text-blue-700">{d}</span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
+            {/* Implementation Roadmap was here. Moved out — WhitePaperReport
+                already renders `data.roadmap` from the same localStorage
+                payload (WhitePaperReport.tsx §"Implementation Roadmap"), so
+                this was the same content on two surfaces. See the "rest of the
+                analysis" block at the end of this page. */}
 
-            {/* [G] Supporting Analysis divider */}
-            <div className="print:hidden flex items-center gap-3 mt-6 mb-2">
+            {/* Supporting Analysis divider — the same toggle as the toolbar's
+                "Show/Hide the analysis", reachable from two places rather than
+                two competing controls. Both now call setAllAnalysisSections;
+                they previously carried byte-identical copies of the logic. */}
+            <div id="accordion-analysis" className="print:hidden flex items-center gap-3 mt-6 mb-2">
               <div className="h-px flex-1 bg-slate-800" />
               <button
-                onClick={() => {
-                  const ids = ['situation', 'market', 'stage1', 'crossreview']
-                  const allOpen = ids.every(id => openSections.has(id))
-                  setOpenSections(prev => {
-                    const next = new Set(prev)
-                    ids.forEach(id => allOpen ? next.delete(id) : next.add(id))
-                    return next
-                  })
-                }}
+                onClick={() => setAllAnalysisSections(!analysisAllOpen)}
                 className="text-[10px] font-mono uppercase tracking-widest text-slate-500 hover:text-slate-300 flex items-center gap-1.5 transition-colors"
               >
                 <ChevronDown className="w-3 h-3" /> Supporting Analysis
@@ -1331,11 +1492,30 @@ export function ExecutiveBriefing() {
               <div className="h-px flex-1 bg-slate-800" />
             </div>
 
+            {/* Verification Ledger — the distilled "did this survive
+                scrutiny" check, first among Supporting Analysis. The data
+                (moderator_grades) already flowed through this payload; it
+                just stopped being rendered here when Stage 1/2/Moderator
+                Verdicts moved out to /debate earlier this session. Gated the
+                same way `risks`/`blindspots` already are. */}
+            {data.moderator_grades && Object.keys(data.moderator_grades).length > 0 && (() => {
+              const recIdx = data.options?.findIndex((o: any) => o.recommended) ?? -1
+              const recOption = recIdx >= 0 ? data.options[recIdx] : data.options?.[0]
+              const grade = recOption?.id ? data.moderator_grades[recOption.id] : null
+              const letter = recIdx >= 0 ? String.fromCharCode(65 + recIdx) : 'A'
+              return (
+                <AccordionSection id="verification" title="Verification Ledger" openSections={openSections} onToggle={toggleSection}
+                  icon={<ShieldCheck className="w-4 h-4 text-slate-400" />}>
+                  <VerificationLedger grade={grade} optionLabel={letter} situationId={situationId} />
+                </AccordionSection>
+              )
+            })()}
+
             {/* [H] Situation Analysis */}
             <AccordionSection id="situation" title="Situation Analysis" openSections={openSections} onToggle={toggleSection}
               icon={<Zap className="w-4 h-4 text-slate-400" />}>
               <div className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-slate-900 border border-slate-700 p-5 rounded-lg print:bg-slate-50 print:border-slate-200">
                     <h3 className="font-semibold text-slate-200 mb-2 flex items-center gap-2 text-sm print:text-slate-900">
                       <Target className="w-4 h-4 text-slate-400 print:text-blue-600" /> Current State
@@ -1344,7 +1524,7 @@ export function ExecutiveBriefing() {
                   </div>
                   <div className="bg-slate-900 border border-slate-700 p-5 rounded-lg print:bg-red-50 print:border-red-200">
                     <h3 className="font-semibold text-slate-200 mb-2 flex items-center gap-2 text-sm print:text-slate-900">
-                      <AlertTriangle className="w-4 h-4 text-red-400 print:text-red-600" /> The Problem
+                      <AlertTriangle className="w-4 h-4 text-severity-critical print:text-red-600" /> The Problem
                     </h3>
                     <p className="text-slate-400 text-sm leading-relaxed print:text-slate-700">{data.situation?.problem}</p>
                   </div>
@@ -1359,7 +1539,7 @@ export function ExecutiveBriefing() {
                           only VA's DiD/Granger testing reaches a causal claim,
                           so the briefing must not promote a ranked delta list to
                           "root cause" in front of an executive. */}
-                      <Zap className="w-4 h-4 text-amber-400" /> Largest Variance Contributors
+                      <Zap className="w-4 h-4 text-severity-warning" /> Largest Variance Contributors
                     </h3>
                     {/* Segments from DIFFERENT dimensions are not disjoint, so they
                         cannot be read as a single ranking. A live briefing listed four
@@ -1370,7 +1550,7 @@ export function ExecutiveBriefing() {
                         caveat, and a caveat that always shows gets ignored. */}
                     {new Set((data.situation.rootCauses as any[])
                       .map(c => c?.dimension).filter(Boolean)).size > 1 && (
-                      <p className="text-[11px] text-amber-400/80 mb-3 print:text-amber-700">
+                      <p className="text-[11px] text-severity-warning/80 mb-3 print:text-amber-700">
                         These come from different dimensions and overlap — a customer's result is
                         already counted inside its division. Compare within a dimension, not down the list.
                       </p>
@@ -1378,7 +1558,7 @@ export function ExecutiveBriefing() {
                     <div className="space-y-3">
                       {data.situation.rootCauses.map((cause: any, i: number) => (
                         <div key={i} className="flex items-start gap-3">
-                          <div className="w-5 h-5 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
+                          <div className="w-5 h-5 bg-severity-warning text-slate-900 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
                           <div>
                             {/* The dimension is NOT decoration. This list mixes
                                 dimensions -- four profit centres and one customer in the
@@ -1393,7 +1573,7 @@ export function ExecutiveBriefing() {
                               )}
                             </p>
                             <p className="text-slate-400 text-xs">{cause.evidence}</p>
-                            <p className="text-amber-400 text-xs font-medium mt-0.5">Impact: {cause.impact}</p>
+                            <p className="text-severity-warning text-xs font-medium mt-0.5">Impact: {cause.impact}</p>
                           </div>
                         </div>
                       ))}
@@ -1421,234 +1601,35 @@ export function ExecutiveBriefing() {
               </div>
             </AccordionSection>
 
-            {/* [I] Market Intelligence */}
-            {data.market_signals?.length > 0 && (
-              <AccordionSection id="market" title="Market Intelligence" openSections={openSections} onToggle={toggleSection}
-                badge={`${data.market_signals.length} signals`}
-                icon={<Sparkles className="w-4 h-4 text-amber-400" />}>
-                <div className="p-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {data.market_signals.map((signal: any, i: number) => (
-                      <div key={i} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-amber-50 print:border-amber-200">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <h3 className="font-semibold text-slate-200 text-sm leading-snug print:text-slate-900">{signal.title}</h3>
-                          {signal.relevance_score != null && (
-                            <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400 print:bg-amber-200 print:text-amber-800">
-                              {Math.round(signal.relevance_score * 100)}%
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-400 leading-relaxed mb-2 print:text-slate-700">{signal.summary}</p>
-                        {signal.source && (
-                          <p className="text-xs text-slate-500">
-                            Source:{' '}
-                            {signal.source === 'llm_knowledge' ? 'AI Knowledge Base'
-                              : signal.source === 'perplexity' ? 'Real-time Web Search'
-                              : signal.source}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
+            {/* Market Intelligence, Stage 1: Independent Proposals, Stage 2:
+                Cross-Review and Moderator Verdicts were four accordions here.
+                All four moved out in the Aug 2026 composition pass.
 
-            {/* [J] Stage 1: Independent Proposals */}
-            {data.stage_1_hypotheses && (
-              <AccordionSection id="stage1" title="Stage 1: Independent Proposals" openSections={openSections} onToggle={toggleSection}
-                icon={<Users className="w-4 h-4 text-slate-400" />}>
-                <div className="p-5">
-                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each perspective analysed the problem independently and proposed an intervention using its own framework.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:block print:space-y-4">
-                    {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
-                      const s = personaStyle(firmId)
-                      const conviction = hyp.conviction || 'High'
-                      const displayName = personaDisplayLabel(firmId)
-                      return (
-                        // print:break-inside-avoid — a persona card that straddles a page
-                        // boundary was CLIPPED rather than flowed, because `overflow-hidden`
-                        // (needed on screen for the rounded top bar) truncates at the card
-                        // edge in print. A live briefing lost "Primary Focus: Synthetic Blend
-                        // Engine Oil" mid-line that way. Overflow is released in print, where
-                        // there is no rounded-corner clipping to preserve.
-                        <div key={firmId} className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden flex flex-col print:bg-white print:border-slate-200 print:shadow-sm print:overflow-visible print:break-inside-avoid">
-                          <div className={`h-1.5 w-full ${s.bar}`} />
-                          <div className="p-4 flex flex-col flex-1">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${s.dot}`} />
-                                <h4 className="font-bold text-slate-200 text-sm print:text-slate-900">{displayName}</h4>
-                              </div>
-                              {conviction && (
-                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${convictionStyle[conviction] ?? convictionStyle.Medium}`}>
-                                  {conviction}
-                                </span>
-                              )}
-                            </div>
-                            {hyp.framework && (
-                              <span className={`self-start text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${s.badge}`}>{hyp.framework}</span>
-                            )}
-                            <p className="text-sm text-slate-400 leading-relaxed mb-3 flex-1 print:text-slate-700">{hyp.hypothesis}</p>
-                            {Array.isArray(hyp.key_evidence) && hyp.key_evidence.length > 0 && (
-                              <div className="bg-slate-800/60 rounded-lg p-2 mb-3 print:bg-slate-50">
-                                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Evidence</p>
-                                <ul className="space-y-1">
-                                  {hyp.key_evidence.slice(0, 3).map((ev: string, i: number) => (
-                                    <li key={i} className="flex items-start gap-1 text-xs text-slate-400 print:text-slate-600">
-                                      <span className="text-slate-600 shrink-0 print:text-slate-400">▸</span><span>{ev}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {hyp.recommended_focus && (
-                              <div className={`border-l-4 ${s.border} pl-2 mt-auto`}>
-                                <p className="text-[10px] font-semibold text-slate-500 uppercase">Primary Focus</p>
-                                <p className="text-sm font-semibold text-slate-200 print:text-slate-900">{hyp.recommended_focus}</p>
-                              </div>
-                            )}
-                            {hyp.proposed_option?.title && (
-                              <div className="mt-2">
-                                <p className="text-[10px] font-semibold text-slate-500 uppercase">Proposed Action</p>
-                                <p className="text-sm font-semibold text-indigo-400 leading-snug print:text-blue-700">{hyp.proposed_option.title}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
+                They are process transparency — how the council reached the
+                answer — and this page is where the answer gets DECIDED. A
+                Decision Maker was scrolling past seven collapsed accordions
+                with names like "Stage 1: Independent Proposals" that exist for
+                the other persona entirely. Measured before the change: 6,635px
+                of content in an 847px viewport, 7.8 screens, at the COLLAPSED
+                default.
 
-            {/* [K] Stage 2: Cross-Review */}
-            {data.cross_review && (
-              <AccordionSection id="crossreview" title="Stage 2: Cross-Review" openSections={openSections} onToggle={toggleSection}
-                icon={<ShieldCheck className="w-4 h-4 text-slate-400" />}>
-                <div className="p-5">
-                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each perspective reviewed the others' hypotheses to surface blind spots and tensions.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(data.cross_review).map(([personaId, review]: [string, any]) => (
-                      <div key={personaId} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-slate-50 print:border-slate-200">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center print:bg-purple-100">
-                            <Users className="w-3.5 h-3.5 text-slate-400 print:text-purple-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-slate-200 text-sm print:text-slate-900">
-                              {personaDisplayLabel(personaId)}
-                            </h4>
-                            <p className="text-xs text-slate-500">Council Member</p>
-                          </div>
-                        </div>
-                        {review.critiques?.length > 0 && (
-                          <div className="mb-2">
-                            <h5 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-1 print:text-red-600">Critiques</h5>
-                            <ul className="space-y-1">
-                              {review.critiques.map((c: any, i: number) => (
-                                <li key={i} className="text-xs text-slate-400 bg-slate-800/60 p-2 rounded border border-slate-700 print:text-slate-700 print:bg-white print:border-slate-100">
-                                  <span className="font-medium text-slate-200 block mb-0.5 print:text-slate-900">Re: {c.target}</span>
-                                  "{c.concern}"
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {review.endorsements?.length > 0 && (
-                          <div>
-                            <h5 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 print:text-emerald-600">Endorsements</h5>
-                            <ul className="space-y-1">
-                              {review.endorsements.map((e: any, i: number) => (
-                                <li key={i} className="text-xs text-slate-400 bg-slate-800/60 p-2 rounded border border-slate-700 print:text-slate-700 print:bg-white print:border-slate-100">
-                                  <span className="font-medium text-slate-200 block mb-0.5 print:text-slate-900">Re: {e.target}</span>
-                                  "{e.reason}"
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
+                Both destinations already existed and already read the same
+                localStorage briefing payload, so this was deletion, not
+                migration:
+                  - stage_1_hypotheses / cross_review -> /debate/:situationId
+                    (CouncilDebatePage already renders both)
+                  - market_signals -> /report/:situationId
+                    (WhitePaperReport already renders it)
+                The briefing had no link to the debate page at all before now —
+                that surface was orphaned. See the block at the end of the
+                page. */}
 
-            {/* [K2] Moderator Verdicts (Stage H arm — present instead of cross_review).
-                Minimal rendering by design: full grade-table treatment belongs to the
-                Stage G briefing rebuild. This exists so moderator runs are visible in
-                the briefing rather than silently dropping their adjudication. */}
-            {(data as any).moderator_grades && Object.keys((data as any).moderator_grades).length > 0 && (
-              <AccordionSection id="moderator" title="Moderator Verdicts (graded against verified theory)" openSections={openSections} onToggle={toggleSection}
-                icon={<ShieldCheck className="w-4 h-4 text-slate-400" />}>
-                <div className="p-5">
-                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">
-                    Each option graded against the client's constraint register, causal model, and the critic's findings — not debate rhetoric.
-                    &ldquo;Insufficient data&rdquo; means the theory register was too thin to grade against, not that the option passed.
-                  </p>
-                  <div className="space-y-3">
-                    {Object.entries((data as any).moderator_grades).map(([optId, g]: [string, any]) => (
-                      <div key={optId} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-slate-50 print:border-slate-200">
-                        {/* Resolve the generation id to the option's real title.
-                            Printing raw "opt_1" asked the reader to hold a mapping
-                            the briefing never showed them. Matched by id, never by
-                            position: options here are RANKED, so opt_N != Nth. */}
-                        <h4 className="font-bold text-slate-200 text-sm mb-2 print:text-slate-900">
-                          {(data.options || []).find((o: any) => o?.id === optId)?.title || optId}
-                        </h4>
-                        <div className="flex flex-wrap gap-2 mb-2 text-xs">
-                          <span className={`px-2 py-0.5 rounded border ${g.constraint_survival === 'pass' ? 'text-emerald-400 border-emerald-700' : g.constraint_survival === 'fail' ? 'text-red-400 border-red-700' : 'text-amber-400 border-amber-700'}`}>
-                            constraints: {g.constraint_survival ?? 'ungraded'}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded border ${g.arithmetic_consistency === 'pass' ? 'text-emerald-400 border-emerald-700' : g.arithmetic_consistency === 'flag' ? 'text-red-400 border-red-700' : 'text-amber-400 border-amber-700'}`}>
-                            arithmetic: {g.arithmetic_consistency ?? 'ungraded'}
-                          </span>
-                          <span className="px-2 py-0.5 rounded border text-slate-300 border-slate-600">
-                            causal: {g.causal_grounding ?? 'ungraded'}
-                          </span>
-                        </div>
-                        {g.violated_constraints?.length > 0 && (
-                          <p className="text-xs text-red-400 mb-1">Violates: {g.violated_constraints.join('; ')}</p>
-                        )}
-                        {g.arithmetic_note && (
-                          <p className="text-xs text-amber-400 mb-1">{g.arithmetic_note}</p>
-                        )}
-                        {g.critic_findings_response?.length > 0 && (
-                          <p className="text-xs text-slate-400 mb-1">
-                            Critic findings: {g.critic_findings_response.map((f: any) => `${f.finding} — ${f.disposition}`).join('; ')}
-                          </p>
-                        )}
-                        {g.grade_rationale && (
-                          <p className="text-xs text-slate-500 italic">{g.grade_rationale}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
-
-            {/* [L] Risk & Considerations divider */}
-            <div className="print:hidden flex items-center gap-3 mt-6 mb-2">
-              <div className="h-px flex-1 bg-slate-800" />
-              <button
-                onClick={() => {
-                  const ids = ['risks', 'blindspots', 'inaction']
-                  const allOpen = ids.every(id => openSections.has(id))
-                  setOpenSections(prev => {
-                    const next = new Set(prev)
-                    ids.forEach(id => allOpen ? next.delete(id) : next.add(id))
-                    return next
-                  })
-                }}
-                className="text-[10px] font-mono uppercase tracking-widest text-slate-500 hover:text-slate-300 flex items-center gap-1.5 transition-colors"
-              >
-                <ChevronDown className="w-3 h-3" /> Risk &amp; Considerations
-              </button>
-              <div className="h-px flex-1 bg-slate-800" />
-            </div>
+            {/* The "Risk & Considerations" divider stood here and was removed.
+                It toggled ['risks','blindspots','inaction'] — a set that now
+                overlaps ANALYSIS_SECTION_IDS almost exactly, so two dividers
+                claimed the same two sections and either one could leave the
+                other's label lying about what was open. One group, one
+                control. */}
 
             {/* [M] Risk Analysis */}
             {data.risks?.length > 0 && (
@@ -1709,16 +1690,16 @@ export function ExecutiveBriefing() {
             {((data.blind_spots?.length > 0) || (data.unresolved_tensions?.length > 0)) && (
               <div className="print:hidden">
               <AccordionSection id="blindspots" title="Considerations & Blind Spots" openSections={openSections} onToggle={toggleSection}
-                icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
+                icon={<AlertTriangle className="w-4 h-4 text-severity-warning" />}>
                 <div className="p-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {data.blind_spots?.length > 0 && (
                       <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg print:bg-amber-50 print:border-amber-200">
-                        <h3 className="font-semibold text-amber-400 mb-2 text-sm print:text-amber-900">Potential Blind Spots</h3>
+                        <h3 className="font-semibold text-severity-warning mb-2 text-sm print:text-amber-900">Potential Blind Spots</h3>
                         <ul className="space-y-1.5">
                           {data.blind_spots.map((bs: string, i: number) => (
                             <li key={i} className="text-slate-400 text-xs flex items-start gap-1.5 print:text-amber-800">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />{bs}
+                              <AlertTriangle className="w-3.5 h-3.5 text-severity-warning flex-shrink-0 mt-0.5" />{bs}
                             </li>
                           ))}
                         </ul>
@@ -1775,6 +1756,59 @@ export function ExecutiveBriefing() {
               </div>
             )}
 
+            {/* Where the rest of the analysis lives.
+                Replaces four accordions (Market Intelligence, Stage 1, Stage 2,
+                Moderator Verdicts) and the Implementation Roadmap. Both targets
+                read the same localStorage briefing payload this page does, so
+                these are real destinations for this exact run, not generic nav.
+                Screen only: the print path already carries its own appendices,
+                and a "click here" on paper is dead text. */}
+            <div className="print:hidden mt-8 pt-5 border-t border-slate-800">
+              <p className="text-xs text-slate-400 mb-3">
+                This page carries the decision. The full record sits alongside it:
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Link
+                  to={`/report/${situationId}`}
+                  className="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 transition-colors group"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-white">Full report</span>
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      Situation, market context, roadmap, risks — the narrative version
+                    </span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 group-hover:text-slate-300 transition-colors" />
+                </Link>
+                <Link
+                  to={`/debate/${situationId}`}
+                  className="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 transition-colors group"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-white">How the council decided</span>
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      Independent proposals, cross-review, and the moderator's grades
+                    </span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 group-hover:text-slate-300 transition-colors" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Mobile-only jump to the Decision Workspace, which now stacks
+                below this column instead of pinning a 320px rail beside it.
+                A link, not a second Approve control — one commit affordance
+                per page. */}
+            <div className="lg:hidden sticky bottom-0 -mx-4 mt-6 px-4 py-3 bg-slate-900/95 backdrop-blur border-t border-slate-800 print:hidden">
+              <a
+                href="#decision-workspace"
+ className="hover:brightness-110 flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-severity-opportunity text-white text-sm font-semibold transition-all"
+              >
+                Review &amp; approve
+                <ChevronDown className="w-4 h-4" />
+              </a>
+            </div>
+
             {/* Footer */}
             <footer className="py-6 text-center text-xs text-slate-500 print:block print:border-t print:border-slate-300 print:pt-4 print:text-slate-600">
               <p>This briefing was generated by Decision Studio using AI-assisted analysis.</p>
@@ -1792,7 +1826,7 @@ export function ExecutiveBriefing() {
                   for the Phase 13 M3 / Phase 18 reconciliation. This footer used to
                   title-case the raw persona ids, printing "Mckinsey · Bcg · Bain"
                   onto the exported PDF. */}
-              <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-slate-700 font-mono">
+              <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-slate-400 font-mono print:text-slate-600">
                 {data.kpiData?.kpi_name && <span>KPI: {data.kpiData.kpi_name}</span>}
                 {(() => {
                   const ctx = data.kpiData?.context
@@ -1831,12 +1865,13 @@ export function ExecutiveBriefing() {
         />
 
         {/* ── Right: Decision Workspace ── */}
-        <div className="w-80 flex-shrink-0 border-l border-slate-800 print:hidden">
+        <div id="decision-workspace" className="w-full lg:w-80 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-800 print:hidden">
           <DecisionChat
             data={data}
             situationId={situationId}
             principalId={principalId}
             approveState={approveState}
+            approveError={approveError}
             onApprove={handleApprove}
           />
         </div>

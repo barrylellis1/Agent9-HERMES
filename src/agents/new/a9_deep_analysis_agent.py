@@ -989,6 +989,27 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             spec_main: Dict[str, Any] = {"comparison_type": "previous", "inverse_logic": False, "yellow_threshold": 0.0}
             kpi_def = None  # populated below when resolvable; used for unit-aware SCQA framing
 
+            # Governed dimension display labels (e.g. "customer_region" ->
+            # "Customer Region"), resolved ONCE per distinct dimension here —
+            # not per-segment inside _format_where_entry below, which can be
+            # called dozens of times for the same handful of dimensions, and
+            # which is itself a plain sync helper (an async DGA call inside
+            # it would need scattering an await through every call site).
+            # None means "not yet in the glossary" — the frontend falls back
+            # to a mechanical Title Case transform in that case; this never
+            # fabricates a label the glossary hasn't actually confirmed.
+            _dim_label_cache: Dict[str, Optional[str]] = {}
+            if self.data_governance_agent is not None:
+                for _dim in (getattr(plan, "dimensions", None) or []):
+                    if _dim in _dim_label_cache:
+                        continue
+                    try:
+                        _dim_label_cache[_dim] = await self.data_governance_agent.resolve_dimension_label(
+                            _dim, client_id=getattr(plan, "client_id", None)
+                        )
+                    except Exception:
+                        _dim_label_cache[_dim] = None
+
             # Dimensions this KPI's not_sliceable_by deny list excludes from analysis
             # (docs/architecture/kpi_semantic_contract.md §4.5) — populated once kpi_def
             # resolves, read unconditionally at the end of this method (same reason
@@ -1429,6 +1450,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             "previous": previous,
                             "text": " — ".join(text_parts),
                         }
+                        # Governed display label from the business glossary (e.g.
+                        # "Customer Region" for "customer_region"), resolved once
+                        # per dimension above. Only set when the glossary actually
+                        # has an entry — absent (not a mechanical guess) means the
+                        # frontend falls back to its own Title Case transform.
+                        _glossary_label = _dim_label_cache.get(dimension)
+                        if _glossary_label:
+                            entry["dimension_label"] = _glossary_label
                         if note is not None:
                             entry["note"] = note
                         if segment_type is not None:
@@ -4244,6 +4273,24 @@ If nothing relevant is found for a category, use an empty list."""
         else:
             direction = "over" if inv else "under"
 
+        # `direction` above is a purely NUMERIC relationship to the comparator
+        # (is the raw value above or below it) — correctly computed for every
+        # inv/analysis_mode combination. The bug was never that computation;
+        # it was rendering it as "over-performing"/"under-performing", words
+        # that are inescapably a VALUE JUDGMENT in English ("outperforming
+        # expectations" = good news) regardless of what they're applied to.
+        # For an inverse-logic KPI (cost/expense — lower is better) in problem
+        # mode, a genuine cost increase computes direction="over" and rendered
+        # as "Raw Materials Cost is over-performing" — read by every reader as
+        # good news about a cost that had just been flagged CRITICAL. Found
+        # live 2026-08-24, and the same bug runs the other way in opportunity
+        # mode for an inv KPI: direction="under" alongside this function's own
+        # "The outperformance is concentrated in..." sentence — literally
+        # "under-performing... outperformance" in two consecutive clauses.
+        # movement_verb states the numeric fact without the "performing"
+        # connotation; severity/badges elsewhere already carry good-vs-bad.
+        movement_verb = "risen" if direction == "over" else "fallen"
+
         is_str = ", ".join(is_items) if is_items else "leading segments"
         is_not_str = ", ".join(is_not_items) if is_not_items else "remaining segments"
         cp_str = "; ".join(top_cps) if top_cps else "key contributors identified"
@@ -4272,7 +4319,7 @@ If nothing relevant is found for a category, use an empty list."""
 
         if analysis_mode == "opportunity":
             return (
-                f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
+                f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator}. "
                 f"Complication: The outperformance is concentrated in {is_str} — creating a replication opportunity in {is_not_str}. "
                 f"Key drivers: {cp_str}."
             )
@@ -4321,7 +4368,7 @@ If nothing relevant is found for a category, use an empty list."""
         elif alert_type == "plan_variance":
             situation_prefix = f"Situation: {plan.kpi_name} is tracking below plan vs. {comparator}."
         else:
-            situation_prefix = f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}."
+            situation_prefix = f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator}."
 
         return (
             f"{situation_prefix} "
@@ -4400,6 +4447,18 @@ If nothing relevant is found for a category, use an empty list."""
         else:
             direction = "over" if inv else "under"
 
+        # `direction` is a purely NUMERIC over/under-the-comparator fact, not
+        # a value judgment — see the sibling computation and its long comment
+        # in _build_situation_complication_facts above (same bug, this
+        # function is deliberately its own duplicate copy per the module
+        # docstring: "if you change one, check whether the other needs the
+        # same fix"). "over-performing"/"under-performing" read as good/bad
+        # news in English regardless of what they're applied to, so a cost
+        # increase (direction="over" for an inverse KPI) rendered as
+        # "over-performing" — the opposite of what a CRITICAL-severity cost
+        # increase should read as. Found live 2026-08-24.
+        movement_verb = "risen" if direction == "over" else "fallen"
+
         # Deterministic fallback (used when LLM unavailable or fails)
         def _question_line(default_text: str) -> str:
             """When a frame has been chosen (Phase 19), the Question IS the
@@ -4446,7 +4505,7 @@ If nothing relevant is found for a category, use an empty list."""
                 return " ".join(parts)
             if analysis_mode == "opportunity":
                 return (
-                    f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
+                    f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator}. "
                     f"Complication: The outperformance is concentrated in {is_str} — creating a replication opportunity in {is_not_str}. "
                     f"Key drivers: {cp_str}. "
                     f"{_question_line(f'Question: How do we scale the {is_str} performance across {is_not_str}?')}"
@@ -4521,7 +4580,7 @@ If nothing relevant is found for a category, use an empty list."""
             elif alert_type == "plan_variance":
                 situation_prefix = f"Situation: {plan.kpi_name} is tracking below plan vs. {comparator}."
             else:
-                situation_prefix = f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}."
+                situation_prefix = f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator}."
             return (
                 f"{situation_prefix} "
                 f"{complication} "
@@ -4642,7 +4701,10 @@ If nothing relevant is found for a category, use an empty list."""
                 prompt = (
                     f"Write a concise SCQA (Situation-Complication-Question-Answer) narrative for a CFO "
                     f"investigating the KPI '{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
-                    f"Comparator: {comparator} | Direction: {direction}-performing vs target\n"
+                    f"Comparator: {comparator} | Direction: has {movement_verb} vs target "
+                    f"(state this as a numeric fact — 'risen'/'fallen' — never as 'over/under-performing', "
+                    f"which reads as good/bad news regardless of whether the movement is actually good or bad "
+                    f"for this KPI; let the Complication and severity convey that)\n"
                     f"Top problem segments (IS): {', '.join(is_items) or 'see change points'}\n"
                     f"Healthy segments (IS NOT): {', '.join(is_not_items) or 'none identified'}\n"
                     f"Largest change-points: {'; '.join(top_cps) or 'none'}"

@@ -38,9 +38,9 @@ const VALIDATED_BY_LABELS: Record<string, string> = {
 }
 
 const CONFIDENCE_TONE: Record<string, string> = {
-  high: 'text-emerald-400 border-emerald-700 print:text-emerald-700',
-  moderate: 'text-amber-400 border-amber-700 print:text-amber-700',
-  low: 'text-red-400 border-red-700 print:text-red-700',
+  high: 'text-severity-opportunity border-severity-opportunity print:text-emerald-700',
+  moderate: 'text-severity-warning border-severity-warning print:text-amber-700',
+  low: 'text-severity-critical border-severity-critical print:text-red-700',
 }
 
 export function AssumptionsPanel({ assumptions, impactLabel, defaultOpen = false }: AssumptionsPanelProps) {
@@ -78,7 +78,7 @@ export function AssumptionsPanel({ assumptions, impactLabel, defaultOpen = false
             return (
               <li key={i} data-testid="assumption-item" className="flex items-start gap-2">
                 {grounded ? (
-                  <ShieldCheck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500 print:text-emerald-700" />
+                  <ShieldCheck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-severity-opportunity print:text-emerald-700" />
                 ) : (
                   <HelpCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-500 print:text-slate-500" />
                 )}
@@ -88,7 +88,7 @@ export function AssumptionsPanel({ assumptions, impactLabel, defaultOpen = false
                     <span
                       className={`rounded border px-1.5 py-px text-[9px] uppercase tracking-wider ${
                         grounded
-                          ? 'border-emerald-800 text-emerald-500 print:text-emerald-700'
+                          ? 'border-severity-opportunity text-severity-opportunity print:text-emerald-700'
                           : 'border-slate-600 text-slate-500'
                       }`}
                     >
@@ -100,14 +100,14 @@ export function AssumptionsPanel({ assumptions, impactLabel, defaultOpen = false
                       </span>
                     )}
                     {a.validated_by && (
-                      <span className="text-[9px] text-slate-600 print:text-slate-500">
+                      <span className="text-[9px] text-slate-400 print:text-slate-500">
                         {VALIDATED_BY_LABELS[a.validated_by] ?? a.validated_by}
                       </span>
                     )}
                     {/* The specific source, when one was recorded. This is what
                         turns "grounded" from a badge into something checkable. */}
                     {a.provenance && (
-                      <span className="text-[9px] font-mono text-slate-600 print:text-slate-500">· {a.provenance}</span>
+                      <span className="text-[9px] font-mono text-slate-400 print:text-slate-500">· {a.provenance}</span>
                     )}
                   </div>
                 </div>

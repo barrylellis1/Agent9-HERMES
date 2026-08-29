@@ -17,6 +17,17 @@ class PrincipalType(str, Enum):
     COMMITTEE = "committee"
 
 
+class WorkflowRole(str, Enum):
+    """Workflow-stage axis: who drives the SA->DA->SF investigation loop vs.
+    who reviews a distilled brief and signs off. Deliberately NOT a content
+    axis -- see the M1 comment on PrincipalProfile.metadata below. Defaults
+    to FRAMER so every existing principal's behavior is unchanged; this is
+    an additive field, not a breaking one.
+    """
+    FRAMER = "framer"
+    DECISION_MAKER = "decision_maker"
+
+
 class TimeFrame(BaseModel):
     """
     Represents the preferred time frame for a principal.
@@ -52,6 +63,7 @@ class PrincipalProfile(BaseModel):
     name: str = Field(..., description="Human-readable name of the principal profile")
     title: str = Field(..., description="Title of the principal (e.g., CFO, CEO)")
     principal_type: PrincipalType = Field(PrincipalType.INDIVIDUAL, description="Whether this principal is an individual, team, or committee")
+    workflow_role: WorkflowRole = Field(WorkflowRole.FRAMER, description="Workflow-stage default: framer (stewards SA->DA->SF) or decision_maker (reviews a distilled brief). Never a permission -- every principal can always reach the full pipeline.")
     email: Optional[str] = Field(None, description="Contact email address for PIB delivery")
     description: Optional[str] = Field(None, description="Detailed description of the principal")
     business_processes: List[str] = Field(default_factory=list,

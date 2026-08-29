@@ -15,12 +15,12 @@ import {
 
 function StatusBadge({ status }: { status: ConnectionHealthResult['status'] }) {
   if (status === 'ok') return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-severity-opportunity">
       <CheckCircle2 className="w-3.5 h-3.5" /> Connected
     </span>
   )
   if (status === 'error') return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-severity-critical">
       <XCircle className="w-3.5 h-3.5" /> Error
     </span>
   )
@@ -83,7 +83,7 @@ export function ConnectionHealthPanel({ clientId }: { clientId?: string }) {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+        <div className="mb-4 p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">{error}</div>
       )}
 
       {results.length === 0 && !probing ? (
@@ -111,7 +111,7 @@ export function ConnectionHealthPanel({ clientId }: { clientId?: string }) {
                   </td>
                   <td className="py-2.5 pr-4"><StatusBadge status={r.status} /></td>
                   <td className="py-2.5 pr-4 text-slate-400 text-xs">{r.latency_ms > 0 ? `${r.latency_ms} ms` : '—'}</td>
-                  <td className="py-2.5 text-red-400 text-xs truncate max-w-[300px]" title={r.error ?? undefined}>{r.error ?? (r.note ?? '—')}</td>
+                  <td className="py-2.5 text-severity-critical text-xs truncate max-w-[300px]" title={r.error ?? undefined}>{r.error ?? (r.note ?? '—')}</td>
                 </tr>
               ))}
             </tbody>
