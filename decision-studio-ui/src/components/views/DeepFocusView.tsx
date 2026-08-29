@@ -931,7 +931,18 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
             </span>
           </div>
         ) : (
-        <div className="w-[450px] min-h-0 bg-slate-900 border-l border-slate-800 flex flex-col">
+        // Below lg (1024px) this was a hardcoded w-[450px] with zero
+        // responsive variant -- on any tablet or phone it either forced the
+        // whole 3-column layout into horizontal overflow or left the main
+        // pane a sliver. Found in the 2026-08-29 audit. Below lg it's now a
+        // full-screen overlay (the mobile "detail panel takes over the
+        // screen" pattern, not a sidebar squeezed into whatever's left) --
+        // same content, same close button, just a different position/inset
+        // strategy per viewport. z-50 matches this page's own sticky header
+        // (line ~470) and the rest of the codebase's modal convention
+        // (ThresholdEditorModal, OptionDetailDrawer), so it stacks above
+        // both rather than sitting underneath a header it's meant to cover.
+        <div data-testid="action-center-panel" className="fixed inset-0 z-50 w-full lg:static lg:inset-auto lg:z-auto lg:w-[450px] min-h-0 bg-slate-900 border-l border-slate-800 flex flex-col">
 
              {/* Header */}
              <div className="flex-shrink-0 p-4 border-b border-slate-800 bg-slate-900 z-10 flex items-center justify-between">
@@ -943,7 +954,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                </div>
                <button
                  onClick={() => setActionCenterOpen(false)}
-                 className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-white transition-colors"
+                 className="p-2.5 hover:bg-slate-800 rounded text-slate-500 hover:text-white transition-colors"
                  aria-label="Collapse Action Center"
                >
                  <ChevronRight className="w-4 h-4" />
