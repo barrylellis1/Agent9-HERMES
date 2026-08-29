@@ -185,6 +185,7 @@ export function ConnectionProfileManager({
             disabled={loading}
             className="p-1.5 text-slate-400 hover:text-white transition-colors"
             title="Refresh"
+            aria-label="Refresh connection profiles"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
