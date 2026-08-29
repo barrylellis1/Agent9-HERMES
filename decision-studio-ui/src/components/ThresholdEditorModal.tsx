@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
 import { replaceKpi } from '../api/client';
 
@@ -24,6 +24,18 @@ export function ThresholdEditorModal({ kpi, clientId, onClose, onSaved }: Thresh
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The close button was the ONLY way to dismiss this modal — no backdrop
+  // click, no Escape. Found during the 2026-08-29 harden pass fixing that
+  // button's missing aria-label; Escape belongs with it, not a separate fix,
+  // since both are "can a keyboard/screen-reader user get out of this modal."
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const COMPARISON_TYPES = ['yoy', 'qoq', 'mom', 'target', 'budget', 'greater_than', 'less_than'];
 
@@ -68,7 +80,8 @@ export function ThresholdEditorModal({ kpi, clientId, onClose, onSaved }: Thresh
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-500 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+            aria-label="Close"
+            className="p-1.5 text-slate-500 hover:text-white rounded-lg hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/60"
           >
             <X className="w-4 h-4" />
           </button>

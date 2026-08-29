@@ -38,6 +38,159 @@
         ],
         "createdAt": "2026-08-29T17:05:56.094Z",
         "reason": "Replaces a 2026-08-28 value-scoped entry ('border-l-4') that was silently dead for the same reason as the gray-on-color fix above: side-tab is not in directValueRules either, so only a '*' wildcard actually suppresses anything. The underlying finding is unchanged from that entry's own reasoning: indigo-500 is DESIGN_SYSTEM.md sec2's documented AI-action/CTA color (Refinement, Generate Solutions, Solution Active badge); this box IS the AI-authored decision ask, so an indigo left-border accent is the same sanctioned-by-convention pattern as severity-token borders, just for the AI-action semantic instead of severity. Verified only one border-l-* candidate exists in this file (the same one) before scoping the wildcard to it."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/ConnectionProfileManager.tsx"
+        ],
+        "createdAt": "2026-08-29T19:22:17.297Z",
+        "reason": "Sole candidate in this file: the Save button's disabled-state classes on one line (bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500) -- the detector cross-matches text-slate-500 against bg-blue-600, but disabled:bg-slate-700 and disabled:text-slate-500 are the SAME state, never simultaneously paired with the blue background. Same false-positive class as the ExecutiveBriefing.tsx entry above."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/views/DeepFocusView.tsx"
+        ],
+        "createdAt": "2026-08-29T19:23:39.968Z",
+        "reason": "All 4 flagged sites (L704, L1220, L1231, L1237) are the same false-positive class: a disabled-state pair (disabled:bg-slate-700 disabled:text-slate-500) or an unselected-tab ternary branch (border-transparent/bg-transparent text-slate-500) cross-matched on the same line against a DIFFERENT branch's colored bg-blue-600/bg-indigo-600/bg-indigo-900. In every case the gray text's actual background at render time is transparent or slate, never the colored one the detector paired it with. This is the entire 'DeepFocusView.tsx: 4' contribution to the 2026-08-29 audit's 25-finding count -- none of it was real; see the audit follow-up note for the corrected total."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/OpportunityCard.tsx"
+        ],
+        "createdAt": "2026-08-29T19:31:02.105Z",
+        "reason": "border-l-2 border-l-severity-opportunity -- DESIGN_SYSTEM.md sec1's canonical severity-token left-accent, same sanctioned pattern already disclosed for ExecutiveBriefing.tsx/DecisionAskBlock.tsx above, just a 2px width and the opportunity token instead of 3px/warning. Pre-existing line; the 2026-08-29 accessibility pass only appended focus: classes after it."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/PortfolioDashboard.tsx"
+        ],
+        "createdAt": "2026-08-29T19:31:02.637Z",
+        "reason": "border-l-4 border-severity-warning (conditional, ternary against border-l-4 border-transparent when not needing attention) -- same DESIGN_SYSTEM.md sec1 severity-token left-accent convention as the entries above. Pre-existing line; the 2026-08-29 accessibility pass only appended role/tabIndex/onKeyDown/focus: to this element, did not touch the border classes."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/briefing/CompactOptionRow.tsx"
+        ],
+        "createdAt": "2026-08-29T20:18:12.236Z",
+        "reason": "border-l-4 border-l-severity-opportunity, conditional on option.recommended -- the same DESIGN_SYSTEM.md sec1 severity-token left-accent convention already sanctioned for ExecutiveBriefing.tsx/DecisionAskBlock.tsx/OpportunityCard.tsx/PortfolioDashboard.tsx above, marking the recommended-option card in the compact option list."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/FramingGateCard.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:30.885Z",
+        "reason": "L244: disabled:bg-slate-700 disabled:text-slate-500 on the 'Confirm objective' button, cross-matched against the enabled state's bg-indigo-600 on the same line -- same disabled-state false-positive class as ConnectionProfileManager.tsx/DeepFocusView.tsx above. Sole candidate in this file."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/shared/LeftNav.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:31.594Z",
+        "reason": "5 sites, all the same nav-link active/inactive ternary idiom repeated 3 times in this file (SettingsSubLink, a step indicator, the main nav Link) -- e.g. `active ? 'bg-indigo-600/20 text-white' : 'text-slate-400 ...'`. The inactive branch carries no real colored background; the detector cross-matches its slate text against the ACTIVE branch's bg-indigo on the same line. Verified all 5 are this one idiom, not 5 separate issues."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/BusinessProcessIntelligence.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:32.185Z",
+        "reason": "L279: disabled:bg-slate-800 disabled:text-slate-500 on the 'Select business processes' button, cross-matched against bg-indigo-600 from the enabled state on the same line -- same false-positive class as FramingGateCard.tsx above. Sole candidate in this file."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/ContextExplorer.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:32.781Z",
+        "reason": "L91: isSelected ternary -- unselected branch is 'border-transparent ... text-slate-300' (no colored background at all), cross-matched against the selected branch's bg-indigo-900/30 on the same line. Same false-positive class, selection-state variant rather than disabled-state. Sole candidate in this file."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/KPIIntelligence.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:33.387Z",
+        "reason": "L342: disabled:bg-slate-800 disabled:text-slate-500 on the 'Research company' button, identical shape to BusinessProcessIntelligence.tsx's L279 (same component pattern, different page). Sole candidate in this file."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/Portfolio.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:33.984Z",
+        "reason": "L388: disabled:bg-slate-700 disabled:text-slate-500 on the 'Record' button, cross-matched against bg-blue-600 from the enabled state on the same line -- same false-positive class as the others above. Sole candidate in this file."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/RegistryExplorer.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:34.597Z",
+        "reason": "L1286: disabled:bg-slate-800 disabled:text-slate-500 on the 'Create and select' client button, cross-matched against bg-indigo-600 from the enabled state on the same line -- same false-positive class as the others above. Sole candidate in this file."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/animations/AgentAnimations.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:40.915Z",
+        "reason": "L180: border-l-2 border-severity-critical bg-severity-critical/5 -- DESIGN_SYSTEM.md sec1's canonical severity-token left-accent, same sanctioned pattern as the entries above. Sole candidate in this file."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/WhitePaperReport.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:41.644Z",
+        "reason": "Two sites: L308 is border-l-4 border-severity-opportunity, the same sanctioned severity-token accent as above (the Recommendation section). L153 is border-l-4 border-slate-400 bg-slate-50 -- a neutral (non-color-coded) left-accent callout ('Key Question') in this page's own light/print document aesthetic (bg-white throughout, distinct from the app's dark theme, same category as ExecutiveBriefing.tsx's print styles already exempted above). Consistent with L308's callout convention on this same page, just a different semantic (neutral vs opportunity)."
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/HowItWorks.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:42.261Z",
+        "reason": "L783: text-indigo-300 heading labeling a 'Model-assisted synthesis' card (bg-indigo-950/40 border-indigo-600/20). This is a Persuade-mode marketing page, already exempted from severity-token constraints in severity_token_lint.py's EXEMPT_FILES (ui_brand_guidelines.md sec5: marketing pages share the app's style, not its severity variables). Indigo is DESIGN_SYSTEM.md sec2's documented AI-action/CTA brand color, and the heading is literally describing an AI-assisted capability -- on-brand and content-appropriate, not an ungrounded gradient tell."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/PrincipalManagement.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:48.353Z",
+        "reason": "PrincipalManagement.tsx is dead code -- confirmed unreferenced in App.tsx (only a comment: 'PrincipalManagement merged into Settings'), and verified live: principal CRUD actually happens at /settings via RegistryExplorer.tsx -> PrincipalCardList/PrincipalForm (components/PrincipalEditor.tsx), which is the MORE current implementation -- it has workflow_role and business_processes wired into its form state; PrincipalManagement.tsx's own useState list has neither, confirming it predates the Framer/Decision-Maker split (this session) and was never updated after. Not evaluating or endorsing this file's border-l-4 border-blue-500 styling as a sanctioned pattern -- it's simply unreachable code; recommend deletion as a separate follow-up rather than polishing colors nobody sees."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/PrincipalManagement.tsx"
+        ],
+        "createdAt": "2026-08-29T20:28:49.046Z",
+        "reason": "Same dead-code basis as the side-tab entry above for this file -- see that entry for the verification. This file's L183 finding is likewise unreachable code, not reviewed as a design pattern."
       }
     ]
   }

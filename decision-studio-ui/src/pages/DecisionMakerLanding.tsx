@@ -165,8 +165,12 @@ export function DecisionMakerLanding({
                 return (
                   <div
                     key={item.request_id}
-                    className="border-l-[3px] border-l-indigo-500 bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4 transition-colors hover:bg-slate-900/60 cursor-pointer"
-                    onClick={() => openPendingDecision(item)}
+                    className="border-l-[3px] border-l-indigo-500 bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4 transition-colors hover:bg-slate-900/60 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/60"
+                    onClick={() => { if (!isOpening) openPendingDecision(item); }}
+                    role="button"
+                    tabIndex={0}
+                    aria-busy={isOpening}
+                    onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !isOpening) { e.preventDefault(); openPendingDecision(item); } }}
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white truncate">

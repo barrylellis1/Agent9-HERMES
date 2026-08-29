@@ -185,6 +185,7 @@ export function ConnectionProfileManager({
             disabled={loading}
             className="p-1.5 text-slate-400 hover:text-white transition-colors"
             title="Refresh"
+            aria-label="Refresh connection profiles"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -213,12 +214,16 @@ export function ConnectionProfileManager({
           {profiles.map((profile) => (
             <div
               key={profile.id}
-              className={`p-4 rounded-lg border transition-all cursor-pointer ${
+              className={`p-4 rounded-lg border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/60 ${
                 selectedId === profile.id
                   ? 'bg-blue-500/10 border-blue-500'
                   : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
               }`}
               onClick={() => handleSelectProfile(profile)}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selectedId === profile.id}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectProfile(profile); } }}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">

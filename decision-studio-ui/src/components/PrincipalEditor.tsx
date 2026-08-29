@@ -237,6 +237,18 @@ export function PrincipalCardList({ clientId }: { clientId: string }) {
   const [editingId, setEditingId] = useState<string | null>(null) // '__new__' for create
   const [searchText, setSearchText] = useState('')
 
+  // Escape closes the edit modal -- it already had backdrop-click and an X
+  // button, but no keyboard path (2026-08-29 audit P2). Only listens while
+  // the modal is actually open.
+  useEffect(() => {
+    if (!editingId) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditingId(null)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [editingId])
+
   const load = useCallback(async () => {
     if (!clientId) return
     setLoading(true)

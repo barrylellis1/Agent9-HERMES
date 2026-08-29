@@ -15,8 +15,11 @@ interface OpportunityCardProps {
 export function OpportunityCard({ signal, onClick }: OpportunityCardProps) {
   return (
     <div
-      className="border-l-2 border-l-severity-opportunity bg-slate-900 hover:bg-slate-800 rounded-xl p-4 cursor-pointer transition-colors"
+      className="border-l-2 border-l-severity-opportunity bg-slate-900 hover:bg-slate-800 rounded-xl p-4 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-severity-opportunity/60"
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">

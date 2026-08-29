@@ -1023,12 +1023,16 @@ export function DataProductOnboardingNew({
                                         <p className="text-sm text-slate-400">Found {discoveredTables.length} tables/views</p>
                                         <div className="space-y-2 max-h-96 overflow-y-auto">
                                             {discoveredTables.map(table => (
-                                                <div 
+                                                <div
                                                     key={table.name}
                                                     onClick={() => toggleTableSelection(table.name)}
-                                                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                                                        table.selected 
-                                                            ? 'bg-blue-500/10 border-blue-500/30' 
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    aria-pressed={table.selected}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTableSelection(table.name); } }}
+                                                    className={`p-4 rounded-lg border cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                                                        table.selected
+                                                            ? 'bg-blue-500/10 border-blue-500/30'
                                                             : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'
                                                     }`}
                                                 >
