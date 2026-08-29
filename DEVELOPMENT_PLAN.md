@@ -2734,8 +2734,10 @@ Roughly a third of Hess's KPI set is unusable: 3 wrong, 5 NULL, 1 impossible (`r
 which the negation validator built in step 2 subsequently attributed to the same sign bug — see
 below). **Update (step 2, 2026-08-29):** the negation validator found 2 more mis-signed KPIs the
 manual audit missed — `ebitda` and `return_on_capital` — bringing the real count to 5 wrong, 5
-NULL. **Not yet fixed** — deliberately, because the fix belongs in the contract, not in
-hand-edited f-strings in `scripts/clients/hess.py` (that correction is step 3).
+NULL. **Fixed (step 3, 2026-08-29 — see below):** all 5 mis-signed KPIs corrected and
+re-validated live. The 5 NULL KPIs are untouched, deliberately — they reference `CapEx`/
+`OperatingCF` account types that don't exist in this dataset at all, a different, lower-priority
+problem the plan's Open Questions section already scoped as "can stay or go."
 
 ---
 
@@ -2815,7 +2817,7 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 |---|---|---|
 | **1** | ✅ **DONE (2026-08-29, lubricants; local Supabase, not yet synced to production).** Moved `dimension_semantics` + `fallback_group_by_dimensions` onto the registry record; repointed `_dims_from_contract` | The only live contract read. Also the fix for the **hardcoded dimension preference list** in Phase 15 Stage I — that literal was already deleted (Aug 2026), so this step is now purely the store migration |
 | **2** | ✅ **DONE (2026-08-29, all three financial data products; local Supabase, not yet synced to production).** Added `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
-| **3** | Correct the Hess KPIs against the declared convention; re-validate live | Fixes real wrong output, now expressed as data rather than code |
+| **3** | ✅ **DONE (2026-08-29, local Supabase, not yet synced to production).** Corrected all 5 Hess KPIs against the declared convention; re-validated live | Fixes real wrong output, now expressed as data rather than code |
 | **4** | Move `business_terms`, `column_aliases`, `supported_business_processes`, `connection` | The remaining sections; lower risk once the pattern exists |
 | **5** | Resolve the `views` shape collision, delete the 12 YAML files and all `yaml.safe_load` calls in agent files | Only safe once nothing reads them |
 | **6** | Architecture test: no `yaml.safe_load` in `src/agents/**` | Makes the rule in CLAUDE.md enforceable rather than aspirational |
@@ -2929,6 +2931,53 @@ check," step 3 is "act on it"); synced to production; steps 4–6.
 
 ---
 
+#### Step 3 — done, local only (2026-08-29)
+
+Rewrote all 5 mis-signed KPIs in `scripts/clients/hess.py` to sum the already-signed `amount`
+column directly instead of re-negating a measure the contract now declares negative — the same
+idiom already live and validator-clean on lubricants (`gross_profit`/`gross_margin_pct`) and
+apex_lubricants (`operating_income`, and `ebitda`'s D&A-addback branch, which Hess's `ebitda`
+fix now mirrors exactly rather than inventing a new shape).
+
+| KPI | before | after fix | original manual-audit "actual" |
+|---|---|---|---|
+| `gross_profit` | 6,236M | **1,297M** | 1,297M ✅ exact match |
+| `gross_margin_pct` | 165.57% | **34.43%** | 34.43% ✅ exact match |
+| `operating_income` | 6,816M | **717M** | 717M ✅ exact match |
+| `ebitda` | 6,928M | **828M** | *(not independently computed in the original audit — new)* |
+| `return_on_capital` | 301.63% (impossible) | **31.71%** | *(not independently computed — now merely plausible, not verified against an outside figure)* |
+
+The first three land on the exact figures the 2026-08-10 manual SQL walkthrough computed
+independently by hand — strong confirmation the fix (and the manual audit before it) are both
+right, not just "different from before." `ebitda` and `return_on_capital` have no independent
+hand-computed figure to match against (they weren't in the original 3-KPI manual audit at all —
+step 2 found them); both are now merely *plausible* (no longer impossible/absurd), not
+externally verified to a second figure the way the other three are.
+
+**Re-validated live via `scripts/validate_client_kpis.py`:** all 5 sign-convention violations
+cleared. `16 KPI(s) checked, 5 needing attention` — the remaining 5 are the pre-existing NULL
+KPIs (`lifting_cost`, `exploration_expense`, `capital_expenditure`, `operating_cash_flow`,
+`free_cash_flow`), untouched by design: they reference `CapEx`/`OperatingCF` account types that
+don't exist in this dataset at all, a different and lower-priority problem this step was not
+scoped to fix (see Open Questions below — "can stay or go... low priority either way").
+
+**Not independently re-checked:** the YoY *direction* claim from the original finding ("reported
+margin rose +2.66pp while true margin fell 2.66pp — Situation Awareness would see improvement
+and raise no alert on a declining business") was about the trend across two periods, not the
+single-period value corrected here. Re-validating that the alert direction itself now flips
+correctly would need a live SA scan comparing two fiscal periods, not just the current-period
+values checked in this pass — a natural follow-on if a full Hess situation-awareness
+verification is wanted, not done here.
+
+1427 unit tests pass, unchanged (this step edits seed SQL text, not the validator or its tests —
+the validator's own tests intentionally keep the ORIGINAL buggy SQL strings as fixtures, since
+they exist to prove the validator still catches that shape, independent of what hess.py now
+contains).
+
+**Not yet done:** synced to production; steps 4–6.
+
+---
+
 #### Open questions
 
 - **Hess is not a validated dataset** (established 2026-08-10). `HessStarSchemaView` is a *partially relabelled lubricants dataset*, living in the `agent9_lubricants` database alongside `LubricantsStarSchemaView`. Two dimensions were genuinely converted — `segment_name` (E&P, Midstream) and `basin_name` (Bakken, Gulf of Mexico, Guyana, Southeast Asia) are real Hess geography. The rest were not: `asset_name` holds **Automatic Transmission Fluid, Compressor Oil, Conventional Engine Oil**; `business_unit` holds **Retail Products, Service Centers**; `country` and `region` hold identical region values. An E&P asset is a field or a platform, not a motor oil.
@@ -2940,7 +2989,7 @@ check," step 3 is "act on it"); synced to production; steps 4–6.
   **SCOPING DECISION (2026-08-10): data realism is explicitly NOT in scope for Apex or Hess.** They exist to demonstrate that Agent9 works technically against Snowflake and SQL Server, and for that purpose the underlying data does not need to be a faithful E&P or distributor P&L. Both remain useful as backend-connectivity proof. This closes the "generate real E&P data" option below unless the positioning changes.
 
   **What still matters under that framing, and why it is narrower than it looks:**
-  - **The sign error is still worth fixing** — not for realism, but because it produces a *visibly impossible* number. A demo intended to prove "Agent9 runs on SQL Server" is undermined by a gross margin of 165.57%, and by a KPI whose direction is inverted. A technical proof still has to produce plausible output. It is also fixed *generically* by Phase 16 step 2 (`measure_semantics` + the negation validator), so it costs nothing extra once that lands.
+  - ~~**The sign error is still worth fixing**~~ **FIXED (step 3, 2026-08-29, local only):** gross margin now reports 34.43% — matching the manual audit's independently-computed figure exactly — instead of 165.57%. All 5 mis-signed KPIs corrected; see the Step 3 subsection above.
   - **The five NULL KPIs can stay or go** — they weaken nothing technically. Removing them is tidier; leaving them is honest about the dataset being partial. Low priority either way.
   - **The relabelling does not matter** — `asset_name` holding motor oils is irrelevant to a connectivity demo.
   - **The one real constraint:** neither client should be presented as an industry case study, and no briefing from them should be shown as a customer example. `upstream_revenue` is lubricants revenue under an oil & gas name — fine as plumbing, misleading as a narrative.

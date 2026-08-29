@@ -235,17 +235,19 @@ KPIS: List[Dict[str, Any]] = [
         "domain": "Finance",
         "description": (
             "Total revenue minus cost of goods sold. "
-            "COGS amounts in the view are stored as negative values; the CASE expression "
-            "negates them again to subtract from revenue."
+            "COGS amounts in the view are stored as negative values, so a signed SUM "
+            "already computes Revenue minus COGS -- no CASE-based negation needed or "
+            "correct (Phase 16 step 3, DEVELOPMENT_PLAN.md: the negation validator "
+            "caught the prior version of this query re-negating COGS, which ADDED "
+            "cost to revenue and reported gross_profit=6,236M instead of ~1,297M)."
         ),
         "unit": "$",
         "data_product_id": "dp_hess_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_profitability_analysis"],
         "sql_query": (
-            f"SELECT SUM(CASE WHEN [account_type] = 'Revenue' THEN [amount] "
-            f"WHEN [account_type] = 'COGS' THEN -[amount] ELSE 0 END) AS value "
-            f"FROM {_SS_PREFIX} WHERE [version] = 'Actual'"
+            f"SELECT SUM([amount]) AS value "
+            f"FROM {_SS_PREFIX} WHERE [account_type] IN ('Revenue', 'COGS') AND [version] = 'Actual'"
         ),
         "filters": {"version": "Actual"},
         "plan_version_value": "Budget",
@@ -270,8 +272,12 @@ KPIS: List[Dict[str, Any]] = [
         "view_name": _VIEW,
         "business_process_ids": ["finance_profitability_analysis"],
         "sql_query": (
+            # Phase 16 step 3: numerator was re-negating COGS (already negative),
+            # which ADDED it to revenue and reported 165.57% instead of ~34.43%.
+            # COGS is signed, so a plain unnegated sum over the two types is
+            # gross profit -- same idiom as lubricants'/apex's gross_margin_pct.
             f"SELECT ROUND(100.0 * "
-            f"SUM(CASE WHEN [account_type] = 'Revenue' THEN [amount] WHEN [account_type] = 'COGS' THEN -[amount] ELSE 0 END) "
+            f"SUM(CASE WHEN [account_type] IN ('Revenue', 'COGS') THEN [amount] ELSE 0 END) "
             f"/ NULLIF(SUM(CASE WHEN [account_type] = 'Revenue' THEN [amount] ELSE 0 END), 0), 2) AS value "
             f"FROM {_SS_PREFIX} WHERE [version] = 'Actual'"
         ),
@@ -292,13 +298,19 @@ KPIS: List[Dict[str, Any]] = [
         "client_id": CLIENT_ID,
         "name": "Operating Income",
         "domain": "Finance",
-        "description": "Revenue minus COGS and SG&A expenses (EBIT proxy for E&P operations)",
+        "description": (
+            "Revenue minus COGS and SG&A expenses (EBIT proxy for E&P operations). "
+            "COGS/SGA are stored negative, so a signed SUM over the three types is "
+            "already the correct result -- the prior ELSE -[amount] fallthrough "
+            "re-negated BOTH COGS and SGA (Phase 16 step 3), which ADDED them to "
+            "revenue and reported 6,816M instead of ~717M."
+        ),
         "unit": "$",
         "data_product_id": "dp_hess_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_profitability_analysis"],
         "sql_query": (
-            f"SELECT SUM(CASE WHEN [account_type] = 'Revenue' THEN [amount] ELSE -[amount] END) AS value "
+            f"SELECT SUM([amount]) AS value "
             f"FROM {_SS_PREFIX} "
             f"WHERE [account_type] IN ('Revenue', 'COGS', 'SGA') AND [version] = 'Actual'"
         ),
@@ -322,14 +334,22 @@ KPIS: List[Dict[str, Any]] = [
         "description": (
             "Earnings before interest, taxes, depreciation, and amortisation. "
             "Operating income plus D&A charges. D&A is stored as account_type='Other' "
-            "with account_category='D&A' in HessStarSchemaView."
+            "with account_category='D&A' in HessStarSchemaView, and like every "
+            "expense here is stored NEGATIVE -- the prior ELSE -[amount] fallthrough "
+            "re-negated COGS/SGA/D&A indiscriminately (Phase 16 step 3), which ADDED "
+            "COGS and SGA to revenue and reported 6,928M instead of a plausible "
+            "figure near operating_income. Fixed to mirror apex_lubricants' "
+            "already-correct ebitda idiom exactly: sum Revenue/COGS/SGA signed "
+            "(no negation), then negate ONLY the D&A branch to flip its stored-"
+            "negative value into a positive add-back."
         ),
         "unit": "$",
         "data_product_id": "dp_hess_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_profitability_analysis", "strategy_ebitda_growth_tracking"],
         "sql_query": (
-            f"SELECT SUM(CASE WHEN [account_type] = 'Revenue' THEN [amount] ELSE -[amount] END) AS value "
+            f"SELECT SUM(CASE WHEN [account_type] IN ('Revenue', 'COGS', 'SGA') THEN [amount] "
+            f"WHEN [account_category] = 'D&A' THEN -[amount] ELSE 0 END) AS value "
             f"FROM {_SS_PREFIX} "
             f"WHERE ([account_type] IN ('Revenue', 'COGS', 'SGA') "
             f"OR ([account_type] = 'Other' AND [account_category] = 'D&A')) "
@@ -554,7 +574,10 @@ KPIS: List[Dict[str, Any]] = [
         "description": (
             "ROCE proxy: Operating Income as a percentage of capital employed "
             "(approximated as Revenue × 0.6 as a proxy for the asset base). "
-            "Measures how efficiently Hess generates profit from deployed capital."
+            "Measures how efficiently Hess generates profit from deployed capital. "
+            "Numerator is a signed sum (COGS/SGA already negative) -- the prior "
+            "ELSE -[amount] fallthrough re-negated both (Phase 16 step 3), which "
+            "reported an impossible 301.63% instead of a plausible ROCE figure."
         ),
         "unit": "%",
         "data_product_id": "dp_hess_financials",
@@ -562,7 +585,7 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["finance_profitability_analysis", "strategy_capital_allocation_efficiency"],
         "sql_query": (
             f"SELECT ROUND(100.0 * "
-            f"SUM(CASE WHEN [account_type] = 'Revenue' THEN [amount] ELSE -[amount] END) "
+            f"SUM([amount]) "
             f"/ NULLIF(SUM(CASE WHEN [account_type] = 'Revenue' THEN [amount] ELSE 0 END) * 0.6, 0), 2) AS value "
             f"FROM {_SS_PREFIX} "
             f"WHERE [account_type] IN ('Revenue', 'COGS', 'SGA') AND [version] = 'Actual'"
