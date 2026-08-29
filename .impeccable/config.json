@@ -56,6 +56,24 @@
         ],
         "createdAt": "2026-08-29T19:23:39.968Z",
         "reason": "All 4 flagged sites (L704, L1220, L1231, L1237) are the same false-positive class: a disabled-state pair (disabled:bg-slate-700 disabled:text-slate-500) or an unselected-tab ternary branch (border-transparent/bg-transparent text-slate-500) cross-matched on the same line against a DIFFERENT branch's colored bg-blue-600/bg-indigo-600/bg-indigo-900. In every case the gray text's actual background at render time is transparent or slate, never the colored one the detector paired it with. This is the entire 'DeepFocusView.tsx: 4' contribution to the 2026-08-29 audit's 25-finding count -- none of it was real; see the audit follow-up note for the corrected total."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/OpportunityCard.tsx"
+        ],
+        "createdAt": "2026-08-29T19:31:02.105Z",
+        "reason": "border-l-2 border-l-severity-opportunity -- DESIGN_SYSTEM.md sec1's canonical severity-token left-accent, same sanctioned pattern already disclosed for ExecutiveBriefing.tsx/DecisionAskBlock.tsx above, just a 2px width and the opportunity token instead of 3px/warning. Pre-existing line; the 2026-08-29 accessibility pass only appended focus: classes after it."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/PortfolioDashboard.tsx"
+        ],
+        "createdAt": "2026-08-29T19:31:02.637Z",
+        "reason": "border-l-4 border-severity-warning (conditional, ternary against border-l-4 border-transparent when not needing attention) -- same DESIGN_SYSTEM.md sec1 severity-token left-accent convention as the entries above. Pre-existing line; the 2026-08-29 accessibility pass only appended role/tabIndex/onKeyDown/focus: to this element, did not touch the border classes."
       }
     ]
   }
