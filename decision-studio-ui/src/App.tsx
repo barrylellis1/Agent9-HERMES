@@ -1,27 +1,57 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { DecisionStudio } from './pages/DecisionStudio'
-// AdminConsole replaced by Settings (RegistryExplorer at /settings)
-import { DataProductOnboarding } from './pages/DataProductOnboarding'
-import { DataProductOnboardingNew } from './pages/DataProductOnboardingNew'
-import { RegistryExplorer } from './pages/RegistryExplorer'
-import { ContextExplorer } from './pages/ContextExplorer'
-import { ExecutiveBriefing } from './pages/ExecutiveBriefing'
-import { WhitePaperReport } from './pages/WhitePaperReport'
-import { CouncilDebatePage } from './pages/CouncilDebatePage'
 import { Login } from './pages/Login'
-import { Portfolio } from './pages/Portfolio'
 import { LandingPageAlternate as LandingPage } from './pages/LandingPageAlternate'
-import { HowItWorks } from './pages/HowItWorks'
-import { InsightsBIModernization } from './pages/InsightsBIModernization'
-import { DataOnboarding } from './pages/DataOnboarding'
-import ActionHandler from './pages/ActionHandler'
-import DelegatePage from './pages/DelegatePage'
-import CompanyProfile from './pages/CompanyProfile'
-import { KPIIntelligence } from './pages/KPIIntelligence'
-import { BusinessProcessIntelligence } from './pages/BusinessProcessIntelligence'
-import { GovernanceView } from './pages/GovernanceView'
-import { OnboardingDayView } from './pages/OnboardingDayView'
-import { OnboardingResume } from './pages/OnboardingResume'
+
+// Route-based code splitting (2026-08-29 audit item #3) — every page used to
+// be a static top-level import, so the whole app (dashboard, every settings
+// screen, every onboarding wizard, every marketing page) shipped as one
+// 2.25MB chunk on first load regardless of which single route a visitor
+// actually opened. Only the two entry routes ("/" and "/login" — the first
+// thing effectively every visitor hits) stay eager, to avoid an extra
+// request-waterfall hop on first paint; everything reached by navigating
+// somewhere lazy-loads its own chunk instead.
+// AdminConsole replaced by Settings (RegistryExplorer at /settings)
+const DataProductOnboarding = lazy(() =>
+  import('./pages/DataProductOnboarding').then(m => ({ default: m.DataProductOnboarding })))
+const DataProductOnboardingNew = lazy(() =>
+  import('./pages/DataProductOnboardingNew').then(m => ({ default: m.DataProductOnboardingNew })))
+const RegistryExplorer = lazy(() =>
+  import('./pages/RegistryExplorer').then(m => ({ default: m.RegistryExplorer })))
+const ContextExplorer = lazy(() =>
+  import('./pages/ContextExplorer').then(m => ({ default: m.ContextExplorer })))
+const ExecutiveBriefing = lazy(() =>
+  import('./pages/ExecutiveBriefing').then(m => ({ default: m.ExecutiveBriefing })))
+const WhitePaperReport = lazy(() =>
+  import('./pages/WhitePaperReport').then(m => ({ default: m.WhitePaperReport })))
+const CouncilDebatePage = lazy(() =>
+  import('./pages/CouncilDebatePage').then(m => ({ default: m.CouncilDebatePage })))
+const Portfolio = lazy(() =>
+  import('./pages/Portfolio').then(m => ({ default: m.Portfolio })))
+const HowItWorks = lazy(() =>
+  import('./pages/HowItWorks').then(m => ({ default: m.HowItWorks })))
+const InsightsBIModernization = lazy(() =>
+  import('./pages/InsightsBIModernization').then(m => ({ default: m.InsightsBIModernization })))
+const DataOnboarding = lazy(() =>
+  import('./pages/DataOnboarding').then(m => ({ default: m.DataOnboarding })))
+const ActionHandler = lazy(() => import('./pages/ActionHandler'))
+const DelegatePage = lazy(() => import('./pages/DelegatePage'))
+const CompanyProfile = lazy(() => import('./pages/CompanyProfile'))
+const KPIIntelligence = lazy(() =>
+  import('./pages/KPIIntelligence').then(m => ({ default: m.KPIIntelligence })))
+const BusinessProcessIntelligence = lazy(() =>
+  import('./pages/BusinessProcessIntelligence').then(m => ({ default: m.BusinessProcessIntelligence })))
+const GovernanceView = lazy(() =>
+  import('./pages/GovernanceView').then(m => ({ default: m.GovernanceView })))
+const OnboardingDayView = lazy(() =>
+  import('./pages/OnboardingDayView').then(m => ({ default: m.OnboardingDayView })))
+const OnboardingResume = lazy(() =>
+  import('./pages/OnboardingResume').then(m => ({ default: m.OnboardingResume })))
+// DecisionStudio is the actual post-login app -- the single highest-traffic
+// route after the entry pages, but still not the FIRST thing painted, so it
+// stays lazy like the rest rather than joining Login/LandingPage as eager.
+const DecisionStudio = lazy(() =>
+  import('./pages/DecisionStudio').then(m => ({ default: m.DecisionStudio })))
 // PrincipalManagement merged into Settings (RegistryExplorer)
 
 // Hostname routing: decision-studios.com → corporate site, everything else → app
@@ -34,9 +64,23 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Minimal, theme-matched fallback for the gap between "clicked a link" and
+// "that route's chunk arrived" -- a bare spinner, not a full skeleton, since
+// every lazy route already renders its own loading state once its own code
+// is running; this only covers the code-fetch itself; a blank flash on a
+// dark app reads as broken, not as fast.
+function RouteFallback() {
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-slate-700 border-t-slate-400 rounded-full animate-spin" />
+    </div>
+  )
+}
+
 function App() {
   return (
     <Router>
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/" element={isCorporateDomain ? <LandingPage /> : <Login />} />
         <Route path="/login" element={<Login />} />
@@ -93,6 +137,7 @@ function App() {
         {/* Redirect any unknown routes to landing page */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </Router>
   )
 }

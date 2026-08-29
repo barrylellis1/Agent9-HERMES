@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
-import html2pdf from 'html2pdf.js'
 import {
   ArrowLeft, ArrowRight, Download, Printer, AlertTriangle, ChevronRight,
   Target, Zap, TrendingUp, ShieldCheck, Loader2, CheckCircle2,
@@ -542,7 +541,15 @@ export function ExecutiveBriefing() {
     })
   }
 
-  const handleExportPDF = useCallback(() => {
+  // html2pdf.js is dynamically imported below (2026-08-29 audit item #3) --
+  // it bundles jsPDF + html2canvas, a genuinely heavy dependency that used to
+  // ship in this page's own JS on every single visit, even for the vast
+  // majority of readers who never click Export. Route-level lazy-loading
+  // (App.tsx) already keeps it off the initial app bundle; this goes one
+  // step further and keeps it off THIS page's bundle too until the button
+  // is actually pressed.
+  const handleExportPDF = useCallback(async () => {
+    const { default: html2pdf } = await import('html2pdf.js')
     const element = (document.querySelector('.briefing-content') || document.body) as HTMLElement
     const filename = `Decision-Briefing-${situationId || 'export'}.pdf`
 

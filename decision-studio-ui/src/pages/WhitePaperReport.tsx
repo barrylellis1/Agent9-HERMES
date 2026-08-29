@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import html2pdf from 'html2pdf.js'
 import { ArrowLeft, Download, Printer, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { BrandLogo } from '../components/BrandLogo'
 
@@ -27,9 +26,14 @@ export function WhitePaperReport() {
 
   const handlePrint = useCallback(() => window.print(), [])
 
-  const handleExportPDF = useCallback(() => {
+  // html2pdf.js dynamically imported on click (2026-08-29 audit item #3) --
+  // see the matching comment in ExecutiveBriefing.tsx for why: it bundles
+  // jsPDF + html2canvas and used to ship in every visit to this page even
+  // for readers who never export.
+  const handleExportPDF = useCallback(async () => {
     const element = reportRef.current
     if (!element) return
+    const { default: html2pdf } = await import('html2pdf.js')
     const filename = `Decision-Report-${situationId || 'export'}.pdf`
     const options = {
       margin: [15, 15] as [number, number],
