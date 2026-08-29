@@ -74,6 +74,15 @@
         ],
         "createdAt": "2026-08-29T19:31:02.637Z",
         "reason": "border-l-4 border-severity-warning (conditional, ternary against border-l-4 border-transparent when not needing attention) -- same DESIGN_SYSTEM.md sec1 severity-token left-accent convention as the entries above. Pre-existing line; the 2026-08-29 accessibility pass only appended role/tabIndex/onKeyDown/focus: to this element, did not touch the border classes."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/briefing/CompactOptionRow.tsx"
+        ],
+        "createdAt": "2026-08-29T20:18:12.236Z",
+        "reason": "border-l-4 border-l-severity-opportunity, conditional on option.recommended -- the same DESIGN_SYSTEM.md sec1 severity-token left-accent convention already sanctioned for ExecutiveBriefing.tsx/DecisionAskBlock.tsx/OpportunityCard.tsx/PortfolioDashboard.tsx above, marking the recommended-option card in the compact option list."
       }
     ]
   }
