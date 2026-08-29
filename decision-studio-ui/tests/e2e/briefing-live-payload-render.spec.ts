@@ -320,7 +320,7 @@ test.describe('compact decision-brief restructure', () => {
     await expect(band.getByText(/cost of (waiting|inaction)/i)).toBeVisible();
   });
 
-  test('the fork resolves the headline tension to its real, single affected option', async ({ page }) => {
+  test('the fork resolves the open-question tension to its real, single affected option', async ({ page }) => {
     // Fixture's tensions[0].options_affected === ['opt_1'] — exactly one, the
     // degrade path with no divider/either-or framing. A test asserting the
     // 2+ card layout would need a payload this fixture doesn't have.
@@ -412,5 +412,51 @@ test.describe('compact decision-brief restructure', () => {
     }
     await expect(page.locator('h1')).toHaveCount(1);
     await expect(page.getByTestId('why-now-band').getByText(/why now/i)).toBeVisible();
+  });
+
+  test('the open-question warning sits after Situation + Ask and Why Now, before the options', async ({ page }) => {
+    // 2026-08-29: this used to be the page's <h1>, ahead of everything.
+    // Moved to a warning immediately before the options it bears on — see
+    // ExecutiveBriefing.tsx's fold-order comment. Checked by actual
+    // rendered vertical position, not DOM order alone, since that's what a
+    // reader scrolling down the page experiences.
+    await openBuiltBriefing(page);
+    await expect(page.getByText(/strategic options/i).first()).toBeVisible({ timeout: 20_000 });
+    const ask = page.getByTestId('decision-ask-block');
+    const whyNow = page.getByTestId('why-now-band');
+    const warning = page.getByTestId('contradiction-banner');
+    const options = page.locator('#accordion-options');
+    await expect(ask).toBeVisible();
+    await expect(whyNow).toBeVisible();
+    await expect(warning).toBeVisible();
+    await expect(options).toBeVisible();
+    const [askY, whyNowY, warningY, optionsY] = await Promise.all(
+      [ask, whyNow, warning, options].map(async (l) => (await l.boundingBox())!.y)
+    );
+    expect(askY, 'ask must render before why-now').toBeLessThan(whyNowY);
+    expect(whyNowY, 'why-now must render before the warning').toBeLessThan(warningY);
+    expect(warningY, 'the warning must render before the options section').toBeLessThan(optionsY);
+  });
+
+  test('the "why now" stat is scaled correctly for a percentage-point delta, not multiplied by 100 again', async ({ page }) => {
+    // Found rendering this fixture: current_value 20.64, comparison_value
+    // 27.78 -> a real, already-in-percentage-points delta of -7.14. Routing
+    // that through formatExecutive's isPercent branch (built for a level
+    // like 0.185 -> "18.5%") multiplied it by 100 a second time and printed
+    // "-714.0%". Matches briefingUtils.ts's own formatDelta level-vs-delta
+    // distinction: a percentage-point CHANGE gets "pp", not "%", and is
+    // never re-scaled.
+    const built = await openBuiltBriefing(page);
+    const kd = built.kpiData;
+    expect(kd?.unit, 'fixture must be a %-unit KPI for this assertion to mean anything').toBe('%');
+    expect(kd.current_value != null && kd.comparison_value != null).toBe(true);
+    const delta = kd.current_value - kd.comparison_value;
+    const expected = `${delta.toFixed(1)}pp`;
+    // Scoped to the stat's own testid, not "no % anywhere in the band" — the
+    // right pane (CostOfInactionBanner, pre-existing, out of scope here)
+    // legitimately shows LEVELS as "20.2%" alongside its own deltas
+    // mislabeled the same way this stat used to be ("-0.4%" for a -0.4pp
+    // move) — a real, separate bug, flagged but not fixed in this pass.
+    await expect(page.getByTestId('why-now-stat')).toHaveText(expected);
   });
 });

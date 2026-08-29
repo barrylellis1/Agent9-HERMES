@@ -15,10 +15,12 @@ import { ArrowRight } from 'lucide-react';
  * ranges side by side — real content a reader can act on, not invented
  * framing.
  *
- * Deliberately tied to the SAME tension the page's headline (DecisionMasthead
- * / ContradictionBanner) renders — not a search across all tensions for one
- * with more affected options, which would show a fork about a different
- * open question than the one the reader was just told about.
+ * Deliberately tied to the SAME tension `ContradictionBanner` renders right
+ * beside it (both sit just above the options list as of 2026-08-29 — see
+ * ExecutiveBriefing.tsx's fold-order comment) — not a search across all
+ * tensions for one with more affected options, which would show a fork
+ * about a different open question than the one the reader was just told
+ * about.
  */
 interface RelatedOptionsForkProps {
   optionsAffected?: string[] | null;

@@ -17,6 +17,20 @@
  * DecisionAskBlock, whose own M1 invariant comment says that block is
  * "IDENTICAL for every principal" — a new callout row there would have
  * mixed a workflow-adaptive element into a block designed to never vary.
+ *
+ * 2026-08-29: the `headline` variant (the tension promoted to the page's
+ * lead statement and its <h1>) was removed. Stage 8's own reasoning for it
+ * still stands on its own terms — the old five-assertion order (situation,
+ * ask, recommended path, owner, cost of inaction, "recommendation at a
+ * glance") really did bury a genuine open question behind a wall of
+ * false confidence. But leading with it, unconditionally, on every run —
+ * including the common case where the open question is a minor,
+ * bounded-scope caveat rather than a live-run-grade "both cannot be the
+ * dominant driver" — read as alarmist rather than diagnostic, and there
+ * was no field signal yet on how often a real production run even carries
+ * one. This is a warning now: after Situation + Ask, before the options,
+ * not before either of them. See DecisionMasthead and ExecutiveBriefing.tsx's
+ * fold-order comment for where it moved to.
  */
 import { AlertTriangle } from 'lucide-react';
 import type { UnresolvedTension } from '../../api/types';
@@ -29,13 +43,9 @@ interface ContradictionBannerProps {
    *  disable the link (e.g. print view, where the appendix is reached by
    *  reading on, not clicking). */
   onViewDetail?: () => void;
-  /** `headline` promotes the tension to the page's lead statement and its
-   *  only <h1>. `inline` is the original supporting-callout treatment, kept
-   *  for the print path. Default `inline` so no existing caller changes. */
-  variant?: 'headline' | 'inline';
 }
 
-export function ContradictionBanner({ tension, onViewDetail, variant = 'inline' }: ContradictionBannerProps) {
+export function ContradictionBanner({ tension, onViewDetail }: ContradictionBannerProps) {
   const tensionText = typeof tension === 'string' ? tension : tension?.tension;
   if (!tensionText) return null;
 
@@ -49,42 +59,8 @@ export function ContradictionBanner({ tension, onViewDetail, variant = 'inline' 
     </button>
   );
 
-  /* Headline variant — move #1 of executive_briefing_redesign.md, finally at
-     the top of the page rather than fifth down it. Two deliberate choices:
-
-     1. The tension text IS the <h1>. There is no "THE OPEN QUESTION" kicker
-        above it any more. An uppercase micro-label stacked over a larger
-        heading is decoration that the heading already earns on its own, and
-        this page had no <h1> at all before now.
-     2. The framing that label used to carry moves into a supporting line
-        underneath, written as the BLUF consequence — the reader is told what
-        the open question MEANS for the decision, not just that one exists. */
-  if (variant === 'headline') {
-    return (
-      <div className="mb-6 border-l-[3px] border-l-severity-warning pl-4 sm:pl-5 print:border-l-amber-600">
-        <div className="flex items-start gap-2.5">
-          <AlertTriangle className="w-5 h-5 text-severity-warning shrink-0 mt-1.5 print:text-amber-600" />
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold text-white leading-snug tracking-tight print:text-slate-900">
-              {tensionText}
-            </h1>
-            <p className="text-sm text-severity-warning/80 leading-relaxed mt-2 print:text-amber-800">
-              This is unresolved. The recommended first action below is the one that settles it.
-            </p>
-            {tension?.requires && (
-              <p className="text-xs text-slate-400 mt-2 print:text-slate-600">
-                Requires: {tension.requires}
-              </p>
-            )}
-            {detailLink}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-xl border border-severity-warning/40 bg-severity-warning/20 p-4 mb-6 print:bg-amber-50 print:border-amber-200">
+    <div data-testid="contradiction-banner" className="rounded-xl border border-severity-warning/40 bg-severity-warning/20 p-4 mb-6 print:bg-amber-50 print:border-amber-200">
       <div className="flex items-start gap-3">
         <AlertTriangle className="w-5 h-5 text-severity-warning shrink-0 mt-0.5 print:text-amber-600" />
         <div className="min-w-0">

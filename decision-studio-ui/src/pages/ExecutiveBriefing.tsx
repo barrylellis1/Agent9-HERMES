@@ -17,6 +17,7 @@ import { ImmediateActionsChecklist } from '../components/briefing/ImmediateActio
 import { OptionDetailDrawer } from '../components/briefing/OptionDetailDrawer'
 import { DecisionMasthead } from '../components/briefing/DecisionMasthead'
 import { RelatedOptionsFork } from '../components/briefing/RelatedOptionsFork'
+import { ContradictionBanner } from '../components/briefing/ContradictionBanner'
 import { WhyNowBand } from '../components/briefing/WhyNowBand'
 import { CompactOptionRow } from '../components/briefing/CompactOptionRow'
 import { VerificationLedger } from '../components/briefing/VerificationLedger'
@@ -1047,35 +1048,39 @@ export function ExecutiveBriefing() {
                 well would put the same three facts on the page twice, which is
                 the duplicate-recommendation defect Cat 1 fixed once already. */}
             {/* ── THE FOLD ──────────────────────────────────────────────────
-                Order here is load-bearing, and it is the fix for the defect
-                the Aug 2026 design critique scored hardest (19/40).
+                Order here is load-bearing.
 
-                The page used to open: situation bullets → decision ask →
-                recommended path → owner → Cost of Inaction → "Recommendation
-                at a glance" → and only THEN the contradiction, one full scroll
-                below the fold. So it asserted an answer twice before admitting
-                the question was still open — the exact inverse of BLUF, and it
-                defeated move #1 of executive_briefing_redesign.md ("the
-                contradiction becomes the headline") while technically shipping
-                the component.
+                The pre-Stage-8 page opened: situation bullets → decision ask
+                → recommended path → owner → Cost of Inaction →
+                "Recommendation at a glance" → and only THEN the
+                contradiction, one full scroll below the fold — five
+                sequential assertions of confidence before the caveat that
+                would have changed how a reader weighed all five. That
+                critique (19/40, Aug 2026) still stands on its own terms.
 
-                Now: open question → the decision it forces → why now →
-                the options. Four beats, each saying one thing once.
-                Do not reintroduce a block above the contradiction. */}
+                Stage 8's fix was to lead with the contradiction instead —
+                literally the page's <h1>, ahead of the situation and the ask
+                themselves. 2026-08-29: reverted, on product judgment rather
+                than field data (no signal yet on how often a production run
+                actually carries an unresolved tension vs. this being an
+                artifact of happy-path testing) — leading with an open
+                question on EVERY run, including the common case where it's a
+                minor, bounded caveat, read as alarmist before a reader had
+                even been told what the situation and the ask were.
+
+                Now: situation + the ask (one card, not five separate
+                assertions) → why now → THEN the open question, as a warning,
+                immediately before the options it bears on — see
+                ContradictionBanner's own docstring. Not a full reversion to
+                the pre-Stage-8 order: there is still exactly one card before
+                the caveat, not five, and Cost of Inaction stays ahead of it
+                too — it asserts urgency about the KPI, not confidence in any
+                particular recommended path, so it isn't the kind of
+                assertion the original critique was about. */}
             <DecisionMasthead
-              tension={data.unresolved_tensions?.[0]}
-              onViewDetail={openBlindSpotsAndScroll}
               kpiName={data.kpiData?.kpi_name || canonicalTitle}
               principalId={principalId}
               deadline={data.recommendation?.deadline}
-            />
-
-            {/* Real data only — the affected options' own titles/ROI, not
-                synthesized "if it's X / if it's Y" interpretive framing. See
-                RelatedOptionsFork's own docstring for why. */}
-            <RelatedOptionsFork
-              optionsAffected={data.unresolved_tensions?.[0]?.options_affected}
-              options={data.options || []}
             />
 
             {/* Problem vs. opportunity framing — added 2026-08-26, found live
@@ -1176,6 +1181,26 @@ export function ExecutiveBriefing() {
                 confirmation card below and the workspace rail both already
                 report that state. Three simultaneous confirmations was itself
                 a finding. Do not restore this card. */}
+
+            {/* The open question, as a warning — moved here 2026-08-29 from
+                the page's <h1> (see the fold-order comment above). Sits
+                immediately before the options it bears on, paired with the
+                real affected-options fork rather than split from it. Real
+                data only in the fork — the affected options' own titles/ROI,
+                not synthesized "if it's X / if it's Y" interpretive framing;
+                see RelatedOptionsFork's own docstring for why. */}
+            {data.unresolved_tensions?.[0] && (
+              <>
+                <ContradictionBanner
+                  tension={data.unresolved_tensions[0]}
+                  onViewDetail={openBlindSpotsAndScroll}
+                />
+                <RelatedOptionsFork
+                  optionsAffected={data.unresolved_tensions[0]?.options_affected}
+                  options={data.options || []}
+                />
+              </>
+            )}
 
             {/* [D] Strategic Options */}
             <AccordionSection id="options" title="Strategic Options" openSections={openSections} onToggle={toggleSection}

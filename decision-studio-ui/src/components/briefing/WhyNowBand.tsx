@@ -43,9 +43,26 @@ interface WhyNowBandProps {
 }
 
 export function WhyNowBand({ problem, bullets, headlineDelta, headlineUnit, isOpportunity, costOfInaction }: WhyNowBandProps) {
-  const isPercent = headlineUnit === '%' || headlineUnit === 'pp';
+  // headlineDelta is current_value - comparison_value — a DIFFERENCE between
+  // two already-percentage levels (e.g. 20.64 and 27.78), not a fraction of
+  // 1. Found live rendering this against a real Gross Margin % fixture:
+  // formatExecutive's isPercent branch does value*100 for exactly the
+  // opposite case (a level like 0.185 -> "18.5%"), so routing a -7.14
+  // percentage-POINT delta through it produced "-714.0%". briefingUtils.ts's
+  // own formatDelta already draws this same level-vs-delta distinction
+  // (its `kind` param) for the same reason — a 7.86pp fall reading as a
+  // 7.86% fall is the recurring bug class this file's own test suite
+  // already has a regression test for. Percent-unit deltas get "pp" here,
+  // formatted directly (no *100); every other unit still goes through
+  // formatExecutive's currency/magnitude branch unchanged.
+  const isPercentUnit = headlineUnit === '%' || headlineUnit === 'pp';
   const statText = headlineDelta != null
-    ? formatExecutive(headlineDelta, { showSign: false, isPercent, unit: isPercent ? undefined : (headlineUnit || '$') })
+    ? (isPercentUnit
+        // toFixed on a negative number keeps its own "-" — matches the sign
+        // behavior formatExecutive's other branches already have (no
+        // explicit "+" for positive, same as showSign: false elsewhere here).
+        ? `${headlineDelta.toFixed(1)}pp`
+        : formatExecutive(headlineDelta, { showSign: false, unit: headlineUnit || '$' }))
     : null;
   const statTone = isOpportunity
     ? 'text-severity-opportunity print:text-emerald-600'
@@ -59,7 +76,7 @@ export function WhyNowBand({ problem, bullets, headlineDelta, headlineUnit, isOp
       <div className="bg-slate-900 px-6 py-5 print:bg-white">
         <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Why now</span>
         {statText && (
-          <p className={`text-3xl font-mono font-bold tracking-tight mt-1 ${statTone}`}>
+          <p data-testid="why-now-stat" className={`text-3xl font-mono font-bold tracking-tight mt-1 ${statTone}`}>
             {statText}
           </p>
         )}
