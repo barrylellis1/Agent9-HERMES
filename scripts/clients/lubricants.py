@@ -76,6 +76,14 @@ DATA_PRODUCT = {
         "sign_convention": "signed",
         "positive_account_types": ["Revenue"],
         "negative_account_types": ["COGS", "SGA", "Other"],
+        # Phase 16 step 1 (DEVELOPMENT_PLAN.md) -- the one real consumer
+        # (A9_Data_Product_Agent._collect_group_by_items, tier 4) already reads
+        # this from DataProduct.metadata, so no schema change needed for this
+        # field specifically, only seeding it. Business-term short names
+        # (resolved to technical columns later via `business_terms` below),
+        # not raw column names -- _collect_group_by_items' own docstring:
+        # "raw attribute names (not yet resolved to technical columns)".
+        "fallback_group_by_dimensions": ["product_line", "channel", "profit_center"],
     },
     "time_dimensions": [
         {
@@ -92,6 +100,26 @@ DATA_PRODUCT = {
             "granularity": "month",
             "primary": True,
         },
+    ],
+    # Phase 16 step 1 (DEVELOPMENT_PLAN.md) -- the one LIVE contract read
+    # (A9_Deep_Analysis_Agent._dims_from_contract) came only from
+    # src/registry_references/data_product_registry/data_products/
+    # lubricants_star_schema.yaml until now. Declared order copied verbatim
+    # from that YAML's views[].llm_profile.dimension_semantics, cross-checked
+    # 2026-08-29 against the REAL BigQuery view schema
+    # (agent9-465818.LubricantsBusiness.LubricantsStarSchemaView) -- all 17
+    # columns confirmed to actually exist, not just present in the fixture.
+    # _dims_from_contract applies its own ban-list filter (flags, _id,
+    # transaction_date, version, fiscal ytd/qtd/mtd) at read time, same as it
+    # always has for the YAML source -- this list is the full declared order,
+    # unfiltered, matching "honoured verbatim" in that method's own docstring.
+    "dimension_semantics": [
+        "product_name", "product_line", "product_category",
+        "customer_name", "customer_segment", "customer_region",
+        "profit_center_name", "business_unit",
+        "channel_name", "channel_type",
+        "account_name", "account_type", "account_category", "account_group",
+        "fiscal_year", "fiscal_period", "transaction_date",
     ],
 }
 

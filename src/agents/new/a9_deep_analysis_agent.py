@@ -384,6 +384,33 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             self.logger.debug(f"_contract_path_for_kpi error: {e}")
         return self._contract_path()
 
+    @staticmethod
+    def _keep_contract_dim(lbl: str) -> bool:
+        s = str(lbl or "").lower()
+        ban = ["flag", "hierarchy", "_id", "transaction_date", "transaction date",
+               "version", "fiscal ytd", "fiscal qtd", "fiscal mtd"]
+        return bool(lbl) and not any(t in s for t in ban)
+
+    def _dims_from_registry(self, kpi_name: str = None, client_id: str = None) -> List[str]:
+        """DataProduct.dimension_semantics for this KPI's data product, or []
+        when the field is empty/absent (not yet migrated for this client —
+        Phase 16 step 1, DEVELOPMENT_PLAN.md). Never raises; a lookup failure
+        is treated identically to "not migrated yet" so the YAML fallback in
+        _dims_from_contract always has a chance to run.
+        """
+        try:
+            kpi_def = self._lookup_kpi_scoped(kpi_name, client_id) if kpi_name else None
+            dp_id = getattr(kpi_def, "data_product_id", None) if kpi_def else None
+            if not dp_id:
+                return []
+            from src.registry.factory import RegistryFactory
+            dp_provider = RegistryFactory().get_provider("data_product")
+            dp_obj = dp_provider.get(dp_id) if dp_provider else None
+            return list(getattr(dp_obj, "dimension_semantics", None) or [])
+        except Exception as e:
+            self.logger.debug(f"_dims_from_registry error: {e}")
+            return []
+
     def _dims_from_contract(self, limit: int, kpi_name: str = None, client_id: str = None) -> List[str]:
         """Candidate dimensions in the order the data product contract declares them.
 
@@ -401,39 +428,41 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         gets that order. That is the correct failure mode: it surfaces as a
         contract-authoring problem instead of being masked by a literal that
         happened to name a few good dimensions for two clients.
+
+        Registry-first as of Phase 16 step 1 (DEVELOPMENT_PLAN.md): reads
+        DataProduct.dimension_semantics (Supabase) when the client's data
+        product has been migrated off the YAML contract; falls back to the
+        legacy YAML scan otherwise, so hess/apex_lubricants/bicycle (not yet
+        migrated) see byte-identical behaviour to before this change.
         """
-        dims: List[str] = []
         try:
-            cpath = self._contract_path_for_kpi(kpi_name, client_id=client_id)
-            if not os.path.exists(cpath):
-                return []
-            with open(cpath, "r", encoding="utf-8") as f:
-                doc = yaml.safe_load(f)
-            views = (doc or {}).get("views", [])
-            # Use the first view found (contract may have only one view)
-            target = None
-            for v in views:
-                if isinstance(v, dict) and v.get("llm_profile"):
-                    target = v
-                    break
-            if not isinstance(target, dict):
-                return []
-            llm_profile = target.get("llm_profile", {}) or {}
-            all_dims = llm_profile.get("dimension_semantics", []) or []
-            def _keep(lbl: str) -> bool:
-                s = str(lbl or "").lower()
-                ban = ["flag", "hierarchy", "_id", "transaction_date", "transaction date",
-                       "version", "fiscal ytd", "fiscal qtd", "fiscal mtd"]
-                return bool(lbl) and not any(t in s for t in ban)
-            kept = [d for d in all_dims if _keep(str(d))]
+            all_dims = self._dims_from_registry(kpi_name, client_id=client_id)
+            if not all_dims:
+                cpath = self._contract_path_for_kpi(kpi_name, client_id=client_id)
+                if not os.path.exists(cpath):
+                    return []
+                with open(cpath, "r", encoding="utf-8") as f:
+                    doc = yaml.safe_load(f)
+                views = (doc or {}).get("views", [])
+                # Use the first view found (contract may have only one view)
+                target = None
+                for v in views:
+                    if isinstance(v, dict) and v.get("llm_profile"):
+                        target = v
+                        break
+                if not isinstance(target, dict):
+                    return []
+                llm_profile = target.get("llm_profile", {}) or {}
+                all_dims = llm_profile.get("dimension_semantics", []) or []
+            kept = [d for d in all_dims if self._keep_contract_dim(str(d))]
             # Declared order, de-duplicated. No re-ranking: see the docstring.
             out: List[str] = list(dict.fromkeys(kept))
             if isinstance(limit, int) and limit > 0:
                 out = out[:limit]
-            dims = out
+            return out
         except Exception as e:
             self.logger.debug(f"_dims_from_contract error: {e}")
-        return dims
+            return []
 
     def _prev_timeframe(self, timeframe: Optional[str]) -> Optional[str]:
         return TimeFilter.previous_period_name(timeframe)

@@ -186,6 +186,71 @@ def test_declared_duplicates_are_collapsed(tmp_path):
     assert dims == ["product_line", "customer_segment", "channel_name"]
 
 
+# ---------------------------------------------------------------------------
+# Phase 16 step 1 (DEVELOPMENT_PLAN.md) — registry-first, YAML fallback
+# ---------------------------------------------------------------------------
+
+
+def test_registry_dimension_semantics_wins_over_yaml_when_present(tmp_path):
+    """A migrated data product (DataProduct.dimension_semantics populated in
+    Supabase) must be used INSTEAD of the YAML contract, even when a YAML
+    file also exists and would produce a different order — proves the
+    registry path is actually consulted first, not just present in code."""
+    agent = _agent()
+    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path), \
+         patch.object(agent, "_dims_from_registry", return_value=["channel_name", "product_line"]):
+        dims = agent._dims_from_contract(limit=15, kpi_name="gross_margin_pct", client_id="lubricants")
+
+    assert dims == ["channel_name", "product_line"], (
+        "registry order must win — the YAML fixture declares product_name first, "
+        "so seeing that here would mean the YAML path ran instead of the registry one"
+    )
+
+
+def test_registry_dims_still_pass_through_the_ban_filter(tmp_path):
+    agent = _agent()
+    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path), \
+         patch.object(agent, "_dims_from_registry", return_value=["product_line", "transaction_date", "customer_id"]):
+        dims = agent._dims_from_contract(limit=15, kpi_name="k", client_id="lubricants")
+
+    assert dims == ["product_line"]
+
+
+def test_empty_registry_falls_back_to_yaml_unchanged(tmp_path):
+    """Not-yet-migrated clients (hess, apex_lubricants, bicycle) must see
+    byte-identical behaviour to before this change."""
+    agent = _agent()
+    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path), \
+         patch.object(agent, "_dims_from_registry", return_value=[]):
+        dims = agent._dims_from_contract(limit=15, kpi_name="gross_margin_pct", client_id="hess")
+
+    assert dims[0] == "product_name"
+
+
+def test_dims_from_registry_returns_empty_when_kpi_unresolvable():
+    agent = _agent()
+    with patch.object(agent, "_lookup_kpi_scoped", return_value=None):
+        assert agent._dims_from_registry(kpi_name="nonexistent", client_id="hess") == []
+
+
+def test_dims_from_registry_returns_empty_when_data_product_provider_missing():
+    agent = _agent()
+    fake_kpi = SimpleNamespace(data_product_id="dp_x")
+    with patch.object(agent, "_lookup_kpi_scoped", return_value=fake_kpi), \
+         patch("src.registry.factory.RegistryFactory") as MockFactory:
+        MockFactory.return_value.get_provider.return_value = None
+        assert agent._dims_from_registry(kpi_name="k", client_id="c") == []
+
+
+def test_dims_from_registry_never_raises_on_provider_exception():
+    agent = _agent()
+    fake_kpi = SimpleNamespace(data_product_id="dp_x")
+    with patch.object(agent, "_lookup_kpi_scoped", return_value=fake_kpi), \
+         patch("src.registry.factory.RegistryFactory") as MockFactory:
+        MockFactory.return_value.get_provider.return_value.get.side_effect = RuntimeError("boom")
+        assert agent._dims_from_registry(kpi_name="k", client_id="c") == []
+
+
 def test_missing_contract_returns_empty_not_a_default(tmp_path):
     """A scoped miss must not fall back to another tenant's dimension names."""
     agent = _agent()

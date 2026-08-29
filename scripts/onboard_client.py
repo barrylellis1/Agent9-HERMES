@@ -349,6 +349,12 @@ def onboard_client(
             "related_business_processes", "tags", "metadata", "tables", "views",
             "yaml_contract_path", "output_path", "last_updated", "reviewed",
             "staging", "language", "documentation", "client_id", "time_dimensions",
+            # Phase 16 step 1 (DEVELOPMENT_PLAN.md) — same explicit-allow-list trap
+            # that already shadowed causal_direction/framing_snapshot/target_metric
+            # elsewhere in this codebase. Found live 2026-08-29: seeding lubricants
+            # with dimension_semantics populated in DATA_PRODUCT silently wrote NULL
+            # to the real column, because this list didn't know the column existed.
+            "dimension_semantics",
         }
         raw_dp_rows = [mod.DATA_PRODUCT]
         if isinstance(getattr(mod, "DATA_PRODUCTS", None), list):

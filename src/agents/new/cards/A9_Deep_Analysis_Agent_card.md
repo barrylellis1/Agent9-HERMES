@@ -924,3 +924,22 @@ would need scattering `await` through dozens of invocations), calls
 a mechanical guess, when it doesn't. See `A9_Data_Governance_Agent_card.md`'s matching entry for the
 provider-side reverse lookup and the seed data. Verified live: 10/10 dimension labels resolved
 correctly.
+
+## `_dims_from_contract` is registry-first as of Phase 16 step 1 (Aug 2026)
+
+`DataProduct.dimension_semantics` (real Supabase column, migration
+`20260829_data_products_dimension_semantics.sql`) is now consulted before the legacy YAML scan —
+see `DEVELOPMENT_PLAN.md` Phase 16 for the full split-store finding this fixes. New
+`_dims_from_registry(kpi_name, client_id)` resolves the KPI's `data_product_id` via
+`_lookup_kpi_scoped` (same lookup `_contract_path_for_kpi` already used) and reads the registry
+field directly — non-fatal, returns `[]` on any failure so the YAML fallback always has a chance
+to run. `_dims_from_contract` tries this first; only falls back to `_contract_path_for_kpi` +
+`yaml.safe_load()` when the registry field is empty, which today means every client except
+lubricants (verified live: hess/apex_lubricants/bicycle/brookshire_brothers all still `NULL`,
+confirming the fallback is genuinely exercised for them, not just theoretically available).
+
+Migrating a client is purely a seed-data change (`DATA_PRODUCT["dimension_semantics"]` in
+`scripts/clients/<client>.py`) — no code change needed per client. Found and fixed the same
+explicit-allow-list trap that's bitten this codebase three times before
+(`causal_direction`, `AcceptedSolution.framing_snapshot`/`target_metric`): `onboard_client.py`'s
+`_DP_COLS` didn't know about the new column, so the first seed attempt silently wrote `NULL`.

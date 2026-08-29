@@ -120,6 +120,16 @@ class DataProduct(BaseModel):
         default_factory=list,
         description="Time dimension columns available for SA/DA temporal analysis. The primary=True entry is used by the DA agent for WHEN analysis.",
     )
+    dimension_semantics: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ordered list of dimension column names this data product declares as "
+            "analysis-worthy -- the client's own statement of what matters. Honoured "
+            "verbatim by A9_Deep_Analysis_Agent._dims_from_contract, no re-ranking. "
+            "Empty means not yet migrated off the legacy YAML contract for this data "
+            "product (Phase 16 step 1, docs/architecture/ DEVELOPMENT_PLAN.md)."
+        ),
+    )
     
     @model_validator(mode="after")
     def _backfill_fields(self) -> "DataProduct":

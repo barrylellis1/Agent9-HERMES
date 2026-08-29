@@ -2808,7 +2808,7 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 
 | # | Work | Why in this order |
 |---|---|---|
-| **1** | Move `dimension_semantics` + `fallback_group_by_dimensions` onto the registry record; repoint `_dims_from_contract` | The only live contract read. Also the fix for the **hardcoded dimension preference list** in Phase 15 Stage I — same change, two problems |
+| **1** | ✅ **DONE (2026-08-29, lubricants; local Supabase, not yet synced to production).** Moved `dimension_semantics` + `fallback_group_by_dimensions` onto the registry record; repointed `_dims_from_contract` | The only live contract read. Also the fix for the **hardcoded dimension preference list** in Phase 15 Stage I — that literal was already deleted (Aug 2026), so this step is now purely the store migration |
 | **2** | Add `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
 | **3** | Correct the Hess KPIs against the declared convention; re-validate live | Fixes real wrong output, now expressed as data rather than code |
 | **4** | Move `business_terms`, `column_aliases`, `supported_business_processes`, `connection` | The remaining sections; lower risk once the pattern exists |
@@ -2820,6 +2820,46 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 **Do NOT do 2 before 1.** Adding `measure_semantics` to the registry while dimensions still come from disk leaves DA reading two halves of one contract from two stores — the exact shape that produced the two-baseline briefing.
 
 **Verification for each step:** a live Deep Analysis per client per backend, checked against a direct query. Today gave three separate cases where code was correct and was not the code being executed; string tests do not close that.
+
+---
+
+#### Step 1 — done for lubricants, local only (2026-08-29)
+
+`DataProduct` gained a real `dimension_semantics: List[str]` column (migration
+`20260829_data_products_dimension_semantics.sql`) — `DatabaseRegistryProvider`'s serialize/
+deserialize path is fully generic (`model_class(**data)` on read, `model_dump()` filtered against
+a live `information_schema.columns` query on write), so no hand-maintained field list needed
+updating on the provider side, unlike every other registry write path touched this session.
+`_dims_from_contract` (`a9_deep_analysis_agent.py`) is now registry-first: a new
+`_dims_from_registry()` resolves the KPI's `data_product_id` and reads `DataProduct
+.dimension_semantics`; only when that's empty does it fall back to the original YAML scan,
+byte-identical to before for every not-yet-migrated client. `fallback_group_by_dimensions`
+needed no schema change at all — its one real consumer (`A9_Data_Product_Agent
+._collect_group_by_items`, tier 4) already reads `DataProduct.metadata['fallback_group_by_dimensions']`
+directly, so the fix there was purely seeding the value.
+
+**A fourth instance of the explicit-allow-list trap, found and fixed in the same pass:**
+`onboard_client.py`'s `_DP_COLS` — a hand-maintained set of columns the seeder is willing to
+write — didn't know about the new column, so seeding lubricants with `dimension_semantics`
+populated in `DATA_PRODUCT` silently wrote `NULL` to the real column on the first attempt. Same
+shape as `causal_direction` (twice) and `AcceptedSolution.framing_snapshot`/`target_metric`
+earlier this session — a fourth independent write path in this codebase carrying the identical
+failure mode. Fixed; `dimension_semantics` now upserts correctly.
+
+**Verified live, not assumed:** local Supabase re-seeded, confirmed via direct query that
+lubricants' `dimension_semantics` populated correctly and every other client
+(hess/apex_lubricants/bicycle/brookshire_brothers) still has it `NULL` — the fallback path is
+genuinely still exercised for them, not just believed to be. `_dims_from_contract` and
+`_dims_from_registry` called directly against a real `RegistryBootstrap`-initialized registry
+(no mocks) for `gross_margin_pct`/lubricants — returned the registry-sourced order correctly. 6
+new unit tests (`test_da_dimension_ranking.py`) pin registry-wins-over-YAML, ban-filter still
+applies to registry-sourced dims, empty-registry-falls-back-unchanged, and non-fatal degradation
+on a KPI-lookup or provider failure. 1410 unit tests pass.
+
+**Not yet done:** synced to production (needs `onboard_client.py --client lubricants --env
+production` — local seeding only so far, per the registry data-sync protocol); steps 2–6 of the
+sequence above; the same treatment for hess/apex_lubricants (their `dimension_semantics` stays
+YAML-sourced until each is migrated in turn).
 
 ---
 
