@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RefreshCw, Scan, Activity, Clock, CheckCircle, ChevronDown, Settings2 } from 'lucide-react';
 import { KPITile } from '../dashboard/KPITile';
 import { HeroBriefing } from '../dashboard/HeroBriefing';
+import { OpportunityCard } from '../OpportunityCard';
 import { AppHeader } from '../shared/AppHeader';
 import { AppShell } from '../shared/AppShell';
 import { SummaryStrip } from '../shared/SummaryStrip';
@@ -33,10 +34,38 @@ interface DashboardViewProps {
   delegatedKpiNames?: Set<string>;
 }
 
+// Found live 2026-08-29: KPI.owner_role in the registry mixes short codes
+// ("CFO", "COO") with full titles ("Finance Manager", which has no common
+// abbreviation) while PrincipalProfile.title is always the full title
+// ("Chief Financial Officer") -- the same mismatch a9_deep_analysis_agent.py
+// already found and fixed for the framing gate's owner comparison on
+// 2026-08-18 (see its _roles_match/_ROLE_ABBREVIATION_EXPANSIONS). This is
+// that same narrow, tolerant comparison, ported to the frontend for the
+// "Configure thresholds" ownership check -- not a fix to the broader
+// role-vs-principal-ID tech debt CLAUDE.md already tracks, which needs a
+// real registry-level resolution.
+const ROLE_ABBREVIATION_EXPANSIONS: Record<string, string> = {
+  ceo: 'chief executive officer',
+  cfo: 'chief financial officer',
+  coo: 'chief operating officer',
+  cto: 'chief technology officer',
+  cmo: 'chief marketing officer',
+  cio: 'chief information officer',
+};
+
+function rolesMatch(roleA: string | null | undefined, roleB: string | null | undefined): boolean {
+  const a = (roleA ?? '').trim().toLowerCase();
+  const b = (roleB ?? '').trim().toLowerCase();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return (ROLE_ABBREVIATION_EXPANSIONS[a] ?? a) === (ROLE_ABBREVIATION_EXPANSIONS[b] ?? b);
+}
+
 export const DashboardView: React.FC<DashboardViewProps> = ({
   scanComplete,
   loading,
   situations,
+  opportunities = [],
   kpisScanned,
   breachCount,
   impactLevel,
@@ -227,7 +256,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div data-testid="situation-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {rest.map((sit, idx) => {
                     const kpiDef = kpiDefMap[sit.kpi_id ?? ''] || kpiDefByName[sit.kpi_name?.toLowerCase() ?? ''];
-                    const isOwner = kpiDef && currentPrincipal?.title && kpiDef.owner_role === currentPrincipal.title;
+                    const isOwner = kpiDef && rolesMatch(kpiDef.owner_role, currentPrincipal?.title);
                     return (
                       <div key={idx} data-testid={`situation-card-${sit.situation_id}`} className="relative group">
                         <KPITile
@@ -249,6 +278,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Opportunity signals -- a distinct SA output from situations
+                  (OpportunitySignal: outperformance/recovery/trend_reversal,
+                  no linked situation to drill into, so no onClick). This data
+                  has flowed all the way down from useDecisionStudio.ts through
+                  DecisionStudio.tsx's own opportunities prop since it was
+                  built (Phase 12), but nothing ever rendered it -- COMPONENTS.md
+                  has documented this as a DashboardView dependency the whole
+                  time. Found and wired in during the 2026-08-29 audit pass. */}
+              {opportunities.length > 0 && (
+                <div className="space-y-3">
+                  <h2 className="text-lg font-semibold text-white">Opportunities</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {opportunities.map((signal, idx) => (
+                      <OpportunityCard key={`${signal.kpi_name}-${idx}`} signal={signal} />
+                    ))}
+                  </div>
                 </div>
               )}
 
