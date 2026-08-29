@@ -243,7 +243,10 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
                 <div
                   key={sol.solution_id}
                   onClick={() => onSelectSolution?.(sol.solution_id)}
-                  className={`grid grid-cols-[1.8fr_0.8fr_0.7fr_0.7fr_0.7fr_auto] gap-4 px-5 py-4 items-center transition-colors cursor-pointer hover:bg-slate-800/40 ${
+                  role={onSelectSolution ? 'button' : undefined}
+                  tabIndex={onSelectSolution ? 0 : undefined}
+                  onKeyDown={onSelectSolution ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSolution(sol.solution_id); } } : undefined}
+                  className={`grid grid-cols-[1.8fr_0.8fr_0.7fr_0.7fr_0.7fr_auto] gap-4 px-5 py-4 items-center transition-colors cursor-pointer hover:bg-slate-800/40 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/60 ${
                     needsAttention ? 'border-l-4 border-severity-warning' : 'border-l-4 border-transparent'
                   }`}
                 >

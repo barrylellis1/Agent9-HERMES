@@ -38,6 +38,24 @@
         ],
         "createdAt": "2026-08-29T17:05:56.094Z",
         "reason": "Replaces a 2026-08-28 value-scoped entry ('border-l-4') that was silently dead for the same reason as the gray-on-color fix above: side-tab is not in directValueRules either, so only a '*' wildcard actually suppresses anything. The underlying finding is unchanged from that entry's own reasoning: indigo-500 is DESIGN_SYSTEM.md sec2's documented AI-action/CTA color (Refinement, Generate Solutions, Solution Active badge); this box IS the AI-authored decision ask, so an indigo left-border accent is the same sanctioned-by-convention pattern as severity-token borders, just for the AI-action semantic instead of severity. Verified only one border-l-* candidate exists in this file (the same one) before scoping the wildcard to it."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/ConnectionProfileManager.tsx"
+        ],
+        "createdAt": "2026-08-29T19:22:17.297Z",
+        "reason": "Sole candidate in this file: the Save button's disabled-state classes on one line (bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500) -- the detector cross-matches text-slate-500 against bg-blue-600, but disabled:bg-slate-700 and disabled:text-slate-500 are the SAME state, never simultaneously paired with the blue background. Same false-positive class as the ExecutiveBriefing.tsx entry above."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/views/DeepFocusView.tsx"
+        ],
+        "createdAt": "2026-08-29T19:23:39.968Z",
+        "reason": "All 4 flagged sites (L704, L1220, L1231, L1237) are the same false-positive class: a disabled-state pair (disabled:bg-slate-700 disabled:text-slate-500) or an unselected-tab ternary branch (border-transparent/bg-transparent text-slate-500) cross-matched on the same line against a DIFFERENT branch's colored bg-blue-600/bg-indigo-600/bg-indigo-900. In every case the gray text's actual background at render time is transparent or slate, never the colored one the detector paired it with. This is the entire 'DeepFocusView.tsx: 4' contribution to the 2026-08-29 audit's 25-finding count -- none of it was real; see the audit follow-up note for the corrected total."
       }
     ]
   }

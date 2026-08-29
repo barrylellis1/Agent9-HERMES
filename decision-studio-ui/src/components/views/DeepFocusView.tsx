@@ -917,10 +917,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
         {/* RIGHT COLUMN: Action Center — collapsible */}
         {!actionCenterOpen ? (
-          <div className="w-12 min-h-0 bg-slate-900 border-l border-slate-800 flex flex-col items-center py-4 gap-3 cursor-pointer hover:bg-slate-800/50 transition-colors"
+          <div className="w-12 min-h-0 bg-slate-900 border-l border-slate-800 flex flex-col items-center py-4 gap-3 cursor-pointer hover:bg-slate-800/50 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/60"
             onClick={() => setActionCenterOpen(true)}
             role="button"
+            tabIndex={0}
             aria-label="Open Action Center"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActionCenterOpen(true); } }}
           >
             <ChevronRight className="w-5 h-5 text-slate-500" />
             <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-600 whitespace-nowrap"
