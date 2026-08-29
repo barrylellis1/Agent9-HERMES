@@ -130,7 +130,28 @@ class DataProduct(BaseModel):
             "product (Phase 16 step 1, docs/architecture/ DEVELOPMENT_PLAN.md)."
         ),
     )
-    
+    measure_semantics: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Declared sign convention for this data product's measure column -- a fact "
+            "about the data, not about any one KPI. Shape: "
+            "{'type_column': 'account_type', 'amount_column': 'amount', "
+            "'stored_sign': {'Revenue': 'positive', 'COGS': 'negative', ...}}. "
+            "Consumed by src/registry/validators/measure_semantics_validator.py to catch "
+            "a KPI's sql_query re-negating a measure this contract already states is "
+            "negative -- the bug class that produced Hess's 165%% gross margin (Phase 16 "
+            "step 2, docs/architecture/DEVELOPMENT_PLAN.md). None means not yet declared "
+            "for this data product; the validator is a no-op in that case, not a failure. "
+            "NAMING NOTE: unrelated to 'llm_profile.measure_semantics' inside the legacy "
+            "contract_yaml text (a9_data_product_agent.py/a9_llm_service_agent.py's ad-hoc "
+            "NL-to-SQL path) -- that shape is {'default_measure', 'default_aggregation'} "
+            "and lives at a different attribute path (nested in YAML text, never this "
+            "field), never colocated with this one, but the same key name recurring with "
+            "a different shape is exactly the anti-pattern Phase 16 exists to close, so "
+            "flagged here for whoever reads this next rather than silently repeated."
+        ),
+    )
+
     @model_validator(mode="after")
     def _backfill_fields(self) -> "DataProduct":
         """Backfill derived fields from stored data.

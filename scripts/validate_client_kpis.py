@@ -46,6 +46,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "clients"))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.registry.validators.measure_semantics_validator import check_sql_sign_convention  # noqa: E402
+
 
 def _load_client(client: str):
     m = importlib.import_module(client)
@@ -143,10 +145,20 @@ def main() -> int:
         if not kpis:
             raise SystemExit(f"KPI {args.kpi!r} not found or has no sql_query")
 
+    # Phase 16 step 2 (DEVELOPMENT_PLAN.md) -- static sign-convention check,
+    # independent of the live value check above. This is what would have
+    # caught Hess's three (really four -- see below) mis-signed KPIs from the
+    # SQL alone, without a database round trip. measure_semantics is a data
+    # product fact, read once here, not per-KPI.
+    measure_semantics = dp.get("measure_semantics")
+    if measure_semantics is None:
+        print("(no measure_semantics declared for this data product -- sign-convention check skipped)\n")
+
     print(f"{'KPI':28s} {'unit':6s} {'value':>20s}  verdict")
     problems = 0
     for k in kpis:
         unit = str(k.get("unit") or "")
+        sign_violations = check_sql_sign_convention(k.get("sql_query", ""), measure_semantics)
         try:
             v = run(k["sql_query"])
         except Exception as e:
@@ -163,7 +175,12 @@ def main() -> int:
         if unit == "%" and not (-100.0 <= v <= 100.0):
             verdict = "<-- IMPOSSIBLE for a percentage"
             problems += 1
+        if sign_violations:
+            verdict = (verdict + "  " if verdict else "") + "<-- SIGN CONVENTION VIOLATION"
+            problems += 1
         print(f"{k['id']:28s} {unit:6s} {v:>20,.2f}  {verdict}")
+        for sv in sign_violations:
+            print(f"    {sv}")
 
     if conn is not None:
         conn.close()

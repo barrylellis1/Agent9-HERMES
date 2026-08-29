@@ -2730,7 +2730,12 @@ COGS, SGA and Other are stored **negative** in `HessStarSchemaView` (as in BigQu
 
 **The magnitude is not the worst property — the direction is.** Reported gross margin *rose* +2.66pp year-on-year while the true margin *fell* 2.66pp. Situation Awareness would see improvement and raise no alert on a declining business. A margin above 100% would eventually be spotted by eye; an inverted trend would not.
 
-Roughly a third of Hess's KPI set is unusable: 3 wrong, 5 NULL, 1 impossible. **Not yet fixed** — deliberately, because the fix belongs in the contract, not in six hand-edited f-strings in `scripts/clients/hess.py`.
+Roughly a third of Hess's KPI set is unusable: 3 wrong, 5 NULL, 1 impossible (`return_on_capital`,
+which the negation validator built in step 2 subsequently attributed to the same sign bug — see
+below). **Update (step 2, 2026-08-29):** the negation validator found 2 more mis-signed KPIs the
+manual audit missed — `ebitda` and `return_on_capital` — bringing the real count to 5 wrong, 5
+NULL. **Not yet fixed** — deliberately, because the fix belongs in the contract, not in
+hand-edited f-strings in `scripts/clients/hess.py` (that correction is step 3).
 
 ---
 
@@ -2809,7 +2814,7 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 | # | Work | Why in this order |
 |---|---|---|
 | **1** | ✅ **DONE (2026-08-29, lubricants; local Supabase, not yet synced to production).** Moved `dimension_semantics` + `fallback_group_by_dimensions` onto the registry record; repointed `_dims_from_contract` | The only live contract read. Also the fix for the **hardcoded dimension preference list** in Phase 15 Stage I — that literal was already deleted (Aug 2026), so this step is now purely the store migration |
-| **2** | Add `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
+| **2** | ✅ **DONE (2026-08-29, all three financial data products; local Supabase, not yet synced to production).** Added `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
 | **3** | Correct the Hess KPIs against the declared convention; re-validate live | Fixes real wrong output, now expressed as data rather than code |
 | **4** | Move `business_terms`, `column_aliases`, `supported_business_processes`, `connection` | The remaining sections; lower risk once the pattern exists |
 | **5** | Resolve the `views` shape collision, delete the 12 YAML files and all `yaml.safe_load` calls in agent files | Only safe once nothing reads them |
@@ -2863,6 +2868,67 @@ YAML-sourced until each is migrated in turn).
 
 ---
 
+#### Step 2 — done, local only (2026-08-29)
+
+`DataProduct` gained `measure_semantics: Optional[Dict]` (migration
+`20260829_data_products_measure_semantics.sql`) — same "one contract fact, one place" pattern
+as step 1, same generic `DatabaseRegistryProvider` serialize path, no provider changes needed.
+Shape: `{type_column: "account_type", amount_column: "amount", stored_sign: {"Revenue":
+"positive", "COGS": "negative", ...}}`.
+
+**Naming collision found and documented, not walked into silently:** `llm_profile
+.measure_semantics` already exists inside the legacy `contract_yaml` text (read by
+`a9_data_product_agent.py` and `a9_llm_service_agent.py` for the ad-hoc NL-to-SQL path) — a
+different shape entirely (`{default_measure, default_aggregation}`) serving a different
+purpose. Same key name, different shape, at a different attribute path (nested in YAML text
+vs. this top-level column) — never colocated, so no runtime collision, but exactly the
+anti-pattern this phase's own finding calls out for `views`. Flagged in both the model
+docstring and the migration comment for whoever reads this next; not renamed, since the design
+doc's own wording (and every cross-reference to it — the Phase 17 T1 dependency, the sequence
+table) already commits to `measure_semantics` as the name.
+
+**The negation validator** — `src/registry/validators/measure_semantics_validator.py`,
+`check_sql_sign_convention(sql_query, measure_semantics) -> List[str]`. Static regex analysis
+over `CASE...END` blocks (not a SQL parser): flags a `WHEN account_type='X' THEN -amount`
+branch, or an `ELSE -amount` fallthrough, when `X` is already declared negative in
+`stored_sign` — the exact shape of Hess's bug. Deliberately narrow: a standalone `SELECT
+SUM(-amount) WHERE account_type='COGS'` (no CASE, no sibling branch to fight) is NOT flagged —
+that's a legitimate "show this cost as a positive number" KPI (apex_lubricants' `cogs`/
+`sga_expense`), not a sign bug. 17 new unit tests
+(`tests/unit/test_measure_semantics_validator.py`) pinned against the REAL sql_query strings
+from `scripts/clients/hess.py` (all 5 known-bad KPIs) and `scripts/clients/lubricants.py`/
+`apex_lubricants.py` (must-not-false-positive), not synthetic fixtures — a validator that only
+passes on invented SQL proves nothing about the bug it exists to catch.
+
+**Seeded onto all three financial data products** (lubricants/apex_lubricants/hess — not just
+the migrated-for-step-1 client, since the validator needs the fact declared to check anything):
+same convention on all three per the Phase 16 finding ("COGS, SGA and Other are stored negative
+in HessStarSchemaView, as in BigQuery and Snowflake"). `dp_lubricants_sales` correctly left
+`None` — no P&L account-type convention applies there. **A 5th instance of the explicit-allow-
+list trap** found and fixed in the same pass: `onboard_client.py`'s `_DP_COLS` didn't know
+about the new column either (added proactively this time, before a silent-NULL re-seed, now
+that the shape is recognised from steps 1 and the four prior instances this session).
+
+**Verified live, not assumed — and it found more than the original manual audit did:**
+`scripts/validate_client_kpis.py` now runs the static check alongside its existing live-value
+check. Against Hess: flags all 3 originally-audited KPIs (`gross_profit`, `gross_margin_pct`,
+`operating_income`) — **plus `ebitda` and `return_on_capital`, neither of which was in the
+original 2026-08-10 manual audit's 3-KPI list.** Both have the identical `ELSE -amount`
+fallthrough bug (confirmed live: `return_on_capital` reports 301.63%, already flagged
+`IMPOSSIBLE for a percentage` by the pre-existing check — its wrongness was known, but not
+previously attributed to this cause; `ebitda`'s wrongness was not previously known at all). This
+is the validator doing exactly what it was built for — "catches the next client without anyone
+remembering to look" also means it catches what a human audit missed the first time. Against
+Apex's full 16-KPI set (closing the plan's own open question below, "only gross_margin_pct was
+validated there"): zero violations, zero live-value problems. Against lubricants' full 20-KPI
+set: zero violations, zero live-value problems. 1427 unit tests pass (1410 + 17 new).
+
+**Not yet done:** Phase 16 step 3 (actually correcting Hess's 5 now-identified KPIs against the
+declared convention — deliberately not done here; step 2 is "declare the fact and build the
+check," step 3 is "act on it"); synced to production; steps 4–6.
+
+---
+
 #### Open questions
 
 - **Hess is not a validated dataset** (established 2026-08-10). `HessStarSchemaView` is a *partially relabelled lubricants dataset*, living in the `agent9_lubricants` database alongside `LubricantsStarSchemaView`. Two dimensions were genuinely converted — `segment_name` (E&P, Midstream) and `basin_name` (Bakken, Gulf of Mexico, Guyana, Southeast Asia) are real Hess geography. The rest were not: `asset_name` holds **Automatic Transmission Fluid, Compressor Oil, Conventional Engine Oil**; `business_unit` holds **Retail Products, Service Centers**; `country` and `region` hold identical region values. An E&P asset is a field or a platform, not a motor oil.
@@ -2884,8 +2950,8 @@ YAML-sourced until each is migrated in turn).
   2. **Accept Hess as a dimensional demo** — remove the KPIs the data cannot support, and rename the rest so they do not claim to be upstream figures.
 
   Doing neither leaves a seeded client whose working KPIs describe the wrong business.
-- **Apex's remaining KPIs** — only `gross_margin_pct` was validated there. The same sign audit should run across its full set before anyone reads an Apex briefing.
-- **Does any client legitimately store expenses positive?** The design assumes a per-data-product declaration precisely so the answer can differ; worth confirming none currently does, so the validator's default is the safe one.
+- ~~**Apex's remaining KPIs** — only `gross_margin_pct` was validated there. The same sign audit should run across its full set before anyone reads an Apex briefing.~~ **RESOLVED (step 2, 2026-08-29):** ran the negation validator + live-value check against all 16 Apex KPIs — zero sign-convention violations, zero live-value problems.
+- **Does any client legitimately store expenses positive?** The design assumes a per-data-product declaration precisely so the answer can differ. **Partially confirmed (step 2, 2026-08-29):** all three financial-KPI clients checked (lubricants/apex_lubricants/hess) use the same convention (Revenue positive, COGS/SGA/Other negative) — none stores expenses positive. bicycle and brookshire_brothers not yet checked (no `measure_semantics` declared for them, and their KPI sets weren't audited this pass).
 
 ---
 

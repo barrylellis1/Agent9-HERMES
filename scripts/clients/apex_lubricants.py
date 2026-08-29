@@ -97,6 +97,18 @@ DATA_PRODUCT = {
     "reviewed": True,
     "staging": False,
     "language": "EN",
+    # Phase 16 step 2 (DEVELOPMENT_PLAN.md) -- same convention as lubricants'
+    # BigQuery view (confirmed in the Phase 16 finding: "COGS, SGA and Other
+    # are stored negative in HessStarSchemaView, as in BigQuery and
+    # Snowflake"). Declared so the negation validator can check Apex's KPI
+    # SQL too, closing the plan's own open question ("only gross_margin_pct
+    # was validated here; the same sign audit should run across its full
+    # set") -- run 2026-08-29, clean, see DEVELOPMENT_PLAN.md.
+    "measure_semantics": {
+        "type_column": "account_type",
+        "amount_column": "amount",
+        "stored_sign": {"Revenue": "positive", "COGS": "negative", "SGA": "negative", "Other": "negative"},
+    },
 }
 
 _DIMS = [

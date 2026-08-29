@@ -355,6 +355,10 @@ def onboard_client(
             # with dimension_semantics populated in DATA_PRODUCT silently wrote NULL
             # to the real column, because this list didn't know the column existed.
             "dimension_semantics",
+            # Phase 16 step 2 (DEVELOPMENT_PLAN.md) — the 5th instance of the same
+            # trap, added proactively this time instead of after a silent-NULL
+            # re-seed, now that the shape is recognised.
+            "measure_semantics",
         }
         raw_dp_rows = [mod.DATA_PRODUCT]
         if isinstance(getattr(mod, "DATA_PRODUCTS", None), list):

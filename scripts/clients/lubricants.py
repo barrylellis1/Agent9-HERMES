@@ -121,6 +121,17 @@ DATA_PRODUCT = {
         "account_name", "account_type", "account_category", "account_group",
         "fiscal_year", "fiscal_period", "transaction_date",
     ],
+    # Phase 16 step 2 (DEVELOPMENT_PLAN.md) -- the canonical, enforced version
+    # of the metadata.sign_convention/positive_account_types/negative_account_types
+    # fields above. Those predate this field, are read by zero agent code (only
+    # written by this seed script), and are left in place rather than removed --
+    # harmless, and removing them buys nothing. This field is what
+    # src/registry/validators/measure_semantics_validator.py actually consumes.
+    "measure_semantics": {
+        "type_column": "account_type",
+        "amount_column": "amount",
+        "stored_sign": {"Revenue": "positive", "COGS": "negative", "SGA": "negative", "Other": "negative"},
+    },
 }
 
 _VIEW = "LubricantsStarSchemaView"

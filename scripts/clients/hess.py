@@ -89,6 +89,21 @@ DATA_PRODUCT = {
     "reviewed": True,
     "staging": False,
     "language": "EN",
+    # Phase 16 step 2 (DEVELOPMENT_PLAN.md) -- the declared convention that
+    # src/registry/validators/measure_semantics_validator.py checks the KPI
+    # SQL below against. HessStarSchemaView stores COGS/SGA/Other negative,
+    # same as lubricants' BigQuery view and Apex's Snowflake view (per the
+    # Phase 16 finding). Declaring it here does NOT fix the four KPIs below
+    # that violate it (gross_profit, gross_margin_pct, operating_income,
+    # ebitda, return_on_capital -- confirmed by this validator 2026-08-29,
+    # ebitda and return_on_capital not in the original manual 3-KPI audit) --
+    # that correction is Phase 16 step 3, deliberately not this step. Step 2
+    # is "declare the fact and build the check"; step 3 is "act on it."
+    "measure_semantics": {
+        "type_column": "account_type",
+        "amount_column": "amount",
+        "stored_sign": {"Revenue": "positive", "COGS": "negative", "SGA": "negative", "Other": "negative"},
+    },
 }
 
 _VIEW = "HessStarSchemaView"
