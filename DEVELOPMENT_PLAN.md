@@ -1,7 +1,7 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-07-22
+**Last updated:** 2026-08-29
 **Status:** Active
 
 ---
@@ -2697,6 +2697,16 @@ An attempt was made to move contract definitions into the Supabase registry and 
 This violates the standing rule in `CLAUDE.md` ("NEVER use `yaml.safe_load()` in agent files to load KPIs, principals, data products, or business processes"). The dead reads — `data_product_registry.yaml`, `consulting_personas_registry.yaml` — point at files that no longer exist; harmless, but they make the live ones harder to spot.
 
 **Deleting the YAML today would break dimension selection for every client** and drop DA back to the bicycle `fi_star_schema.yaml` default — the cross-tenant contamination fixed in Jul 2026 (`_lookup_kpi_scoped`). The files cannot simply be removed; the content has to move first.
+
+---
+
+#### Re-verified against the live registry, not the Hess fixture (2026-08-29)
+
+A fair challenge surfaced that the finding above might be a Hess-specific test-onboarding artifact rather than a live production issue, since Hess is an explicitly-out-of-scope-for-realism connectivity proof (see the Open Questions section below). Checked directly against Supabase and the actual code path for the real production client, not just re-read the doc:
+
+- **Confirmed NOT an artifact — `_dims_from_contract` (`a9_deep_analysis_agent.py:387`) has no Supabase fallback at all.** It calls `yaml.safe_load()` on a file path resolved by `_contract_path_for_kpi`, which does a tenant-scoped Supabase lookup only to find the KPI's `data_product_id`, then globs a local directory of YAML files on disk for a matching one. Supabase is never consulted for the contract *content*.
+- **Confirmed the shape collision on the live client, not just Hess.** `GET /registry/data-products?client_id=lubricants` returns a real `views` field for `dp_lubricants_financials` — but it holds `{name, description, sql_definition, depends_on}`, structurally incapable of carrying `dimension_semantics` even if the code tried to read it from there. The split-store problem is confirmed live on the flagship client, not a Hess-only artifact.
+- **New finding — `measure_semantics` has a head start nobody's cashed in.** The live `metadata` field on `dp_lubricants_financials` already carries `sign_convention: "signed"`, `negative_account_types: ["COGS", "SGA", "Other"]`, `positive_account_types: ["Revenue"]` — the same concept step 2 below proposes building from scratch, seeded by `scripts/clients/lubricants.py`. Checked consumption: **zero agent code in `src/` reads either field back.** Only the seed script writes it. So step 2's data model doesn't need to be invented from nothing for lubricants — the seeded convention already exists there; what's missing is the validator/enforcement side that would read and check against it, and a decision on whether to keep the existing `negative_account_types`/`positive_account_types` naming or move to the `stored_sign: {...}` shape proposed below. **Checked whether other clients carry the same fields — they don't:** `scripts/clients/apex_lubricants.py` and `scripts/clients/hess.py` have neither field. Lubricants is the only client with this convention seeded at all, which is consistent with Hess's KPI SQL having no declared convention to check against when its signs were hand-written wrong.
 
 ---
 
