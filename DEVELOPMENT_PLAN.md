@@ -2271,7 +2271,7 @@ New `check_completeness()` in `src/analysis/slice_validity.py` — `COUNT(dim)` 
 
 **Result: 42/42 KPIs checked (up from 13) — every KPI in both registries, no exclusions.** `premium_mix_pct` and `top3_customer_revenue_share`, excluded in the first pass as "wrong shape for the tool" (they split one measure by an attribute, not two components), turned out not to need excluding at all — completeness applies to them too as ordinary single-component KPIs; only cross-component correctly stays empty for them. **217 total dimension-checks persisted** (164 completeness + 53 cross-component) across all three real backends: **170 ok, 25 degraded, 22 INVALID.** Lubricants remains the only fully clean client (matching its known post-Aug-9-fix state); Hess and Apex are uniformly imperfect within each client, for the reason recorded above — one root cause (COGS/SGA coverage vs Revenue's) surfacing identically across every downstream composite KPI, now additionally confirmed present in the single-component completeness numbers on the same clients.
 
-**🏁 apex_lubricants `customer_rank` bug found and fixed (2026-08-15).** Re-running `scripts/validate_client_kpis.py` live (never trust a 5-day-old written record) turned up a new, previously undocumented error: `top3_customer_revenue_share`'s `sql_query` referenced `customer_rank` — not a stored column anywhere in `LubricantsStarSchemaView` (confirmed by reading the full `CREATE VIEW` in `scripts/load_lubricants_to_snowflake.py`), and never computed via `RANK()`/`ROW_NUMBER()` anywhere in the codebase. The KPI was authored assuming a pre-materialized ranking column that was never built — a genuine authoring bug, not a schema drift. Fixed in `scripts/clients/apex_lubricants.py` by rewriting the query as a two-CTE window-function computation (rank customers by summed revenue, then sum the top 3) — standard ANSI SQL, no schema change needed. Verified live: apex_lubricants now **16/16 clean** (was 15/16). Not yet synced to production Supabase — per the registry sync protocol, needs `onboard_client.py --client apex_lubricants --env production` after this commit lands.
+**🏁 apex_lubricants `customer_rank` bug found and fixed (2026-08-15).** Re-running `scripts/validate_client_kpis.py` live (never trust a 5-day-old written record) turned up a new, previously undocumented error: `top3_customer_revenue_share`'s `sql_query` referenced `customer_rank` — not a stored column anywhere in `LubricantsStarSchemaView` (confirmed by reading the full `CREATE VIEW` in `scripts/load_lubricants_to_snowflake.py`), and never computed via `RANK()`/`ROW_NUMBER()` anywhere in the codebase. The KPI was authored assuming a pre-materialized ranking column that was never built — a genuine authoring bug, not a schema drift. Fixed in `scripts/clients/apex_lubricants.py` by rewriting the query as a two-CTE window-function computation (rank customers by summed revenue, then sum the top 3) — standard ANSI SQL, no schema change needed. Verified live: apex_lubricants now **16/16 clean** (was 15/16). **Synced to production 2026-08-30** as part of the Phase 16 production sync's full `onboard_client.py --env production` pass for this client — confirmed by direct query against the production `kpis` table.
 
 **🏁 Three-client SA/DA live verification (2026-08-15/16), per the approved differentiated plan (clean data now, narrow gap fixed first, known-bug client held).**
 
@@ -2669,6 +2669,44 @@ cross-references than it fixes. Both headers now carry a disambiguation note ins
 
 ---
 
+#### Status as of 2026-08-30 — steps 1–4 shipped and live; step 5 partial; wrapping up here
+
+Everything below that shipped in steps 1–4, plus O3 and the `discovery_only` fix, is **synced to
+production** as of 2026-08-30: 4 migrations applied directly to the production `data_products`
+table (`dimension_semantics`, `measure_semantics`, `column_aliases`, `dimension_hierarchies`
+columns, confirmed present via direct query), all 11 commits merged to `master` (auto-deployed to
+Railway + Cloudflare Pages, confirmed live — backend `/healthz` responds `200`, the deployed
+frontend bundle contains the `discovery_only` fix), and registry data re-synced to production for
+all 4 seeded clients (`onboard_client.py --env production`, confirmed via direct query: every
+field lands where expected, Hess's 5 corrected KPIs read clean against the negation validator on
+the production row itself, apex_lubricants' `customer_rank` fix and `top3_customer_revenue_share`
+are both live).
+
+**What this phase closes out, concretely:** steps 1–4 done and live; O3
+(`dimension_semantics` from onboarding) done and live; the `temp_discovery` junk-row bug (found
+during this phase's own O6 live-testing) root-caused, fixed, and deployed — checked production
+directly, zero junk rows present.
+
+**What remains, explicitly not attempted in this pass:** step 5 is genuinely partial — the 12
+legacy YAML contract files are NOT yet safe to delete (`exposed_columns` and, for
+apex_lubricants/bicycle, `dimension_semantics` itself are still live-read from them); step 6
+(the architecture test banning `yaml.safe_load` in `src/agents/**`) can't land until step 5
+finishes; O2 (`measure_semantics` detection in the wizard — the piece that actually would have
+caught Hess's original sign bug at onboarding time, not just after the fact) has not been started
+at all. These are real, tracked next steps for whenever this phase resumes — not silently dropped.
+
+**Follow-up surfaced during this phase's production sync, unrelated to data product contracts —
+tracked here rather than lost:** the backend has no real custom domain (`api.decision-studios.com`
+doesn't resolve; the deployed app is only reachable at Railway's raw
+`agent9-hermes-production.up.railway.app`). `trydecisionstudio.com`/`api.trydecisionstudio.com`
+(what `.env.production` used to point at) turned out to be a dormant, unrelated Squarespace
+placeholder — both `.env.production` files have been corrected to the real Railway URL in the
+meantime. Setting up the actual custom domain is Railway dashboard + DNS work outside what can be
+done from this environment — needs `decision-studios.com`'s DNS provider (Cloudflare, presumably,
+given the frontend is already on Cloudflare Pages) plus a matching custom-domain entry in Railway.
+
+---
+
 #### The finding (audited 2026-08-10)
 
 An attempt was made to move contract definitions into the Supabase registry and retire the YAML. **The migration is incomplete, so the YAML keeps resurfacing.** Six contract sections were never moved. Measured against `hess_financials.yaml`:
@@ -2830,7 +2868,7 @@ about `time_dimensions` (struck through above) — the wizard already gets that 
 2026-08-10 audit's characterization. Neither result was assumed; both came from reading back what
 Supabase actually stored after a real onboarding run.
 
-**O3 (`dimension_semantics` half) closed the same day, local only.** The raw material already
+**O3 (`dimension_semantics` half) closed the same day, synced to production 2026-08-30.** The raw material already
 existed — schema profiling already tags every column `'dimension'`/`'measure'`/`'identifier'`/
 `'time'` via `_infer_semantic_tags`, and the frontend already reads it back for
 `KPIAssistantChat`'s `schemaMetadata.dimensions` — it just was never written to
@@ -2874,7 +2912,7 @@ this bug produced before today (`temp_discovery_ProfitCenters_view`,
 `dp_lubricants_sqlserver_LubricantsStarSchemaView_vi...` — visible in the UI polish backlog's
 items 3/10 below) still need manual cleanup once this fix is synced to production — the code fix
 prevents new ones, it does not retroactively clean up what's already there; this fix itself is
-also not yet synced to production.
+synced to production 2026-08-30 (see the phase-wide status note after the Goal section).
 
 **Relationship to the existing Data Onboarding Refinement track** (below): that track is UI and workflow polish — chooser screen, wizard foundation, templates. This is a *content* gap in what the wizard produces, and it should be sequenced ahead of the polish. A better-looking wizard that still emits an incomplete contract is a faster way to a wrong briefing.
 
@@ -2886,11 +2924,11 @@ also not yet synced to production.
 
 | # | Work | Why in this order |
 |---|---|---|
-| **1** | ✅ **DONE (2026-08-29, lubricants; local Supabase, not yet synced to production).** Moved `dimension_semantics` + `fallback_group_by_dimensions` onto the registry record; repointed `_dims_from_contract` | The only live contract read. Also the fix for the **hardcoded dimension preference list** in Phase 15 Stage I — that literal was already deleted (Aug 2026), so this step is now purely the store migration |
-| **2** | ✅ **DONE (2026-08-29, all three financial data products; local Supabase, not yet synced to production).** Added `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
-| **3** | ✅ **DONE (2026-08-29, local Supabase, not yet synced to production).** Corrected all 5 Hess KPIs against the declared convention; re-validated live | Fixes real wrong output, now expressed as data rather than code |
-| **4** | ✅ **DONE (2026-08-29, local Supabase, not yet synced to production) — scope revised on investigation, see Step 4 subsection below.** Of the four sections, only `column_aliases` needed a new registry field; `business_terms`/`supported_business_processes` had zero live readers and already-migrated equivalents (backfilled as data, not schema); `connection` is dead and insecure, recommended for deletion at step 5 | The remaining sections; lower risk once the pattern exists |
-| **5** | 🟡 **PARTIAL (2026-08-29, local Supabase, not yet synced to production).** Full audit of every `yaml.safe_load` call site done; `views` shape collision resolved as a decision; `dimension_hierarchies` migrated (hess). **YAML files NOT yet safe to delete** — see Step 5 subsection below for exactly what's still blocking | Only safe once nothing reads them |
+| **1** | ✅ **DONE (2026-08-29, lubricants; synced to production 2026-08-30).** Moved `dimension_semantics` + `fallback_group_by_dimensions` onto the registry record; repointed `_dims_from_contract` | The only live contract read. Also the fix for the **hardcoded dimension preference list** in Phase 15 Stage I — that literal was already deleted (Aug 2026), so this step is now purely the store migration |
+| **2** | ✅ **DONE (2026-08-29, all three financial data products; synced to production 2026-08-30).** Added `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
+| **3** | ✅ **DONE (2026-08-29, synced to production 2026-08-30).** Corrected all 5 Hess KPIs against the declared convention; re-validated live | Fixes real wrong output, now expressed as data rather than code |
+| **4** | ✅ **DONE (2026-08-29, synced to production 2026-08-30) — scope revised on investigation, see Step 4 subsection below.** Of the four sections, only `column_aliases` needed a new registry field; `business_terms`/`supported_business_processes` had zero live readers and already-migrated equivalents (backfilled as data, not schema); `connection` is dead and insecure, recommended for deletion at step 5 | The remaining sections; lower risk once the pattern exists |
+| **5** | 🟡 **PARTIAL (2026-08-29; the schema/data changes that DID ship are synced to production 2026-08-30 — see below for what's still incomplete).** Full audit of every `yaml.safe_load` call site done; `views` shape collision resolved as a decision; `dimension_hierarchies` migrated (hess). **YAML files NOT yet safe to delete** — see Step 5 subsection below for exactly what's still blocking | Only safe once nothing reads them |
 | **6** | Architecture test: no `yaml.safe_load` in `src/agents/**` | Makes the rule in CLAUDE.md enforceable rather than aspirational |
 
 **Onboarding (O1–O6 above) interleaves here:** O1–O3 land with steps 1–2, since the wizard needs somewhere to write those fields; O5's completeness gate lands with step 4; O6 — re-onboarding an existing client through the wizard — is the acceptance test for the phase.
@@ -2901,7 +2939,7 @@ also not yet synced to production.
 
 ---
 
-#### Step 1 — done for lubricants, local only (2026-08-29)
+#### Step 1 — done for lubricants, synced to production 2026-08-30
 
 `DataProduct` gained a real `dimension_semantics: List[str]` column (migration
 `20260829120000_data_products_dimension_semantics.sql`) — `DatabaseRegistryProvider`'s serialize/
@@ -2934,14 +2972,14 @@ new unit tests (`test_da_dimension_ranking.py`) pin registry-wins-over-YAML, ban
 applies to registry-sourced dims, empty-registry-falls-back-unchanged, and non-fatal degradation
 on a KPI-lookup or provider failure. 1410 unit tests pass.
 
-**Not yet done:** synced to production (needs `onboard_client.py --client lubricants --env
-production` — local seeding only so far, per the registry data-sync protocol); steps 2–6 of the
+**Synced to production 2026-08-30** via `onboard_client.py --client lubricants --env production`,
+confirmed by direct query. **Not yet done:** steps 2–6 of the
 sequence above; the same treatment for hess/apex_lubricants (their `dimension_semantics` stays
 YAML-sourced until each is migrated in turn).
 
 ---
 
-#### Step 2 — done, local only (2026-08-29)
+#### Step 2 — done, synced to production 2026-08-30
 
 `DataProduct` gained `measure_semantics: Optional[Dict]` (migration
 `20260829130000_data_products_measure_semantics.sql`) — same "one contract fact, one place" pattern
@@ -3002,7 +3040,7 @@ check," step 3 is "act on it"); synced to production; steps 4–6.
 
 ---
 
-#### Step 3 — done, local only (2026-08-29)
+#### Step 3 — done, synced to production 2026-08-30
 
 Rewrote all 5 mis-signed KPIs in `scripts/clients/hess.py` to sum the already-signed `amount`
 column directly instead of re-negating a measure the contract now declares negative — the same
@@ -3045,11 +3083,12 @@ the validator's own tests intentionally keep the ORIGINAL buggy SQL strings as f
 they exist to prove the validator still catches that shape, independent of what hess.py now
 contains).
 
-**Not yet done:** synced to production; steps 4–6.
+**Synced to production 2026-08-30** — Hess's 5 corrected KPIs re-checked against the negation
+validator directly on the production row, zero violations. **Not yet done:** steps 4–6.
 
 ---
 
-#### Step 4 — done, local only (2026-08-29) — scope revised on investigation
+#### Step 4 — done, synced to production 2026-08-30 — scope revised on investigation
 
 The plan assumed all four remaining sections (`business_terms`, `column_aliases`,
 `supported_business_processes`, `connection`) needed the same registry-column treatment as
@@ -3120,13 +3159,13 @@ lubricants after re-seeding — identical to step 3's results (5 needing attenti
 being the pre-existing out-of-scope NULL KPIs; 0 on apex/lubricants). 1436 unit tests pass (1427
 + 9 new).
 
-**Not yet done:** synced to production; steps 5–6. Step 5 now has a clearer scope than the plan
+**Synced to production 2026-08-30.** **Not yet done:** steps 5–6. Step 5 now has a clearer scope than the plan
 originally assumed: delete `connection` (recommended above, not carried forward) alongside the
 YAML files themselves, rather than migrating it first.
 
 ---
 
-#### Step 5 — partial, local only (2026-08-29): audited every reader, migrated one more, files NOT yet safe to delete
+#### Step 5 — partial (2026-08-29), schema/data synced to production 2026-08-30: audited every reader, migrated one more, files NOT yet safe to delete
 
 Step 5's own precondition is "only safe once nothing reads them." Before touching any deletion,
 **every `yaml.safe_load` call site in the three flagged agent files was read and classified** —
@@ -3211,14 +3250,16 @@ plan's ordering note didn't spell out this explicitly.
 
 **Verified:** 1443 unit tests pass (1436 + 7 new). No YAML files touched or deleted this session.
 
-**Not yet done:** migrate `exposed_columns`; migrate `dimension_semantics`/`dimension_hierarchies`
+**Not yet done (unchanged by the production sync):** migrate `exposed_columns`; migrate `dimension_semantics`/`dimension_hierarchies`
 for apex_lubricants/bicycle (hess is now the only non-lubricants client with either migrated);
 delete `connection` from the YAML files (step 4's recommendation, still pending — deletable
 independently of the rest since nothing reads it, but not done here to keep this step's diff
 about the audit and the one real migration); trace whether DGA's orchestrator-registered
 bicycle-only utilities are ever actually invoked; land Onboarding item O4; only then attempt file
-deletion + step 6's architecture test. Synced to production: no (local only, consistent with
-every step this phase).
+deletion + step 6's architecture test. **`dimension_hierarchies` for hess IS synced to
+production (2026-08-30)** — the schema/data half of this partial step; the audit/decision work
+(views collision, the 14-site call inventory) has no production counterpart to sync, it's
+documentation.
 
 ---
 
@@ -3233,7 +3274,7 @@ every step this phase).
   **SCOPING DECISION (2026-08-10): data realism is explicitly NOT in scope for Apex or Hess.** They exist to demonstrate that Agent9 works technically against Snowflake and SQL Server, and for that purpose the underlying data does not need to be a faithful E&P or distributor P&L. Both remain useful as backend-connectivity proof. This closes the "generate real E&P data" option below unless the positioning changes.
 
   **What still matters under that framing, and why it is narrower than it looks:**
-  - ~~**The sign error is still worth fixing**~~ **FIXED (step 3, 2026-08-29, local only):** gross margin now reports 34.43% — matching the manual audit's independently-computed figure exactly — instead of 165.57%. All 5 mis-signed KPIs corrected; see the Step 3 subsection above.
+  - ~~**The sign error is still worth fixing**~~ **FIXED (step 3, 2026-08-29, synced to production 2026-08-30):** gross margin now reports 34.43% — matching the manual audit's independently-computed figure exactly — instead of 165.57%. All 5 mis-signed KPIs corrected; see the Step 3 subsection above.
   - **The five NULL KPIs can stay or go** — they weaken nothing technically. Removing them is tidier; leaving them is honest about the dataset being partial. Low priority either way.
   - **The relabelling does not matter** — `asset_name` holding motor oils is irrelevant to a connectivity demo.
   - **The one real constraint:** neither client should be presented as an industry case study, and no briefing from them should be shown as a customer example. `upstream_revenue` is lubricants revenue under an oil & gas name — fine as plumbing, misleading as a narrative.
@@ -4256,7 +4297,7 @@ Settings → Data Products shows **3 records** (all Lubricants-tagged) while Con
 
 | # | Recommendation | File / component / scope | Effort |
 |---|---|---|---|
-| 1 | ~~`temp_discovery` record is a discovery artifact leaking into production data — investigate why discovery artifacts persist as Data Products. Either clean up Supabase data, or filter `temp_` prefix from production views (cosmetic fix; root cause better)~~ **ROOT-CAUSED AND FIXED (2026-08-30, local Supabase, not yet synced to production)** — `orchestrate_data_product_onboarding` called `register_data_product` unconditionally on every Schema Discovery preview click; new `discovery_only` flag skips it. See Phase 16's O3 follow-up write-up and `A9_Orchestrator_Agent_card.md`. Two stray production-shaped rows found and deleted locally; the underlying production rows referenced by items 3/10 below still need the same cleanup once this fix is synced | Data Product registry data + discovery workflow cleanup | M |
+| 1 | ~~`temp_discovery` record is a discovery artifact leaking into production data — investigate why discovery artifacts persist as Data Products. Either clean up Supabase data, or filter `temp_` prefix from production views (cosmetic fix; root cause better)~~ **ROOT-CAUSED, FIXED, AND DEPLOYED (2026-08-30)** — `orchestrate_data_product_onboarding` called `register_data_product` unconditionally on every Schema Discovery preview click; new `discovery_only` flag skips it, code merged to `master` and confirmed live in the deployed frontend bundle. See Phase 16's O3 follow-up write-up and `A9_Orchestrator_Agent_card.md`. Two stray rows found and deleted in local Supabase; **checked production directly (2026-08-30) — zero `temp_discovery`/junk rows currently present**, so the items 3/10 rows below (`temp_discovery_ProfitCenters_view`, `dp_lubricants_sqlserver_...`) are apparently already gone (cleaned up separately at some point, or the UI audit that first spotted them observed a different snapshot) — no further production cleanup needed for this specific item | Data Product registry data + discovery workflow cleanup | M |
 | 2 | `+ Onboard Data Product` CTA — wizard handoff undefined. Add effort signal (`Onboard Data Product (8 steps, ~10 min)`) or confirmation modal explaining what the wizard covers | Data Products tab CTA | S |
 | 3 | No Connection Health column — Data Products' #1 diagnostic question is "is this connected?". Add per-row indicator (green/amber/red) based on last connection test + last successful query timestamp + source system badge | Master table column + connection probe API | M |
 | 4 | No "Test Connection" action from list view — one-click connection test per row (fastest path to diagnose issues like the Snowflake MFA failure) | Master table row action + connection probe | S |
