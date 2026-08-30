@@ -1,7 +1,17 @@
 # KPI Semantic Contract — Governing What a Number *Means*
 
-**Status:** Design note. Not built.
-**Date:** 2026-08-09 · **§4 sliceability added 2026-08-11**
+**Status:** §3 (additivity, unit_class, aggregation_method, sign_convention, inverse_logic,
+scope_eligible) — design note, genuinely not built anywhere (confirmed 2026-08-30: absent from
+every PRD, this doc, and a direct code search). **§4 (sliceability) — this "Status" line was
+stale for three weeks: it IS built.** `KPI.not_sliceable_by` is real, computed by
+`A9_Data_Governance_Agent.check_slice_validity()`, enforced in `A9_Deep_Analysis_Agent`
+(excluded from `dims_to_process`, recorded on `dimensions_excluded`), and backfilled for all
+three real clients since **2026-08-15** — four days after this doc was written, never reflected
+back into this header. Found only by checking code directly on 2026-08-30, not by reading this
+doc or the DA/DGA PRDs (neither mentions it either). Not yet built for §4: automatic onboarding
+trigger (still admin-only), scorer consumption, SF prompt wiring, the DGA `get_kpi_semantics`
+entrypoint, and `validate_registry_integrity` surfacing `pipeline_gap` entries.
+**Date:** 2026-08-09 · **§4 sliceability added 2026-08-11, built 2026-08-15, header corrected 2026-08-30**
 **Related:** `theory_layer_design.md` (what is *causally true*), this doc (what a number *means*),
 `DEVELOPMENT_PLAN.md` Phase 15 Stage H / Stage I, `src/analysis/` (the deterministic scorers that
 would consume it), `scripts/check_slice_validity.py` (the profiler that would populate §4)
@@ -361,27 +371,43 @@ means, and consumers reference rather than re-derive*. They should land together
 separately. (The Stage H A/B these were parked behind **closed 2026-08-09**; nothing gates them now
 except priority.)
 
-**§4 sliceability ships with §3, not after it.** Both are the same governance surface and the same
-migration. Shipping them as two schema changes would mean backfilling every client twice and running
-the handle-with-care registry migration path twice, for one coherent idea. If only one can be
-afforded, note that additivity has designed-but-unbuilt heuristic cover in
-`groundedness.cross_segment_summation`, whereas sliceability has **no cover at all** — no layer
-anywhere currently asks the question.
+**§4 sliceability update (2026-08-30): this section was overtaken by events and left uncorrected
+for three weeks.** Everything below was written on 2026-08-09/08-11 assuming neither §3 nor §4
+existed yet. In fact §4 shipped separately, on its own, on **2026-08-15** — not "with §3," and not
+per the order suggested below. §3 remains genuinely unbuilt (confirmed 2026-08-30). The claim
+that sliceability "has no cover at all — no layer anywhere currently asks the question" was true
+on 2026-08-11 and has been false since 2026-08-15; nobody updated this paragraph when it shipped,
+which is exactly the case study for the out-of-sync-docs risk this needs to be read alongside
+(`DEVELOPMENT_PLAN.md`, 2026-08-30 session). The suggested order below is preserved for reference
+but should NOT be treated as the real step-by-step status — check the per-step notes instead,
+verified live 2026-08-30:
 
-Suggested order:
+1. ✅ **Schema + seed for one client** — done, and further than "one client": `not_sliceable_by`/
+   `slice_validity_details`/`slice_validity_checked_at` exist on `KPI` (`src/registry/models/kpi.py`)
+   and are populated for all three real clients (lubricants, apex_lubricants, hess), not just
+   lubricants.
+2. 🟡 **`check_slice_validity` exists and is callable** (`A9_Data_Governance_Agent
+   .check_slice_validity()`, `src/api/routes/admin.py` → `src/api/runtime.py`) but is **admin-
+   triggered, not wired into onboarding automatically** — the "populated by profiling rather than
+   authored" property holds (a human never hand-types a `not_sliceable_by` entry), but "wired into
+   onboarding" does not yet.
+3. ❌ **Scorers do not consume it** — confirmed by direct search: zero references to
+   `not_sliceable_by`/`dimensions_excluded` in `src/analysis/groundedness.py` or
+   `src/analysis/narrative_claims.py`.
+4. ✅ **DA consumes `not_sliceable_by`** — confirmed by reading `a9_deep_analysis_agent.py`
+   directly: excluded from `dims_to_process` before the `max_dimensions` cut, every exclusion
+   recorded on `dimensions_excluded`, never silent, exactly as designed.
+5. ❌ **SF prompt is not told it** — zero references in `a9_solution_finder_agent.py`.
+6. ❌ **No DGA `get_kpi_semantics` entrypoint exists**; `validate_registry_integrity` does not
+   surface `pipeline_gap` entries.
+7. 🟡 **Backfilled for all three real clients already** (see step 1) — the "remaining clients" this
+   line meant (given it assumed step 1 covered only one) don't exist; what's actually missing is
+   re-running the check as client data changes, and bicycle (the fourth, DuckDB client) was not
+   checked in this pass.
 
-1. **Schema + seed for one client** (lubricants), `unknown` defaults everywhere else
-2. **Wire `check_slice_validity.py` into onboarding** so `not_sliceable_by` is populated by profiling
-   rather than authored — this is what makes §4 cheap enough to be worth having
-3. **Scorers consume it** — `groundedness` and `narrative_claims` prefer the declared fact over their
-   heuristic, falling back to the heuristic when `unknown`
-4. **DA consumes `not_sliceable_by`** — exclude from `dims_to_process`, and populate
-   `dimensions_excluded` on the response (§4.5: never narrow silently)
-5. **SF prompt is told it** — one line per KPI in the synthesis context
-6. **DGA exposes it** via a `get_kpi_semantics(kpi_id, client_id)` entrypoint, and
-   `validate_registry_integrity` gains a check for KPIs missing a semantic contract **and** a check
-   that surfaces every `reason_class: pipeline_gap` entry as an open defect (§4.6)
-7. **Backfill remaining clients**, then flip `unknown` from tolerated to a registry-integrity warning
+Also true and unaffected by the above: **§3 (additivity itself) has zero cover of any kind** —
+no schema field, no detection, no scorer awareness. The design doc's own §3a now has an
+operational (non-financial) worked example.
 
 Note the ordering constraint in step 4: it depends on Stage I Part A having landed
 `dimensions_analyzed`, since `dimensions_excluded` is meaningless without a record of what *was*
