@@ -411,6 +411,33 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             self.logger.debug(f"_dims_from_registry error: {e}")
             return []
 
+    def _hierarchies_from_registry(self, kpi_name: str = None, client_id: str = None) -> Dict[str, List[str]]:
+        """DataProduct.dimension_hierarchies for this KPI's data product, or {}
+        when the field is empty/absent (not yet migrated for this client, or
+        this client's contract genuinely never declared hierarchies at all --
+        Phase 16 step 5, DEVELOPMENT_PLAN.md). Never raises; a lookup failure
+        is treated identically to "nothing here" so the YAML fallback in
+        _hierarchies_from_contract always has a chance to run.
+        """
+        try:
+            kpi_def = self._lookup_kpi_scoped(kpi_name, client_id) if kpi_name else None
+            dp_id = getattr(kpi_def, "data_product_id", None) if kpi_def else None
+            if not dp_id:
+                return {}
+            from src.registry.factory import RegistryFactory
+            dp_provider = RegistryFactory().get_provider("data_product")
+            dp_obj = dp_provider.get(dp_id) if dp_provider else None
+            hier = getattr(dp_obj, "dimension_hierarchies", None) or {}
+            out: Dict[str, List[str]] = {}
+            if isinstance(hier, dict):
+                for k, v in hier.items():
+                    if isinstance(v, list):
+                        out[str(k)] = [str(x) for x in v if x]
+            return out
+        except Exception as e:
+            self.logger.debug(f"_hierarchies_from_registry error: {e}")
+            return {}
+
     def _dims_from_contract(self, limit: int, kpi_name: str = None, client_id: str = None) -> List[str]:
         """Candidate dimensions in the order the data product contract declares them.
 
@@ -1186,8 +1213,16 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             return float(m.pop(_ROLLUP_TOTAL_KEY))
                         return None
 
-                    # Helper: read dimension hierarchies from contract (if provided)
+                    # Helper: read dimension hierarchies from contract (if provided).
+                    # Registry-first as of Phase 16 step 5 (DEVELOPMENT_PLAN.md): tries
+                    # DataProduct.dimension_hierarchies before falling back to the legacy
+                    # YAML scan, same posture as _dims_from_contract (step 1).
                     def _hierarchies_from_contract() -> Dict[str, List[str]]:
+                        registry_hier = self._hierarchies_from_registry(
+                            getattr(plan, "kpi_name", None), client_id=getattr(plan, "client_id", None)
+                        )
+                        if registry_hier:
+                            return registry_hier
                         try:
                             cpath = self._contract_path_for_kpi(getattr(plan, "kpi_name", None), client_id=getattr(plan, "client_id", None))
                             if not os.path.exists(cpath):

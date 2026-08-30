@@ -115,6 +115,19 @@ DATA_PRODUCT = {
         "version": "version",
         "default_version_value": "Actual",
     },
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md) -- ported verbatim from
+    # hess_financials.yaml's dimension_hierarchies: section. GENUINELY LIVE:
+    # A9_Deep_Analysis_Agent.execute_deep_analysis takes the hierarchical
+    # drill path instead of flat dimension ranking whenever this is non-empty
+    # -- a real behavioural fork, found auditing every yaml.safe_load call
+    # site before attempting the YAML-file deletion this step is named for.
+    # lubricants/apex_lubricants never declared this section in their YAML
+    # either, so they are unaffected by it being empty for them.
+    "dimension_hierarchies": {
+        "geography": ["country", "basin_name", "asset_name"],
+        "segment": ["segment_name", "business_unit"],
+        "financials": ["account_type", "account_category", "account_name"],
+    },
 }
 
 _VIEW = "HessStarSchemaView"

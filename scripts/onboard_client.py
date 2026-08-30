@@ -362,6 +362,8 @@ def onboard_client(
             # Phase 16 step 4 (DEVELOPMENT_PLAN.md) — the 6th instance, also
             # added proactively.
             "column_aliases",
+            # Phase 16 step 5 (DEVELOPMENT_PLAN.md) — the 7th instance.
+            "dimension_hierarchies",
         }
         raw_dp_rows = [mod.DATA_PRODUCT]
         if isinstance(getattr(mod, "DATA_PRODUCTS", None), list):

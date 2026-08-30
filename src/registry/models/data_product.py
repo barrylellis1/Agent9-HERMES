@@ -167,6 +167,21 @@ class DataProduct(BaseModel):
             "YAML scan in that case, same posture as dimension_semantics."
         ),
     )
+    dimension_hierarchies: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Named drill paths (e.g. {'geography': ['country', 'basin_name', "
+            "'asset_name']}) -- a DIFFERENT concept from dimension_semantics (a flat "
+            "ranked list): this groups dimensions into ordered vectors for "
+            "A9_Deep_Analysis_Agent's hierarchical-drill analysis path. When non-empty, "
+            "DA takes the hierarchical path instead of flat dimension ranking -- a real "
+            "behavioural fork, not just an ordering hint. Empty means not yet migrated "
+            "off the legacy YAML contract for this data product (Phase 16 step 5, "
+            "docs/architecture/DEVELOPMENT_PLAN.md) -- distinct from 'genuinely has no "
+            "hierarchies declared', which also reads as empty (lubricants/apex_lubricants "
+            "never declared this section in their YAML either; nothing lost by that)."
+        ),
+    )
 
     @model_validator(mode="after")
     def _backfill_fields(self) -> "DataProduct":

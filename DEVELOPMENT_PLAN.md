@@ -2819,7 +2819,7 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 | **2** | ✅ **DONE (2026-08-29, all three financial data products; local Supabase, not yet synced to production).** Added `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
 | **3** | ✅ **DONE (2026-08-29, local Supabase, not yet synced to production).** Corrected all 5 Hess KPIs against the declared convention; re-validated live | Fixes real wrong output, now expressed as data rather than code |
 | **4** | ✅ **DONE (2026-08-29, local Supabase, not yet synced to production) — scope revised on investigation, see Step 4 subsection below.** Of the four sections, only `column_aliases` needed a new registry field; `business_terms`/`supported_business_processes` had zero live readers and already-migrated equivalents (backfilled as data, not schema); `connection` is dead and insecure, recommended for deletion at step 5 | The remaining sections; lower risk once the pattern exists |
-| **5** | Resolve the `views` shape collision, delete the 12 YAML files and all `yaml.safe_load` calls in agent files | Only safe once nothing reads them |
+| **5** | 🟡 **PARTIAL (2026-08-29, local Supabase, not yet synced to production).** Full audit of every `yaml.safe_load` call site done; `views` shape collision resolved as a decision; `dimension_hierarchies` migrated (hess). **YAML files NOT yet safe to delete** — see Step 5 subsection below for exactly what's still blocking | Only safe once nothing reads them |
 | **6** | Architecture test: no `yaml.safe_load` in `src/agents/**` | Makes the rule in CLAUDE.md enforceable rather than aspirational |
 
 **Onboarding (O1–O6 above) interleaves here:** O1–O3 land with steps 1–2, since the wizard needs somewhere to write those fields; O5's completeness gate lands with step 4; O6 — re-onboarding an existing client through the wizard — is the acceptance test for the phase.
@@ -3052,6 +3052,102 @@ being the pre-existing out-of-scope NULL KPIs; 0 on apex/lubricants). 1436 unit 
 **Not yet done:** synced to production; steps 5–6. Step 5 now has a clearer scope than the plan
 originally assumed: delete `connection` (recommended above, not carried forward) alongside the
 YAML files themselves, rather than migrating it first.
+
+---
+
+#### Step 5 — partial, local only (2026-08-29): audited every reader, migrated one more, files NOT yet safe to delete
+
+Step 5's own precondition is "only safe once nothing reads them." Before touching any deletion,
+**every `yaml.safe_load` call site in the three flagged agent files was read and classified** —
+14 sites, not re-derived from the original finding's summary counts. This is the audit the phase
+needed before step 5 could honestly be attempted at all.
+
+| # | Site | Reads | Status |
+|---|---|---|---|
+| 1 | `a9_deep_analysis_agent.py` `_contract_path_for_kpi` | scans contracts dir for matching `metadata.id` | **LIVE** for apex_lubricants/hess/bicycle (step 1's fallback) |
+| 2 | `a9_deep_analysis_agent.py` `_dims_from_contract` | `dimension_semantics` | **LIVE** for apex_lubricants/hess/bicycle; dead for lubricants (step 1) |
+| 3 | `a9_deep_analysis_agent.py` `_hierarchies_from_contract` | `dimension_hierarchies` | Was LIVE for hess/bicycle — **migrated for hess this step** (see below) |
+| 4 | `a9_data_product_agent.py` `_load_registry` | `data_product_registry.yaml` | **DEAD** — file confirmed absent at the real `registry_path` default |
+| 5 | `a9_data_product_agent.py` `_load_registry` auto-hydrate | contract read nested inside #4's dead branch | **DEAD** — unreachable, guard never true |
+| 6 | `a9_data_product_agent.py` onboarding QA lint | `contract_yaml` string param | LIVE — onboarding wizard, generic YAML-text parsing, not tied to the 12 files; blocked on Onboarding work item O4 |
+| 7 | `a9_data_product_agent.py` `register_tables_from_contract` | arbitrary `contract_path` param | LIVE — onboarding wizard utility, generic |
+| 8 | `a9_data_product_agent.py` `create_view_from_contract` | arbitrary `contract_path` param | LIVE — onboarding wizard utility, generic |
+| 9 | `a9_data_product_agent.py` `generate_sql` (ad-hoc NL-to-SQL) | `yaml_contract_text` string | LIVE but deprioritized — `project_product_direction`: "don't build NL-to-SQL" |
+| 10 | `a9_data_product_agent.py` `_get_contract_column_aliases` | `column_aliases` | Registry-first as of step 4; YAML fallback confirmed practically moot (confined to a fallback branch none of the 3 real clients ever reach) |
+| 11 | `a9_data_product_agent.py` `_get_exposed_columns` | `exposed_columns` | LIVE per code, but its only call path (`_resolve_attribute_name` ← `_generate_sql_for_kpi`) is the SAME dead-for-3-real-clients fallback as #10 — **not migrated this step**, see below |
+| 12 | `a9_data_governance_agent.py` `_load_exposed_columns` | `exposed_columns`, hardcoded to `FI_Star_View` (bicycle) | LIVE but narrow/bicycle-only; registered as an orchestrator workflow step (`validate_registry_integrity`) — not traced further this pass |
+| 13 | `a9_data_governance_agent.py` `compute_and_persist_top_dimensions._contract_dims` | `dimension_semantics`, hardcoded to `FI_Star_View` (bicycle) | LIVE but narrow/bicycle-only offline enrichment tool; same orchestrator-registered pattern as #12 |
+| 14 | `a9_data_governance_agent.py` (same method) | separate `kpi_enrichment.yaml` **cache** file | LIVE, unrelated to the 12 contract files — a different artifact entirely |
+
+**`views` shape collision — resolved as a decision, not a migration.** Confirmed `DataProduct
+.views` (the registry field, `Dict[str, ViewDefinition]`) has ZERO live readers anywhere:
+`_backfill_fields` only touches `.name`; `DataProductProvider.find_by_view` (the one method that
+queries it) has zero callers of its own. The registry's `views` was designed for a different
+purpose (onboarding-authored view SQL/columns) than what the YAML's `views[].llm_profile`
+actually carries (`dimension_semantics`, `dimension_hierarchies`, `exposed_columns` — three
+distinct LLM-profile facts, now confirmed, not the one the original finding named). **Decision:**
+the registry's `views` field keeps its original, still-unused-but-not-urgent purpose;
+`dimension_hierarchies` and `exposed_columns`, when migrated, become sibling top-level
+`DataProduct` fields — exactly the pattern `dimension_semantics`/`measure_semantics`/
+`column_aliases` already established — never nested back under `views`. This is *why* the
+collision won't recur: the registry side simply stops using that key for LLM-profile metadata,
+so there is nothing left to collide.
+
+**`dimension_hierarchies` migrated (hess).** New `DataProduct.dimension_hierarchies: Dict[str,
+List[str]]` field (migration `20260829_data_products_dimension_hierarchies.sql`), a new
+`_hierarchies_from_registry` method mirroring `_dims_from_registry` exactly, and the
+`_hierarchies_from_contract` closure inside `execute_deep_analysis` tries the registry first.
+**Genuinely live, unlike `column_aliases`**: `execute_deep_analysis` sets `used_hierarchical =
+True` whenever this dict is non-empty, switching DA from flat dimension ranking to a
+hierarchical-drill analysis path — a real behavioural fork this session's audit surfaced, not
+previously in the Phase 16 finding table at all. Only `hess_financials.yaml` and `fi_star_schema
+.yaml` (bicycle) declare this section among the seeded clients; `lubricants`/`apex_lubricants`
+never did, so an empty result means two different things depending on the client ("not yet
+migrated" for hess vs. "genuinely has none" for lubricants/apex) — both correctly fall through
+to an equally-empty YAML scan either way. Verified live against the real bootstrapped registry
+(no mocks): hess's `gross_margin_pct` returns the seeded `{geography, segment, financials}`
+dict; lubricants' returns `{}` as expected. 7 new unit tests
+(`tests/unit/test_da_dimension_hierarchies.py`). `onboard_client.py`'s `_DP_COLS` gained
+`dimension_hierarchies` (7th instance of the explicit-allow-list trap this session, added
+proactively).
+
+**`exposed_columns` NOT migrated — deliberately, on a risk/value read.** `_get_exposed_columns`
+(DPA) is confirmed LIVE for lubricants' YAML (it declares the section) but its only call path
+(`_resolve_attribute_name`, called only from inside `_generate_sql_for_kpi`) is the exact same
+last-resort fallback `_get_contract_column_aliases` uses — unreachable for lubricants/
+apex_lubricants/hess because their `source_system` routes explicitly before ever reaching it
+(CLAUDE.md rule 9). Its only real-world reachability today is bicycle, for which
+`_get_exposed_columns`'s YAML resolution (via `_contract_path()`, no `data_product_id` argument
+at all — unlike `_get_contract_column_aliases`, which at least accepted one before this session's
+fix) always happens to target bicycle's own contract by coincidence, since bicycle is the sole
+occupant of this fallback path. Migrating it would be low-risk given the established pattern, but
+also low-value against this session's remaining budget — named here as the clearest concrete
+next unit of step 5 work, not silently dropped.
+
+**DGA's bicycle-only utilities (#12, #13) not traced further.** `validate_registry_integrity` and
+`compute_and_persist_top_dimensions` are registered as orchestrator workflow steps; whether that
+orchestrator workflow is ever actually invoked in a live path was not confirmed this pass —
+flagged as audited-but-not-resolved rather than assumed dead.
+
+**Why none of the 12 YAML files can be deleted yet, concretely:** every one of hess's, bicycle's,
+and apex_lubricants'/lubricants' contract files still backs at least one confirmed-live read
+(#1/#2 for apex/hess/bicycle's `dimension_semantics`; #11/#12 for `exposed_columns` across
+multiple clients including lubricants; #13 for bicycle's enrichment tool). The onboarding-generic
+sites (#6–#9) don't target these specific files but do count against step 6's "no `yaml.safe_load`
+in `src/agents/**`" architecture test, and are gated on the separate Onboarding work item O4
+("replace `contract_yaml: str` with the typed contract object") — a prerequisite the original
+plan's ordering note didn't spell out this explicitly.
+
+**Verified:** 1443 unit tests pass (1436 + 7 new). No YAML files touched or deleted this session.
+
+**Not yet done:** migrate `exposed_columns`; migrate `dimension_semantics`/`dimension_hierarchies`
+for apex_lubricants/bicycle (hess is now the only non-lubricants client with either migrated);
+delete `connection` from the YAML files (step 4's recommendation, still pending — deletable
+independently of the rest since nothing reads it, but not done here to keep this step's diff
+about the audit and the one real migration); trace whether DGA's orchestrator-registered
+bicycle-only utilities are ever actually invoked; land Onboarding item O4; only then attempt file
+deletion + step 6's architecture test. Synced to production: no (local only, consistent with
+every step this phase).
 
 ---
 
