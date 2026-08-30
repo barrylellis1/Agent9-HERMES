@@ -26,6 +26,7 @@ import pytest
 
 from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
 from src.agents.models.data_product_onboarding_models import (
+    ConfirmMeasureSemanticsRequest,
     DataProductBusinessProcessSyncRequest,
     DataProductRegistrationRequest,
     ForeignKeyRelationship,
@@ -613,6 +614,105 @@ async def test_sync_rejects_client_id_mismatch(agent):
 
     assert response.status == "error"
     assert "brookshire_brothers" in response.error_message
+    agent.data_product_provider.upsert.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# confirm_measure_semantics -- Phase 16 Onboarding item O2's human-
+# confirmation half (DEVELOPMENT_PLAN.md): register_data_product writes a
+# live-detected sign convention automatically, but a wrong detection here
+# reproduces the exact bug class this phase exists to close, so it's never
+# treated as final until an admin has actually confirmed or corrected it.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_confirm_measure_semantics_persists_the_confirmed_value(agent):
+    existing = MagicMock()
+    existing.client_id = "hess"
+    existing.model_dump.return_value = {"id": "dp_test", "measure_semantics": {"stored_sign": {"Revenue": "positive"}}}
+
+    agent.data_product_provider = MagicMock()
+    agent.data_product_provider.get.return_value = existing
+    agent.data_product_provider.upsert = AsyncMock(return_value=True)
+    agent.data_product_provider.source_path = None
+
+    request = ConfirmMeasureSemanticsRequest(
+        request_id="req1", principal_id="admin_user", data_product_id="dp_test",
+        client_id="hess",
+        measure_semantics={"type_column": "account_type", "amount_column": "amount",
+                           "stored_sign": {"Revenue": "positive"}},
+    )
+
+    response = await agent.confirm_measure_semantics(request)
+
+    assert response.status == "success"
+    assert existing.measure_semantics == {"type_column": "account_type", "amount_column": "amount",
+                                           "stored_sign": {"Revenue": "positive"}}
+    agent.data_product_provider.upsert.assert_awaited_once_with(existing)
+
+
+@pytest.mark.asyncio
+async def test_confirm_measure_semantics_admin_can_correct_a_wrong_detection(agent):
+    """The whole point of this endpoint: an admin who disagrees with what
+    was auto-detected can override it, and the override -- not the original
+    detection -- is what gets persisted."""
+    existing = MagicMock()
+    existing.client_id = "hess"
+    existing.measure_semantics = {"stored_sign": {"Revenue": "negative"}}  # wrong, auto-detected
+    existing.model_dump.return_value = {}
+
+    agent.data_product_provider = MagicMock()
+    agent.data_product_provider.get.return_value = existing
+    agent.data_product_provider.upsert = AsyncMock(return_value=True)
+
+    corrected = {"type_column": "account_type", "amount_column": "amount",
+                 "stored_sign": {"Revenue": "positive"}}  # admin's correction
+    request = ConfirmMeasureSemanticsRequest(
+        request_id="req1", principal_id="admin_user", data_product_id="dp_test",
+        client_id="hess", measure_semantics=corrected,
+    )
+
+    await agent.confirm_measure_semantics(request)
+
+    assert existing.measure_semantics == corrected
+
+
+@pytest.mark.asyncio
+async def test_confirm_measure_semantics_rejects_client_id_mismatch(agent):
+    existing = MagicMock()
+    existing.client_id = "apex_lubricants"
+
+    agent.data_product_provider = MagicMock()
+    agent.data_product_provider.get.return_value = existing
+    agent.data_product_provider.upsert = AsyncMock(return_value=True)
+
+    request = ConfirmMeasureSemanticsRequest(
+        request_id="req1", principal_id="admin_user", data_product_id="dp_test",
+        client_id="hess", measure_semantics={"stored_sign": {}},
+    )
+
+    response = await agent.confirm_measure_semantics(request)
+
+    assert response.status == "error"
+    assert "apex_lubricants" in response.error_message
+    agent.data_product_provider.upsert.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_confirm_measure_semantics_not_found_returns_error_not_raise(agent):
+    agent.data_product_provider = MagicMock()
+    agent.data_product_provider.get.return_value = None
+    agent.data_product_provider.upsert = AsyncMock(return_value=True)
+
+    request = ConfirmMeasureSemanticsRequest(
+        request_id="req1", principal_id="admin_user", data_product_id="dp_nonexistent",
+        client_id="hess", measure_semantics={"stored_sign": {}},
+    )
+
+    response = await agent.confirm_measure_semantics(request)
+
+    assert response.status == "error"
+    assert "dp_nonexistent" in response.error_message
     agent.data_product_provider.upsert.assert_not_called()
 
 

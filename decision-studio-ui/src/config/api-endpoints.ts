@@ -45,6 +45,10 @@ export const API_ENDPOINTS = {
       run: '/api/v1/workflows/data-product-onboarding/run',
       status: (requestId: string) => `/api/v1/workflows/data-product-onboarding/${requestId}/status`,
       validateQueries: '/api/v1/workflows/data-product-onboarding/validate-kpi-queries',
+      // Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) -- register_data_product
+      // writes a live-detected sign convention automatically; this is the human-
+      // confirmation step that closes the gap a silent auto-write leaves open.
+      confirmMeasureSemantics: '/api/v1/workflows/data-product-onboarding/confirm-measure-semantics',
     },
   },
 

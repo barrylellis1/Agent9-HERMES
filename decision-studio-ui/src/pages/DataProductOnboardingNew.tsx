@@ -151,6 +151,18 @@ export function DataProductOnboardingNew({
     const [inspectionResult, setInspectionResult] = useState<InspectionResult | null>(null)
     const [_editingColumn, setEditingColumn] = useState<{ table: string; column: string } | null>(null)
 
+    // Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) -- register_data_product
+    // writes a LIVE-DETECTED sign convention automatically the moment Metadata
+    // Analysis completes, but a wrong detection here silently reproduces the
+    // exact bug class this phase exists to close (a KPI computing backwards),
+    // unlike a wrong dimension_semantics/time_dimensions guess, which only
+    // costs analysis quality. This state gates "Continue to KPI Definition"
+    // until an admin has actually looked at it and confirmed or corrected it.
+    const [detectedMeasureSemantics, setDetectedMeasureSemantics] = useState<Record<string, any> | null>(null)
+    const [editedSignConvention, setEditedSignConvention] = useState<Record<string, string>>({})
+    const [measureSemanticsConfirmed, setMeasureSemanticsConfirmed] = useState(false)
+    const [confirmingMeasureSemantics, setConfirmingMeasureSemantics] = useState(false)
+
     // Step 5: KPI Definition
     const [definedKPIs, setDefinedKPIs] = useState<any[]>([])
 
@@ -400,7 +412,16 @@ export function DataProductOnboardingNew({
                         // Extract inspection results from the inspect_source_schema step
                         const inspectionStep = statusData.data.result?.steps?.find((s: any) => s.name === 'inspect_source_schema')
                         const inspectionDetails = inspectionStep?.details
-                        
+
+                        // Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) -- register_
+                        // data_product (which just ran as part of this same workflow) writes
+                        // a LIVE-DETECTED sign convention automatically. Extract it here so
+                        // it can be shown for confirmation before advancing -- a wrong
+                        // detection silently reproduces the exact bug class this phase
+                        // exists to close, unlike a wrong dimension/time guess.
+                        const registrationStep = statusData.data.result?.steps?.find((s: any) => s.name === 'register_data_product')
+                        const detected = registrationStep?.details?.registry_entry?.measure_semantics
+
                         if (inspectionDetails && inspectionDetails.tables && inspectionDetails.tables.length > 0) {
                             setInspectionResult(inspectionDetails)
                             setLogs(prev => [...prev, `✓ Analysis complete: ${inspectionDetails.tables.length} tables profiled`])
@@ -409,7 +430,16 @@ export function DataProductOnboardingNew({
                             } else {
                                 setLogs(prev => [...prev, `⚠ FK relationships inferred (manual review recommended)`])
                             }
-                            setCurrentStep(4)
+                            if (detected && detected.stored_sign) {
+                                setDetectedMeasureSemantics(detected)
+                                setEditedSignConvention(detected.stored_sign)
+                                setMeasureSemanticsConfirmed(false)
+                                setLogs(prev => [...prev, `⚠ Detected a sign convention for '${detected.type_column}' -- review and confirm before continuing`])
+                                // Stay on this step so the confirmation card renders --
+                                // advancing is what handleConfirmMeasureSemantics does.
+                            } else {
+                                setCurrentStep(4)
+                            }
                             setLoading(false)
                         } else if (statusData.data.state === 'failed') {
                             setError(statusData.data.result?.error_message || statusData.data.error || 'Analysis failed')
@@ -429,6 +459,44 @@ export function DataProductOnboardingNew({
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Analysis failed')
             setLoading(false)
+        }
+    }
+
+    // Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) -- persists the
+    // admin-confirmed (possibly corrected) sign convention, then advances.
+    // editedSignConvention is what the admin actually saw and approved --
+    // NOT necessarily what was auto-detected, if they changed anything.
+    const handleConfirmMeasureSemantics = async () => {
+        if (!detectedMeasureSemantics) return
+        setConfirmingMeasureSemantics(true)
+        setError(null)
+        try {
+            const response = await fetch(buildUrl(API_ENDPOINTS.workflows.dataProductOnboarding.confirmMeasureSemantics), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    request_id: `confirm_measure_semantics_${Date.now()}`,
+                    principal_id: 'admin_user',
+                    data_product_id: dataProductId,
+                    client_id: getSettingsClientId() || undefined,
+                    measure_semantics: {
+                        type_column: detectedMeasureSemantics.type_column,
+                        amount_column: detectedMeasureSemantics.amount_column,
+                        stored_sign: editedSignConvention,
+                    },
+                }),
+            })
+            const data = await response.json()
+            if (!response.ok || data.status === 'error') {
+                throw new Error(data.detail || data.error || 'Failed to confirm sign convention')
+            }
+            setMeasureSemanticsConfirmed(true)
+            setLogs(prev => [...prev, `✓ Sign convention confirmed for '${detectedMeasureSemantics.type_column}'`])
+            setCurrentStep(4)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to confirm sign convention')
+        } finally {
+            setConfirmingMeasureSemantics(false)
         }
     }
 
@@ -1155,6 +1223,54 @@ export function DataProductOnboardingNew({
                                         >
                                             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                                             {loading ? 'Analyzing...' : 'Start Analysis'}
+                                        </button>
+                                    </div>
+                                ) : detectedMeasureSemantics && !measureSemanticsConfirmed ? (
+                                    /* Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) -- a sign
+                                       convention was detected from a LIVE query against the real
+                                       source, but it was never seen by a human. Getting this wrong
+                                       silently reproduces the exact bug this phase exists to close
+                                       (a KPI computing backwards), so it blocks continuing until
+                                       confirmed or corrected -- unlike dimension_semantics/
+                                       time_dimensions, which are written without this gate. */
+                                    <div className="space-y-6">
+                                        <div className="p-4 bg-severity-warning/10 border border-severity-warning/30 rounded-lg flex items-start gap-3">
+                                            <AlertCircle className="w-5 h-5 text-severity-warning shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-sm font-medium text-white">Confirm the detected sign convention</p>
+                                                <p className="text-xs text-slate-400 mt-1">
+                                                    Queried <span className="font-mono">{detectedMeasureSemantics.type_column}</span> against
+                                                    the live source and summed <span className="font-mono">{detectedMeasureSemantics.amount_column}</span> for
+                                                    each value below. Getting this wrong is exactly what silently broke KPIs for another
+                                                    client onboarded this way — review each value, correct anything that looks wrong, then confirm.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800 space-y-2">
+                                            {Object.entries(editedSignConvention).map(([value, sign]) => (
+                                                <div key={value} className="flex items-center justify-between p-2 bg-slate-950 rounded">
+                                                    <span className="text-sm text-white font-mono">{value}</span>
+                                                    <select
+                                                        value={sign}
+                                                        onChange={(e) => setEditedSignConvention(prev => ({ ...prev, [value]: e.target.value }))}
+                                                        className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-sm text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    >
+                                                        <option value="positive">positive</option>
+                                                        <option value="negative">negative</option>
+                                                    </select>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <button
+                                            onClick={handleConfirmMeasureSemantics}
+                                            disabled={confirmingMeasureSemantics}
+                                            className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {confirmingMeasureSemantics && <Loader2 className="w-4 h-4 animate-spin" />}
+                                            {confirmingMeasureSemantics ? 'Confirming...' : 'Confirm Sign Convention & Continue'}
+                                            {!confirmingMeasureSemantics && <ChevronRight className="w-4 h-4" />}
                                         </button>
                                     </div>
                                 ) : (

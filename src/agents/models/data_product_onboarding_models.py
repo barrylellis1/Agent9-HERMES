@@ -273,6 +273,29 @@ class DataProductRegistrationResponse(A9AgentBaseResponse):
     )
 
 
+class ConfirmMeasureSemanticsRequest(A9AgentBaseRequest):
+    """Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) — the human-confirmation
+    half. register_data_product writes a LIVE-DETECTED sign convention
+    automatically (see TableProfile.detected_measure_sign), but a wrong
+    detection here reproduces the exact bug class this whole phase exists to
+    close (a KPI silently computing backwards) -- unlike a wrong
+    dimension_semantics/time_dimensions guess, which only degrades analysis
+    quality. This endpoint is what the wizard calls once an admin has
+    actually looked at the detected convention and confirmed or corrected
+    it, closing that gap rather than leaving the auto-write as the final
+    word."""
+
+    data_product_id: str = Field(..., description="Data product whose measure_semantics is being confirmed")
+    client_id: str = Field(..., description="Tenant this data product belongs to")
+    measure_semantics: Dict[str, Any] = Field(
+        ...,
+        description=(
+            "The admin-confirmed (possibly corrected) convention: "
+            "{'type_column': ..., 'amount_column': ..., 'stored_sign': {value: 'positive'|'negative'}}"
+        ),
+    )
+
+
 class DataProductBusinessProcessSyncRequest(A9AgentBaseRequest):
     """Request to union a set of business process IDs into a data product's
     related_business_processes — called after KPI finalize, since KPIs are the

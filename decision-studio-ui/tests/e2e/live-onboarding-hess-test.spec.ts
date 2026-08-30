@@ -16,6 +16,14 @@ import { test, expect } from '@playwright/test';
  * no need to drive the KPI-definition chat / validation / final-register
  * steps to answer the registry-population question.
  *
+ * Phase 16 Onboarding item O2's confirmation gate (DEVELOPMENT_PLAN.md): the
+ * wizard now pauses on a "Confirm Sign Convention" card after Metadata
+ * Analysis, since hess has a live-detectable account_type/amount pair. This
+ * spec drives through it — confirming as-detected — before checking
+ * KPI Definition is reached, and is also how the confirmation gate itself
+ * gets live-verified end to end (not just unit-tested against a mocked
+ * provider).
+ *
  * Run:  npx playwright test live-onboarding-hess-test
  * (uses the default playwright.config.ts — reuses the already-running dev
  * server started by restart_decision_studio_ui.ps1; NOT the mocked/fast
@@ -62,15 +70,29 @@ test('onboarding wizard: register hess as a new (test-id) data product and inspe
   // ── Step 4: Metadata Analysis -- this is where register_data_product fires ──
   await page.getByRole('button', { name: /Start Analysis/i }).click();
 
-  // Wait for either success (moves to KPI Definition, currentStep=4) or a
-  // visible error -- whichever happens first tells us whether registration
-  // itself succeeded, independent of what fields it populated.
+  // Wait for whichever comes first: the O2 confirmation card (hess has a
+  // detectable convention, so this is the expected path), success with
+  // nothing to confirm (moves straight to KPI Definition), or a visible
+  // error -- any of the three tells us registration was attempted.
   const kpiDefHeading = page.getByRole('heading', { name: 'KPI Definition' });
   const errorBanner = page.locator('text=/Analysis failed|Registry registration error/i');
+  const confirmButton = page.getByRole('button', { name: /Confirm Sign Convention/i });
   await Promise.race([
     kpiDefHeading.waitFor({ state: 'visible', timeout: 90_000 }),
     errorBanner.waitFor({ state: 'visible', timeout: 90_000 }),
+    confirmButton.waitFor({ state: 'visible', timeout: 90_000 }),
   ]);
+
+  const reachedConfirmationCard = await confirmButton.isVisible().catch(() => false);
+  console.log(`[onboarding-test] reached O2 confirmation card: ${reachedConfirmationCard}`);
+  expect(reachedConfirmationCard, 'hess has a live-detectable sign convention -- the confirmation gate must appear, not be silently skipped').toBe(true);
+
+  await page.screenshot({ path: 'playwright-results/onboarding-hess-test-confirmation-card.png', fullPage: true });
+
+  // Confirm as-detected (this spec doesn't test the "admin corrects it" path
+  // -- that's covered by the unit tests) and wait for KPI Definition.
+  await confirmButton.click();
+  await kpiDefHeading.waitFor({ state: 'visible', timeout: 30_000 });
 
   await page.screenshot({ path: 'playwright-results/onboarding-hess-test-step4.png', fullPage: true });
 

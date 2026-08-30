@@ -2685,18 +2685,18 @@ are both live).
 **What this phase closes out, concretely:** steps 1–4 done and live; O3
 (`dimension_semantics` from onboarding) done and live; the `temp_discovery` junk-row bug (found
 during this phase's own O6 live-testing) root-caused, fixed, and deployed — checked production
-directly, zero junk rows present. **O2 (`measure_semantics` detection) added after this callout
-was first written** — built, live-verified against hess's real SQL Server data (exact match to
-the manually-declared convention), 17 new unit tests, **but local Supabase only, not yet synced
-to production** — see its own write-up below for the full detail and the honest gap it still
-carries (detection without human confirmation, worse here than for O1/O3 since a wrong detection
-is a correctness bug, not a quality one).
+directly, zero junk rows present. **O2 (`measure_semantics` detection + human confirmation) added
+after this callout was first written** — both halves now done: detection live-verified against
+hess's real SQL Server data (exact match to the manually-declared convention), and a required
+confirmation card in the wizard UI, also live-verified end to end (screenshot captured). 21 new
+unit tests across both pieces. **Still local Supabase only, not yet synced to production** — see
+its own write-up below for the full detail.
 
 **What remains, explicitly not attempted in this pass:** step 5 is genuinely partial — the 12
 legacy YAML contract files are NOT yet safe to delete (`exposed_columns` and, for
 apex_lubricants/bicycle, `dimension_semantics` itself are still live-read from them); step 6
 (the architecture test banning `yaml.safe_load` in `src/agents/**`) can't land until step 5
-finishes; O2's human-confirmation half; O5's completeness gate (depends on O2 meaning something
+finishes; O5's completeness gate (depends on O2 meaning something
 first). These are real, tracked next steps for whenever this phase resumes — not silently
 dropped.
 
@@ -2840,7 +2840,7 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 | # | Work | Note |
 |---|---|---|
 | **O1** | 🟡 **Detection half DONE, live-verified 2026-08-30** — `register_data_product` already emits a correct `fiscal_year_period` shape without any wizard UI change. **Confirmation-by-the-user half NOT done** — the wizard never shows what it inferred or asks the admin to confirm it; a wrong inference (e.g. two similarly-named columns) would still ship silently | Detection is a reasonable default (a `fiscal_year` + `fiscal_period` column pair is a strong signal), but it must be **confirmed**, not assumed; the cost of getting it wrong is silent wrong windows |
-| **O2** | 🟡 **Detection DONE, live-verified 2026-08-30** (local Supabase). `register_data_product` now writes `measure_semantics` from a live query during profiling. **Confirmation-by-the-admin half NOT done** — same gap as O1, see the write-up below for why it matters more here | Detectable by inspection: if every COGS row is negative, propose "negative" and ask. One question, once, replacing a per-KPI assumption |
+| **O2** | ✅ **DONE, live-verified 2026-08-30** (local Supabase). Detection + a required human-confirmation UI card, both closed the same day — the admin sees the detected convention (editable per value) and must confirm before the wizard advances | Detectable by inspection: if every COGS row is negative, propose "negative" and ask. One question, once, replacing a per-KPI assumption |
 | **O3** | ✅ **`dimension_semantics` half DONE, live-verified 2026-08-30** (local Supabase). `register_data_product` now writes `dimension_semantics` from already-profiled `semantic_tags`, mirroring `_synthesize_time_dimensions`'s structure. `fallback_group_by_dimensions` still NOT emitted by the wizard (unrelated field, seed-data-only per step 1) | The candidate analysis dimensions. Related to Phase 15 Stage I's problem-profile-driven selection — the wizard should propose, the profile should rank |
 | **O4** | Replace `contract_yaml: str` with the typed contract object | Removes the last reason for the wizard to think in YAML at all |
 | **O5** | Completeness gate before "register" | Refuse to register a data product missing time semantics or measure semantics. **The onboarding wizard is where a bad contract is cheapest to stop**; every other guard in this plan catches it downstream, after it has already produced a number |
@@ -2946,22 +2946,39 @@ confirmation the detection logic is correct, not merely plausible-looking. 17 ne
 `tests/unit/test_data_product_agent_schema_generation.py`. 1468 unit tests pass (1453 + 15 net
 new — 2 of the 17 extend existing tests rather than add new ones).
 
-**Honesty note, and why this gap matters more than it did for O1.** This writes the detected
-convention directly, with no human confirmation step — the identical posture O1 (`time_dimensions`)
-and O3 (`dimension_semantics`) already ship with. For those two, a wrong detection degrades
-*analysis quality* (dimensions ranked oddly, a fiscal window slightly off). For `measure_semantics`,
-a wrong detection reproduces the Hess bug class exactly — a KPI silently computing backwards,
-correctness rather than quality. The detection heuristic is deliberately conservative (narrow
-column-name match, ambiguous values dropped rather than guessed) precisely because of this, but
-conservative detection is not the same thing as a human confirming it. Building a real
-"here's what we detected, confirm before continuing" UI step is a materially bigger lift than
-the detection logic itself and was not attempted in this pass — tracked here explicitly, not
-silently accepted as good enough. This is also the concrete prerequisite for O5's completeness
-gate ("refuse to register a data product missing measure_semantics") to mean anything: gating
-on a value nobody has looked at is not the same protection O5 was designed to provide.
+**Human confirmation closed the same day, 2026-08-30** — flagged as a real, higher-than-O1/O3
+gap, and closed rather than left as an accepted risk once raised. For `time_dimensions`/
+`dimension_semantics`, a wrong detection degrades *analysis quality* (dimensions ranked oddly, a
+fiscal window slightly off). For `measure_semantics`, a wrong detection reproduces the Hess bug
+class exactly — a KPI silently computing backwards, correctness rather than quality — so
+"detection is conservative" wasn't treated as good enough on its own.
 
-**Not yet done:** the human-confirmation half of O2 (above); O5's completeness gate itself;
-`fallback_group_by_dimensions`; synced to production (local Supabase only as of this writing).
+New `confirm_measure_semantics` agent method + `POST /data-product-onboarding/confirm-measure-
+semantics` route: fetches the already-registered `DataProduct`, validates `client_id` ownership
+(fail-loud, same pattern as `sync_related_business_processes`), overwrites `.measure_semantics`
+with whatever the admin actually approved, upserts. Frontend: Metadata Analysis now extracts the
+detected convention from the same workflow response that already carries the inspection result,
+and — only when non-empty — renders a **required** confirmation card in place of advancing
+straight to KPI Definition: each `stored_sign` value as an editable positive/negative dropdown,
+a "Confirm Sign Convention & Continue" button that POSTs the (possibly corrected) value before
+advancing. Nothing detected → no gate, wizard behaves exactly as before.
+
+**Live-verified end to end**, not just unit-tested: re-ran `live-onboarding-hess-test.spec.ts`
+against hess's real SQL Server database — the confirmation card rendered showing `COGS`/`SGA`/
+`Other`=negative, `Revenue`=positive (screenshot captured), confirming as-detected persisted
+that exact value through the new endpoint. 4 new unit tests (persists the confirmed value, an
+admin's correction overrides the original detection — the actual point of the endpoint —
+client_id-mismatch rejection, not-found returns an error rather than raising). No React/TSX test
+suite exists in this codebase (no jest/vitest configured); the UI side is covered by the live
+Playwright run, not a unit test. 1472 unit tests pass (1468 + 4 new).
+
+This is also the concrete prerequisite O5's completeness gate ("refuse to register a data
+product missing `measure_semantics`") needed to mean anything: gating on a value nobody has
+looked at would not have been the protection O5 was designed to provide. O5 itself is still not
+built.
+
+**Not yet done:** O5's completeness gate itself; `fallback_group_by_dimensions`; synced to
+production (local Supabase only as of this writing).
 
 **Relationship to the existing Data Onboarding Refinement track** (below): that track is UI and workflow polish — chooser screen, wizard foundation, templates. This is a *content* gap in what the wizard produces, and it should be sequenced ahead of the polish. A better-looking wizard that still emits an incomplete contract is a faster way to a wrong briefing.
 

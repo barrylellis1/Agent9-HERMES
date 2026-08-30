@@ -54,6 +54,7 @@ from src.agents.models.data_product_onboarding_models import (
     DataProductContractGenerationResponse,
     DataProductRegistrationRequest,
     DataProductRegistrationResponse,
+    ConfirmMeasureSemanticsRequest,
     DataProductBusinessProcessSyncRequest,
     DataProductBusinessProcessSyncResponse,
     DataProductQARequest,
@@ -979,6 +980,57 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 request_id=request_id,
                 error_message=str(err),
                 related_business_processes=[],
+            )
+
+    async def confirm_measure_semantics(
+        self, request: ConfirmMeasureSemanticsRequest
+    ) -> DataProductRegistrationResponse:
+        """Persist an admin-confirmed (possibly corrected) measure_semantics
+        onto an already-registered data product.
+
+        Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) — register_data_product
+        writes a live-detected sign convention automatically the moment
+        Metadata Analysis completes; this is the human-confirmation step that
+        closes the gap that auto-write leaves open. Getting this field wrong
+        silently is the exact bug class this whole phase exists to close (a
+        KPI computing backwards), unlike a wrong dimension_semantics/
+        time_dimensions guess, which only costs analysis quality — so unlike
+        those two fields, this one is never treated as final until an admin
+        has actually looked at it.
+        """
+        request_id = request.request_id
+        try:
+            if not self.data_product_provider:
+                raise RuntimeError("Data product provider is not initialized")
+
+            existing = self.data_product_provider.get(request.data_product_id, client_id=request.client_id)
+            if existing is None:
+                raise ValueError(f"Data product '{request.data_product_id}' not found")
+            if existing.client_id != request.client_id:
+                # Fail loud — never let a confirm call re-parent or write into
+                # a different tenant's record (CLAUDE.md Multi-Tenant Isolation).
+                raise ValueError(
+                    f"Data product '{request.data_product_id}' belongs to client "
+                    f"'{existing.client_id}', not '{request.client_id}'"
+                )
+
+            existing.measure_semantics = request.measure_semantics
+            await self.data_product_provider.upsert(existing)
+
+            return DataProductRegistrationResponse.success(
+                request_id=request_id,
+                registry_entry=existing.model_dump(mode="json"),
+                was_created=False,
+                registry_path=getattr(self.data_product_provider, "source_path", None),
+            )
+        except Exception as err:
+            self.logger.warning(f"measure_semantics confirmation failed for '{request.data_product_id}': {err}")
+            return DataProductRegistrationResponse.error(
+                request_id=request_id,
+                error_message=str(err),
+                registry_entry={},
+                was_created=False,
+                registry_path=None,
             )
 
     async def validate_data_product_onboarding(

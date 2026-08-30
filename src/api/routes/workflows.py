@@ -28,6 +28,8 @@ from src.agents.models.data_product_onboarding_models import (
     ValidateKPIQueriesRequest,
     ValidateKPIQueriesResponse,
     KPIDefinition,
+    ConfirmMeasureSemanticsRequest,
+    DataProductRegistrationResponse,
 )
 
 
@@ -854,6 +856,38 @@ async def validate_kpi_queries(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"KPI query validation failed: {str(e)}"
+        )
+
+
+@router.post("/data-product-onboarding/confirm-measure-semantics", response_model=Envelope)
+async def confirm_measure_semantics(
+    request: ConfirmMeasureSemanticsRequest,
+    runtime: AgentRuntime = Depends(get_agent_runtime),
+) -> Envelope:
+    """
+    Persist an admin-confirmed (possibly corrected) measure_semantics.
+
+    Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) — register_data_product
+    already writes a LIVE-DETECTED sign convention automatically the moment
+    Metadata Analysis completes (a genuine live query against the source,
+    not a guess), but a wrong detection here reproduces the exact bug class
+    this whole phase exists to close (a KPI silently computing backwards) —
+    unlike dimension_semantics/time_dimensions, where a wrong guess only
+    costs analysis quality. The wizard calls this once an admin has actually
+    looked at the detected convention and confirmed or corrected it.
+    """
+    try:
+        orchestrator = runtime.get_orchestrator()
+        response: DataProductRegistrationResponse = await orchestrator.execute_agent_method(
+            "A9_Data_Product_Agent",
+            "confirm_measure_semantics",
+            request,
+        )
+        return wrap(response.model_dump())
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Confirming measure_semantics failed: {str(e)}"
         )
 
 
