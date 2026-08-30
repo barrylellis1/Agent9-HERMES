@@ -2904,7 +2904,7 @@ also not yet synced to production.
 #### Step 1 — done for lubricants, local only (2026-08-29)
 
 `DataProduct` gained a real `dimension_semantics: List[str]` column (migration
-`20260829_data_products_dimension_semantics.sql`) — `DatabaseRegistryProvider`'s serialize/
+`20260829120000_data_products_dimension_semantics.sql`) — `DatabaseRegistryProvider`'s serialize/
 deserialize path is fully generic (`model_class(**data)` on read, `model_dump()` filtered against
 a live `information_schema.columns` query on write), so no hand-maintained field list needed
 updating on the provider side, unlike every other registry write path touched this session.
@@ -2944,7 +2944,7 @@ YAML-sourced until each is migrated in turn).
 #### Step 2 — done, local only (2026-08-29)
 
 `DataProduct` gained `measure_semantics: Optional[Dict]` (migration
-`20260829_data_products_measure_semantics.sql`) — same "one contract fact, one place" pattern
+`20260829130000_data_products_measure_semantics.sql`) — same "one contract fact, one place" pattern
 as step 1, same generic `DatabaseRegistryProvider` serialize path, no provider changes needed.
 Shape: `{type_column: "account_type", amount_column: "amount", stored_sign: {"Revenue":
 "positive", "COGS": "negative", ...}}`.
@@ -3064,7 +3064,7 @@ any of them** (grepped all of `src/agents/**` for every key, not assumed from th
 | `supported_business_processes` | **0** | **Not migrated — already redundant** with `DataProduct.related_business_processes`, an existing field already populated per client |
 | `connection` | **0** | **Not migrated — recommended for deletion at step 5**, see the security note below |
 
-**`column_aliases`:** new field + migration (`20260829_data_products_column_aliases.sql`), same
+**`column_aliases`:** new field + migration (`20260829140000_data_products_column_aliases.sql`), same
 `DatabaseRegistryProvider` generic serialize path, no provider changes. Fixed a real bug while
 migrating it: `_get_contract_column_aliases(data_product_id)` took the parameter but its YAML
 fallback called `self._contract_path()` with **no argument**, silently ignoring it and always
@@ -3165,7 +3165,7 @@ collision won't recur: the registry side simply stops using that key for LLM-pro
 so there is nothing left to collide.
 
 **`dimension_hierarchies` migrated (hess).** New `DataProduct.dimension_hierarchies: Dict[str,
-List[str]]` field (migration `20260829_data_products_dimension_hierarchies.sql`), a new
+List[str]]` field (migration `20260829150000_data_products_dimension_hierarchies.sql`), a new
 `_hierarchies_from_registry` method mirroring `_dims_from_registry` exactly, and the
 `_hierarchies_from_contract` closure inside `execute_deep_analysis` tries the registry first.
 **Genuinely live, unlike `column_aliases`**: `execute_deep_analysis` sets `used_hierarchical =
