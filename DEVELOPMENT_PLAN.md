@@ -2685,15 +2685,20 @@ are both live).
 **What this phase closes out, concretely:** steps 1–4 done and live; O3
 (`dimension_semantics` from onboarding) done and live; the `temp_discovery` junk-row bug (found
 during this phase's own O6 live-testing) root-caused, fixed, and deployed — checked production
-directly, zero junk rows present.
+directly, zero junk rows present. **O2 (`measure_semantics` detection) added after this callout
+was first written** — built, live-verified against hess's real SQL Server data (exact match to
+the manually-declared convention), 17 new unit tests, **but local Supabase only, not yet synced
+to production** — see its own write-up below for the full detail and the honest gap it still
+carries (detection without human confirmation, worse here than for O1/O3 since a wrong detection
+is a correctness bug, not a quality one).
 
 **What remains, explicitly not attempted in this pass:** step 5 is genuinely partial — the 12
 legacy YAML contract files are NOT yet safe to delete (`exposed_columns` and, for
 apex_lubricants/bicycle, `dimension_semantics` itself are still live-read from them); step 6
 (the architecture test banning `yaml.safe_load` in `src/agents/**`) can't land until step 5
-finishes; O2 (`measure_semantics` detection in the wizard — the piece that actually would have
-caught Hess's original sign bug at onboarding time, not just after the fact) has not been started
-at all. These are real, tracked next steps for whenever this phase resumes — not silently dropped.
+finishes; O2's human-confirmation half; O5's completeness gate (depends on O2 meaning something
+first). These are real, tracked next steps for whenever this phase resumes — not silently
+dropped.
 
 **Follow-up surfaced during this phase's production sync, unrelated to data product contracts —
 tracked here rather than lost:** the backend has no real custom domain (`api.decision-studios.com`
@@ -2835,7 +2840,7 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 | # | Work | Note |
 |---|---|---|
 | **O1** | 🟡 **Detection half DONE, live-verified 2026-08-30** — `register_data_product` already emits a correct `fiscal_year_period` shape without any wizard UI change. **Confirmation-by-the-user half NOT done** — the wizard never shows what it inferred or asks the admin to confirm it; a wrong inference (e.g. two similarly-named columns) would still ship silently | Detection is a reasonable default (a `fiscal_year` + `fiscal_period` column pair is a strong signal), but it must be **confirmed**, not assumed; the cost of getting it wrong is silent wrong windows |
-| **O2** | Collect `measure_semantics` — the sign of each measure/account type | Detectable by inspection: if every COGS row is negative, propose "negative" and ask. One question, once, replacing a per-KPI assumption |
+| **O2** | 🟡 **Detection DONE, live-verified 2026-08-30** (local Supabase). `register_data_product` now writes `measure_semantics` from a live query during profiling. **Confirmation-by-the-admin half NOT done** — same gap as O1, see the write-up below for why it matters more here | Detectable by inspection: if every COGS row is negative, propose "negative" and ask. One question, once, replacing a per-KPI assumption |
 | **O3** | ✅ **`dimension_semantics` half DONE, live-verified 2026-08-30** (local Supabase). `register_data_product` now writes `dimension_semantics` from already-profiled `semantic_tags`, mirroring `_synthesize_time_dimensions`'s structure. `fallback_group_by_dimensions` still NOT emitted by the wizard (unrelated field, seed-data-only per step 1) | The candidate analysis dimensions. Related to Phase 15 Stage I's problem-profile-driven selection — the wizard should propose, the profile should rank |
 | **O4** | Replace `contract_yaml: str` with the typed contract object | Removes the last reason for the wizard to think in YAML at all |
 | **O5** | Completeness gate before "register" | Refuse to register a data product missing time semantics or measure semantics. **The onboarding wizard is where a bad contract is cheapest to stop**; every other guard in this plan catches it downstream, after it has already produced a number |
@@ -2905,14 +2910,58 @@ row appears, and the real registration at the "Metadata Analysis" step still suc
 writes `dimension_semantics` correctly. 4 new unit tests in
 `tests/unit/test_orchestrator_data_product_onboarding.py`. 1453 unit tests pass (1449 + 4 new).
 
-**Not yet done:** `fallback_group_by_dimensions` (O3's other half — a different field, seed-data
-only, unrelated to this fix); O2 (`measure_semantics`, the field that actually caused the Hess
-sign bug — real new detection logic, not yet started); the two ALREADY-LIVE-IN-PRODUCTION rows
-this bug produced before today (`temp_discovery_ProfitCenters_view`,
-`dp_lubricants_sqlserver_LubricantsStarSchemaView_vi...` — visible in the UI polish backlog's
-items 3/10 below) still need manual cleanup once this fix is synced to production — the code fix
-prevents new ones, it does not retroactively clean up what's already there; this fix itself is
-synced to production 2026-08-30 (see the phase-wide status note after the Goal section).
+**Not yet done (at the time this was written):** `fallback_group_by_dimensions` (O3's other
+half — a different field, seed-data only, unrelated to this fix); O2 (`measure_semantics`) —
+see below, closed the same day. The two production rows referenced in the UI backlog's items
+3/10 turned out to already be gone when checked directly (see the phase-wide status note after
+the Goal section) — no further cleanup needed there.
+
+**O2 (`measure_semantics` detection) closed the same day, 2026-08-30 — the piece that actually
+would have caught Hess's sign bug at onboarding time.** Unlike O1/O3, which are pure functions
+over already-profiled column *metadata*, sign convention is a fact about the *data* — genuinely
+needed a live query, not just a smarter read of what profiling already collected.
+
+New `_pick_sign_detection_columns(profile)`: identifies an `(type_column, amount_column)` pair
+to check, or `None`. Deliberately narrow — only fires when a column's name plausibly means
+"account type" (`'accounttype'` as a substring once underscores/spaces are stripped); a generic
+categorical column (`product_category`, `channel_type`) is **not** a safe guess, since sign
+convention is a finance-domain concept specific to account classification. New
+`_detect_measure_sign(...)`: runs `SELECT type_column, SUM(amount_column) GROUP BY type_column`
+against the live source during profiling (one dialect branch per backend, same shape as the
+existing `_sample_distinct_values`), deriving `"negative"`/`"positive"` per distinct value. **A
+value whose total is exactly zero is dropped, never guessed** — genuine ambiguity must not
+become a fabricated convention. Wired into the same profiling call site as the existing
+categorical-sample-value population (`_profile_table`, where a live manager connection already
+exists), and a new `_synthesize_measure_semantics(tables)` in `register_data_product` promotes
+the detected result — mirroring `_synthesize_dimension_semantics`'s FACT-table-first precedence,
+but returning a single dict or `None` (a data product has one sign convention, not several to
+merge).
+
+**Verified live against hess's real SQL Server database**, not assumed: re-ran
+`live-onboarding-hess-test.spec.ts` (throwaway `dp_hess_financials_test` registration, deleted
+after inspection) and got `{"Revenue": "positive", "COGS": "negative", "SGA": "negative",
+"Other": "negative"}` — an **exact match** to the convention this session's earlier steps 2/3
+declared by hand and used to fix Hess's actual KPI bugs. That match is strong, independent
+confirmation the detection logic is correct, not merely plausible-looking. 17 new unit tests in
+`tests/unit/test_data_product_agent_schema_generation.py`. 1468 unit tests pass (1453 + 15 net
+new — 2 of the 17 extend existing tests rather than add new ones).
+
+**Honesty note, and why this gap matters more than it did for O1.** This writes the detected
+convention directly, with no human confirmation step — the identical posture O1 (`time_dimensions`)
+and O3 (`dimension_semantics`) already ship with. For those two, a wrong detection degrades
+*analysis quality* (dimensions ranked oddly, a fiscal window slightly off). For `measure_semantics`,
+a wrong detection reproduces the Hess bug class exactly — a KPI silently computing backwards,
+correctness rather than quality. The detection heuristic is deliberately conservative (narrow
+column-name match, ambiguous values dropped rather than guessed) precisely because of this, but
+conservative detection is not the same thing as a human confirming it. Building a real
+"here's what we detected, confirm before continuing" UI step is a materially bigger lift than
+the detection logic itself and was not attempted in this pass — tracked here explicitly, not
+silently accepted as good enough. This is also the concrete prerequisite for O5's completeness
+gate ("refuse to register a data product missing measure_semantics") to mean anything: gating
+on a value nobody has looked at is not the same protection O5 was designed to provide.
+
+**Not yet done:** the human-confirmation half of O2 (above); O5's completeness gate itself;
+`fallback_group_by_dimensions`; synced to production (local Supabase only as of this writing).
 
 **Relationship to the existing Data Onboarding Refinement track** (below): that track is UI and workflow polish — chooser screen, wizard foundation, templates. This is a *content* gap in what the wizard produces, and it should be sequenced ahead of the polish. A better-looking wizard that still emits an incomplete contract is a faster way to a wrong briefing.
 

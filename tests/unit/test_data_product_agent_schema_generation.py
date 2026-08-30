@@ -7,6 +7,11 @@ Covers:
   - _detect_time_dimension_for_table / _synthesize_time_dimensions: fiscal pair,
     fiscal-year-only, single date column (business-date vs audit-timestamp ranking),
     no candidates, primary=True selection across multiple tables
+  - _synthesize_dimension_semantics / _pick_sign_detection_columns /
+    _detect_measure_sign / _populate_measure_sign_convention /
+    _synthesize_measure_semantics: Phase 16 Onboarding items O2/O3
+    (DEVELOPMENT_PLAN.md) -- writing dimension_semantics/measure_semantics
+    from onboarding-time profiling and live data, respectively
   - _derive_tables_and_views: view vs. physical-table branching
   - register_data_product: schema_summary wiring end-to-end
   - sync_related_business_processes: union/dedup + client_id-mismatch rejection
@@ -250,6 +255,201 @@ def test_synthesize_dims_does_not_apply_the_da_ban_filter(agent):
 
 
 # ---------------------------------------------------------------------------
+# _pick_sign_detection_columns / _detect_measure_sign / _populate_measure_
+# sign_convention / _synthesize_measure_semantics -- Phase 16 Onboarding
+# item O2 (DEVELOPMENT_PLAN.md): the piece that would have caught Hess's
+# sign bug (COGS re-negated, adding cost to revenue) at onboarding time
+# instead of by a manual audit weeks later.
+# ---------------------------------------------------------------------------
+
+def test_pick_sign_columns_finds_account_type_and_amount(agent):
+    table = TableProfile(
+        name="t",
+        columns=[
+            _col("account_type", "TEXT", ["dimension"]),
+            _col("product_category", "TEXT", ["dimension"]),
+            _col("amount", "NUMBER", ["measure"]),
+        ],
+    )
+    assert agent._pick_sign_detection_columns(table) == ("account_type", "amount")
+
+
+def test_pick_sign_columns_ignores_generic_category_columns():
+    """A generic categorical column (product_category, channel_type) is NOT
+    a safe guess for sign-convention detection -- only something that
+    plausibly means 'account type' qualifies."""
+    agent_ = A9_Data_Product_Agent({"agent_id": "t", "database": {"type": "duckdb", "path": ":memory:"}, "bypass_mcp": True, "registry_factory": MagicMock()})  # arch-allow-agent-ctor
+    table = TableProfile(
+        name="t",
+        columns=[
+            _col("product_category", "TEXT", ["dimension"]),
+            _col("channel_type", "TEXT", ["dimension"]),
+            _col("amount", "NUMBER", ["measure"]),
+        ],
+    )
+    assert agent_._pick_sign_detection_columns(table) is None
+
+
+def test_pick_sign_columns_no_measure_column_returns_none(agent):
+    table = TableProfile(name="t", columns=[_col("account_type", "TEXT", ["dimension"])])
+    assert agent._pick_sign_detection_columns(table) is None
+
+
+def test_pick_sign_columns_prefers_amount_over_other_measures(agent):
+    table = TableProfile(
+        name="t",
+        columns=[
+            _col("Account_Type", "TEXT", ["dimension"]),  # case/underscore-insensitive match
+            _col("quantity", "NUMBER", ["measure"]),
+            _col("amount", "NUMBER", ["measure"]),
+        ],
+    )
+    assert agent._pick_sign_detection_columns(table) == ("Account_Type", "amount")
+
+
+@pytest.mark.asyncio
+async def test_detect_measure_sign_sqlserver_builds_correct_query_and_signs(agent):
+    manager = AsyncMock()
+    manager.execute_query.return_value = {
+        "rows": [
+            {"type_value": "Revenue", "total": 1000.0},
+            {"type_value": "COGS", "total": -400.0},
+        ]
+    }
+
+    result = await agent._detect_measure_sign(
+        manager, "sqlserver", "HessStarSchemaView", "account_type", "amount", {"schema": "dbo"},
+    )
+
+    assert result == {
+        "type_column": "account_type",
+        "amount_column": "amount",
+        "stored_sign": {"Revenue": "positive", "COGS": "negative"},
+    }
+    query = manager.execute_query.call_args[0][0]
+    assert "[dbo].[HessStarSchemaView]" in query
+    assert "GROUP BY [account_type]" in query
+
+
+@pytest.mark.asyncio
+async def test_detect_measure_sign_snowflake_builds_correct_query(agent):
+    manager = AsyncMock()
+    manager.execute_query.return_value = {"rows": [{"type_value": "Revenue", "total": 500.0}]}
+
+    result = await agent._detect_measure_sign(
+        manager, "snowflake", "T", "account_type", "amount",
+        {"schema": "LUBRICANTS", "project": "AGENT9_DEMO"},
+    )
+
+    assert result["stored_sign"] == {"Revenue": "positive"}
+    query = manager.execute_query.call_args[0][0]
+    assert '"LUBRICANTS"."T"' in query
+    assert "GROUP BY" in query
+
+
+@pytest.mark.asyncio
+async def test_detect_measure_sign_zero_total_dropped_not_guessed(agent):
+    """A value whose total is exactly zero is genuinely ambiguous -- must be
+    dropped, never coin-flipped into a sign."""
+    manager = AsyncMock()
+    manager.execute_query.return_value = {
+        "rows": [
+            {"type_value": "Revenue", "total": 100.0},
+            {"type_value": "Suspense", "total": 0.0},
+        ]
+    }
+
+    result = await agent._detect_measure_sign(
+        manager, "snowflake", "T", "account_type", "amount", {},
+    )
+
+    assert result["stored_sign"] == {"Revenue": "positive"}
+    assert "Suspense" not in result["stored_sign"]
+
+
+@pytest.mark.asyncio
+async def test_detect_measure_sign_all_inconclusive_returns_none(agent):
+    manager = AsyncMock()
+    manager.execute_query.return_value = {"rows": [{"type_value": "Revenue", "total": 0.0}]}
+
+    result = await agent._detect_measure_sign(manager, "snowflake", "T", "account_type", "amount", {})
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_detect_measure_sign_unknown_backend_returns_none(agent):
+    manager = AsyncMock()
+    result = await agent._detect_measure_sign(manager, "duckdb_variant_x", "T", "account_type", "amount", {})
+    assert result is None
+    manager.execute_query.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_detect_measure_sign_swallows_query_errors(agent):
+    manager = AsyncMock()
+    manager.execute_query.side_effect = RuntimeError("permission denied")
+
+    result = await agent._detect_measure_sign(manager, "snowflake", "T", "account_type", "amount", {})
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_populate_measure_sign_convention_sets_field_when_detected(agent, monkeypatch):
+    profile = TableProfile(
+        name="t",
+        columns=[_col("account_type", "TEXT", ["dimension"]), _col("amount", "NUMBER", ["measure"])],
+    )
+    detected = AsyncMock(return_value={"type_column": "account_type", "amount_column": "amount",
+                                        "stored_sign": {"Revenue": "positive"}})
+    monkeypatch.setattr(agent, "_detect_measure_sign", detected)
+
+    await agent._populate_measure_sign_convention(AsyncMock(), "snowflake", profile, {})
+
+    assert profile.detected_measure_sign == {
+        "type_column": "account_type", "amount_column": "amount",
+        "stored_sign": {"Revenue": "positive"},
+    }
+
+
+@pytest.mark.asyncio
+async def test_populate_measure_sign_convention_noop_when_no_candidate_columns(agent, monkeypatch):
+    profile = TableProfile(name="t", columns=[_col("amount", "NUMBER", ["measure"])])
+    detect_spy = AsyncMock()
+    monkeypatch.setattr(agent, "_detect_measure_sign", detect_spy)
+
+    await agent._populate_measure_sign_convention(AsyncMock(), "snowflake", profile, {})
+
+    assert profile.detected_measure_sign is None
+    detect_spy.assert_not_called()
+
+
+def test_synthesize_measure_semantics_none_when_nothing_detected(agent):
+    tables = [TableProfile(name="t", columns=[_col("amount", "NUMBER", ["measure"])])]
+    assert agent._synthesize_measure_semantics(tables) is None
+
+
+def test_synthesize_measure_semantics_prefers_fact_table(agent):
+    dim_table = TableProfile(name="dim", table_role="DIMENSION")
+    dim_table.detected_measure_sign = {"type_column": "x", "amount_column": "y", "stored_sign": {"A": "negative"}}
+    fact_table = TableProfile(name="fact", table_role="FACT")
+    fact_table.detected_measure_sign = {"type_column": "account_type", "amount_column": "amount",
+                                         "stored_sign": {"Revenue": "positive"}}
+
+    result = agent._synthesize_measure_semantics([dim_table, fact_table])
+    assert result["type_column"] == "account_type"
+
+
+def test_synthesize_measure_semantics_returns_first_detected_without_fact_table(agent):
+    t1 = TableProfile(name="t1")
+    t2 = TableProfile(name="t2")
+    t2.detected_measure_sign = {"type_column": "account_type", "amount_column": "amount",
+                                 "stored_sign": {"Revenue": "positive"}}
+
+    result = agent._synthesize_measure_semantics([t1, t2])
+    assert result["type_column"] == "account_type"
+
+
+# ---------------------------------------------------------------------------
 # _derive_tables_and_views
 # ---------------------------------------------------------------------------
 
@@ -289,20 +489,26 @@ async def test_register_data_product_populates_tables_views_time_dimensions(agen
     agent.data_product_provider.upsert = AsyncMock(return_value=True)
     agent.data_product_provider.source_path = None
 
-    schema_summary = [
-        TableProfile(
-            name="LubricantsStarSchemaView",
-            view_definition="SELECT * FROM base",
-            columns=[
-                _col("fiscal_year", "INTEGER", ["time"]),
-                _col("fiscal_period", "INTEGER", ["time"]),
-                _col("product_line", "TEXT", ["dimension"]),
-                _col("channel_name", "TEXT", ["dimension"]),
-                _col("amount", "NUMBER", ["measure"]),
-            ],
-            table_role="FACT",
-        )
-    ]
+    fact_table = TableProfile(
+        name="LubricantsStarSchemaView",
+        view_definition="SELECT * FROM base",
+        columns=[
+            _col("fiscal_year", "INTEGER", ["time"]),
+            _col("fiscal_period", "INTEGER", ["time"]),
+            _col("product_line", "TEXT", ["dimension"]),
+            _col("channel_name", "TEXT", ["dimension"]),
+            _col("account_type", "TEXT", ["dimension"]),
+            _col("amount", "NUMBER", ["measure"]),
+        ],
+        table_role="FACT",
+    )
+    # Simulates what _populate_measure_sign_convention would have set during
+    # profiling (a live query) -- register_data_product itself does no I/O.
+    fact_table.detected_measure_sign = {
+        "type_column": "account_type", "amount_column": "amount",
+        "stored_sign": {"Revenue": "positive", "COGS": "negative"},
+    }
+    schema_summary = [fact_table]
 
     request = DataProductRegistrationRequest(
         request_id="req1", principal_id="admin_user", data_product_id="dp_test",
@@ -321,7 +527,13 @@ async def test_register_data_product_populates_tables_views_time_dimensions(agen
     # Phase 16 Onboarding item O3 -- confirmed missing entirely before this
     # fix (register_data_product never passed dimension_semantics to the
     # DataProduct constructor at all, verified live against hess 2026-08-30).
-    assert entry["dimension_semantics"] == ["product_line", "channel_name"]
+    assert entry["dimension_semantics"] == ["product_line", "channel_name", "account_type"]
+    # Phase 16 Onboarding item O2 -- same class of gap, for the field that
+    # actually caused the Hess sign bug.
+    assert entry["measure_semantics"] == {
+        "type_column": "account_type", "amount_column": "amount",
+        "stored_sign": {"Revenue": "positive", "COGS": "negative"},
+    }
 
 
 @pytest.mark.asyncio
@@ -349,6 +561,7 @@ async def test_register_data_product_empty_dimension_semantics_when_none_tagged(
 
     assert response.status == "success"
     assert response.registry_entry["dimension_semantics"] == []
+    assert response.registry_entry["measure_semantics"] is None
 
 
 # ---------------------------------------------------------------------------

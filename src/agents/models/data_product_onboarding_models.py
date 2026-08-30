@@ -90,6 +90,18 @@ class TableProfile(A9AgentBaseModel):
         None, description="SQL definition for views (extracted from INFORMATION_SCHEMA.VIEWS)"
     )
     notes: Optional[str] = Field(None, description="Additional metadata or caveats")
+    detected_measure_sign: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md): sign convention detected "
+            "by querying the live source during profiling -- same shape DataProduct.measure_"
+            "semantics expects: {'type_column': ..., 'amount_column': ..., 'stored_sign': "
+            "{value: 'positive'|'negative'}}. None means detection didn't run or found "
+            "nothing conclusive -- never a guess presented as a fact. Not yet confirmed by a "
+            "human (see the O2 write-up's honesty note); register_data_product writes it as-"
+            "is, same posture O1/O3 already ship with for time_dimensions/dimension_semantics."
+        ),
+    )
 
 
 class KPIProposal(A9AgentBaseModel):

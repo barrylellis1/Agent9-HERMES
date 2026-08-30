@@ -872,6 +872,25 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     len(request.schema_summary),
                 )
 
+            # Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) — the piece
+            # that actually would have caught Hess's sign bug (COGS
+            # re-negated, adding cost to revenue) at onboarding time instead
+            # of by a manual audit weeks later. Detected live during
+            # profiling (_populate_measure_sign_convention queried the real
+            # source, grouping SUM(amount) by account_type); None here means
+            # no plausible account-type/amount column pair was found, or the
+            # query came back inconclusive — never a fabricated convention.
+            derived_measure_semantics = self._synthesize_measure_semantics(request.schema_summary)
+            if request.schema_summary and not derived_measure_semantics:
+                self.logger.warning(
+                    "No sign convention detected for '%s' from %d profiled table(s); "
+                    "KPI SQL authored against this data product must declare its own sign "
+                    "handling with no contract to check it against (see the negation validator "
+                    "in src/registry/validators/measure_semantics_validator.py).",
+                    request.data_product_id,
+                    len(request.schema_summary),
+                )
+
             data_product = DataProduct(
                 id=request.data_product_id,
                 client_id=request.client_id,
@@ -885,6 +904,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 views=derived_views,
                 time_dimensions=derived_time_dims,
                 dimension_semantics=derived_dims,
+                measure_semantics=derived_measure_semantics,
                 metadata={
                     **(request.additional_metadata or {}),
                     "owner_metadata": request.owner_metadata or {},
@@ -1432,6 +1452,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
             await self._populate_categorical_sample_values(
                 inspection_manager, source_system, profile, settings
             )
+            await self._populate_measure_sign_convention(
+                inspection_manager, source_system, profile, settings
+            )
         return profile
 
     def _is_categorical_candidate(
@@ -1521,7 +1544,132 @@ class A9_Data_Product_Agent(DataProductProtocol):
             column.sample_values = await self._sample_distinct_values(
                 inspection_manager, source_system, profile.name, column.name, settings
             )
-    
+
+    def _pick_sign_detection_columns(self, profile: TableProfile) -> Optional[Tuple[str, str]]:
+        """Identify the (type_column, amount_column) pair to check a sign convention
+        against, or None when this table has no plausible candidate.
+
+        Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) -- the piece that would
+        have caught Hess's sign bug (COGS re-negated, adding cost to revenue) at
+        onboarding time instead of by a manual audit weeks later.
+
+        Deliberately narrow: only fires when a column's name plausibly means
+        "account type" (contains 'accounttype' once underscores/spaces are
+        stripped) -- a generic 'category'/'type' column (product_category,
+        channel_type) is NOT a safe guess here, since sign convention is a
+        finance-domain concept specific to account classification, not
+        categorical columns in general. Prefers a measure column literally
+        named 'amount' (matches every real seeded client); falls back to the
+        first measure-tagged column otherwise.
+        """
+        type_col = next(
+            (c.name for c in profile.columns
+             if "dimension" in (c.semantic_tags or [])
+             and "accounttype" in c.name.lower().replace("_", "").replace(" ", "")),
+            None,
+        )
+        if not type_col:
+            return None
+
+        measure_cols = [c.name for c in profile.columns if "measure" in (c.semantic_tags or [])]
+        if not measure_cols:
+            return None
+        amount_col = next((c for c in measure_cols if c.lower() == "amount"), measure_cols[0])
+
+        return type_col, amount_col
+
+    async def _detect_measure_sign(
+        self,
+        inspection_manager,
+        source_system: str,
+        table_name: str,
+        type_column: str,
+        amount_column: str,
+        settings: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Query the live source for SUM(amount_column) GROUP BY type_column and
+        derive a sign per distinct value -- "if every COGS row is negative,
+        propose 'negative'" (O2's own spec). A value whose total is exactly zero
+        is dropped rather than guessed; a table that yields no usable signs at
+        all returns None, never a fabricated convention.
+
+        Same one-shared-implementation-per-dialect shape as
+        _sample_distinct_values, for the same reason: only identifier quoting,
+        qualified naming, and (for this query) SUM/GROUP BY syntax vary.
+        """
+        schema = settings.get("schema")
+        database = settings.get("project") or settings.get("connection_config", {}).get("database")
+
+        if source_system == "snowflake":
+            qualified = f'"{schema}"."{table_name}"' if schema else f'"{table_name}"'
+            query = f'SELECT "{type_column}" AS type_value, SUM("{amount_column}") AS total FROM {qualified} GROUP BY "{type_column}"'
+        elif source_system == "bigquery":
+            qualified = f"`{database}.{schema}.{table_name}`" if database and schema else f"`{table_name}`"
+            query = f"SELECT {type_column} AS type_value, SUM({amount_column}) AS total FROM {qualified} GROUP BY {type_column}"
+        elif source_system in ("sqlserver", "sql_server", "mssql"):
+            db_schema = schema or "dbo"
+            query = f"SELECT [{type_column}] AS type_value, SUM([{amount_column}]) AS total FROM [{db_schema}].[{table_name}] GROUP BY [{type_column}]"
+        elif source_system == "duckdb":
+            query = f'SELECT "{type_column}" AS type_value, SUM("{amount_column}") AS total FROM "{table_name}" GROUP BY "{type_column}"'
+        else:
+            return None
+
+        try:
+            result = await inspection_manager.execute_query(query, {})
+            if hasattr(result, "iterrows"):
+                cols = {c.lower(): c for c in result.columns}
+                rows = [
+                    {"type_value": row[cols["type_value"]], "total": row[cols["total"]]}
+                    for _, row in result.iterrows()
+                ]
+            else:
+                raw_rows = result.get("rows", []) if isinstance(result, dict) else []
+                rows = [
+                    {"type_value": r.get("type_value", r.get("TYPE_VALUE")),
+                     "total": r.get("total", r.get("TOTAL"))}
+                    for r in raw_rows
+                ]
+
+            stored_sign: Dict[str, str] = {}
+            for row in rows:
+                value, total = row.get("type_value"), row.get("total")
+                if value is None or total is None or total == 0:
+                    continue
+                stored_sign[str(value)] = "negative" if total < 0 else "positive"
+
+            if not stored_sign:
+                return None
+            return {
+                "type_column": type_column,
+                "amount_column": amount_column,
+                "stored_sign": stored_sign,
+            }
+        except Exception as e:
+            self.logger.warning(
+                f"Could not detect measure sign convention for {table_name} "
+                f"({type_column}/{amount_column}): {e}"
+            )
+            return None
+
+    async def _populate_measure_sign_convention(
+        self,
+        inspection_manager,
+        source_system: str,
+        profile: TableProfile,
+        settings: Dict[str, Any],
+    ) -> None:
+        """Fill in TableProfile.detected_measure_sign for an already-profiled
+        table, when a plausible account-type/amount column pair exists.
+        Best-effort -- a detection failure must not fail the whole profiling
+        pass, and an inconclusive result must not fabricate a convention."""
+        candidate = self._pick_sign_detection_columns(profile)
+        if not candidate:
+            return
+        type_col, amount_col = candidate
+        profile.detected_measure_sign = await self._detect_measure_sign(
+            inspection_manager, source_system, profile.name, type_col, amount_col, settings
+        )
+
     async def _profile_table_duckdb(
         self, inspection_manager, table_name: str, include_samples: bool, inspection_depth: str
     ) -> Optional[TableProfile]:
@@ -2295,6 +2443,32 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     seen.add(col.name)
                     ordered.append(col.name)
         return ordered
+
+    def _synthesize_measure_semantics(self, tables: List[TableProfile]) -> Optional[Dict[str, Any]]:
+        """Promote a table's live-detected sign convention (TableProfile
+        .detected_measure_sign, set during profiling by
+        _populate_measure_sign_convention) to the shape DataProduct
+        .measure_semantics expects.
+
+        Phase 16 Onboarding item O2 (DEVELOPMENT_PLAN.md) — the piece that
+        would have caught Hess's sign bug at onboarding time. Same FACT-
+        table-first precedence as _synthesize_time_dimensions/
+        _synthesize_dimension_semantics; unlike those two, this returns a
+        single dict or None rather than a list — a data product has ONE sign
+        convention, not several to merge across tables. Returns None (not a
+        fabricated default) when no table yielded a conclusive detection.
+
+        Not yet confirmed by a human before being written — see the O2
+        write-up's honesty note in DEVELOPMENT_PLAN.md; same posture O1/O3
+        already ship with for time_dimensions/dimension_semantics.
+        """
+        fact_tables = [t for t in tables if getattr(t, "table_role", None) == "FACT"]
+        other_tables = [t for t in tables if getattr(t, "table_role", None) != "FACT"]
+        for table in fact_tables + other_tables:
+            detected = getattr(table, "detected_measure_sign", None)
+            if detected:
+                return detected
+        return None
 
     def _derive_tables_and_views(
         self, tables: List[TableProfile]
