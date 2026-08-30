@@ -195,8 +195,10 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.bypass_mcp = False
 
         # Registry will be loaded in _async_init after database connection is established
-        # Cache for exposed columns per view (to avoid repeated YAML reads)
-        self._view_exposed_columns_cache: Dict[str, Set[str]] = {}
+        # Cache for exposed columns per (data_product_id, view name) (to avoid repeated
+        # registry/YAML reads) -- keyed by the pair since Phase 16 step 5, not view name
+        # alone, so two data products never collide on an identically-named view.
+        self._view_exposed_columns_cache: Dict[Tuple[Optional[str], str], Set[str]] = {}
     
     async def _async_init(self):
         """Initialize async resources."""
@@ -3740,18 +3742,47 @@ class A9_Data_Product_Agent(DataProductProtocol):
         except Exception:
             return "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
 
-    def _get_exposed_columns(self, view_name: Optional[str]) -> Optional[Set[str]]:
+    def _get_exposed_columns(self, view_name: Optional[str], data_product_id: Optional[str] = None) -> Optional[Set[str]]:
         """
         Return the set of exposed column labels for a given view from the contract.
-        Uses an in-memory cache keyed by lowercase view name.
+        Uses an in-memory cache keyed by (data_product_id, lowercase view name).
+
+        Registry-first as of Phase 16 step 5 (DEVELOPMENT_PLAN.md): tries
+        DataProduct.exposed_columns[view_name_lower] when data_product_id resolves
+        to a real record with that view populated; only falls back to the legacy
+        YAML scan below when the registry has nothing for this view, same posture
+        as _get_contract_column_aliases (step 4) and A9_Deep_Analysis_Agent's
+        _dims_from_contract (step 1). Like column_aliases before it, this method's
+        YAML fallback previously called self._contract_path() with NO argument
+        even though data_product_id was already available at every call site
+        (threaded through by the step-4 fix) -- silently ignoring it and always
+        resolving to the bicycle default contract regardless of which data
+        product was actually being asked about. Fixed here, not left in place
+        under a new registry path that could go unreached for the same reason.
         """
         try:
             if not isinstance(view_name, str) or not view_name.strip():
                 return None
             key = view_name.strip().lower()
-            if key in self._view_exposed_columns_cache:
-                return self._view_exposed_columns_cache.get(key)
-            cpath = self._contract_path()
+            cache_key = (data_product_id, key)
+            if cache_key in self._view_exposed_columns_cache:
+                return self._view_exposed_columns_cache.get(cache_key)
+
+            if data_product_id and hasattr(self, "registry_factory") and self.registry_factory:
+                try:
+                    dp_provider = self.registry_factory.get_provider("data_product")
+                    dp = dp_provider.get(data_product_id) if dp_provider else None
+                    registry_cols = getattr(dp, "exposed_columns", None) if dp else None
+                    if isinstance(registry_cols, dict) and registry_cols:
+                        cols = registry_cols.get(key)
+                        if isinstance(cols, list) and cols:
+                            out = {str(c).strip() for c in cols if str(c).strip()}
+                            self._view_exposed_columns_cache[cache_key] = out
+                            return out
+                except Exception:
+                    pass
+
+            cpath = self._contract_path(data_product_id)
             if not os.path.exists(cpath):
                 return None
             with open(cpath, "r", encoding="utf-8") as f:
@@ -3783,7 +3814,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         out.add(s)
                 except Exception:
                     continue
-            self._view_exposed_columns_cache[key] = out
+            self._view_exposed_columns_cache[cache_key] = out
             return out
         except Exception:
             return None
@@ -3802,7 +3833,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             # Label-first short-circuit: if attr matches a contract-exposed label for the view, use it unchanged
             try:
                 if isinstance(view_name, str) and view_name.strip():
-                    allowed = self._get_exposed_columns(view_name)
+                    allowed = self._get_exposed_columns(view_name, getattr(kpi_definition, 'data_product_id', None))
                     if allowed:
                         # Case-insensitive lookup to restore canonical label casing
                         lower_map = {s.lower(): s for s in allowed}

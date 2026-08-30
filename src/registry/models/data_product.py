@@ -182,6 +182,24 @@ class DataProduct(BaseModel):
             "never declared this section in their YAML either; nothing lost by that)."
         ),
     )
+    exposed_columns: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Per-view allow-list of column LABELS this data product's contract exposes "
+            "to KPI SQL generation, keyed by lowercased view name (e.g. "
+            "{'hessstarschemaview': ['transaction_id', 'fiscal_year', ...]}). Consumed by "
+            "A9_Data_Product_Agent._get_exposed_columns as the label-first short-circuit "
+            "inside _resolve_attribute_name -- like column_aliases, this is the "
+            "LAST-RESORT fallback inside _generate_sql_for_kpi, only reached when "
+            "source_system routing (CLAUDE.md rule 9) cannot resolve a backend; none of "
+            "the seeded BigQuery/Snowflake/SQL Server clients ever hit it in practice, "
+            "since their source_system routes explicitly first -- this exists for a "
+            "DuckDB-style client with no resolvable source_system (Phase 16 step 5, "
+            "docs/architecture/DEVELOPMENT_PLAN.md). Empty means not yet migrated off the "
+            "legacy YAML contract for this data product -- the method falls back to the "
+            "YAML scan in that case, same posture as dimension_semantics/column_aliases."
+        ),
+    )
 
     @model_validator(mode="after")
     def _backfill_fields(self) -> "DataProduct":

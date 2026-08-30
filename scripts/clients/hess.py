@@ -128,6 +128,31 @@ DATA_PRODUCT = {
         "segment": ["segment_name", "business_unit"],
         "financials": ["account_type", "account_category", "account_name"],
     },
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md) -- dimension_semantics was never
+    # actually ported for hess despite step 1's framing suggesting it might
+    # have been; confirmed absent by direct grep before writing this. Ported
+    # verbatim from hess_financials.yaml's views[].llm_profile.dimension_
+    # semantics: section now, same as lubricants (step 1) and apex_lubricants
+    # (this same pass).
+    "dimension_semantics": [
+        "segment_name", "basin_name", "asset_name", "country", "business_unit",
+        "account_type", "account_category", "account_name",
+        "fiscal_year", "fiscal_period",
+    ],
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md) -- ported verbatim from
+    # hess_financials.yaml's views[].llm_profile.exposed_columns: section.
+    # Never actually reached in practice (source_system=sqlserver routes
+    # explicitly before this last-resort fallback), seeded anyway so the
+    # registry is a complete substitute for the YAML before it's deleted.
+    "exposed_columns": {
+        "hessstarschemaview": [
+            "transaction_id", "fiscal_year", "fiscal_period", "transaction_date",
+            "amount", "version", "currency",
+            "account_name", "account_type", "account_category",
+            "segment_name", "basin_name", "asset_name",
+            "country", "region", "business_unit",
+        ],
+    },
 }
 
 _VIEW = "HessStarSchemaView"

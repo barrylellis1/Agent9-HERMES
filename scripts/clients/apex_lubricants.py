@@ -120,6 +120,36 @@ DATA_PRODUCT = {
         "version": "version",
         "default_version_value": "Actual",
     },
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md) -- dimension_semantics was never
+    # actually ported for apex_lubricants despite step 1 only covering
+    # lubricants (BigQuery); confirmed absent by direct grep before writing
+    # this. Ported verbatim from lubricants_snowflake.yaml's views[].
+    # llm_profile.dimension_semantics: section, identical to lubricants'
+    # BigQuery contract (same underlying schema, different backend).
+    "dimension_semantics": [
+        "product_name", "product_line", "product_category",
+        "customer_name", "customer_segment", "customer_region",
+        "profit_center_name", "business_unit",
+        "channel_name", "channel_type",
+        "account_name", "account_type", "account_category", "account_group",
+        "fiscal_year", "fiscal_period", "transaction_date",
+    ],
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md) -- ported verbatim from
+    # lubricants_snowflake.yaml's views[].llm_profile.exposed_columns:
+    # section. Never actually reached in practice (source_system=snowflake
+    # routes explicitly before this last-resort fallback), seeded anyway so
+    # the registry is a complete substitute for the YAML before it's deleted.
+    "exposed_columns": {
+        "lubricantsstarschemaview": [
+            "transaction_id", "fiscal_year", "fiscal_period", "transaction_date",
+            "amount", "version", "currency",
+            "account_name", "account_type", "account_category", "account_group",
+            "product_name", "product_line", "product_category",
+            "customer_name", "customer_segment", "customer_region",
+            "profit_center_name", "business_unit",
+            "channel_name", "channel_type",
+        ],
+    },
 }
 
 _DIMS = [

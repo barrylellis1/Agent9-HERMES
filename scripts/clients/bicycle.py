@@ -119,6 +119,38 @@ DATA_PRODUCT: Dict[str, Any] = {
         "version": "Version",
         "default_version_value": "Actual",
     },
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md) -- dimension_semantics was never
+    # actually ported for bicycle despite step 1 only covering lubricants;
+    # confirmed absent by direct grep before writing this. Ported verbatim
+    # from fi_star_schema.yaml's views[].llm_profile.dimension_semantics:
+    # section -- NOT the "Node/Group level" hierarchy columns that YAML's own
+    # comment explicitly excludes from this list (Parent Account/Group
+    # Description, Profit Center Hierarchyid, etc. -- those live in
+    # views.fi_star_schema.columns above, a different, unrelated field).
+    "dimension_semantics": [
+        "Profit Center Name", "Customer Type Name", "Customer Name", "Product Name",
+        "Fiscal Year", "Fiscal Quarter", "Fiscal Month", "Fiscal Year-Month",
+        "Account Hierarchy Desc",
+    ],
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md) -- ported verbatim from
+    # fi_star_schema.yaml's views[].llm_profile.exposed_columns: section.
+    # Bicycle is the one client whose source_system (duckdb) actually
+    # reaches this fallback in _resolve_attribute_name -- unlike the other
+    # three clients' exposed_columns entries above, this one is not merely
+    # "seeded for consistency." NOTE (2026-08-30): DEVELOPMENT_PLAN.md's
+    # Phase 16 step 5 write-up claimed fi_star_schema.yaml also declares
+    # dimension_hierarchies -- checked directly while writing this seed:
+    # false. That YAML has only a comment ("dimension_hierarchies can be
+    # added later for drill-down analysis"), no actual section -- nothing to
+    # port, no dimension_hierarchies key added here. Plan corrected
+    # alongside this commit.
+    "exposed_columns": {
+        "fi_star_view": [
+            "Profit Center Name", "Customer Type Name", "Customer Name", "Product Name",
+            "Fiscal Year", "Fiscal Quarter", "Fiscal Month", "Fiscal Year-Month",
+            "Account Hierarchy Desc", "Version", "Transaction Value Amount",
+        ],
+    },
 }
 
 # ---------------------------------------------------------------------------

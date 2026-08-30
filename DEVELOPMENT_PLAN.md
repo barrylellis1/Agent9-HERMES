@@ -3287,18 +3287,49 @@ dict; lubricants' returns `{}` as expected. 7 new unit tests
 `dimension_hierarchies` (7th instance of the explicit-allow-list trap this session, added
 proactively).
 
-**`exposed_columns` NOT migrated — deliberately, on a risk/value read.** `_get_exposed_columns`
-(DPA) is confirmed LIVE for lubricants' YAML (it declares the section) but its only call path
-(`_resolve_attribute_name`, called only from inside `_generate_sql_for_kpi`) is the exact same
-last-resort fallback `_get_contract_column_aliases` uses — unreachable for lubricants/
-apex_lubricants/hess because their `source_system` routes explicitly before ever reaching it
-(CLAUDE.md rule 9). Its only real-world reachability today is bicycle, for which
-`_get_exposed_columns`'s YAML resolution (via `_contract_path()`, no `data_product_id` argument
-at all — unlike `_get_contract_column_aliases`, which at least accepted one before this session's
-fix) always happens to target bicycle's own contract by coincidence, since bicycle is the sole
-occupant of this fallback path. Migrating it would be low-risk given the established pattern, but
-also low-value against this session's remaining budget — named here as the clearest concrete
-next unit of step 5 work, not silently dropped.
+**`exposed_columns` — migrated 2026-08-30, synced to production.** Named in the prior pass as
+"the clearest concrete next unit of step 5 work" and picked up here. `DataProduct
+.exposed_columns: Dict[str, List[str]]` (migration `20260830_data_products_exposed_columns.sql`),
+keyed by lowercased view name rather than a flat list — the pre-existing YAML-scan code already
+looks up by view name with a fallback to `FI_Star_View`, and the registry shape stays faithful to
+that rather than flattening it away. `_get_exposed_columns(view_name, data_product_id=None)`
+gained the second parameter, tries the registry first, only scans YAML when the registry has
+nothing for that view; its in-memory cache is now keyed by `(data_product_id, view_name_lower)`
+so two data products can never collide on an identically-named view. **Found and fixed the same
+cross-tenant bug shape a third time**: the YAML fallback called `self._contract_path()` with no
+argument, always resolving to the bicycle default contract regardless of which data product was
+actually asked about — same shape already fixed for `_dims_from_contract` (step 1) and
+`_get_contract_column_aliases` (step 4). Fixed by threading `data_product_id` through the
+method's one call site inside `_resolve_attribute_name` (already receives `kpi_definition`, so no
+change was needed at that method's own 7 call sites inside `_generate_sql_for_kpi`). Seeded onto
+all 4 data products (lubricants/apex_lubricants/hess/bicycle) — genuinely load-bearing only for
+bicycle (`source_system=duckdb`, the one client with no explicit Tier-1 routing branch); seeded on
+the other three for consistency and so the registry is a complete substitute for the YAML once
+this step deletes it. 12 new unit tests (`tests/unit/test_dpa_exposed_columns_registry.py`).
+Verified live against local Supabase: re-seeded all 4 clients, confirmed via direct query that
+each data product's `exposed_columns` matches its source YAML's `views[].llm_profile
+.exposed_columns` section exactly.
+
+**`dimension_semantics` backfilled for hess and apex_lubricants — 2026-08-30, synced to
+production.** Step 1 (2026-08-29) only ever migrated this for lubricants; checked directly by
+grepping `scripts/clients/*.py` before writing this pass rather than trusting this document's own
+prior "hess is now the only non-lubricants client with either migrated" wording (which, read
+carefully, was about `dimension_hierarchies`, not `dimension_semantics` — hess had neither field
+until now). Ported verbatim from `hess_financials.yaml`/`lubricants_snowflake.yaml`'s
+`views[].llm_profile.dimension_semantics:` sections. No code change needed — `_dims_from_registry`
+(DA, built in step 1) already reads this generically per data product; this was purely a seed-data
+gap. Verified live: direct query against local Supabase after re-seeding confirms both fields
+populated correctly.
+
+**Correction to this document, found while backfilling bicycle (2026-08-30):** the sentence above
+("Only `hess_financials.yaml` and `fi_star_schema.yaml` (bicycle) declare this section
+[`dimension_hierarchies`]") is **wrong for bicycle**, checked directly rather than carried
+forward — `fi_star_schema.yaml` has only a comment ("dimension_hierarchies can be added later for
+drill-down analysis"), no actual `dimension_hierarchies:` section. Nothing was migrated or seeded
+for bicycle's `dimension_hierarchies` as a result — there is nothing to port. Bicycle's
+`dimension_semantics` (above) and `exposed_columns` (above) were both real and have been
+backfilled; `dimension_hierarchies` genuinely does not apply to this client, same as
+lubricants/apex_lubricants.
 
 **DGA's bicycle-only utilities (#12, #13) not traced further.** `validate_registry_integrity` and
 `compute_and_persist_top_dimensions` are registered as orchestrator workflow steps; whether that
@@ -3316,15 +3347,20 @@ plan's ordering note didn't spell out this explicitly.
 
 **Verified:** 1443 unit tests pass (1436 + 7 new). No YAML files touched or deleted this session.
 
-**Not yet done (unchanged by the production sync):** migrate `exposed_columns`; migrate `dimension_semantics`/`dimension_hierarchies`
-for apex_lubricants/bicycle (hess is now the only non-lubricants client with either migrated);
-delete `connection` from the YAML files (step 4's recommendation, still pending — deletable
-independently of the rest since nothing reads it, but not done here to keep this step's diff
-about the audit and the one real migration); trace whether DGA's orchestrator-registered
-bicycle-only utilities are ever actually invoked; land Onboarding item O4; only then attempt file
-deletion + step 6's architecture test. **`dimension_hierarchies` for hess IS synced to
-production (2026-08-30)** — the schema/data half of this partial step; the audit/decision work
-(views collision, the 14-site call inventory) has no production counterpart to sync, it's
+**Not yet done, updated 2026-08-30:** delete `connection` from the YAML files (step 4's
+recommendation, still pending — deletable independently of the rest since nothing reads it); land
+Onboarding item O4 (`contract_yaml: str` → typed contract object — unblocks sites #6–#9); only
+then attempt file deletion + step 6's architecture test. **Resolved this pass, no longer
+blockers:** `exposed_columns` migrated (above); `dimension_semantics` backfilled for
+hess/apex_lubricants (above; bicycle's `dimension_hierarchies` turned out not to exist, see the
+correction above — nothing left to migrate there); DGA's orchestrator-registered bicycle-only
+utilities (#12/#13) traced and confirmed **dead code** — their only caller,
+`A9_Orchestrator_Agent.onboard_data_product`, has zero callers anywhere in `src/`, `scripts/`, the
+UI, or tests, so they are not a live blocker for deleting bicycle's YAML (separately worth
+deleting as dead code, not done here — out of scope for this pass). **Synced to production
+2026-08-30**: `exposed_columns` column + all 4 clients' seed data,
+`dimension_semantics` for hess/apex_lubricants. The audit/decision work (views collision, the
+14-site call inventory, the DGA dead-code trace) has no production counterpart to sync, it's
 documentation.
 
 ---
@@ -3920,6 +3956,7 @@ Card update + commit: pending completion of live verification.
 | **Collapsible left navigation** — `docs/architecture/collapsible_left_nav_design.md` (design note, not built). Navigation is fragmented per-page with no shared mechanism: `AppHeader` (rendered only on `/dashboard`) has two icon links, `/context` and `/portfolio` are dead ends to each other, and `SettingsLayout`'s shipped sidebar is Settings-only and not collapsible. Scope is small — 4–6 authenticated sections, not 15. Needs a width-collapse (icon rail) pattern that has no precedent in the codebase, and is the natural place to finally document breakpoint conventions, of which `DESIGN_SYSTEM.md` currently has none. Also owns reconciling the three competing Settings nav taxonomies. | Smallest and most contained of the current UI threads — good candidate to build first |
 | **Refinement iteration + session persistence** — `docs/architecture/refinement_iteration_and_session_persistence_design.md` (design note, not built). Three needs at one seam: pause/resume an interrupted interview (the refine endpoint is stateless by explicit design, so a refresh loses the whole transcript); a deliberate **second refinement round** after seeing the solution set; and not silently destroying prior work. Live bug documented: re-opening refinement for an already-solved situation deletes every `solutions_*`/`briefing_*` localStorage key and re-runs both Stage 1 and synthesis with no confirmation and no partial-retry path. Proposes `RefinementRound` with `iterated_from_id`, deliberately mirroring `reframed_from_id` in `reframe_relaunch_and_lineage_design.md` — same lineage mechanism, different axis (same objective vs. different objective); they must compose, not compete. | Two cheap guard-fixes are separable and already filed in tech debt above |
 | **Audit event system** — `docs/architecture/audit_event_system_design.md` (design note, not built). Supersedes the error-log/audit-log portions of Infra A5 and Infra C above. Nothing today persists backend errors or agent audit signals: no table in any of 34 migrations, no endpoint, no UI, and logs go to stdout only (`A9_SharedLogger` is named as the target in both CLAUDE.md files and does not exist). SF's `audit_log` is a request-scoped local variable discarded when the response completes — a real run on 2026-08-22 emitted six genuinely useful operational events and threw all of them away. Proposes an RLS-scoped `audit_events` table, a typed write path piloted on SF, an admin query API reusing the existing `X-Admin-Key` gate, and a diagnostics page. Would also unblock `dq_l1_framing_signal_design.md`, which is explicitly stalled on "real accumulated usage over time". | Retention policy and the Sentry overlap need deciding before the migration |
+| **Design-doc → PRD linkage reminder** — tooling, not a design doc. Found 2026-08-30: `docs/architecture/` now holds 37 design docs against 31 files in `docs/prd/agents/` — the design-doc genre has outgrown the PRD genre it was meant to feed. Two of the largest, most build-ready DA-touching docs (`problem_framing_design.md`, `kpi_semantic_contract.md`) have zero mention in `a9_deep_analysis_agent_prd.md` or `a9_solution_finder_agent_prd.md`, despite that exact PRD already modelling the right fix in §9.9 ("Known Defect — Dimension Selection Is Hardcoded", dated, with a `Tracking: DEVELOPMENT_PLAN.md → Phase 15 → Stage I` pointer) and §10 ("Deferred Analysis Capabilities", `When relevant: Phase 13+`). The gap isn't format — it's that nothing prompts writing the stub when a new design doc lands. Build a non-blocking pre-push reminder, `scripts/design_doc_prd_lint.py`, wired into `.pre-commit-config.yaml` at `stages: [push]` next to the existing `registry-sync-reminder` (same file, same non-blocking `return 0` shape — see `scripts/registry_sync_lint.py`): when a file under `docs/architecture/*.md` is added or changed in the files about to be pushed, grep it for `A9_<Agent>` / `a9_<agent>_agent` mentions to guess which PRD(s) it touches, then check whether that design doc's filename already appears anywhere in each candidate PRD; print a reminder naming the doc and the PRD(s) missing a stub, in the same `§9.9`-style shape (one line, dated, `Tracking:` pointer) the DA PRD already uses. Reminder only — ownership of a cross-cutting doc is sometimes genuinely ambiguous, so this warns rather than blocks, same posture as `registry-sync-reminder` and unlike the blocking `prd-content-lint` commit-stage checks it sits beside. Backfill: run it once by hand against the current 37 design docs to seed missing stubs into the PRDs it flags, rather than starting the reminder from a fully-red backlog. | Fast-follow — small, self-contained, no dependencies; the concrete trigger was this session's Phase 21 mis-write (see `feedback_prd_review_before_scoping_claims` memory) |
 | Extended Solution Finding (Risk, Stakeholder, Solution Architect agents) | After Phase 12 |
 | Innovation Driver (proactive pattern application from VA history) | After multiple VA cycles |
 | Decision Journal (institutional decision memory) | Enterprise tier only |
