@@ -282,6 +282,15 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"account_type": "Revenue", "version": "Actual"},
         "plan_version_value": "Budget",
+        # Phase 17 T1 (docs/architecture/kpi_semantic_contract.md §3): a segment's
+        # revenue dollars genuinely sum to the enterprise total -- the plain-vanilla
+        # additive case §3 contrasts gross_margin_pct against.
+        "unit_class": "currency",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "natural",
+        "inverse_logic": False,
+        "scope_eligible": "both",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "qoq", "green_threshold": 3.0, "yellow_threshold": -2.0, "red_threshold": -8.0, "inverse_logic": False},
@@ -437,6 +446,14 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type IN ('Revenue', 'COGS') AND version = 'Actual'",
         "filters": {"version": "Actual"},
         "plan_version_value": "Budget",
+        # Phase 17 T1 -- a signed sum of two additive components is itself
+        # additive: segment gross-profit dollars sum to the enterprise total.
+        "unit_class": "currency",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "natural",
+        "inverse_logic": False,
+        "scope_eligible": "both",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
@@ -459,6 +476,20 @@ KPIS: List[Dict[str, Any]] = [
         # Gross profit (signed sum of Revenue + COGS) over revenue.
         "sql_query": f"SELECT ROUND(100.0 * SUM(CASE WHEN account_type IN ('Revenue', 'COGS') THEN amount ELSE 0 END) / NULLIF(SUM(CASE WHEN account_type = 'Revenue' THEN amount ELSE 0 END), 0), 2) AS value FROM {_BQ_PREFIX} WHERE version = 'Actual'",
         "filters": {"version": "Actual"},
+        # Phase 17 T1 -- the flagship case docs/architecture/kpi_semantic_contract.md
+        # §3 exists to name: this is the KPI whose segment percentages were summed
+        # into a claimed -53pp enterprise move against an actual ~-5pp move.
+        # scope_eligible='both': an enterprise-level margin % IS a legitimate figure
+        # (this KPI's own reported value at scope=enterprise) -- what's illegitimate
+        # is deriving it by SUMMING segment margins instead of the weighted
+        # calculation aggregation_method names.
+        "unit_class": "ratio",
+        "additive_across_dimensions": False,
+        "aggregation_method": "weighted_avg",
+        "weight_column": "net_revenue",
+        "sign_convention": "natural",
+        "inverse_logic": False,
+        "scope_eligible": "both",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 1.0, "yellow_threshold": 0.0, "red_threshold": -1.5, "inverse_logic": False},
         ],
@@ -561,6 +592,17 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'COGS' AND version = 'Actual'",
         "filters": {"account_type": "COGS", "version": "Actual"},
         "plan_version_value": "Budget",
+        # Phase 17 T1 -- a segment's COGS dollars genuinely sum to the enterprise
+        # total (additive_across_dimensions=true), unlike gross_margin_pct above.
+        # sign_convention='negative_stored' names the fact the negation comment
+        # above already reasons about: the underlying data stores COGS negative,
+        # and this KPI's own SQL flips it to a positive magnitude for display.
+        "unit_class": "currency",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "negative_stored",
+        "inverse_logic": True,
+        "scope_eligible": "both",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],

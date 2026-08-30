@@ -249,6 +249,33 @@ class TestGroundednessChecks:
         assert s.cross_segment_summation is True, "must name the summation methodology explicitly"
         assert any("unweighted segment deltas" in r for r in s.reasons)
 
+    def test_g3_additivity_check_catches_a_magnitude_plausible_summation(self):
+        """Phase 17 T1: cross_segment_summation (above) only computes once G3's
+        ceiling has ALREADY failed. This is the gap it can't reach -- a claim
+        that sits inside the ceiling yet is still built by summing segment
+        values on a KPI declared non-additive."""
+        from src.registry.models.kpi import KPI
+
+        kpi = KPI(
+            id="gross_margin_pct", client_id="lubricants", name="Gross Margin %",
+            domain="Finance", data_product_id="dp_lubricants_financials",
+            additive_across_dimensions=False, aggregation_method="weighted_avg",
+        )
+        facts = DAFacts(enterprise_delta=2.0, segment_deltas={"seg_a": 1.2, "seg_b": 1.1})
+        s = score_option(_option(impact_estimate={
+            "scope": "enterprise", "recovery_range": {"high": 2.3}}), facts, kpi=kpi)
+        assert s.g3_arithmetic_plausible is True, "must sit inside the ceiling -- that's the gap"
+        assert s.additivity_declared_violation is True
+        assert any("additive_across_dimensions=false" in r for r in s.reasons)
+
+    def test_g3_additivity_check_is_a_no_op_when_undeclared(self):
+        """No registry KPI supplied (kpi=None) -- must never fire, matching every
+        other optional input in this module's None-means-not-checked posture."""
+        s = score_option(_option(impact_estimate={
+            "scope": "enterprise", "recovery_range": {"high": 2.3}}),
+            DAFacts(enterprise_delta=2.0, segment_deltas={"seg_a": 1.2, "seg_b": 1.1}))
+        assert s.additivity_declared_violation is False
+
     def test_g3_ceiling_allows_full_recovery_plus_headroom(self):
         facts = DAFacts(enterprise_delta=10.0)
         at_ceiling = score_option(_option(impact_estimate={

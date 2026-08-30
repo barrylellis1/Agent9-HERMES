@@ -8,7 +8,7 @@ This replaces the enum-based approach with a flexible, data-driven model.
 import os
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -174,6 +174,70 @@ class KPI(BaseModel):
         "operational",
         description="KPI classification: 'operational' | 'concentration' | 'covenant' | 'regulatory'"
     )
+    # docs/architecture/kpi_semantic_contract.md §3 -- the additivity/aggregation
+    # contract (Phase 17 T1, second half; §3 status confirmed "not built
+    # anywhere" 2026-08-30, this closes that). A DIFFERENT axis from
+    # not_sliceable_by below: this concerns whether THIS KPI's own
+    # segment-level values may be summed at all (may gross_margin_pct values
+    # from 3 product lines be added together?); not_sliceable_by concerns
+    # whether a particular dimension cut is meaningful for this KPI at all.
+    # §4.1's own worked example: net_revenue is perfectly additive AND
+    # perfectly sliceable by customer; gross_margin_pct is NOT additive yet
+    # was sliceable by product on the same dataset where it wasn't sliceable
+    # by customer -- two independent axes, do not collapse them into one field.
+    #
+    # additive_across_dimensions defaults to None, NEVER True -- assuming
+    # additive-by-default would silently re-authorise the exact defect this
+    # contract exists to close (§6 "Honest limitations"). None means "not yet
+    # declared for this KPI"; callers must not treat it as either True or
+    # False.
+    unit_class: Optional[Literal["currency", "ratio", "count", "duration"]] = Field(
+        None,
+        description="How to format this KPI's values, and whether a delta is expressed in 'pp' or '%'.",
+    )
+    additive_across_dimensions: Optional[bool] = Field(
+        None,
+        description=(
+            "Whether this KPI's own segment-level values may be validly summed to a total "
+            "(e.g. net_revenue: true; gross_margin_pct: false -- percentages don't add). "
+            "None means not yet declared for this KPI -- never treat None as True."
+        ),
+    )
+    aggregation_method: Optional[Literal["sum", "weighted_avg", "ratio_of_sums"]] = Field(
+        None,
+        description="How to roll segment values up when additive_across_dimensions is False. Required when that field is False.",
+    )
+    weight_column: Optional[str] = Field(
+        None,
+        description="KPI id (or column) supplying the weight for aggregation_method='weighted_avg' (e.g. net_revenue weighting gross_margin_pct). Required when aggregation_method='weighted_avg'.",
+    )
+    sign_convention: Optional[Literal["natural", "negative_stored"]] = Field(
+        None,
+        description=(
+            "KPI-LEVEL sign convention -- distinct from DataProduct.measure_semantics "
+            "(data-product-level, Phase 16 step 2, already built and live in production). "
+            "'negative_stored' means this KPI's own values arrive as negative debits (e.g. cogs)."
+        ),
+    )
+    inverse_logic: Optional[bool] = Field(
+        None,
+        description=(
+            "Whether a rise in this KPI is bad (e.g. cogs, avg_cycle_time_hours). Proposed as the "
+            "KPI-level source of truth per kpi_semantic_contract.md §3. KPIThreshold already carries "
+            "a per-comparison inverse_logic today (unchanged) -- this field is additive, not a "
+            "migration of those existing values; consolidating them is explicitly out of scope for "
+            "this stage. None means not yet declared at this level."
+        ),
+    )
+    scope_eligible: Optional[Literal["enterprise", "segment", "both"]] = Field(
+        None,
+        description=(
+            "Whether this KPI can legitimately be claimed at enterprise level, only at segment "
+            "level, or both. Leaned on by the T2 KPI decomposition model's scope check "
+            "(DEVELOPMENT_PLAN.md Phase 17)."
+        ),
+    )
+
     # docs/architecture/kpi_semantic_contract.md §4 — sliceability. Safe to store
     # as a flat list here (not a per-data-product mapping) because data_product_id
     # above is a scalar: one KPI record, for one client, always resolves to

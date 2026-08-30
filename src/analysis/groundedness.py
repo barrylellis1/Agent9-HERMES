@@ -32,6 +32,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set
 
+from src.registry.models.kpi import KPI
+
 # A recovery range may legitimately reach the size of the observed decline
 # (recover everything that was lost). Claiming materially MORE than that means
 # "we will end up better than we started", which is a different and stronger
@@ -82,6 +84,13 @@ class GroundednessScore:
     # actionable fact; a bare False loses it.
     impact_ratio: Optional[float] = None
     cross_segment_summation: bool = False
+    # Phase 17 T1 (additive_across_dimensions) -- deterministic upgrade to the
+    # heuristic above. cross_segment_summation only computes once G3's
+    # plausibility ceiling has ALREADY failed; this fires independent of that
+    # gate whenever the KPI has explicitly declared additive_across_dimensions
+    # =false, so a correctly-computed wrong sum that still looks plausible in
+    # magnitude no longer sails through unflagged.
+    additivity_declared_violation: bool = False
     reasons: List[str] = field(default_factory=list)
 
     def _checks(self) -> List[Optional[bool]]:
@@ -146,8 +155,15 @@ def score_option(
     known_causal_edges: Optional[Set[str]] = None,
     active_constraints: Optional[Iterable[str]] = None,
     is_stub_run: Optional[bool] = None,
+    kpi: Optional[KPI] = None,
 ) -> GroundednessScore:
-    """Score one option. Optional inputs left as None yield not-checked results."""
+    """Score one option. Optional inputs left as None yield not-checked results.
+
+    `kpi` (Phase 17 T1): the registry KPI record for da_facts.kpi_name, when
+    available. Enables the deterministic additivity check below; omitted
+    entirely (None) when the caller has no registry connection, same
+    documented-no-op posture as every other optional input here.
+    """
     from src.analysis.mechanism import normalize_causal_edge  # local: avoid import cycle
 
     oid = str(option.get("id") or "?")
@@ -211,6 +227,29 @@ def score_option(
                             f"(sum={seg_sum:g}) — segments carry different weights, "
                             f"so they do not compose linearly into an enterprise figure"
                         )
+
+    # ---- Deterministic additivity check (Phase 17 T1) -----------------------
+    # Independent of G3's magnitude-based ceiling above: runs whenever the KPI
+    # has actually declared additive_across_dimensions=false, so it also
+    # catches a correctly-computed wrong sum that happens to still look
+    # plausible in magnitude -- the gap G3's cross_segment_summation cannot
+    # reach, since that signal only computes once the ceiling has already
+    # failed. Undeclared (kpi.additive_across_dimensions is None) is a
+    # documented no-op, same posture as every other validator in this
+    # codebase toward an undeclared fact.
+    if isinstance(high, (int, float)):
+        from src.registry.validators.additivity_validator import check_scope_claim_additivity
+
+        violation = check_scope_claim_additivity(
+            kpi=kpi,
+            scope=scope,
+            claimed_value=float(high),
+            segment_sum=da_facts.segment_delta_sum() or None,
+            enterprise_delta=da_facts.enterprise_delta,
+        )
+        if violation:
+            s.additivity_declared_violation = True
+            s.reasons.append(violation)
 
     # ---- G4: cited causal edge is a real registered edge --------------------
     if known_causal_edges is not None and moderator_grade is not None:
