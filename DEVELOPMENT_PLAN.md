@@ -2780,7 +2780,7 @@ kpis     [...]
 
 | missing | consequence |
 |---|---|
-| `time_dimensions` | DPA falls back to `{"type": "date", "column": "transaction_date"}`. **Three of four seeded clients use `fiscal_year_period`** — a wizard-onboarded fiscal dataset gets the wrong filter shape and silently returns wrong windows |
+| `time_dimensions` | ~~DPA falls back to `{"type": "date", "column": "transaction_date"}`. **Three of four seeded clients use `fiscal_year_period`** — a wizard-onboarded fiscal dataset gets the wrong filter shape and silently returns wrong windows~~ **CORRECTED (2026-08-30, live-verified):** this claim was wrong. `register_data_product`'s `_synthesize_time_dimensions` genuinely infers the correct `fiscal_year_period` shape (`year_column=fiscal_year`, `period_column=fiscal_period`) from the live schema at onboarding time — confirmed by actually running the wizard against hess's real SQL Server database (`dp_hess_financials_test`, a throwaway registration, deleted after inspection) and reading back what Supabase stored. `time_dimensions` is NOT one of the wizard's gaps; O1 (below) can be marked resolved for the detection half of its scope |
 | `views[].llm_profile.dimension_semantics` | `_dims_from_contract` returns `[]`, so Deep Analysis has no dimensions to analyse and falls back to the KPI registry — or, historically, to the bicycle default contract |
 | `measure_semantics` (proposed) | KPI SQL is hand-written per client with the sign convention assumed. This is exactly how Hess's three KPIs came to add cost to revenue |
 
@@ -2796,7 +2796,7 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 
 | # | Work | Note |
 |---|---|---|
-| **O1** | Emit `time_dimensions` from the wizard — detected where possible, confirmed by the user | Detection is a reasonable default (a `fiscal_year` + `fiscal_period` column pair is a strong signal), but it must be **confirmed**, not assumed; the cost of getting it wrong is silent wrong windows |
+| **O1** | 🟡 **Detection half DONE, live-verified 2026-08-30** — `register_data_product` already emits a correct `fiscal_year_period` shape without any wizard UI change. **Confirmation-by-the-user half NOT done** — the wizard never shows what it inferred or asks the admin to confirm it; a wrong inference (e.g. two similarly-named columns) would still ship silently | Detection is a reasonable default (a `fiscal_year` + `fiscal_period` column pair is a strong signal), but it must be **confirmed**, not assumed; the cost of getting it wrong is silent wrong windows |
 | **O2** | Collect `measure_semantics` — the sign of each measure/account type | Detectable by inspection: if every COGS row is negative, propose "negative" and ask. One question, once, replacing a per-KPI assumption |
 | **O3** | Emit `dimension_semantics` / `fallback_group_by_dimensions` | The candidate analysis dimensions. Related to Phase 15 Stage I's problem-profile-driven selection — the wizard should propose, the profile should rank |
 | **O4** | Replace `contract_yaml: str` with the typed contract object | Removes the last reason for the wizard to think in YAML at all |
@@ -2804,6 +2804,31 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 | **O6** | Re-onboard one existing client through the fixed wizard | The only real proof. If lubricants cannot be reproduced through the UI, the wizard still cannot express a working contract |
 
 **Ordering:** O1–O3 depend on the registry record gaining those fields (Phase 16 steps 1–2), so the wizard has somewhere to write them. O5 depends on O1–O3 existing to check. O6 is the acceptance test for the whole phase.
+
+**O6 run in miniature, live-verified (2026-08-30).** Drove the real Admin Console wizard
+(`DataProductOnboardingNew.tsx`, via Playwright — `decision-studio-ui/tests/e2e/
+live-onboarding-hess-test.spec.ts`) against hess's actual SQL Server database, registering a
+throwaway data product (`dp_hess_financials_test`, deleted after inspection) rather than
+touching the real `dp_hess_financials` record. Confirms the O1–O3 gap empirically, not just by
+reading `_build_contract_dict`/`register_data_product`'s code:
+
+| Field | Wizard-registered | Real seeded record |
+|---|---|---|
+| `dimension_semantics` | `[]` | `None` (not yet migrated for hess either — Phase 16 step 1 scope, unrelated to the wizard) |
+| `measure_semantics` | `None` | `{stored_sign, type_column, amount_column}` (step 2) |
+| `column_aliases` | `None` | `{measure, date, version, default_version_value}` (step 4) |
+| `dimension_hierarchies` | `{}` | `{geography, segment, financials}` (step 5) |
+| `time_dimensions` | **correctly synthesized** — `fiscal_year_period`, right year/period columns | same shape, manually seeded |
+| `views` | **real `CREATE VIEW` SQL introspected from SQL Server**, correctly capturing the segment/basin CASE-mapping logic | `{}` (not stored this way in the seed) |
+
+Two results, not one: this reconfirms the O1–O3 gap (dimension_semantics/measure_semantics/
+column_aliases/dimension_hierarchies stay permanently unwritable through the wizard, exactly as
+`register_data_product`'s `DataProduct(...)` constructor — `a9_data_product_agent.py:857-874` —
+predicts by never passing them), **and** it corrects a stale claim the original finding made
+about `time_dimensions` (struck through above) — the wizard already gets that one right via
+`_synthesize_time_dimensions`, discovered only by actually running it rather than trusting the
+2026-08-10 audit's characterization. Neither result was assumed; both came from reading back what
+Supabase actually stored after a real onboarding run.
 
 **Relationship to the existing Data Onboarding Refinement track** (below): that track is UI and workflow polish — chooser screen, wizard foundation, templates. This is a *content* gap in what the wizard produces, and it should be sequenced ahead of the polish. A better-looking wizard that still emits an incomplete contract is a faster way to a wrong briefing.
 
