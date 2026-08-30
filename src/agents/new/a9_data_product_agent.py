@@ -348,60 +348,17 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.info(f"[TXN:{transaction_id}] Initializing data product registry from: {registry_path}")
             # Check if registry_path is a directory or file
             if os.path.isdir(registry_path):
-                # If it's a directory, look for data_product_registry.yaml
-                yaml_path = os.path.join(registry_path, "data_product_registry.yaml")
-                if os.path.exists(yaml_path):
-                    self.logger.info(f"[TXN:{transaction_id}] Found data product registry at {yaml_path}")
-                    try:
-                        # Load the YAML file directly but don't register products yet
-                        import yaml
-                        with open(yaml_path, 'r') as f:
-                            data = yaml.safe_load(f)
-                            
-                        # Store registry data for later selective loading
-                        if isinstance(data, dict) and 'data_products' in data:
-                            self._registry_data = data
-                            self.logger.info(f"[TXN:{transaction_id}] Registry metadata loaded with {len(data['data_products'])} data products available")
-                        else:
-                            self.logger.warning(f"[TXN:{transaction_id}] Registry file format not recognized")
-                        
-                        # Auto-hydrate tables and views for local development
-                        # This ensures that if raw CSVs exist (as defined in contracts), they are loaded
-                        # and Views are created, without requiring manual onboarding steps.
-                        if self._registry_data and 'data_products' in self._registry_data:
-                            self.logger.info(f"[TXN:{transaction_id}] Auto-hydrating data products for local dev...")
-                            for dp in self._registry_data['data_products']:
-                                try:
-                                    # Support both keys for flexibility
-                                    contract_path = dp.get('yaml_contract_path') or dp.get('contract_path')
-                                    
-                                    # Handle relative paths from project root if needed
-                                    if contract_path and not os.path.isabs(contract_path) and not os.path.exists(contract_path):
-                                        # Try resolving relative to CWD (Project Root) or Registry Path
-                                        # But usually CWD is project root.
-                                        pass 
-
-                                    if contract_path and os.path.exists(contract_path):
-                                        self.logger.info(f"Auto-hydrating product {dp.get('product_id')} from {contract_path}")
-                                        # 1. Register Source Tables
-                                        await self.register_tables_from_contract(contract_path)
-                                        
-                                        # 2. Create Views
-                                        # We need to peek into the contract to find view names
-                                        with open(contract_path, 'r') as cf:
-                                            c_data = yaml.safe_load(cf)
-                                            views = c_data.get('views', [])
-                                            for v in views:
-                                                v_name = v.get('name')
-                                                if v_name:
-                                                    await self.create_view_from_contract(contract_path, v_name)
-                                except Exception as hydrate_err:
-                                    self.logger.warning(f"Auto-hydration failed for {dp.get('product_id')}: {hydrate_err}")
-
-                    except Exception as e:
-                        self.logger.error(f"[TXN:{transaction_id}] Error loading registry metadata: {str(e)}")
-                else:
-                    self.logger.warning(f"[TXN:{transaction_id}] No data_product_registry.yaml found in {registry_path}")
+                # Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30): this branch used to
+                # look for a data_product_registry.yaml here and auto-hydrate tables/views
+                # from whatever contract YAML it found -- confirmed DEAD via the step-5
+                # yaml.safe_load audit (data_product_registry.yaml does not exist at the
+                # real registry_path default, so the guard below was never true) and
+                # removed along with register_tables_from_contract/create_view_from_contract
+                # (also deleted, same pass -- their only other callers were this branch,
+                # the now-deleted orchestrator prepare_environment/onboard_data_product, and
+                # an unimported Streamlit prototype). Supabase is the canonical registry
+                # backend; nothing here ever needed a YAML file to hydrate from.
+                self.logger.warning(f"[TXN:{transaction_id}] No data_product_registry.yaml found in {registry_path}")
             else:
                 # If it's a file, store the path for later
                 self._registry_file_path = registry_path
@@ -1038,150 +995,39 @@ class A9_Data_Product_Agent(DataProductProtocol):
     async def validate_data_product_onboarding(
         self, request: DataProductQARequest
     ) -> DataProductQAResponse:
-        """Optional QA step that lint-checks the contract and runs smoke tests."""
+        """Optional QA step that lint-checks the contract and runs smoke tests.
+
+        Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30): this method's file-based
+        branch (read contract_path off disk, yaml.safe_load it, lint sections, call
+        register_tables_from_contract/create_view_from_contract) was removed --
+        confirmed dead. Its one live caller (A9_Orchestrator_Agent's composite
+        onboarding workflow) always passes `contract_path=None` with the comment
+        "No YAML -- Supabase is canonical", so the file-based branch was already
+        provably unreachable in the live app before this edit; this only removes
+        code that could never run (and, since the same pass deleted
+        register_tables_from_contract/create_view_from_contract entirely, would
+        have raised AttributeError had it somehow been reached). The skip response
+        below is what actually runs every time this step fires.
+        """
 
         request_id = request.request_id
         results: List[QAResult] = []
-        blockers: List[str] = []
-        overall_status = "pass"
 
-        try:
-            checks = request.checks or [
-                "lint_contract",
-                "register_tables",
-                "create_default_view",
-            ]
-
-            # When no contract path is provided (Supabase-only mode), skip file-based QA checks
-            if not request.contract_path:
-                self.logger.warning("No contract_path provided — skipping file-based QA checks (Supabase is canonical)")
-                results.append(
-                    QAResult(
-                        check="lint_contract",
-                        status="skip",
-                        details={"reason": "No contract path — YAML persistence disabled, Supabase is canonical"},
-                        human_action_required=False,
-                    )
-                )
-                return DataProductQAResponse.success(
-                    request_id=request_id,
-                    results=results,
-                    blockers=[],
-                    overall_status="pass",
-                )
-
-            contract_yaml: Optional[str] = None
-            try:
-                with open(request.contract_path, "r", encoding="utf-8") as fh:
-                    contract_yaml = fh.read()
-            except Exception as read_err:
-                msg = f"Failed to read contract: {read_err}"
-                blockers.append(msg)
-                results.append(
-                    QAResult(
-                        check="lint_contract",
-                        status="fail",
-                        details={"error": msg},
-                        human_action_required=True,
-                    )
-                )
-                overall_status = "fail"
-                return DataProductQAResponse.error(
-                    request_id=request_id,
-                    error_message=msg,
-                    results=results,
-                    blockers=blockers,
-                    overall_status=overall_status,
-                )
-
-            contract_obj = yaml.safe_load(contract_yaml) if contract_yaml else {}
-
-            # Lint: ensure critical sections exist
-            if "lint_contract" in checks:
-                missing_sections = [
-                    section
-                    for section in ["metadata", "tables", "views"]
-                    if section not in contract_obj
-                ]
-                status = "pass" if not missing_sections else "fail"
-                details = {"missing_sections": missing_sections}
-                results.append(
-                    QAResult(
-                        check="lint_contract",
-                        status=status,
-                        details=details,
-                        human_action_required=bool(missing_sections),
-                    )
-                )
-                if missing_sections:
-                    blockers.append(
-                        f"Contract missing required sections: {', '.join(missing_sections)}"
-                    )
-                    overall_status = "fail"
-
-            if "register_tables" in checks:
-                reg_result = await self.register_tables_from_contract(
-                    contract_path=request.contract_path,
-                    schema=request.environment,
-                )
-                check_status = "pass" if reg_result.get("success") else "fail"
-                results.append(
-                    QAResult(
-                        check="register_tables",
-                        status=check_status,
-                        details=reg_result,
-                        human_action_required=not reg_result.get("success", False),
-                    )
-                )
-                if not reg_result.get("success"):
-                    blockers.append("Table registration failed")
-                    overall_status = "fail"
-
-            if "create_default_view" in checks:
-                default_view = request.additional_context.get("default_view_name", "Onboarded_View")
-                create_result = await self.create_view_from_contract(
-                    contract_path=request.contract_path,
-                    view_name=default_view,
-                )
-                check_status = "pass" if create_result.get("success") else "warn"
-                results.append(
-                    QAResult(
-                        check="create_default_view",
-                        status=check_status,
-                        details=create_result,
-                        human_action_required=not create_result.get("success", False),
-                    )
-                )
-                if not create_result.get("success"):
-                    warnings.append(
-                        f"View {default_view} creation failed; contract may require manual review"
-                    )
-                    overall_status = "warn" if overall_status != "fail" else overall_status
-
-            if not results:
-                overall_status = "warn"
-
-            return DataProductQAResponse.success(
-                request_id=request_id,
-                results=results,
-                blockers=blockers,
-                overall_status=overall_status,
+        self.logger.warning("No contract_path provided — skipping file-based QA checks (Supabase is canonical)")
+        results.append(
+            QAResult(
+                check="lint_contract",
+                status="skip",
+                details={"reason": "No contract path — YAML persistence disabled, Supabase is canonical"},
+                human_action_required=False,
             )
-        except Exception as err:
-            self.logger.error(f"QA validation error: {err}\n{traceback.format_exc()}")
-            blockers.append(str(err))
-            if "cleanup_needed" in locals() and cleanup_needed:
-                try:
-                    await inspection_manager.disconnect()
-                except Exception:
-                    pass
-            return DataProductQAResponse.error(
-                request_id=request_id,
-                error_message=str(err),
-                results=results,
-                blockers=blockers,
-                overall_status="fail",
-            )
+        )
+        return DataProductQAResponse.success(
+            request_id=request_id,
+            results=results,
+            blockers=[],
+            overall_status="pass",
+        )
 
     # ------------------------------------------------------------------
     # Schema Inspection Helper Methods
@@ -2803,88 +2649,6 @@ class A9_Data_Product_Agent(DataProductProtocol):
             messages.append("Metadata missing id field")
         return messages
 
-    async def register_tables_from_contract(self, contract_path: str, schema: str = "main") -> Dict[str, Any]:
-        """
-        Register base tables defined in a YAML contract by creating DuckDB tables from CSVs.
-        This method is idempotent and returns a summary instead of raising on failure.
-        """
-        transaction_id = str(uuid.uuid4())
-        # Ensure database connection is available before registering sources
-        if not await self._ensure_db_connected():
-            self.logger.warning(f"[TXN:{transaction_id}] Database not connected; cannot register tables from contract")
-            return {"success": False, "message": "Database not connected", "registered": {}}
-        try:
-            with open(contract_path, "r") as f:
-                contract = yaml.safe_load(f)
-        except Exception as e:
-            msg = f"Failed to read contract at {contract_path}: {e}"
-            self.logger.error(f"[TXN:{transaction_id}] {msg}")
-            return {"success": False, "message": msg, "registered": {}}
-
-        tables = contract.get("tables", []) if isinstance(contract, dict) else []
-        results: Dict[str, bool] = {}
-        success_count = 0
-        total = len(tables)
-        for t in tables:
-            try:
-                table_name = t.get("name") if isinstance(t, dict) else None
-                ds_path = t.get("data_source_path") if isinstance(t, dict) else None
-                if not table_name or not ds_path:
-                    results[table_name or "unknown"] = False
-                    continue
-                # Determine CSV file path
-                csv_path = ds_path
-                if os.path.isdir(ds_path):
-                    candidates = [
-                        os.path.join(ds_path, f"{table_name}.csv"),
-                        os.path.join(ds_path, f"{table_name}.CSV"),
-                        os.path.join(ds_path, f"{table_name.lower()}.csv"),
-                        os.path.join(ds_path, f"{table_name.upper()}.csv"),
-                    ]
-                    for c in candidates:
-                        if os.path.exists(c):
-                            csv_path = c
-                            break
-                
-                # Check if table already exists to avoid overwriting patched data (e.g. from reload_duckdb.py)
-                # We use a direct SQL check via db_manager
-                try:
-                    check_sql = f"SELECT count(*) FROM information_schema.tables WHERE table_schema = '{schema}' AND table_name = '{table_name}'"
-                    # execution is async in db_manager but returns a DF or similar. 
-                    # We can use execute_query.
-                    exists_df = await self.db_manager.execute_query(check_sql)
-                    if not exists_df.empty and exists_df.iloc[0, 0] > 0:
-                        self.logger.info(f"[TXN:{transaction_id}] Table {schema}.{table_name} already exists. Skipping auto-hydration to preserve data.")
-                        results[table_name] = True
-                        success_count += 1
-                        continue
-                except Exception as check_err:
-                    self.logger.warning(f"[TXN:{transaction_id}] Failed to check if table exists: {check_err}. Proceeding with registration.")
-
-                # Extract CSV options if present
-                csv_options = t.get("csv_options", {})
-                
-                ok = await self.db_manager.register_data_source({
-                    "type": "csv",
-                    "path": csv_path,
-                    "schema": schema,
-                    "table_name": table_name,
-                    "csv_options": csv_options
-                }, transaction_id=transaction_id)
-                results[table_name] = bool(ok)
-                if ok:
-                    success_count += 1
-            except Exception as e:
-                self.logger.error(f"[TXN:{transaction_id}] Error registering table {t}: {str(e)}\n{traceback.format_exc()}")
-                results[str(t)] = False
-
-        overall = success_count > 0
-        return {
-            "success": overall,
-            "message": f"Registered {success_count}/{total} tables from contract",
-            "registered": results
-        }
-
     async def create_view(
         self,
         view_name: str,
@@ -2930,49 +2694,6 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.error(f"[TXN:{transaction_id}] Error creating view {view_name}: {str(e)}\n{traceback.format_exc()}")
             return {"success": False, "message": str(e), "view_name": view_name}
 
-    async def create_view_from_contract(self, contract_path: str, view_name: str) -> Dict[str, Any]:
-        """
-        Create or replace a view defined in the YAML contract. Returns a status dict.
-        """
-        transaction_id = str(uuid.uuid4())
-        # Ensure database connection is available before creating a view
-        if not await self._ensure_db_connected():
-            self.logger.warning(f"[TXN:{transaction_id}] Database not connected; cannot create view '{view_name}'")
-            return {"success": False, "message": "Database not connected", "view_name": view_name}
-        try:
-            with open(contract_path, "r") as f:
-                contract = yaml.safe_load(f)
-        except Exception as e:
-            msg = f"Failed to read contract at {contract_path}: {e}"
-            self.logger.error(f"[TXN:{transaction_id}] {msg}")
-            return {"success": False, "message": msg}
-
-        views = contract.get("views", []) if isinstance(contract, dict) else []
-        target_sql = None
-        for v in views:
-            try:
-                if isinstance(v, dict) and v.get("name") == view_name:
-                    target_sql = v.get("sql")
-                    break
-            except Exception:
-                continue
-
-        if not target_sql or not isinstance(target_sql, str):
-            msg = f"View '{view_name}' not found in contract or has no SQL definition"
-            self.logger.warning(f"[TXN:{transaction_id}] {msg}")
-            return {"success": False, "message": msg}
-
-        try:
-            ok = await self.db_manager.create_view(view_name=view_name, sql=target_sql, replace_existing=True, transaction_id=transaction_id)
-            return {
-                "success": bool(ok),
-                "message": f"View '{view_name}' created" if ok else f"Failed to create view '{view_name}'",
-                "view_name": view_name
-            }
-        except Exception as e:
-            self.logger.error(f"[TXN:{transaction_id}] Error creating view {view_name}: {str(e)}\n{traceback.format_exc()}")
-            return {"success": False, "message": str(e), "view_name": view_name}
-
     async def generate_sql(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Generic SQL generation endpoint.
@@ -2998,64 +2719,27 @@ class A9_Data_Product_Agent(DataProductProtocol):
             # Resolve auxiliary context
             ctx = context or {}
             dp_id = ctx.get('data_product_id') or 'fi_star_schema'
-            yaml_contract_text = None
-            cpath = ctx.get('contract_path')
-            if isinstance(cpath, str):
-                try:
-                    if os.path.exists(cpath):
-                        with open(cpath, 'r', encoding='utf-8') as _f:
-                            yaml_contract_text = _f.read()
-                except Exception:
-                    yaml_contract_text = None
             filters = ctx.get('filters') if isinstance(ctx.get('filters'), dict) else None
             include_explain = bool(ctx.get('include_explain', False))
-            
-            # Prefer a minimal LLM profile over full contract YAML to avoid alias leakage
+
+            # Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30): this used to read a
+            # contract YAML off ctx['contract_path'] and extract a trimmed "llm_profile"
+            # (exposed_columns/measure_semantics) to enrich the LLM prompt below --
+            # confirmed dead. This method's one live caller
+            # (A9_Situation_Awareness_Agent._generate_sql_for_query) never sets
+            # 'contract_path' in the context it passes, so yaml_contract_text was always
+            # None and this whole extraction block was a permanent no-op in the live app.
+            # Removed rather than left in place; the ad-hoc NL-to-SQL path this feeds is
+            # itself explicitly deprioritized (project_product_direction: "don't build
+            # NL-to-SQL"). The LLM call below still runs, just without a profile to
+            # enrich it with -- exactly what happened at runtime before this edit too.
+            yaml_contract_text = None
             target_view_label = dp_id  # default text for prompt
             profile_yaml_text = None
             schema_fields: Dict[str, Dict[str, str]] = {}
             exposed_columns_list: List[str] = []
             default_measure_name = None
             default_agg = 'SUM'
-            try:
-                if yaml_contract_text:
-                    ydoc = yaml.safe_load(yaml_contract_text)
-                    # Find a view with an llm_profile; otherwise use the first view name
-                    views = ydoc.get('views', []) if isinstance(ydoc, dict) else []
-                    chosen_view = None
-                    if isinstance(views, list):
-                        for v in views:
-                            if isinstance(v, dict) and v.get('llm_profile'):
-                                chosen_view = v
-                                break
-                        if not chosen_view and views:
-                            first = views[0]
-                            chosen_view = first if isinstance(first, dict) else None
-                    if chosen_view:
-                        view_name = chosen_view.get('name') or 'FI_Star_View'
-                        target_view_label = view_name
-                        llm_profile = chosen_view.get('llm_profile')
-                        if isinstance(llm_profile, dict):
-                            # Build a trimmed YAML with only the llm_profile and view name
-                            profile_yaml_text = yaml.safe_dump(
-                                {'view_name': view_name, 'llm_profile': llm_profile},
-                                sort_keys=False, allow_unicode=True
-                            )
-                            # Build fields map for the LLM service's schema_context
-                            exp_cols = llm_profile.get('exposed_columns', [])
-                            if isinstance(exp_cols, list):
-                                for col in exp_cols:
-                                    if isinstance(col, str):
-                                        schema_fields[col] = {"description": "", "type": ""}
-                                        exposed_columns_list.append(col)
-                            # Capture default measure/agg if provided
-                            meas = llm_profile.get('measure_semantics') if isinstance(llm_profile, dict) else None
-                            if isinstance(meas, dict):
-                                default_measure_name = meas.get('default_measure') or default_measure_name
-                                default_agg = str(meas.get('default_aggregation') or default_agg).upper()
-            except Exception:
-                # If profile extraction fails, fall back silently
-                profile_yaml_text = None
 
             if getattr(self, 'llm_service_agent', None) is not None:
                 try:

@@ -2994,8 +2994,8 @@ production (local Supabase only as of this writing).
 | **2** | ✅ **DONE (2026-08-29, all three financial data products; synced to production 2026-08-30).** Added `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
 | **3** | ✅ **DONE (2026-08-29, synced to production 2026-08-30).** Corrected all 5 Hess KPIs against the declared convention; re-validated live | Fixes real wrong output, now expressed as data rather than code |
 | **4** | ✅ **DONE (2026-08-29, synced to production 2026-08-30) — scope revised on investigation, see Step 4 subsection below.** Of the four sections, only `column_aliases` needed a new registry field; `business_terms`/`supported_business_processes` had zero live readers and already-migrated equivalents (backfilled as data, not schema); `connection` is dead and insecure, recommended for deletion at step 5 | The remaining sections; lower risk once the pattern exists |
-| **5** | 🟡 **PARTIAL (2026-08-29; the schema/data changes that DID ship are synced to production 2026-08-30 — see below for what's still incomplete).** Full audit of every `yaml.safe_load` call site done; `views` shape collision resolved as a decision; `dimension_hierarchies` migrated (hess). **YAML files NOT yet safe to delete** — see Step 5 subsection below for exactly what's still blocking | Only safe once nothing reads them |
-| **6** | Architecture test: no `yaml.safe_load` in `src/agents/**` | Makes the rule in CLAUDE.md enforceable rather than aspirational |
+| **5** | 🟡 **PARTIAL, updated 2026-08-30.** Full audit of every `yaml.safe_load` call site done; `views` shape collision resolved as a decision; `dimension_hierarchies`/`dimension_semantics`/`exposed_columns` migrated for every client that declares them; every confirmed-dead call site (#4/#5/#6/#7/#8, plus the DGA sites #12/#13) actually **deleted**, not just marked dead. **Still blocking file deletion:** DA's/DPA's genuinely-live YAML fallback branches (`_dims_from_contract`, `_hierarchies_from_contract`, `_get_contract_column_aliases`, `_get_exposed_columns`) — a bigger decision than the dead-code deletion, not yet made. See Step 5 subsection below | Only safe once nothing reads them |
+| **6** | Architecture test: no `yaml.safe_load` in `src/agents/**` — blocked on Step 5's remaining fallback-branch decision above | Makes the rule in CLAUDE.md enforceable rather than aspirational |
 
 **Onboarding (O1–O6 above) interleaves here:** O1–O3 land with steps 1–2, since the wizard needs somewhere to write those fields; O5's completeness gate lands with step 4; O6 — re-onboarding an existing client through the wizard — is the acceptance test for the phase.
 
@@ -3351,20 +3351,56 @@ plan's ordering note didn't spell out this explicitly.
 
 **Verified:** 1443 unit tests pass (1436 + 7 new). No YAML files touched or deleted this session.
 
-**Not yet done, updated 2026-08-30:** delete `connection` from the YAML files (step 4's
-recommendation, still pending — deletable independently of the rest since nothing reads it); land
-Onboarding item O4 (`contract_yaml: str` → typed contract object — unblocks sites #6–#9); only
-then attempt file deletion + step 6's architecture test. **Resolved this pass, no longer
-blockers:** `exposed_columns` migrated (above); `dimension_semantics` backfilled for
-hess/apex_lubricants (above; bicycle's `dimension_hierarchies` turned out not to exist, see the
-correction above — nothing left to migrate there); DGA's orchestrator-registered bicycle-only
-utilities (#12/#13) traced and confirmed **dead code** — their only caller,
-`A9_Orchestrator_Agent.onboard_data_product`, has zero callers anywhere in `src/`, `scripts/`, the
-UI, or tests, so they are not a live blocker for deleting bicycle's YAML (separately worth
-deleting as dead code, not done here — out of scope for this pass). **Local Supabase only, NOT
-yet synced to production** (this work is on `phase17-theory-layer`, unmerged): `exposed_columns`
-column + all 4 clients' seed data, `dimension_semantics` for hess/apex_lubricants — sync once this
-phase's remaining work lands on `master`, per this document's own Registry Data Sync Protocol.
+**Update, same day (2026-08-30) — O4 turned out to be unnecessary; dead code deleted instead.**
+Tracing sites #6–#9 to their *actual* live callers (not just their existence as methods) found
+every one of them provably dead once followed all the way up, not "narrow/generic utilities"
+as the original audit assumed:
+
+- #6 (`validate_data_product_onboarding`'s file-based branch): its one live caller
+  (`A9_Orchestrator_Agent`'s composite onboarding step) hardcodes `contract_path=None` with the
+  comment "No YAML — Supabase is canonical"; the method's own early-return already skipped the
+  file-based checks in that case.
+- #7/#8 (`register_tables_from_contract`/`create_view_from_contract`): only reachable via
+  `_load_registry`'s auto-hydrate branch (already confirmed dead by the original audit — site
+  #4/#5), the orchestrator's `prepare_environment`/`onboard_data_product` (traced this pass —
+  zero callers anywhere), or `decision_studio.py`, an unimported Streamlit prototype last
+  touched Dec 2025.
+- #9 (`generate_sql`'s ad-hoc NL-to-SQL YAML-profile extraction): has one live caller
+  (`A9_Situation_Awareness_Agent._generate_sql_for_query`), but that caller never sets
+  `contract_path` in its context, so the extraction branch itself was a permanent no-op.
+
+**Deleted this pass, not just marked dead**, since step 6's architecture test greps for the
+literal `yaml.safe_load` text rather than checking runtime reachability: `A9_Orchestrator_Agent
+.prepare_environment`/`onboard_data_product`; `A9_Data_Product_Agent.register_tables_from_contract`/
+`create_view_from_contract`; `A9_Data_Product_Agent._load_registry`'s auto-hydrate branch;
+`validate_data_product_onboarding`'s file-based branch (now always returns its skip response);
+`generate_sql`'s dead extraction block; `A9_Data_Governance_Agent.validate_registry_integrity`/
+`compute_and_persist_top_dimensions`/`_load_exposed_columns` (sites #12/#13, confirmed dead via
+the same orchestrator-caller trace). Two test files depended on deleted methods:
+`tests/test_duckdb_views.py` deleted (tested only `create_view_from_contract`);
+`tests/integration/test_cogs_validation.py`'s `prepare_environment` setup call replaced with a
+skip-if-view-missing check. Cards updated: `A9_Orchestrator_Agent_card.md`,
+`A9_Data_Product_Agent_card.md`, `A9_Data_Governance_Agent_card.md`. 1484 unit tests pass,
+unchanged — none of the deleted code was exercised by the unit suite.
+
+**Not resolved by this deletion pass — a different, bigger decision, not yet made:**
+`_get_contract_column_aliases`'s and `_get_exposed_columns`'s YAML fallback branches (DPA), and
+`_dims_from_contract`/`_hierarchies_from_contract`'s YAML fallback branches (DA, including
+`_contract_path_for_kpi`) remain in place. These are NOT zero-caller dead code the way everything
+above was — they're a live fallback DA runs on *every* Deep Analysis call, genuinely reachable
+for any client not yet migrated to the registry field. Worth noting: after this session's
+backfill work, all 4 real seeded clients (lubricants/apex_lubricants/hess/bicycle) now have
+complete registry data for every field these fallbacks would otherwise read — meaning the YAML
+files may be safe to delete for the clients that currently exist, but removing the fallback CODE
+itself is a materially bigger change to DA's core, heavily-exercised dimension-selection path
+than anything deleted in this pass, and deserves its own explicit decision before being
+attempted. `connection`'s deletion from the YAML files (step 4's recommendation) is bundled into
+that same eventual file-deletion pass rather than done piecemeal.
+
+**Local Supabase only, NOT yet synced to production** (this work is on `phase17-theory-layer`,
+unmerged): `exposed_columns` column + all 4 clients' seed data, `dimension_semantics` for
+hess/apex_lubricants — sync once this phase's remaining work lands on `master`, per this
+document's own Registry Data Sync Protocol.
 
 ---
 

@@ -9,8 +9,7 @@ The `A9_Data_Product_Agent` is responsible for contract-driven SQL orchestration
 - Query execution:
   - `generate_sql_for_kpi(kpi_definition, timeframe, filters, topn, breakdown, override_group_by) -> Dict`
   - `execute_sql(sql, parameters=None, principal_context=None, data_product_id=None) -> Dict`  — routes to BigQuery, SQL Server (bracket-quoted T-SQL detection), Snowflake, or DuckDB. **Infra B3 (Jul 2026):** when principal_context carries a client_id AND data_product_id is given, DGA `validate_data_access` gates execution before routing — cross-client access returns `success: False` with an "Access denied by Data Governance" message; a scoped principal with `data_governance_agent=None` is denied fail-closed.
-  - `register_tables_from_contract(contract_path) -> Dict`
-  - `create_view_from_contract(contract_path, view_name) -> Dict`
+  - `create_view(view_name, sql_query, metadata=None) -> Dict` — generic; takes a SQL string directly, no contract file involved. (`register_tables_from_contract`/`create_view_from_contract`, the YAML-contract-file variants, were **deleted Phase 16 step 5, Aug 2026** — confirmed zero callers anywhere; see the dated entry below.)
 - Data factory onboarding:
   - `inspect_source_schema(DataProductSchemaInspectionRequest) -> DataProductSchemaInspectionResponse`
   - `generate_contract_yaml(DataProductContractGenerationRequest) -> DataProductContractGenerationResponse`
@@ -201,3 +200,46 @@ raise, custom `date_column` from KPI metadata honoured, non-date `WHERE` conditi
 - Seeded onto all 4 data products (lubricants/apex_lubricants/hess/bicycle) — genuinely load-bearing only for bicycle (`source_system=duckdb`, the one client with no explicit Tier-1 routing branch); seeded on the other three for consistency and so the registry is a complete substitute for the YAML once Phase 16 step 5 deletes it.
 - **Also backfilled in the same pass**: `dimension_semantics` for hess and apex_lubricants (step 1, Aug 2026, only migrated it for lubricants) — confirmed absent by direct grep of `scripts/clients/*.py` before writing this, not assumed present from the plan's own prior wording. No code change needed; `_dims_from_registry` (DA) already reads this generically per data product.
 - Tests: `tests/unit/test_dpa_exposed_columns_registry.py` — registry-wins-when-populated, case-insensitive view-name lookup, registry-has-other-views-falls-back (not treated as "nothing"), empty-dict-treated-as-not-migrated, two-data-products-same-view-name-don't-collide (pins the cache-key fix), `data_product_id` genuinely reaches `_contract_path` (pins the bug fix), non-fatal degradation on missing registry factory / provider exception / missing YAML / unresolvable view.
+
+## Dead code deleted — Phase 16 step 5 (Aug 2026)
+
+Traced every remaining `yaml.safe_load` call site in this file as part of closing out
+step 5/6 (DEVELOPMENT_PLAN.md) and found several the original step-5 audit had
+mischaracterized as "live, generic onboarding utilities" — they were only reachable
+via already-dead callers once actually traced to their real entry points:
+
+- **`register_tables_from_contract`/`create_view_from_contract` — deleted.** Their only
+  callers were `_load_registry`'s auto-hydrate branch (itself already dead — see next
+  item), the now-deleted `A9_Orchestrator_Agent.prepare_environment`/`onboard_data_product`,
+  and an unimported Streamlit prototype (`decision_studio.py`). `create_view` (generic,
+  takes SQL directly) is unaffected and stays.
+- **`_load_registry`'s `data_product_registry.yaml` auto-hydrate branch — removed.**
+  Confirmed dead in the original step-5 audit (the file never exists at the real
+  `registry_path` default) — this pass actually deleted the block rather than leaving it
+  as unreachable-but-present code, since step 6's architecture test greps for the literal
+  `yaml.safe_load` text, not runtime reachability.
+- **`validate_data_product_onboarding`'s file-based branch — removed.** Its one live
+  caller (`A9_Orchestrator_Agent`'s composite onboarding workflow) hardcodes
+  `contract_path=None` with the comment "No YAML — Supabase is canonical"; the method's
+  own early-return already skipped the file-based checks in that case. The dead branch
+  also called `register_tables_from_contract`/`create_view_from_contract` (now deleted),
+  so it would have raised `AttributeError` had it somehow still been reached. The method
+  now always returns the skip response — the only response it ever actually produced.
+- **`generate_sql`'s `ctx['contract_path']` → `yaml_contract_text` extraction — removed.**
+  This ad-hoc NL-to-SQL path's one live caller (`A9_Situation_Awareness_Agent
+  ._generate_sql_for_query`) never sets `contract_path` in the context it builds, so the
+  `yaml.safe_load(yaml_contract_text)` "LLM profile" extraction block was a permanent
+  no-op. The method still runs and still calls the LLM service — just without a profile
+  to enrich the prompt with, exactly the behaviour observed at runtime before this edit.
+
+**Not touched in this pass:** `_get_contract_column_aliases`'s and `_get_exposed_columns`'s
+YAML fallback branches (`a9_data_product_agent.py` ~3378/~3473) — unlike the sites above,
+these remain genuinely reachable as a fallback for any client not yet migrated to the
+registry field, so deleting them is a different, higher-consequence decision than deleting
+zero-caller dead code; deferred pending the 12 YAML files' actual deletion.
+
+Verified: 1484 unit tests pass, unchanged (none of the deleted code was exercised by the
+unit suite — both affected test files outside `tests/unit/` were updated:
+`tests/test_duckdb_views.py` deleted (tested only `create_view_from_contract`),
+`tests/integration/test_cogs_validation.py`'s `prepare_environment` call replaced with a
+skip-if-view-missing check).

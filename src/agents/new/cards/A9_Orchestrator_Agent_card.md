@@ -269,3 +269,19 @@ Found while setting up the PM-2 A/B for the structured-output flip — the exper
 - Defaults to `False` deliberately — an omitted field on any existing caller (or a future one) must keep registering, not silently stop; only the one call site that genuinely doesn't want registration opts in explicitly.
 - Verified live: re-ran the same wizard test against hess after the fix — no `temp_discovery` row appears, and the real registration (triggered later, at the "Metadata Analysis" step, with a real `data_product_id`) still succeeds and still writes `dimension_semantics` correctly (see the Phase 16 O3 entry above).
 - Tests: `tests/unit/test_orchestrator_data_product_onboarding.py` — `discovery_only=True` calls only `inspect_source_schema`, never `register_data_product`; a normal call (default `discovery_only=False`) still registers; the inspection result still reaches the response's `steps` list; the field's default is pinned to `False`.
+
+## `prepare_environment` and `onboard_data_product` deleted — confirmed dead (Aug 2026)
+
+Phase 16 step 5 (DEVELOPMENT_PLAN.md): these two "headless orchestration helper" methods
+(YAML-contract-driven table/view registration + a composite onboarding workflow calling
+DGA's `validate_registry_integrity`/`compute_and_persist_top_dimensions`) were traced during
+the step-5 `yaml.safe_load` audit and found to have **zero callers anywhere** in `src/`,
+`scripts/`, the UI, or tests — `onboard_data_product` was self-referenced only in its own
+error handler, and `prepare_environment`'s only other callers were an unimported Streamlit
+prototype (`decision_studio.py`, last touched Dec 2025) and one integration test (updated to
+skip instead, see `tests/integration/test_cogs_validation.py`). Not "narrow" or "bicycle-only"
+like the DPA/DGA methods they called — genuinely unreachable from any live entrypoint. Deleted
+along with `A9_Data_Product_Agent.register_tables_from_contract`/`create_view_from_contract`
+and `A9_Data_Governance_Agent.validate_registry_integrity`/`compute_and_persist_top_dimensions`
+(see those agents' own cards) in the same pass. 1484 unit tests unaffected (none exercised
+this code).

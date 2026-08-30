@@ -19,7 +19,7 @@ The `A9_Data_Governance_Agent` handles business term resolution, KPI-to-data-pro
 
 **All methods are async. All returns use Pydantic models.**
 
-Not yet added to this table despite being real, callable methods (pre-existing staleness, not introduced by this update — flagged so the next edit doesn't silently perpetuate it): `check_data_quality` (hardcoded stub — always returns `completeness: 0.98` regardless of input, does not implement its own contract), `validate_registry_integrity` (returns a plain `Dict[str, Any]`, not a Pydantic model — violates the "all returns use Pydantic models" rule above), `compute_and_persist_top_dimensions`.
+Not yet added to this table despite being a real, callable method (pre-existing staleness, not introduced by this update — flagged so the next edit doesn't silently perpetuate it): `check_data_quality` (hardcoded stub — always returns `completeness: 0.98` regardless of input, does not implement its own contract). `validate_registry_integrity`/`compute_and_persist_top_dimensions` — the two methods previously flagged here for returning plain dicts instead of Pydantic models — were **deleted Phase 16 step 5 (Aug 2026)**, not fixed: traced their only caller (`A9_Orchestrator_Agent.onboard_data_product`) and found zero callers of that in turn, anywhere in `src/`, `scripts/`, the UI, or tests. See `A9_Data_Product_Agent_card.md`'s "Dead code deleted" entry for the sibling deletions in the same pass.
 
 ## Dependencies
 - RegistryFactory + providers: KPI, Business Glossary, Data Product, Business Process

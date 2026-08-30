@@ -29,10 +29,19 @@ from src.agents.models.situation_awareness_models import (
 
 @pytest.mark.asyncio
 async def test_cogs_amounts_match_sql(orchestrator):
-    # Ensure FI Star tables and view are prepared, same as Decision Studio
-    contract_path = os.path.join(ROOT, "src", "registry_references", "data_product_registry", "data_products", "fi_star_schema.yaml")
-    prep = await orchestrator.prepare_environment(contract_path, view_name="FI_Star_View")
-    assert prep.get("status") in {"success", "error"}, "Prep call should return a status key"
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30): this used to call
+    # orchestrator.prepare_environment(contract_path, ...) to register FI Star's
+    # tables/view from the YAML contract before running the assertion below --
+    # prepare_environment (and register_tables_from_contract/create_view_from_contract,
+    # which it delegated to) were deleted as confirmed dead code (zero live callers
+    # anywhere in src/, scripts/, the UI, or tests besides this file and an
+    # unimported Streamlit prototype). Bicycle's FI_Star_View is expected to already
+    # exist in the local DuckDB from the normal seeding path; skip rather than
+    # attempt to re-hydrate it here if it doesn't.
+    dp_agent = await orchestrator.get_agent("A9_Data_Product_Agent")
+    view_check = await dp_agent.execute_sql('SELECT 1 FROM "FI_Star_View" LIMIT 1')
+    if not view_check.get("success"):
+        pytest.skip("FI_Star_View not present in local DuckDB; skipping COGS validation")
 
     # Build a detection request for Last Quarter, Year-over-Year
     req = SituationDetectionRequest(
