@@ -2952,7 +2952,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 derived = self._resolve_measure_from_kpi(kpi_definition)
                 if not derived:
                     # Use contract column_aliases instead of hardcoded product checks
-                    aliases = self._get_contract_column_aliases()
+                    aliases = self._get_contract_column_aliases(getattr(kpi_definition, 'data_product_id', None))
                     measure_col = aliases.get('measure')
                     if measure_col:
                         derived = f'"{measure_col}"'
@@ -3020,7 +3020,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
         
         # Apply default version filter from contract if not already specified
         try:
-            aliases = self._get_contract_column_aliases()
+            aliases = self._get_contract_column_aliases(getattr(kpi_definition, 'data_product_id', None))
             version_col = aliases.get('version')
             default_version = aliases.get('default_version_value')
             if version_col and default_version:
@@ -3125,7 +3125,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 # Use contract column_aliases for date column fallback
                 if not resolved_date_col:
                     try:
-                        aliases = self._get_contract_column_aliases()
+                        aliases = self._get_contract_column_aliases(getattr(kpi_definition, 'data_product_id', None))
                         date_col = aliases.get('date')
                         if date_col:
                             resolved_date_col = date_col
@@ -3382,10 +3382,32 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         Get column aliases from the contract for a data product.
         Returns a dict with keys: measure, date, version, default_version_value
-        This removes hardcoded FI_Star_Schema checks from SQL generation.
+
+        Registry-first as of Phase 16 step 4 (DEVELOPMENT_PLAN.md): tries
+        DataProduct.column_aliases when data_product_id resolves to a real
+        record with that field populated; only falls back to the legacy YAML
+        scan when the registry has nothing, same posture as
+        A9_Deep_Analysis_Agent._dims_from_contract (step 1). Prior to this
+        fix, the YAML fallback below called self._contract_path() with NO
+        argument even though data_product_id was already a parameter here --
+        silently ignoring it and always resolving to the bicycle default
+        contract regardless of which data product was actually asked for.
+        Fixed as part of this change, not left in place under a new registry
+        path that would never be reached (this whole method is itself a
+        last-resort fallback -- see the field's docstring).
         """
+        if data_product_id and hasattr(self, "registry_factory") and self.registry_factory:
+            try:
+                dp_provider = self.registry_factory.get_provider("data_product")
+                dp = dp_provider.get(data_product_id) if dp_provider else None
+                aliases = getattr(dp, "column_aliases", None) if dp else None
+                if isinstance(aliases, dict) and aliases:
+                    return aliases
+            except Exception:
+                pass
+
         try:
-            cpath = self._contract_path()
+            cpath = self._contract_path(data_product_id)
             if not os.path.exists(cpath):
                 return {}
             with open(cpath, "r", encoding="utf-8") as f:
@@ -3572,7 +3594,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
                     # Use contract column_aliases for measure fallback
                     try:
-                        aliases = self._get_contract_column_aliases()
+                        aliases = self._get_contract_column_aliases(getattr(kpi_definition, 'data_product_id', None))
                         measure_col = aliases.get('measure')
                         if measure_col:
                             return f'"{measure_col}"'
@@ -3647,7 +3669,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
             # Use contract column_aliases for measure fallback
             try:
-                aliases = self._get_contract_column_aliases()
+                aliases = self._get_contract_column_aliases(getattr(kpi_definition, 'data_product_id', None))
                 measure_col = aliases.get('measure')
                 if measure_col:
                     return f'"{measure_col}"'

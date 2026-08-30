@@ -132,6 +132,17 @@ DATA_PRODUCT = {
         "amount_column": "amount",
         "stored_sign": {"Revenue": "positive", "COGS": "negative", "SGA": "negative", "Other": "negative"},
     },
+    # Phase 16 step 4 (DEVELOPMENT_PLAN.md) -- ported from lubricants_star_
+    # schema.yaml's column_aliases: section. Never actually reached in
+    # practice (source_system=bigquery routes explicitly in
+    # generate_sql_for_kpi before this fallback), seeded anyway for
+    # consistency and so the registry is a complete substitute for the YAML.
+    "column_aliases": {
+        "measure": "amount",
+        "date": "transaction_date",
+        "version": "version",
+        "default_version_value": "Actual",
+    },
 }
 
 _VIEW = "LubricantsStarSchemaView"

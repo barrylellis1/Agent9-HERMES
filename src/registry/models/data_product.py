@@ -151,6 +151,22 @@ class DataProduct(BaseModel):
             "flagged here for whoever reads this next rather than silently repeated."
         ),
     )
+    column_aliases: Optional[Dict[str, str]] = Field(
+        default=None,
+        description=(
+            "Business-name-to-technical-column aliases for this data product's measure/"
+            "date/version fields: {'measure': 'amount', 'date': 'transaction_date', "
+            "'version': 'version', 'default_version_value': 'Actual'}. Consumed by "
+            "A9_Data_Product_Agent._get_contract_column_aliases as the LAST-RESORT "
+            "fallback inside _generate_sql_for_kpi -- only reached when source_system "
+            "routing (CLAUDE.md rule 9) cannot resolve a backend for this data product, "
+            "which none of the seeded BigQuery/Snowflake/SQL Server clients ever hit; "
+            "this exists for a DuckDB-style client with no resolvable source_system "
+            "(Phase 16 step 4, docs/architecture/DEVELOPMENT_PLAN.md). None means not "
+            "yet migrated off the legacy YAML contract -- the method falls back to the "
+            "YAML scan in that case, same posture as dimension_semantics."
+        ),
+    )
 
     @model_validator(mode="after")
     def _backfill_fields(self) -> "DataProduct":

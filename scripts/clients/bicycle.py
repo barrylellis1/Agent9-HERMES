@@ -98,6 +98,27 @@ DATA_PRODUCT: Dict[str, Any] = {
     "reviewed": True,
     "staging": False,
     "language": "EN",
+    # Phase 16 step 4 (DEVELOPMENT_PLAN.md) -- bicycle is the ONE seeded
+    # client whose source_system (duckdb) matches none of the four explicit
+    # bigquery/snowflake/sqlserver/databricks routes in generate_sql_for_kpi,
+    # so it's the one client that could in principle reach _get_contract_
+    # column_aliases's fallback. In practice this is likely moot even for
+    # bicycle: all 20 of its KPIs already carry a literal sql_query, so the
+    # measure-derivation branch that reads column_aliases['measure'] is
+    # probably never exercised either. Ported verbatim from
+    # fi_star_schema.yaml's column_aliases: section rather than silently
+    # dropped or "corrected" -- NOTE the pre-existing inconsistency this
+    # carries forward: 'date': 'Transaction Date' does not match any column
+    # in this data product's actual views.fi_star_schema.columns list above
+    # (the real time dimension is 'Fiscal Year-Month'). Flagged, not fixed --
+    # out of scope for a straight YAML-to-registry port, and moot in
+    # practice for the same reason the rest of this field is.
+    "column_aliases": {
+        "measure": "Transaction Value Amount",
+        "date": "Transaction Date",
+        "version": "Version",
+        "default_version_value": "Actual",
+    },
 }
 
 # ---------------------------------------------------------------------------

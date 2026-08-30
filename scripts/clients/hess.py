@@ -104,6 +104,17 @@ DATA_PRODUCT = {
         "amount_column": "amount",
         "stored_sign": {"Revenue": "positive", "COGS": "negative", "SGA": "negative", "Other": "negative"},
     },
+    # Phase 16 step 4 (DEVELOPMENT_PLAN.md) -- ported from hess_financials
+    # .yaml's column_aliases: section. Never actually reached in practice
+    # (source_system=sqlserver routes explicitly in generate_sql_for_kpi
+    # before this fallback), seeded anyway for consistency and so the
+    # registry is a complete substitute for the YAML.
+    "column_aliases": {
+        "measure": "amount",
+        "date": "transaction_date",
+        "version": "version",
+        "default_version_value": "Actual",
+    },
 }
 
 _VIEW = "HessStarSchemaView"
@@ -893,4 +904,56 @@ EXTRA_BUSINESS_PROCESSES: List[Dict[str, Any]] = [
     },
 ]
 
-EXTRA_GLOSSARY_TERMS: List[Dict[str, Any]] = []
+# Phase 16 step 4 (DEVELOPMENT_PLAN.md) -- ports hess_financials.yaml's
+# business_terms: section into the already-migrated, already-Supabase-backed
+# glossary mechanism (business_glossary_terms) instead of adding a new schema
+# field for it. Confirmed this data product's YAML business_terms/
+# supported_business_processes/connection sections have ZERO live readers
+# anywhere in src/agents/**; this was a genuine content gap (Hess's E&P
+# dimension vocabulary was never migrated, unlike lubricants' -- see
+# lubricants.py's own EXTRA_GLOSSARY_TERMS, seeded independently of this
+# phase), not a schema gap.
+EXTRA_GLOSSARY_TERMS: List[Dict[str, Any]] = [
+    {
+        "id": "dim_segment", "term": "Segment",
+        "definition": "Business segment (E&P, Midstream).",
+        "domain": "Organization", "tags": ["dimension", "organization", "hess"],
+        "technical_mappings": {"sqlserver": "segment_name"},
+    },
+    {
+        "id": "dim_basin", "term": "Basin",
+        "definition": "Operating basin (Guyana, Bakken, Gulf of Mexico, Southeast Asia, Corporate).",
+        "domain": "Operations", "tags": ["dimension", "operations", "hess"],
+        "technical_mappings": {"sqlserver": "basin_name"},
+    },
+    {
+        "id": "dim_asset", "term": "Asset",
+        "definition": "Individual asset or field name.",
+        "domain": "Operations", "tags": ["dimension", "operations", "hess"],
+        "technical_mappings": {"sqlserver": "asset_name"},
+    },
+    {
+        "id": "dim_country", "term": "Country",
+        "definition": "Country of operation.",
+        "domain": "Geography", "tags": ["dimension", "geography", "hess"],
+        "technical_mappings": {"sqlserver": "country"},
+    },
+    {
+        "id": "dim_business_unit", "term": "Business Unit",
+        "definition": "Business unit.",
+        "domain": "Organization", "tags": ["dimension", "organization", "hess"],
+        "technical_mappings": {"sqlserver": "business_unit"},
+    },
+    {
+        "id": "dim_account_type", "term": "Account Type",
+        "definition": "Account type (Revenue, COGS, SGA, CapEx, OperatingCF, Other).",
+        "domain": "Finance", "tags": ["dimension", "finance", "hess"],
+        "technical_mappings": {"sqlserver": "account_type"},
+    },
+    {
+        "id": "dim_account_category", "term": "Account Category",
+        "definition": "Account category (Lifting Costs, Exploration, Development, Midstream, etc.).",
+        "domain": "Finance", "tags": ["dimension", "finance", "hess"],
+        "technical_mappings": {"sqlserver": "account_category"},
+    },
+]

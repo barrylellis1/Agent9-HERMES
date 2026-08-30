@@ -2818,7 +2818,7 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 | **1** | ✅ **DONE (2026-08-29, lubricants; local Supabase, not yet synced to production).** Moved `dimension_semantics` + `fallback_group_by_dimensions` onto the registry record; repointed `_dims_from_contract` | The only live contract read. Also the fix for the **hardcoded dimension preference list** in Phase 15 Stage I — that literal was already deleted (Aug 2026), so this step is now purely the store migration |
 | **2** | ✅ **DONE (2026-08-29, all three financial data products; local Supabase, not yet synced to production).** Added `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
 | **3** | ✅ **DONE (2026-08-29, local Supabase, not yet synced to production).** Corrected all 5 Hess KPIs against the declared convention; re-validated live | Fixes real wrong output, now expressed as data rather than code |
-| **4** | Move `business_terms`, `column_aliases`, `supported_business_processes`, `connection` | The remaining sections; lower risk once the pattern exists |
+| **4** | ✅ **DONE (2026-08-29, local Supabase, not yet synced to production) — scope revised on investigation, see Step 4 subsection below.** Of the four sections, only `column_aliases` needed a new registry field; `business_terms`/`supported_business_processes` had zero live readers and already-migrated equivalents (backfilled as data, not schema); `connection` is dead and insecure, recommended for deletion at step 5 | The remaining sections; lower risk once the pattern exists |
 | **5** | Resolve the `views` shape collision, delete the 12 YAML files and all `yaml.safe_load` calls in agent files | Only safe once nothing reads them |
 | **6** | Architecture test: no `yaml.safe_load` in `src/agents/**` | Makes the rule in CLAUDE.md enforceable rather than aspirational |
 
@@ -2975,6 +2975,83 @@ they exist to prove the validator still catches that shape, independent of what 
 contains).
 
 **Not yet done:** synced to production; steps 4–6.
+
+---
+
+#### Step 4 — done, local only (2026-08-29) — scope revised on investigation
+
+The plan assumed all four remaining sections (`business_terms`, `column_aliases`,
+`supported_business_processes`, `connection`) needed the same registry-column treatment as
+`dimension_semantics`/`measure_semantics`. **Checked each for a live reader before migrating
+any of them** (grepped all of `src/agents/**` for every key, not assumed from the section names)
+— only one of the four actually needed a new field:
+
+| section | live readers found | action taken |
+|---|---|---|
+| `column_aliases` | **1** — `A9_Data_Product_Agent._get_contract_column_aliases`, called from `_generate_sql_for_kpi`'s last-resort fallback (reached only when source_system routing can't resolve a backend — none of the seeded BigQuery/Snowflake/SQL Server clients ever hit it; exists for bicycle's DuckDB) | **Migrated** — new `DataProduct.column_aliases` field, same registry-first-with-YAML-fallback pattern as step 1 |
+| `business_terms` | **0** | **Not migrated — backfilled as glossary data instead** (see below) |
+| `supported_business_processes` | **0** | **Not migrated — already redundant** with `DataProduct.related_business_processes`, an existing field already populated per client |
+| `connection` | **0** | **Not migrated — recommended for deletion at step 5**, see the security note below |
+
+**`column_aliases`:** new field + migration (`20260829_data_products_column_aliases.sql`), same
+`DatabaseRegistryProvider` generic serialize path, no provider changes. Fixed a real bug while
+migrating it: `_get_contract_column_aliases(data_product_id)` took the parameter but its YAML
+fallback called `self._contract_path()` with **no argument**, silently ignoring it and always
+resolving to the bicycle default contract — the same cross-tenant-contamination shape already
+fixed once for DA's `_dims_from_contract` (step 1), found here independently by reading the
+method before migrating it, not assumed correct. Fixed as part of this change; `data_product_id`
+now threaded through all 5 call sites inside `_generate_sql_for_kpi` (`getattr(kpi_definition,
+'data_product_id', None)`). Seeded onto all 4 data products (lubricants/apex_lubricants/hess/
+bicycle) — genuinely load-bearing only for bicycle (the one client whose `source_system=duckdb`
+doesn't match any of the four explicit routing branches), and likely moot even there since all
+20 of bicycle's KPIs already carry a literal `sql_query`. Seeded on the other three for
+consistency and so the registry is a complete substitute for the YAML once step 5 deletes it. 9
+new unit tests (`tests/unit/test_dpa_column_aliases_registry.py`) pin: registry wins when
+populated, empty-dict registry value correctly treated as "not migrated" (falsy, not returned
+as-is), `data_product_id` genuinely reaches `_contract_path` (the bug fix), and non-fatal
+degradation on a missing registry factory, a provider exception, and a missing/malformed YAML
+file. `onboard_client.py`'s `_DP_COLS` gained `column_aliases` proactively (6th instance of the
+allow-list trap, added before a silent-NULL re-seed this time).
+
+**`business_terms`:** zero live readers of the YAML key anywhere, but the DATA was a genuine
+content gap, not dead weight — lubricants already has an equivalent (`EXTRA_GLOSSARY_TERMS` in
+`scripts/clients/lubricants.py`, seeded independently of this phase, using the already-Supabase-
+backed `business_glossary_terms` table), while apex_lubricants and hess had `EXTRA_GLOSSARY_TERMS
+= []` — their YAML's domain-specific dimension vocabulary (Hess: segment/basin/asset/country/
+business_unit/account_type/account_category; Apex: product_line/customer_segment/channel/
+profit_center/account_type/account_category) was never carried over. Backfilled both from their
+respective YAML `business_terms:` sections, in the same `{id, term, definition, domain, tags,
+technical_mappings}` shape lubricants already uses. This is a seed-data completeness fix using
+an existing mechanism, not a schema change — no migration needed. Confirmed no overlap with
+`CORE_GLOSSARY_TERMS` (the canonical, cross-client set) before adding: that set covers KPI-name
+terms (revenue, margin, ebitda, cogs, sga, yoy, qoq), not dimension-column terms.
+
+**`supported_business_processes`:** zero live readers, and the data itself is redundant —
+`DataProduct.related_business_processes` (an existing field) already carries the equivalent list
+for every seeded client (confirmed: hess's `related_business_processes` already covers 4 of the
+YAML's 6 entries; the other 2 are process names with no corresponding seeded business_process
+record at all, a separate and smaller gap not chased down here). No action needed.
+
+**`connection`:** zero live readers anywhere in `src/agents/**` (confirmed by grep, not assumed)
+— superseded by the proper `connection_profiles` mechanism (`src/config/connection_profiles.py`,
+`/api/v1/connection-profiles/`, an actual registry-backed table), which is what the live backend
+actually uses to reach Snowflake/SQL Server/BigQuery (see `scripts/validate_client_kpis.py`'s
+env-var-driven connection functions for the pattern actually in use). **Security note, not
+urgent but worth naming plainly:** `hess_financials.yaml`'s `connection:` block carries a
+plaintext password (`Agent9Test!2024` — the same local-Docker-default credential already visible
+elsewhere in this repo, e.g. `validate_client_kpis.py`'s `SS_PASSWORD` default, so not a secret
+being newly exposed here). Recommended action: **delete this block, don't migrate it**, when the
+YAML files are removed in step 5 — migrating a dead, insecure field into a new JSONB column would
+be a regression dressed up as progress.
+
+**Verified live:** re-ran `scripts/validate_client_kpis.py` against hess/apex_lubricants/
+lubricants after re-seeding — identical to step 3's results (5 needing attention on hess, all 5
+being the pre-existing out-of-scope NULL KPIs; 0 on apex/lubricants). 1436 unit tests pass (1427
++ 9 new).
+
+**Not yet done:** synced to production; steps 5–6. Step 5 now has a clearer scope than the plan
+originally assumed: delete `connection` (recommended above, not carried forward) alongside the
+YAML files themselves, rather than migrating it first.
 
 ---
 

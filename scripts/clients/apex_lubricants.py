@@ -109,6 +109,17 @@ DATA_PRODUCT = {
         "amount_column": "amount",
         "stored_sign": {"Revenue": "positive", "COGS": "negative", "SGA": "negative", "Other": "negative"},
     },
+    # Phase 16 step 4 (DEVELOPMENT_PLAN.md) -- ported from lubricants_
+    # snowflake.yaml's column_aliases: section. Never actually reached in
+    # practice (source_system=snowflake routes explicitly in
+    # generate_sql_for_kpi before this fallback), seeded anyway for
+    # consistency and so the registry is a complete substitute for the YAML.
+    "column_aliases": {
+        "measure": "amount",
+        "date": "transaction_date",
+        "version": "version",
+        "default_version_value": "Actual",
+    },
 }
 
 _DIMS = [
@@ -871,7 +882,52 @@ EXTRA_BUSINESS_PROCESSES: List[Dict[str, Any]] = [
     },
 ]
 
-EXTRA_GLOSSARY_TERMS: List[Dict[str, Any]] = []
+# Phase 16 step 4 (DEVELOPMENT_PLAN.md) -- ports lubricants_snowflake.yaml's
+# business_terms: section into the already-migrated, already-Supabase-backed
+# glossary mechanism (business_glossary_terms) instead of adding a new schema
+# field for it. Confirmed this data product's YAML business_terms/
+# supported_business_processes/connection sections have ZERO live readers
+# anywhere in src/agents/**; this was a genuine content gap (apex's dimension
+# vocabulary was never migrated, unlike lubricants' -- see lubricants.py's own
+# EXTRA_GLOSSARY_TERMS, seeded independently of this phase), not a schema gap.
+EXTRA_GLOSSARY_TERMS: List[Dict[str, Any]] = [
+    {
+        "id": "dim_product_line", "term": "Product Line",
+        "definition": "Product line (Engine Oils, Industrial Lubricants, etc.).",
+        "domain": "Product", "tags": ["dimension", "product"],
+        "technical_mappings": {"snowflake": "product_line"},
+    },
+    {
+        "id": "dim_customer_segment", "term": "Customer Segment",
+        "definition": "Customer segment (Retail Partners, Service Centers, Commercial Fleet, etc.).",
+        "domain": "Customer", "tags": ["dimension", "customer"],
+        "technical_mappings": {"snowflake": "customer_segment"},
+    },
+    {
+        "id": "dim_channel", "term": "Channel",
+        "definition": "Sales channel (DIY Retail, DIFM Service Centers, B2B Direct, E-Commerce, International).",
+        "domain": "Sales", "tags": ["dimension", "sales"],
+        "technical_mappings": {"snowflake": "channel_name"},
+    },
+    {
+        "id": "dim_profit_center", "term": "Profit Center",
+        "definition": "Profit center / business division.",
+        "domain": "Organization", "tags": ["dimension", "organization"],
+        "technical_mappings": {"snowflake": "profit_center_name"},
+    },
+    {
+        "id": "dim_account_type", "term": "Account Type",
+        "definition": "Account type (Revenue, COGS, SGA, Other).",
+        "domain": "Finance", "tags": ["dimension", "finance"],
+        "technical_mappings": {"snowflake": "account_type"},
+    },
+    {
+        "id": "dim_account_category", "term": "Account Category",
+        "definition": "Account category (Product Sales, Raw Materials, Distribution, etc.).",
+        "domain": "Finance", "tags": ["dimension", "finance"],
+        "technical_mappings": {"snowflake": "account_category"},
+    },
+]
 
 # ─── KPI Accountability ───────────────────────────────────────────────────────
 # Maps KPIs to the principal who is accountable for them.
