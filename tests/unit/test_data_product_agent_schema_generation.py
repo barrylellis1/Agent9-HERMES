@@ -181,6 +181,75 @@ def test_synthesize_falls_back_to_first_when_no_fact_table(agent):
 
 
 # ---------------------------------------------------------------------------
+# _synthesize_dimension_semantics — Phase 16 Onboarding item O3
+# (DEVELOPMENT_PLAN.md): schema profiling already tags columns 'dimension'
+# via _infer_semantic_tags; this was never written back to
+# DataProduct.dimension_semantics at registration — confirmed missing by
+# actually running the wizard live against hess before this fix landed.
+# ---------------------------------------------------------------------------
+
+def test_synthesize_dims_empty_when_nothing_tagged_dimension(agent):
+    tables = [TableProfile(name="t", columns=[_col("amount", "NUMBER", ["measure"])])]
+    assert agent._synthesize_dimension_semantics(tables) == []
+
+
+def test_synthesize_dims_collects_dimension_tagged_columns_in_profiled_order(agent):
+    table = TableProfile(
+        name="fact_sales",
+        columns=[
+            _col("transaction_id", "TEXT", ["identifier"]),
+            _col("product_line", "TEXT", ["dimension"]),
+            _col("amount", "NUMBER", ["measure"]),
+            _col("channel_name", "TEXT", ["dimension"]),
+            _col("transaction_date", "DATE", ["time"]),
+        ],
+    )
+    result = agent._synthesize_dimension_semantics([table])
+    # Profiled order preserved -- no re-ranking, matching the same "declared
+    # order is honoured verbatim" rule _dims_from_contract's own docstring
+    # states for however the list was produced.
+    assert result == ["product_line", "channel_name"]
+
+
+def test_synthesize_dims_prefers_fact_table_first_across_multiple_tables(agent):
+    dim_table = TableProfile(
+        name="dim_customer", table_role="DIMENSION",
+        columns=[_col("customer_segment", "TEXT", ["dimension"])],
+    )
+    fact_table = TableProfile(
+        name="fact_sales", table_role="FACT",
+        columns=[_col("product_line", "TEXT", ["dimension"])],
+    )
+    result = agent._synthesize_dimension_semantics([dim_table, fact_table])
+    assert result == ["product_line", "customer_segment"]
+
+
+def test_synthesize_dims_dedupes_same_column_name_across_tables(agent):
+    t1 = TableProfile(name="t1", columns=[_col("region", "TEXT", ["dimension"])])
+    t2 = TableProfile(name="t2", columns=[_col("region", "TEXT", ["dimension"])])
+    assert agent._synthesize_dimension_semantics([t1, t2]) == ["region"]
+
+
+def test_synthesize_dims_does_not_apply_the_da_ban_filter(agent):
+    """The ban-list (flags, _id, version, transaction_date, ...) is applied
+    at READ time by A9_Deep_Analysis_Agent._keep_contract_dim, uniformly
+    regardless of source (registry or YAML) -- this method must NOT
+    duplicate that filter, or the two copies will eventually drift."""
+    table = TableProfile(
+        name="t",
+        columns=[
+            _col("is_active_flag", "BOOLEAN", ["dimension"]),
+            _col("product_line", "TEXT", ["dimension"]),
+        ],
+    )
+    result = agent._synthesize_dimension_semantics([table])
+    assert result == ["is_active_flag", "product_line"], (
+        "both must pass through unfiltered -- DA's _keep_contract_dim is what "
+        "strips 'flag'-named columns later, not this method"
+    )
+
+
+# ---------------------------------------------------------------------------
 # _derive_tables_and_views
 # ---------------------------------------------------------------------------
 
@@ -227,6 +296,8 @@ async def test_register_data_product_populates_tables_views_time_dimensions(agen
             columns=[
                 _col("fiscal_year", "INTEGER", ["time"]),
                 _col("fiscal_period", "INTEGER", ["time"]),
+                _col("product_line", "TEXT", ["dimension"]),
+                _col("channel_name", "TEXT", ["dimension"]),
                 _col("amount", "NUMBER", ["measure"]),
             ],
             table_role="FACT",
@@ -247,6 +318,37 @@ async def test_register_data_product_populates_tables_views_time_dimensions(agen
     assert "LubricantsStarSchemaView" in entry["views"]
     assert entry["time_dimensions"][0]["type"] == "fiscal_year_period"
     assert entry["time_dimensions"][0]["primary"] is True
+    # Phase 16 Onboarding item O3 -- confirmed missing entirely before this
+    # fix (register_data_product never passed dimension_semantics to the
+    # DataProduct constructor at all, verified live against hess 2026-08-30).
+    assert entry["dimension_semantics"] == ["product_line", "channel_name"]
+
+
+@pytest.mark.asyncio
+async def test_register_data_product_empty_dimension_semantics_when_none_tagged(agent):
+    """No dimension-tagged columns -- registers cleanly with an empty list,
+    not a crash, and not a fabricated guess."""
+    agent.data_product_provider = MagicMock()
+    agent.data_product_provider.get.return_value = None
+    agent.data_product_provider.upsert = AsyncMock(return_value=True)
+    agent.data_product_provider.source_path = None
+
+    schema_summary = [
+        TableProfile(
+            name="t", columns=[_col("amount", "NUMBER", ["measure"])], table_role="FACT",
+        )
+    ]
+    request = DataProductRegistrationRequest(
+        request_id="req1", principal_id="admin_user", data_product_id="dp_test",
+        client_id="brookshire_brothers", source_system="snowflake",
+        display_name="Test", domain="Finance",
+        schema_summary=schema_summary,
+    )
+
+    response = await agent.register_data_product(request)
+
+    assert response.status == "success"
+    assert response.registry_entry["dimension_semantics"] == []
 
 
 # ---------------------------------------------------------------------------

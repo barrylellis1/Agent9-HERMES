@@ -854,6 +854,24 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     len(request.schema_summary),
                 )
 
+            # Phase 16 Onboarding item O3 (DEVELOPMENT_PLAN.md) — the ONE live
+            # contract read (A9_Deep_Analysis_Agent._dims_from_contract) came
+            # only from the registry (migrated clients) or a hand-authored
+            # YAML contract (everyone else); a data product registered
+            # through THIS wizard got neither, confirmed live 2026-08-30 by
+            # actually running it against hess. Detection material already
+            # existed (profiling already tags columns 'dimension'); this was
+            # purely a "never written back" gap, not a missing capability.
+            derived_dims = self._synthesize_dimension_semantics(request.schema_summary)
+            if request.schema_summary and not derived_dims:
+                self.logger.warning(
+                    "No dimension columns identified for '%s' from %d profiled table(s); "
+                    "Deep Analysis will have nothing to analyse by until dimension_semantics "
+                    "is set manually (see _dims_from_contract).",
+                    request.data_product_id,
+                    len(request.schema_summary),
+                )
+
             data_product = DataProduct(
                 id=request.data_product_id,
                 client_id=request.client_id,
@@ -866,6 +884,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 tables=derived_tables,
                 views=derived_views,
                 time_dimensions=derived_time_dims,
+                dimension_semantics=derived_dims,
                 metadata={
                     **(request.additional_metadata or {}),
                     "owner_metadata": request.owner_metadata or {},
@@ -2243,6 +2262,39 @@ class A9_Data_Product_Agent(DataProductProtocol):
             spec["primary"] = (i == primary_pos)
             result.append(spec)
         return result
+
+    def _synthesize_dimension_semantics(self, tables: List[TableProfile]) -> List[str]:
+        """Derive a dimension_semantics list from profiled column semantic_tags.
+
+        DEVELOPMENT_PLAN.md Phase 16, Onboarding item O3 — the raw material
+        already exists (schema profiling already tags every column
+        'dimension'/'measure'/'identifier'/'time' via _infer_semantic_tags;
+        the frontend already reads it back for KPIAssistantChat's
+        schemaMetadata.dimensions), it just was never written to
+        DataProduct.dimension_semantics at registration. This closes that
+        specific gap — confirmed missing by actually running the wizard live
+        against hess (see DEVELOPMENT_PLAN.md's "O6 run in miniature").
+
+        Declared order is profiling order, from a FACT-role table first when
+        one is identified (same precedence _synthesize_time_dimensions uses),
+        deduplicated across tables. No re-ranking and no ban-filtering here —
+        A9_Deep_Analysis_Agent._dims_from_contract/_keep_contract_dim already
+        applies the ban-list (flags, _id, version, transaction_date, ...) at
+        READ time, uniformly regardless of whether the list came from the
+        registry or the legacy YAML scan; duplicating that filter here would
+        just be a second copy of the same rule to keep in sync.
+        """
+        fact_tables = [t for t in tables if getattr(t, "table_role", None) == "FACT"]
+        other_tables = [t for t in tables if getattr(t, "table_role", None) != "FACT"]
+
+        seen: Set[str] = set()
+        ordered: List[str] = []
+        for table in fact_tables + other_tables:
+            for col in (table.columns or []):
+                if "dimension" in (col.semantic_tags or []) and col.name not in seen:
+                    seen.add(col.name)
+                    ordered.append(col.name)
+        return ordered
 
     def _derive_tables_and_views(
         self, tables: List[TableProfile]

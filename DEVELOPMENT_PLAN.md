@@ -2798,7 +2798,7 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 |---|---|---|
 | **O1** | 🟡 **Detection half DONE, live-verified 2026-08-30** — `register_data_product` already emits a correct `fiscal_year_period` shape without any wizard UI change. **Confirmation-by-the-user half NOT done** — the wizard never shows what it inferred or asks the admin to confirm it; a wrong inference (e.g. two similarly-named columns) would still ship silently | Detection is a reasonable default (a `fiscal_year` + `fiscal_period` column pair is a strong signal), but it must be **confirmed**, not assumed; the cost of getting it wrong is silent wrong windows |
 | **O2** | Collect `measure_semantics` — the sign of each measure/account type | Detectable by inspection: if every COGS row is negative, propose "negative" and ask. One question, once, replacing a per-KPI assumption |
-| **O3** | Emit `dimension_semantics` / `fallback_group_by_dimensions` | The candidate analysis dimensions. Related to Phase 15 Stage I's problem-profile-driven selection — the wizard should propose, the profile should rank |
+| **O3** | ✅ **`dimension_semantics` half DONE, live-verified 2026-08-30** (local Supabase). `register_data_product` now writes `dimension_semantics` from already-profiled `semantic_tags`, mirroring `_synthesize_time_dimensions`'s structure. `fallback_group_by_dimensions` still NOT emitted by the wizard (unrelated field, seed-data-only per step 1) | The candidate analysis dimensions. Related to Phase 15 Stage I's problem-profile-driven selection — the wizard should propose, the profile should rank |
 | **O4** | Replace `contract_yaml: str` with the typed contract object | Removes the last reason for the wizard to think in YAML at all |
 | **O5** | Completeness gate before "register" | Refuse to register a data product missing time semantics or measure semantics. **The onboarding wizard is where a bad contract is cheapest to stop**; every other guard in this plan catches it downstream, after it has already produced a number |
 | **O6** | Re-onboard one existing client through the fixed wizard | The only real proof. If lubricants cannot be reproduced through the UI, the wizard still cannot express a working contract |
@@ -2829,6 +2829,39 @@ about `time_dimensions` (struck through above) — the wizard already gets that 
 `_synthesize_time_dimensions`, discovered only by actually running it rather than trusting the
 2026-08-10 audit's characterization. Neither result was assumed; both came from reading back what
 Supabase actually stored after a real onboarding run.
+
+**O3 (`dimension_semantics` half) closed the same day, local only.** The raw material already
+existed — schema profiling already tags every column `'dimension'`/`'measure'`/`'identifier'`/
+`'time'` via `_infer_semantic_tags`, and the frontend already reads it back for
+`KPIAssistantChat`'s `schemaMetadata.dimensions` — it just was never written to
+`DataProduct.dimension_semantics` at registration. New `_synthesize_dimension_semantics(tables)`
+mirrors `_synthesize_time_dimensions`'s exact structure (FACT-table-first precedence, profiled
+order preserved, no re-ranking) and is now wired into `register_data_product`. Deliberately does
+**not** duplicate `A9_Deep_Analysis_Agent._keep_contract_dim`'s ban-list (flags, `_id`, `version`,
+`transaction_date`, ...) — that filter already runs uniformly at read time regardless of source,
+so this only needs to hand it the raw candidate list. Re-ran the same live wizard test against
+hess (`live-onboarding-hess-test.spec.ts`): `dimension_semantics` now populates with
+`["version", "currency", "account_name", "account_type", "account_category", "segment_name",
+"basin_name", "asset_name", "country", "region", "business_unit"]` — closely matching hess's own
+manually-seeded list; `version` gets correctly stripped by DA's ban-list at read time,
+`fiscal_year`/`fiscal_period` are correctly absent (tagged `'time'`, not `'dimension'`). 8 new/
+extended unit tests in `tests/unit/test_data_product_agent_schema_generation.py`. 1449 unit tests
+pass (1443 + 6 new — 2 of the 8 extend an existing test rather than add a new one).
+
+**A separate, pre-existing bug found in the same investigation, NOT fixed.** Every "Schema
+Discovery" wizard step calls `orchestrate_data_product_onboarding` unconditionally with
+`data_product_id='temp_discovery'`, which calls `register_data_product` unconditionally —
+meaning a junk `temp_discovery` data product gets registered into Supabase for whichever client
+is targeted, on every discovery run, forever. Found two stray rows this way (`brookshire_brothers`
+from 2026-07-24, `hess` from this session's own live testing); both deleted directly. The wizard
+itself is unchanged and will keep doing this. Flagged for a future fix — likely either skip
+registration entirely during the discovery-only call, or use a client-scoped ephemeral id that
+never lands in the real `data_products` table.
+
+**Not yet done:** `fallback_group_by_dimensions` (O3's other half — a different field, seed-data
+only, unrelated to this fix); O2 (`measure_semantics`, the field that actually caused the Hess
+sign bug — real new detection logic, not yet started); the `temp_discovery` junk-row bug above;
+synced to production.
 
 **Relationship to the existing Data Onboarding Refinement track** (below): that track is UI and workflow polish — chooser screen, wizard foundation, templates. This is a *content* gap in what the wizard produces, and it should be sequenced ahead of the polish. A better-looking wizard that still emits an incomplete contract is a faster way to a wrong briefing.
 
