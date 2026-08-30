@@ -3287,7 +3287,10 @@ dict; lubricants' returns `{}` as expected. 7 new unit tests
 `dimension_hierarchies` (7th instance of the explicit-allow-list trap this session, added
 proactively).
 
-**`exposed_columns` — migrated 2026-08-30, synced to production.** Named in the prior pass as
+**`exposed_columns` — migrated 2026-08-30, local Supabase only, not yet synced to production.**
+This work is on branch `phase17-theory-layer`, not yet merged to `master` — per this document's
+own Registry Data Sync Protocol, production sync happens after the push lands, not before. Named
+in the prior pass as
 "the clearest concrete next unit of step 5 work" and picked up here. `DataProduct
 .exposed_columns: Dict[str, List[str]]` (migration `20260830_data_products_exposed_columns.sql`),
 keyed by lowercased view name rather than a flat list — the pre-existing YAML-scan code already
@@ -3310,8 +3313,9 @@ Verified live against local Supabase: re-seeded all 4 clients, confirmed via dir
 each data product's `exposed_columns` matches its source YAML's `views[].llm_profile
 .exposed_columns` section exactly.
 
-**`dimension_semantics` backfilled for hess and apex_lubricants — 2026-08-30, synced to
-production.** Step 1 (2026-08-29) only ever migrated this for lubricants; checked directly by
+**`dimension_semantics` backfilled for hess and apex_lubricants — 2026-08-30, local Supabase
+only, not yet synced to production** (same reason as `exposed_columns` above — not yet merged to
+`master`). Step 1 (2026-08-29) only ever migrated this for lubricants; checked directly by
 grepping `scripts/clients/*.py` before writing this pass rather than trusting this document's own
 prior "hess is now the only non-lubricants client with either migrated" wording (which, read
 carefully, was about `dimension_hierarchies`, not `dimension_semantics` — hess had neither field
@@ -3357,11 +3361,10 @@ correction above — nothing left to migrate there); DGA's orchestrator-register
 utilities (#12/#13) traced and confirmed **dead code** — their only caller,
 `A9_Orchestrator_Agent.onboard_data_product`, has zero callers anywhere in `src/`, `scripts/`, the
 UI, or tests, so they are not a live blocker for deleting bicycle's YAML (separately worth
-deleting as dead code, not done here — out of scope for this pass). **Synced to production
-2026-08-30**: `exposed_columns` column + all 4 clients' seed data,
-`dimension_semantics` for hess/apex_lubricants. The audit/decision work (views collision, the
-14-site call inventory, the DGA dead-code trace) has no production counterpart to sync, it's
-documentation.
+deleting as dead code, not done here — out of scope for this pass). **Local Supabase only, NOT
+yet synced to production** (this work is on `phase17-theory-layer`, unmerged): `exposed_columns`
+column + all 4 clients' seed data, `dimension_semantics` for hess/apex_lubricants — sync once this
+phase's remaining work lands on `master`, per this document's own Registry Data Sync Protocol.
 
 ---
 
