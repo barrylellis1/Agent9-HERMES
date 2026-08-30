@@ -97,7 +97,19 @@ async def test_get_kpi_data_merges_principal_defaults(monkeypatch):
 async def test_generate_sql_ignores_all_tokens_in_filters():
     agent = await _get_dp_agent()
 
-    kpi_def = SimpleNamespace(name="Gross Revenue", data_product_id='FI_Star_Schema', view_name='FI_Star_View')
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30): this kpi_def used to
+    # resolve its measure column via _get_contract_column_aliases's YAML
+    # fallback, which -- when the registry had no matching entry, as here --
+    # silently defaulted to reading the bicycle fi_star_schema.yaml contract
+    # regardless of this KPI's own data_product_id (the same cross-tenant-
+    # fallback shape already fixed elsewhere this session). That YAML file no
+    # longer exists and the fallback was deleted, so base_column is now given
+    # explicitly -- also more realistic: real KPI definitions declare their
+    # measure column directly (see scripts/clients/*.py), not by coincidence.
+    kpi_def = SimpleNamespace(
+        name="Gross Revenue", data_product_id='FI_Star_Schema', view_name='FI_Star_View',
+        base_column='Transaction Value Amount',
+    )
 
     # Filter keys use the canonical view-column labels, exactly as real
     # principal default_filters do (see scripts/clients/*.py, e.g.

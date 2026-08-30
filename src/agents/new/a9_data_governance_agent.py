@@ -1111,36 +1111,19 @@ class A9_Data_Governance_Agent:
             checked_at=checked_at,
         )
 
-    # --- Registry Integrity Validation (per PRD) ---
-    def _contract_path(self) -> str:
-        """
-        Resolve contract path from the canonical registry_references location.
-        This ensures single source of truth for data product contracts.
-        """
-        try:
-            # Canonical path in registry_references (single source of truth)
-            canonical = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
-            if os.path.exists(canonical):
-                return canonical
-            
-            # Try from project root
-            here = os.path.dirname(__file__)
-            proj_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
-            abs_canonical = os.path.join(proj_root, canonical)
-            if os.path.exists(abs_canonical):
-                return abs_canonical
-            
-            return canonical
-        except Exception:
-            return "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
-
-    # Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30): _load_exposed_columns,
-    # validate_registry_integrity, and compute_and_persist_top_dimensions (the
-    # yaml.safe_load sites this card's "not yet added to this table" note and
-    # DEVELOPMENT_PLAN.md's step-5 audit both listed as "bicycle-only") were
-    # deleted here -- traced their only caller, A9_Orchestrator_Agent
-    # .onboard_data_product, and found it has zero callers anywhere in src/,
-    # scripts/, the UI, or tests. Confirmed dead, not merely narrow.
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30): _contract_path (the YAML
+    # contract-file resolver), _load_exposed_columns, validate_registry_integrity,
+    # and compute_and_persist_top_dimensions (the yaml.safe_load sites this card's
+    # "not yet added to this table" note and DEVELOPMENT_PLAN.md's step-5 audit
+    # both listed as "bicycle-only") were deleted here -- traced their only caller,
+    # A9_Orchestrator_Agent.onboard_data_product, and found it has zero callers
+    # anywhere in src/, scripts/, the UI, or tests. Confirmed dead, not merely
+    # narrow. The 8 legacy contract YAML files themselves
+    # (src/registry_references/data_product_registry/data_products/*.yaml) were
+    # deleted in the same pass, once DA's and DPA's remaining YAML fallback
+    # branches (a separate, bigger decision than this agent's dead code) were also
+    # confirmed safe to remove -- see A9_Deep_Analysis_Agent_card.md and
+    # A9_Data_Product_Agent_card.md.
 
 
 def create_data_governance_agent(config: Dict[str, Any] = None) -> A9_Data_Governance_Agent:

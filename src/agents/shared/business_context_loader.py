@@ -38,8 +38,14 @@ def load_business_context_from_yaml(file_path: str) -> A9_PS_BusinessContext:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Business context YAML not found: {file_path}")
 
+    # "business context" here is SF debate-persona framing (strategic_posture,
+    # tradeoff_weights), not KPI/principal/data-product/business-process registry
+    # data (CLAUDE.md rule 6's actual subject) -- a Supabase backend already
+    # exists and is tried first in try_load_business_context; this is its
+    # documented legacy fallback, not part of the Phase 16 data-product-contract
+    # cleanup. Flagged, not audited further, in case this distinction is revisited.
     with open(file_path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+        data = yaml.safe_load(f) or {}  # arch-allow-yaml-fallback
 
     if not isinstance(data, dict):
         raise ValueError("Business context YAML must define a mapping at the root")

@@ -17,9 +17,17 @@ ordering decided the entire investigation.
 The parallel literal on the hierarchical drill path (`vector_order`) is covered
 here too. It was inert only because no live contract happens to name a vector
 "customer"/"product"/"profit_center" — a trap for the first one that does.
+
+Registry-only as of Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30):
+`_dims_from_contract` no longer has a YAML-contract fallback (deleted along with
+the 8 legacy contract files once every real data product's
+DataProduct.dimension_semantics was confirmed populated). Fixtures below feed
+`_dims_from_registry` directly via mock rather than writing a YAML file to
+tmp_path and patching a now-deleted `_contract_path_for_kpi` — the ban-filter/
+dedup/ordering logic under test lives entirely in `_dims_from_contract` itself
+and is unaffected by where `all_dims` came from.
 """
 
-import textwrap
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -28,81 +36,33 @@ import pytest
 from src.agents.new.a9_deep_analysis_agent import A9_Deep_Analysis_Agent
 
 
-# Mirrors src/registry_references/.../lubricants_star_schema.yaml, whose
-# dimension_semantics block is grouped and commented Product -> Customer ->
-# Organization -> Channel -> Account -> Time.
-_LUBRICANTS_CONTRACT = textwrap.dedent(
-    """
-    metadata:
-      id: dp_lubricants_financials
-    views:
-      - name: LubricantsStarSchemaView
-        llm_profile:
-          dimension_semantics:
-            - "product_name"
-            - "product_line"
-            - "product_category"
-            - "customer_name"
-            - "customer_segment"
-            - "customer_region"
-            - "profit_center_name"
-            - "business_unit"
-            - "channel_name"
-            - "channel_type"
-            - "account_name"
-            - "account_type"
-            - "account_category"
-            - "account_group"
-            - "fiscal_year"
-            - "fiscal_period"
-            - "transaction_date"
-    """
-)
+# Mirrors the dimension_semantics list previously declared in
+# src/registry_references/.../lubricants_star_schema.yaml (deleted, Phase 16
+# step 5) — grouped Product -> Customer -> Organization -> Channel -> Account -> Time.
+_LUBRICANTS_DIMS = [
+    "product_name", "product_line", "product_category",
+    "customer_name", "customer_segment", "customer_region",
+    "profit_center_name", "business_unit",
+    "channel_name", "channel_type",
+    "account_name", "account_type", "account_category", "account_group",
+    "fiscal_year", "fiscal_period", "transaction_date",
+]
 
-_BANNED_CONTRACT = textwrap.dedent(
-    """
-    metadata:
-      id: dp_banned
-    views:
-      - name: V
-        llm_profile:
-          dimension_semantics:
-            - "product_line"
-            - "transaction_date"
-            - "customer_id"
-            - "is_active_flag"
-            - "account_hierarchy"
-            - "version"
-            - "Fiscal YTD"
-            - "customer_segment"
-    """
-)
+_BANNED_DIMS = [
+    "product_line", "transaction_date", "customer_id", "is_active_flag",
+    "account_hierarchy", "version", "Fiscal YTD", "customer_segment",
+]
 
-_DUPES_CONTRACT = textwrap.dedent(
-    """
-    metadata:
-      id: dp_dupes
-    views:
-      - name: V
-        llm_profile:
-          dimension_semantics:
-            - "product_line"
-            - "customer_segment"
-            - "product_line"
-            - "channel_name"
-    """
-)
+_DUPES_DIMS = ["product_line", "customer_segment", "product_line", "channel_name"]
 
 
 def _agent(**config):
     return A9_Deep_Analysis_Agent(config or {})
 
 
-def _with_contract(agent, yaml_text, tmp_path, name="contract.yaml"):
-    """Point _dims_from_contract at a contract fixture on disk."""
-    p = tmp_path / name
-    p.write_text(yaml_text, encoding="utf-8")
-    return patch.object(agent, "_contract_path_for_kpi", return_value=str(p))
+def _with_registry_dims(agent, dims):
+    """Feed _dims_from_contract via _dims_from_registry, its only source now."""
+    return patch.object(agent, "_dims_from_registry", return_value=list(dims))
 
 
 # ---------------------------------------------------------------------------
@@ -110,18 +70,19 @@ def _with_contract(agent, yaml_text, tmp_path, name="contract.yaml"):
 # ---------------------------------------------------------------------------
 
 
-def test_contract_declared_order_is_preserved_verbatim(tmp_path):
+def test_contract_declared_order_is_preserved_verbatim():
     """The regression that pins the literal's deletion.
 
     Under the old `preferred` literal this returned profit_center_name first.
-    The lubricants contract declares products first, and that is what must win.
+    The lubricants data product declares products first, and that is what
+    must win.
     """
     agent = _agent()
-    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path):
+    with _with_registry_dims(agent, _LUBRICANTS_DIMS):
         dims = agent._dims_from_contract(limit=15, kpi_name="gross_margin_pct", client_id="lubricants")
 
     assert dims[0] == "product_name", (
-        "contract declares product dimensions first; a hardcoded preference list "
+        "registry declares product dimensions first; a hardcoded preference list "
         "must not reorder it"
     )
     assert dims[:6] == [
@@ -136,13 +97,13 @@ def test_contract_declared_order_is_preserved_verbatim(tmp_path):
     assert dims.index("product_name") < dims.index("profit_center_name")
 
 
-def test_top_ten_covers_product_customer_org_and_channel(tmp_path):
+def test_top_ten_covers_product_customer_org_and_channel():
     """With max_dimensions=10 the analyzed set spans every business grouping.
 
-    Documents what the cap actually buys on the live lubricants contract.
+    Documents what the cap actually buys on the live lubricants data product.
     """
     agent = _agent()
-    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path):
+    with _with_registry_dims(agent, _LUBRICANTS_DIMS):
         dims = agent._dims_from_contract(limit=15, kpi_name="gross_margin_pct", client_id="lubricants")
 
     top10 = dims[:10]
@@ -152,9 +113,9 @@ def test_top_ten_covers_product_customer_org_and_channel(tmp_path):
     assert "channel_name" in top10
 
 
-def test_limit_truncates_from_the_front(tmp_path):
+def test_limit_truncates_from_the_front():
     agent = _agent()
-    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path):
+    with _with_registry_dims(agent, _LUBRICANTS_DIMS):
         five = agent._dims_from_contract(limit=5, kpi_name="k", client_id="lubricants")
         fifteen = agent._dims_from_contract(limit=15, kpi_name="k", client_id="lubricants")
 
@@ -167,9 +128,9 @@ def test_limit_truncates_from_the_front(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_ban_filter_still_removes_non_dimensional_columns(tmp_path):
+def test_ban_filter_still_removes_non_dimensional_columns():
     agent = _agent()
-    with _with_contract(agent, _BANNED_CONTRACT, tmp_path):
+    with _with_registry_dims(agent, _BANNED_DIMS):
         dims = agent._dims_from_contract(limit=15, kpi_name="k", client_id="c")
 
     assert dims == ["product_line", "customer_segment"]
@@ -178,53 +139,39 @@ def test_ban_filter_still_removes_non_dimensional_columns(tmp_path):
         assert banned not in dims
 
 
-def test_declared_duplicates_are_collapsed(tmp_path):
+def test_declared_duplicates_are_collapsed():
     agent = _agent()
-    with _with_contract(agent, _DUPES_CONTRACT, tmp_path):
+    with _with_registry_dims(agent, _DUPES_DIMS):
         dims = agent._dims_from_contract(limit=15, kpi_name="k", client_id="c")
 
     assert dims == ["product_line", "customer_segment", "channel_name"]
 
 
 # ---------------------------------------------------------------------------
-# Phase 16 step 1 (DEVELOPMENT_PLAN.md) — registry-first, YAML fallback
+# Phase 16 step 5 (DEVELOPMENT_PLAN.md) — registry-only, no YAML fallback
 # ---------------------------------------------------------------------------
 
 
-def test_registry_dimension_semantics_wins_over_yaml_when_present(tmp_path):
-    """A migrated data product (DataProduct.dimension_semantics populated in
-    Supabase) must be used INSTEAD of the YAML contract, even when a YAML
-    file also exists and would produce a different order — proves the
-    registry path is actually consulted first, not just present in code."""
+def test_registry_dims_pass_through_the_ban_filter():
     agent = _agent()
-    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path), \
-         patch.object(agent, "_dims_from_registry", return_value=["channel_name", "product_line"]):
-        dims = agent._dims_from_contract(limit=15, kpi_name="gross_margin_pct", client_id="lubricants")
-
-    assert dims == ["channel_name", "product_line"], (
-        "registry order must win — the YAML fixture declares product_name first, "
-        "so seeing that here would mean the YAML path ran instead of the registry one"
-    )
-
-
-def test_registry_dims_still_pass_through_the_ban_filter(tmp_path):
-    agent = _agent()
-    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path), \
-         patch.object(agent, "_dims_from_registry", return_value=["product_line", "transaction_date", "customer_id"]):
+    with patch.object(agent, "_dims_from_registry",
+                       return_value=["product_line", "transaction_date", "customer_id"]):
         dims = agent._dims_from_contract(limit=15, kpi_name="k", client_id="lubricants")
 
     assert dims == ["product_line"]
 
 
-def test_empty_registry_falls_back_to_yaml_unchanged(tmp_path):
-    """Not-yet-migrated clients (hess, apex_lubricants, bicycle) must see
-    byte-identical behaviour to before this change."""
+def test_empty_registry_yields_empty_no_yaml_fallback():
+    """A data product with nothing declared in the registry yields [] — there
+    is no legacy YAML contract left to fall back to (Phase 16 step 5 deleted
+    it). This is the correct failure mode: a genuine gap surfaces as an empty
+    dimension list, not a silently-guessed default from another tenant's
+    contract."""
     agent = _agent()
-    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path), \
-         patch.object(agent, "_dims_from_registry", return_value=[]):
+    with patch.object(agent, "_dims_from_registry", return_value=[]):
         dims = agent._dims_from_contract(limit=15, kpi_name="gross_margin_pct", client_id="hess")
 
-    assert dims[0] == "product_name"
+    assert dims == []
 
 
 def test_dims_from_registry_returns_empty_when_kpi_unresolvable():
@@ -249,13 +196,6 @@ def test_dims_from_registry_never_raises_on_provider_exception():
          patch("src.registry.factory.RegistryFactory") as MockFactory:
         MockFactory.return_value.get_provider.return_value.get.side_effect = RuntimeError("boom")
         assert agent._dims_from_registry(kpi_name="k", client_id="c") == []
-
-
-def test_missing_contract_returns_empty_not_a_default(tmp_path):
-    """A scoped miss must not fall back to another tenant's dimension names."""
-    agent = _agent()
-    with patch.object(agent, "_contract_path_for_kpi", return_value=""):
-        assert agent._dims_from_contract(limit=15, kpi_name="k", client_id="c") == []
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +231,7 @@ def test_vector_order_follows_declared_hierarchy_order():
 
 
 @pytest.mark.asyncio
-async def test_plan_records_rank_source_and_considered_set(tmp_path):
+async def test_plan_records_rank_source_and_considered_set():
     agent = _agent()
     from src.agents.models.deep_analysis_models import DeepAnalysisRequest
 
@@ -302,7 +242,7 @@ async def test_plan_records_rank_source_and_considered_set(tmp_path):
         client_id="lubricants",
         timeframe="year_to_date",
     )
-    with _with_contract(agent, _LUBRICANTS_CONTRACT, tmp_path):
+    with _with_registry_dims(agent, _LUBRICANTS_DIMS):
         resp = await agent.plan_deep_analysis(req)
 
     plan = resp.plan

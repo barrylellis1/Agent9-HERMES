@@ -286,18 +286,21 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         # Optional: orchestrator not stored; agents are resolved in connect()
 
     # --- Helpers -----------------------------------------------------------
-    _CONTRACTS_DIR = "src/registry_references/data_product_registry/data_products"
-    _FALLBACK_CONTRACT = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
-
-    def _contract_path(self) -> str:
-        """Return the default (bicycle FI) contract path. Use _contract_path_for_kpi() when a KPI name is known."""
-        canonical = self._FALLBACK_CONTRACT
-        if os.path.exists(canonical):
-            return canonical
-        here = os.path.dirname(__file__)
-        proj_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
-        abs_canonical = os.path.join(proj_root, canonical)
-        return abs_canonical if os.path.exists(abs_canonical) else canonical
+    # Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30): _contract_path and
+    # _contract_path_for_kpi (the YAML-contract-file resolvers) were deleted here,
+    # along with the 8 legacy contract YAML files themselves
+    # (src/registry_references/data_product_registry/data_products/*.yaml) and the
+    # yaml.safe_load fallback branches in _dims_from_contract/_hierarchies_from_contract
+    # below that used them. Verified live before deleting: all 4 real data products
+    # (dp_lubricants_financials, dp_hess_financials, dp_lubricants_snowflake,
+    # fi_star_schema) have complete DataProduct.dimension_semantics/
+    # dimension_hierarchies in the registry as of this session's backfill, so
+    # _dims_from_registry/_hierarchies_from_registry always return non-empty for
+    # them and the YAML fallback was already unreachable. The one data product with
+    # empty registry fields (dp_lubricants_sales, 5 Sales KPIs) was ALSO already
+    # unserved by the YAML fallback -- none of the 8 files' metadata.id matched it,
+    # so _contract_path_for_kpi always returned "" for it; deleting the fallback
+    # changes nothing for that data product either (empty list, same as before).
 
     def _lookup_kpi_scoped(self, kpi_ref: Optional[str], client_id: Optional[str]):
         """
@@ -341,48 +344,6 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         except Exception as e:
             self.logger.debug(f"_lookup_kpi_scoped('{kpi_ref}', client_id={client_id}) failed: {e}")
             return None
-
-    def _contract_path_for_kpi(self, kpi_name: str = None, client_id: str = None) -> str:
-        """
-        Resolve the data product contract path for a given KPI id or name.
-        Looks up the KPI's data_product_id in the Supabase registry (tenant-scoped)
-        and scans the contracts directory for a matching YAML.
-
-        Fallback rules:
-        - client_id known but KPI unresolvable → "" (no contract; downstream dim
-          fallbacks take over). NEVER the bicycle FI contract — that leaks another
-          client's dimension names into the plan.
-        - no client_id (legacy single-tenant path) → bicycle FI contract default.
-        """
-        try:
-            if not kpi_name:
-                return self._contract_path()
-            kpi_def = self._lookup_kpi_scoped(kpi_name, client_id)
-            if kpi_def is None and client_id:
-                return ""
-            data_product_id = getattr(kpi_def, "data_product_id", None) if kpi_def else None
-
-            if data_product_id:
-                # Scan contracts directory for a YAML whose metadata.id matches
-                import glob as _glob
-                contracts_dir = self._CONTRACTS_DIR
-                if not os.path.isabs(contracts_dir) and not os.path.exists(contracts_dir):
-                    here = os.path.dirname(__file__)
-                    contracts_dir = os.path.abspath(os.path.join(here, "..", "..", "..", contracts_dir))
-                for fpath in _glob.glob(os.path.join(contracts_dir, "*.yaml")):
-                    try:
-                        with open(fpath, "r", encoding="utf-8") as f:
-                            doc = yaml.safe_load(f) or {}
-                        if (doc.get("metadata") or {}).get("id") == data_product_id:
-                            return fpath
-                    except Exception:
-                        continue
-                # No contract YAML found for this data product — return empty string so
-                # _dims_from_contract returns [] and the KPI registry fallback takes over.
-                return ""
-        except Exception as e:
-            self.logger.debug(f"_contract_path_for_kpi error: {e}")
-        return self._contract_path()
 
     @staticmethod
     def _keep_contract_dim(lbl: str) -> bool:
@@ -456,31 +417,15 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         contract-authoring problem instead of being masked by a literal that
         happened to name a few good dimensions for two clients.
 
-        Registry-first as of Phase 16 step 1 (DEVELOPMENT_PLAN.md): reads
-        DataProduct.dimension_semantics (Supabase) when the client's data
-        product has been migrated off the YAML contract; falls back to the
-        legacy YAML scan otherwise, so hess/apex_lubricants/bicycle (not yet
-        migrated) see byte-identical behaviour to before this change.
+        Registry-only as of Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30): reads
+        DataProduct.dimension_semantics (Supabase). The legacy YAML-contract fallback
+        was deleted once every real data product's registry record was confirmed
+        complete — see the module-level note above this class's helpers section for
+        the verification. A data product with nothing declared here (or KPI
+        registration itself unresolvable) yields [], not a silent guess.
         """
         try:
             all_dims = self._dims_from_registry(kpi_name, client_id=client_id)
-            if not all_dims:
-                cpath = self._contract_path_for_kpi(kpi_name, client_id=client_id)
-                if not os.path.exists(cpath):
-                    return []
-                with open(cpath, "r", encoding="utf-8") as f:
-                    doc = yaml.safe_load(f)
-                views = (doc or {}).get("views", [])
-                # Use the first view found (contract may have only one view)
-                target = None
-                for v in views:
-                    if isinstance(v, dict) and v.get("llm_profile"):
-                        target = v
-                        break
-                if not isinstance(target, dict):
-                    return []
-                llm_profile = target.get("llm_profile", {}) or {}
-                all_dims = llm_profile.get("dimension_semantics", []) or []
             kept = [d for d in all_dims if self._keep_contract_dim(str(d))]
             # Declared order, de-duplicated. No re-ranking: see the docstring.
             out: List[str] = list(dict.fromkeys(kept))
@@ -1213,40 +1158,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             return float(m.pop(_ROLLUP_TOTAL_KEY))
                         return None
 
-                    # Helper: read dimension hierarchies from contract (if provided).
-                    # Registry-first as of Phase 16 step 5 (DEVELOPMENT_PLAN.md): tries
-                    # DataProduct.dimension_hierarchies before falling back to the legacy
-                    # YAML scan, same posture as _dims_from_contract (step 1).
+                    # Helper: read dimension hierarchies from the registry.
+                    # Registry-only as of Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30):
+                    # the legacy YAML-contract fallback was deleted once every real data
+                    # product's registry record was confirmed complete (see the note above
+                    # _dims_from_contract). A data product that never declared hierarchies
+                    # yields {}, which correctly keeps this KPI on the flat dimension-ranking
+                    # path rather than the hierarchical-drill one.
                     def _hierarchies_from_contract() -> Dict[str, List[str]]:
-                        registry_hier = self._hierarchies_from_registry(
+                        return self._hierarchies_from_registry(
                             getattr(plan, "kpi_name", None), client_id=getattr(plan, "client_id", None)
                         )
-                        if registry_hier:
-                            return registry_hier
-                        try:
-                            cpath = self._contract_path_for_kpi(getattr(plan, "kpi_name", None), client_id=getattr(plan, "client_id", None))
-                            if not os.path.exists(cpath):
-                                return {}
-                            with open(cpath, "r", encoding="utf-8") as f:
-                                doc = yaml.safe_load(f)
-                            views = (doc or {}).get("views", [])
-                            target = None
-                            for v in views:
-                                if isinstance(v, dict) and v.get("llm_profile"):
-                                    target = v
-                                    break
-                            if not isinstance(target, dict):
-                                return {}
-                            llm_profile = target.get("llm_profile", {}) or {}
-                            hier = llm_profile.get("dimension_hierarchies") or {}
-                            out: Dict[str, List[str]] = {}
-                            if isinstance(hier, dict):
-                                for k, v in hier.items():
-                                    if isinstance(v, list):
-                                        out[str(k)] = [str(x) for x in v if x]
-                            return out
-                        except Exception:
-                            return {}
 
                     # Helper: pick a threshold spec from KPI registry (default to timeframe comparator)
                     def _pick_threshold_spec() -> Dict[str, Any]:

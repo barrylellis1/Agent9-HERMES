@@ -17,6 +17,19 @@ BANNED_AGENT_PATTERNS = [
     (re.compile(r"duckdb\s*\.\s*connect\s*\("), None, "Use database manager abstraction instead of direct duckdb.connect in agents."),
     (re.compile(r"sqlite3\s*\.\s*connect\s*\("), None, "Avoid direct sqlite3.connect in agents; use centralized data access abstraction."),
     (re.compile(r"\bexecute\s*\("), "arch-allow-execute", "Direct execute() calls are not allowed in agents; use database manager abstraction."),
+    # Phase 16 step 6 (DEVELOPMENT_PLAN.md, 2026-08-30): makes CLAUDE.md rule 6
+    # ("NEVER use yaml.safe_load() in agent files to load KPIs, principals, data
+    # products, or business processes") enforceable rather than aspirational.
+    # Every data-product-contract yaml.safe_load call site in src/agents/** was
+    # deleted or moved registry-first as part of Phase 16 steps 1-5 before this
+    # check was added -- see A9_Deep_Analysis_Agent_card.md and
+    # A9_Data_Product_Agent_card.md. The two remaining call sites at the time
+    # this landed (src/agents/shared/business_context_loader.py,
+    # src/agents/new/a9_llm_service_agent.py's ad-hoc NL-to-SQL profile parsing)
+    # are allow-listed inline with arch-allow-yaml-fallback -- neither is a
+    # registry-data (KPI/principal/data-product/business-process) fallback in
+    # rule 6's sense, but flagged there for anyone auditing this rule next.
+    (re.compile(r"yaml\.safe_load\s*\("), "arch-allow-yaml-fallback", "yaml.safe_load is banned in agent files per CLAUDE.md rule 6 (registry data must come from Supabase, not a YAML fallback) -- see DEVELOPMENT_PLAN.md Phase 16 step 6."),
 ]
 
 # Tests may not directly instantiate agents (use orchestrator/registry-driven creation)

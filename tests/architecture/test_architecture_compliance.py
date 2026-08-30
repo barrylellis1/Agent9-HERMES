@@ -25,6 +25,13 @@ BANNED_AGENT_PATTERNS = [
     # CSV ingestion must not occur in agents; allow suppression with '# arch-allow-read_csv'
     (re.compile(r"(pandas|pd)\s*\.\s*read_csv\s*\("), "arch-allow-read_csv"),
     (re.compile(r"sqlite3\s*\.\s*connect\s*\("), None),
+    # Phase 16 step 6 (DEVELOPMENT_PLAN.md, 2026-08-30): CLAUDE.md rule 6 ("NEVER
+    # use yaml.safe_load() in agent files to load KPIs, principals, data products,
+    # or business processes"), mirrored here alongside scripts/architecture_lint.py's
+    # copy of the same check. Suppress with '# arch-allow-yaml-fallback' only for a
+    # genuinely different concern than registry data (see the two allow-listed call
+    # sites: business_context_loader.py, a9_llm_service_agent.py).
+    (re.compile(r"yaml\.safe_load\s*\("), "arch-allow-yaml-fallback"),
 ]
 
 # Tests may not directly instantiate agent classes (must use orchestrator/registry)
@@ -69,9 +76,9 @@ def test_no_banned_db_patterns_in_agents():
                         continue  # suppressed intentionally
                     violations.append((str(py), i, stripped))
     assert not violations, (
-        "Direct DB/CSV patterns are not allowed in agents. Use MCP client/service instead.\n"
-        "Examples: duckdb.connect, .execute(), pandas.read_csv, sqlite3.connect\n"
-        "Add '# arch-allow-execute' or '# arch-allow-read_csv' inline to suppress where appropriate.\n"
+        "Direct DB/CSV/YAML-registry patterns are not allowed in agents. Use MCP client/service or RegistryFactory instead.\n"
+        "Examples: duckdb.connect, .execute(), pandas.read_csv, sqlite3.connect, yaml.safe_load\n"
+        "Add '# arch-allow-execute', '# arch-allow-read_csv', or '# arch-allow-yaml-fallback' inline to suppress where appropriate.\n"
         "Violations:\n" + "\n".join(f"{p}:{ln} :: {src}" for p, ln, src in violations)
     )
 

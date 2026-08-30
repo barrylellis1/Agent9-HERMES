@@ -232,11 +232,23 @@ via already-dead callers once actually traced to their real entry points:
   no-op. The method still runs and still calls the LLM service — just without a profile
   to enrich the prompt with, exactly the behaviour observed at runtime before this edit.
 
-**Not touched in this pass:** `_get_contract_column_aliases`'s and `_get_exposed_columns`'s
-YAML fallback branches (`a9_data_product_agent.py` ~3378/~3473) — unlike the sites above,
-these remain genuinely reachable as a fallback for any client not yet migrated to the
-registry field, so deleting them is a different, higher-consequence decision than deleting
-zero-caller dead code; deferred pending the 12 YAML files' actual deletion.
+**Update, same day (2026-08-30) — the deferred decision above was made: registry-ONLY now.**
+Once `dimension_semantics` was backfilled for hess/apex_lubricants and `exposed_columns` was
+migrated for all 4 real data products (verified live via direct query, not assumed),
+`_get_contract_column_aliases`'s and `_get_exposed_columns`'s YAML fallback branches were
+confirmed provably unreachable and deleted, along with `_contract_path` (the YAML-contract-file
+resolver, used only by those two methods) and the 8 legacy contract YAML files themselves
+(`src/registry_references/data_product_registry/data_products/*.yaml` — 8 on disk, not the 12
+the original 2026-08-10 finding counted). Both methods now return `{}`/`None` directly when the
+registry has nothing, the same result the YAML fallback produced for an unmigrated client
+before — no behavioural change for any real client, since none of them ever needed the fallback
+by this point. See `A9_Deep_Analysis_Agent_card.md`'s matching entry for the DA-side deletion
+and `dp_lubricants_sales`'s pre-existing, unaffected gap (its registry fields are still empty,
+but the YAML fallback never served it either — none of the 8 files' `metadata.id` ever matched
+it). New architecture-lint rule bans `yaml.safe_load(` in `src/agents/**` going forward
+(Phase 16 step 6) — see that same DA card entry for the two allow-listed exceptions outside
+this cleanup's scope. Tests rewritten for registry-only behaviour:
+`test_dpa_column_aliases_registry.py`, `test_dpa_exposed_columns_registry.py`.
 
 Verified: 1484 unit tests pass, unchanged (none of the deleted code was exercised by the
 unit suite — both affected test files outside `tests/unit/` were updated:

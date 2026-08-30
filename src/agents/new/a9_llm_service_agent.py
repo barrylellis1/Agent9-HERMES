@@ -1,5 +1,8 @@
 """
 A9_LLM_Service_Agent - Centralized LLM operations for Agent9-HERMES.
+# doc-sync-skip: Phase 16 step 6 (2026-08-30) added one inline comment +
+# allow-token on an existing yaml.safe_load call (generate_sql's dead ad-hoc
+# NL-to-SQL profile parsing) -- no capability change, no PRD update warranted.
 
 This agent provides a standardized interface for all LLM operations,
 enforces guardrails, applies prompt templates, and manages provider connections.
@@ -953,7 +956,15 @@ Also include an overall "rationale" field explaining your reasoning process.
             profile_guidance = ""
             try:
                 if yaml_context:
-                    ydoc = yaml.safe_load(yaml_context)
+                    # Parses a caller-supplied text blob (request.yaml_contract), not a
+                    # registry read -- not the KPI/principal/data-product/business-process
+                    # fallback CLAUDE.md rule 6 / Phase 16 step 6 target. Feeds the ad-hoc
+                    # NL-to-SQL path, explicitly deprioritized per project_product_direction
+                    # ("don't build NL-to-SQL"); its one live caller
+                    # (A9_Data_Product_Agent.generate_sql) never populates yaml_contract
+                    # with real content as of Phase 16 step 5, so this is currently a no-op
+                    # in practice, kept for a future caller that might supply one.
+                    ydoc = yaml.safe_load(yaml_context)  # arch-allow-yaml-fallback
                     if isinstance(ydoc, dict):
                         view_name = ydoc.get('view_name') or request.data_product_id
                         llm_profile = ydoc.get('llm_profile')

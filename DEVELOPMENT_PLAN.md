@@ -2669,7 +2669,7 @@ cross-references than it fixes. Both headers now carry a disambiguation note ins
 
 ---
 
-#### Status as of 2026-08-30 — steps 1–4 shipped and live; step 5 partial; wrapping up here
+#### Status as of 2026-08-30 (end of day) — all 6 steps done; phase complete
 
 Everything below that shipped in steps 1–4, plus O3 and the `discovery_only` fix, is **synced to
 production** as of 2026-08-30: 4 migrations applied directly to the production `data_products`
@@ -2692,13 +2692,17 @@ confirmation card in the wizard UI, also live-verified end to end (screenshot ca
 unit tests across both pieces. **Still local Supabase only, not yet synced to production** — see
 its own write-up below for the full detail.
 
-**What remains, explicitly not attempted in this pass:** step 5 is genuinely partial — the 12
-legacy YAML contract files are NOT yet safe to delete (`exposed_columns` and, for
-apex_lubricants/bicycle, `dimension_semantics` itself are still live-read from them); step 6
-(the architecture test banning `yaml.safe_load` in `src/agents/**`) can't land until step 5
-finishes; O5's completeness gate (depends on O2 meaning something
-first). These are real, tracked next steps for whenever this phase resumes — not silently
-dropped.
+**Update, later the same day (2026-08-30) — steps 5 and 6 also done.** The paragraph above was
+accurate when first written; superseded within the same session. `exposed_columns` was migrated,
+`dimension_semantics` was backfilled for apex_lubricants/bicycle (and hess, which turned out to
+be missing it too), every confirmed-dead `yaml.safe_load` call site was deleted, DA's/DPA's
+remaining YAML fallback branches were confirmed unreachable for every real client and deleted,
+the 8 legacy contract YAML files were deleted from disk, and step 6's architecture test now bans
+`yaml.safe_load(` in `src/agents/**` going forward. See the Step 5 subsection below for the full
+detail — this phase's YAML → registry migration is complete. **Still open, not part of this
+phase's scope:** O5's completeness gate (depends on O2 meaning something first — separate
+Onboarding work, not blocked on anything closed here); `dp_lubricants_sales`'s empty registry
+fields (pre-existing, unaffected by this cleanup — see the Step 5 subsection).
 
 **Follow-up surfaced during this phase's production sync, unrelated to data product contracts —
 tracked here rather than lost:** the backend has no real custom domain (`api.decision-studios.com`
@@ -2994,8 +2998,8 @@ production (local Supabase only as of this writing).
 | **2** | ✅ **DONE (2026-08-29, all three financial data products; synced to production 2026-08-30).** Added `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
 | **3** | ✅ **DONE (2026-08-29, synced to production 2026-08-30).** Corrected all 5 Hess KPIs against the declared convention; re-validated live | Fixes real wrong output, now expressed as data rather than code |
 | **4** | ✅ **DONE (2026-08-29, synced to production 2026-08-30) — scope revised on investigation, see Step 4 subsection below.** Of the four sections, only `column_aliases` needed a new registry field; `business_terms`/`supported_business_processes` had zero live readers and already-migrated equivalents (backfilled as data, not schema); `connection` is dead and insecure, recommended for deletion at step 5 | The remaining sections; lower risk once the pattern exists |
-| **5** | 🟡 **PARTIAL, updated 2026-08-30.** Full audit of every `yaml.safe_load` call site done; `views` shape collision resolved as a decision; `dimension_hierarchies`/`dimension_semantics`/`exposed_columns` migrated for every client that declares them; every confirmed-dead call site (#4/#5/#6/#7/#8, plus the DGA sites #12/#13) actually **deleted**, not just marked dead. **Still blocking file deletion:** DA's/DPA's genuinely-live YAML fallback branches (`_dims_from_contract`, `_hierarchies_from_contract`, `_get_contract_column_aliases`, `_get_exposed_columns`) — a bigger decision than the dead-code deletion, not yet made. See Step 5 subsection below | Only safe once nothing reads them |
-| **6** | Architecture test: no `yaml.safe_load` in `src/agents/**` — blocked on Step 5's remaining fallback-branch decision above | Makes the rule in CLAUDE.md enforceable rather than aspirational |
+| **5** | ✅ **DONE 2026-08-30.** Full audit of every `yaml.safe_load` call site done; `views` shape collision resolved as a decision; `dimension_hierarchies`/`dimension_semantics`/`exposed_columns` migrated for every client that declares them; every dead call site deleted (not just marked dead); DA's/DPA's remaining YAML fallback branches confirmed unreachable for every real client and deleted; the 8 legacy contract YAML files deleted from disk | Only safe once nothing reads them — confirmed live, not assumed |
+| **6** | ✅ **DONE 2026-08-30.** `yaml.safe_load(` banned in `src/agents/**` via `scripts/architecture_lint.py` (pre-commit) + `tests/architecture/test_architecture_compliance.py`, both enforcing the same pattern; 2 pre-existing, out-of-scope call sites allow-listed inline (`business_context_loader.py`, `a9_llm_service_agent.py`) | Makes the rule in CLAUDE.md enforceable rather than aspirational |
 
 **Onboarding (O1–O6 above) interleaves here:** O1–O3 land with steps 1–2, since the wizard needs somewhere to write those fields; O5's completeness gate lands with step 4; O6 — re-onboarding an existing client through the wizard — is the acceptance test for the phase.
 
@@ -3383,19 +3387,44 @@ skip-if-view-missing check. Cards updated: `A9_Orchestrator_Agent_card.md`,
 `A9_Data_Product_Agent_card.md`, `A9_Data_Governance_Agent_card.md`. 1484 unit tests pass,
 unchanged — none of the deleted code was exercised by the unit suite.
 
-**Not resolved by this deletion pass — a different, bigger decision, not yet made:**
-`_get_contract_column_aliases`'s and `_get_exposed_columns`'s YAML fallback branches (DPA), and
+**Update, same day (2026-08-30) — the bigger decision was made and executed.** Verified live
+(direct query, not assumed) that all 4 real data products
+(`dp_lubricants_financials`/`dp_hess_financials`/`dp_lubricants_snowflake`/`fi_star_schema`) have
+complete registry records for every field the YAML fallbacks would otherwise read. That made
+`_get_contract_column_aliases`'s and `_get_exposed_columns`'s YAML fallback branches (DPA) and
 `_dims_from_contract`/`_hierarchies_from_contract`'s YAML fallback branches (DA, including
-`_contract_path_for_kpi`) remain in place. These are NOT zero-caller dead code the way everything
-above was — they're a live fallback DA runs on *every* Deep Analysis call, genuinely reachable
-for any client not yet migrated to the registry field. Worth noting: after this session's
-backfill work, all 4 real seeded clients (lubricants/apex_lubricants/hess/bicycle) now have
-complete registry data for every field these fallbacks would otherwise read — meaning the YAML
-files may be safe to delete for the clients that currently exist, but removing the fallback CODE
-itself is a materially bigger change to DA's core, heavily-exercised dimension-selection path
-than anything deleted in this pass, and deserves its own explicit decision before being
-attempted. `connection`'s deletion from the YAML files (step 4's recommendation) is bundled into
-that same eventual file-deletion pass rather than done piecemeal.
+`_contract_path_for_kpi`) provably unreachable for every real client, so they were deleted —
+same pass as `_contract_path`/`_contract_path_for_kpi` (the resolvers only those branches used)
+and the 8 legacy contract YAML files themselves (turned out to be 8 on disk, not the 12 the
+original 2026-08-10 finding counted — 4 were already-orphaned fixtures never matched to any
+live `data_product_id`: `dp_lubricants_sqlserver`, `SalesOrderStarSchemaView`,
+`dp_sales_analytics_009`, `sales_star_schema`). `connection`'s deletion from the YAML files
+(step 4's recommendation) went with them, since the whole files are gone.
+
+**One data product's registry fields are still empty** — `dp_lubricants_sales` (the 5 Sales
+KPIs). Checked before deleting anything: none of the 8 YAML files' `metadata.id` ever matched
+it either, so its YAML fallback always returned nothing too. Deleting the fallback changes
+nothing for this data product — same empty result, same underlying gap, not a new regression.
+Backfilling it is a separate, pre-existing task, not part of this cleanup.
+
+Step 6 (the architecture test) followed immediately: `yaml.safe_load(` is now banned in
+`src/agents/**` via `scripts/architecture_lint.py` (already wired into the pre-commit hook) and
+mirrored in `tests/architecture/test_architecture_compliance.py`. Two pre-existing call sites
+outside this cleanup's scope — `business_context_loader.py` (SF debate-persona framing, not
+registry data) and `a9_llm_service_agent.py` (dead ad-hoc-NL-to-SQL profile parsing, explicitly
+deprioritized per `project_product_direction`) — are allow-listed inline with
+`# arch-allow-yaml-fallback`, flagged in the lint script's own comment for whoever audits
+CLAUDE.md rule 6 next.
+
+Tests: 12 tests across `test_dpa_column_aliases_registry.py`/`test_dpa_exposed_columns_registry.py`
+rewritten for registry-only behaviour (no more YAML-fixture-on-disk fixtures); `test_da_dimension_ranking.py`
+rewritten to feed `_dims_from_registry` directly via mock instead of a temp YAML file +
+`_contract_path_for_kpi` patch; `test_da_kpi_scoped_lookup.py`'s YAML-path test replaced with a
+`_dims_from_registry` equivalent; `test_dpa_principal_filters.py`'s one fixture updated to
+declare `base_column` explicitly (it had been passing only by accident, via the same YAML
+fallback's always-defaults-to-bicycle behavior on a data_product_id that never matched anything).
+1478 unit tests pass (1484 before this pass; net −6 from removing YAML-fallback tests with no
+registry-only equivalent worth keeping).
 
 **Local Supabase only, NOT yet synced to production** (this work is on `phase17-theory-layer`,
 unmerged): `exposed_columns` column + all 4 clients' seed data, `dimension_semantics` for

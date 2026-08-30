@@ -84,10 +84,14 @@ def test_unscoped_lookup_still_resolves_for_legacy_single_tenant_path():
     assert k.id == "net_revenue"
 
 
-def test_contract_path_returns_empty_for_scoped_miss_not_fi_default():
-    # A known-tenant KPI miss must NOT leak the bicycle FI contract (and its
-    # dimension names) into another client's plan.
+def test_scoped_miss_yields_no_dimensions_not_another_tenants():
+    # A known-tenant KPI miss must NOT leak another client's dimension names
+    # into this plan. Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30):
+    # _contract_path_for_kpi (the YAML-contract resolver this test used to
+    # exercise directly) was deleted along with the legacy contract files;
+    # _dims_from_registry is now the only source _dims_from_contract reads,
+    # so a scoped miss must yield [] there instead.
     agent = _agent()
     with _patched_provider():
-        path = agent._contract_path_for_kpi("gross_margin_pct", client_id="bicycle")
-    assert path == ""
+        dims = agent._dims_from_registry("gross_margin_pct", client_id="bicycle")
+    assert dims == []

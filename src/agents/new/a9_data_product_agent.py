@@ -3347,102 +3347,37 @@ class A9_Data_Product_Agent(DataProductProtocol):
         Get column aliases from the contract for a data product.
         Returns a dict with keys: measure, date, version, default_version_value
 
-        Registry-first as of Phase 16 step 4 (DEVELOPMENT_PLAN.md): tries
-        DataProduct.column_aliases when data_product_id resolves to a real
-        record with that field populated; only falls back to the legacy YAML
-        scan when the registry has nothing, same posture as
-        A9_Deep_Analysis_Agent._dims_from_contract (step 1). Prior to this
-        fix, the YAML fallback below called self._contract_path() with NO
-        argument even though data_product_id was already a parameter here --
-        silently ignoring it and always resolving to the bicycle default
-        contract regardless of which data product was actually asked for.
-        Fixed as part of this change, not left in place under a new registry
-        path that would never be reached (this whole method is itself a
-        last-resort fallback -- see the field's docstring).
+        Registry-only as of Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30). The
+        legacy YAML-contract fallback (and the _contract_path helper it alone used)
+        was deleted once every real data product's DataProduct.column_aliases was
+        confirmed populated in the registry -- see this agent's card for the
+        verification. A data product with nothing declared here yields {}, the
+        same result the YAML fallback produced for an unmigrated client before.
         """
-        if data_product_id and hasattr(self, "registry_factory") and self.registry_factory:
-            try:
-                dp_provider = self.registry_factory.get_provider("data_product")
-                dp = dp_provider.get(data_product_id) if dp_provider else None
-                aliases = getattr(dp, "column_aliases", None) if dp else None
-                if isinstance(aliases, dict) and aliases:
-                    return aliases
-            except Exception:
-                pass
-
+        if not data_product_id or not hasattr(self, "registry_factory") or not self.registry_factory:
+            return {}
         try:
-            cpath = self._contract_path(data_product_id)
-            if not os.path.exists(cpath):
-                return {}
-            with open(cpath, "r", encoding="utf-8") as f:
-                doc = yaml.safe_load(f)
-            aliases = (doc or {}).get("column_aliases", {})
-            if isinstance(aliases, dict):
+            dp_provider = self.registry_factory.get_provider("data_product")
+            dp = dp_provider.get(data_product_id) if dp_provider else None
+            aliases = getattr(dp, "column_aliases", None) if dp else None
+            if isinstance(aliases, dict) and aliases:
                 return aliases
-            return {}
         except Exception:
-            return {}
-
-    def _contract_path(self, data_product_id: Optional[str] = None) -> str:
-        """
-        Resolve contract path from the registry's yaml_contract_path.
-        This ensures we use the single source of truth in registry_references.
-        
-        Args:
-            data_product_id: Optional product ID to look up specific contract.
-                            Defaults to FI Star Schema if not specified.
-        """
-        try:
-            # First, try to get path from loaded registry data
-            if self._registry_data and 'data_products' in self._registry_data:
-                target_id = data_product_id or 'dp_fi_20250516_001'  # Default to FI Star
-                for dp in self._registry_data['data_products']:
-                    dp_id = dp.get('product_id', '')
-                    # Match by ID or by domain/name containing 'fi_star'
-                    if dp_id == target_id or (not data_product_id and 'fi' in dp_id.lower()):
-                        contract_path = dp.get('yaml_contract_path') or dp.get('contract_path')
-                        if contract_path:
-                            # Handle relative paths
-                            if not os.path.isabs(contract_path):
-                                # Try from CWD (project root)
-                                if os.path.exists(contract_path):
-                                    return contract_path
-                                # Try from project root explicitly
-                                proj_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-                                abs_path = os.path.join(proj_root, contract_path)
-                                if os.path.exists(abs_path):
-                                    return abs_path
-                            elif os.path.exists(contract_path):
-                                return contract_path
-            
-            # Fallback: use registry_references path directly (canonical location)
-            canonical = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
-            if os.path.exists(canonical):
-                return canonical
-            
-            # Last resort: project root relative
-            proj_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-            return os.path.join(proj_root, canonical)
-        except Exception:
-            return "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
+            pass
+        return {}
 
     def _get_exposed_columns(self, view_name: Optional[str], data_product_id: Optional[str] = None) -> Optional[Set[str]]:
         """
         Return the set of exposed column labels for a given view from the contract.
         Uses an in-memory cache keyed by (data_product_id, lowercase view name).
 
-        Registry-first as of Phase 16 step 5 (DEVELOPMENT_PLAN.md): tries
-        DataProduct.exposed_columns[view_name_lower] when data_product_id resolves
-        to a real record with that view populated; only falls back to the legacy
-        YAML scan below when the registry has nothing for this view, same posture
-        as _get_contract_column_aliases (step 4) and A9_Deep_Analysis_Agent's
-        _dims_from_contract (step 1). Like column_aliases before it, this method's
-        YAML fallback previously called self._contract_path() with NO argument
-        even though data_product_id was already available at every call site
-        (threaded through by the step-4 fix) -- silently ignoring it and always
-        resolving to the bicycle default contract regardless of which data
-        product was actually being asked about. Fixed here, not left in place
-        under a new registry path that could go unreached for the same reason.
+        Registry-only as of Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30). The
+        legacy YAML-contract fallback (and the _contract_path helper it alone used)
+        was deleted once every real data product's DataProduct.exposed_columns was
+        confirmed populated in the registry -- see this agent's card for the
+        verification. A data product/view with nothing declared here yields None,
+        the same result the YAML fallback produced for an unmigrated client or an
+        unresolvable view before.
         """
         try:
             if not isinstance(view_name, str) or not view_name.strip():
@@ -3465,41 +3400,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                             return out
                 except Exception:
                     pass
-
-            cpath = self._contract_path(data_product_id)
-            if not os.path.exists(cpath):
-                return None
-            with open(cpath, "r", encoding="utf-8") as f:
-                doc = yaml.safe_load(f)
-            views = (doc or {}).get("views", [])
-            target = None
-            for v in views:
-                if isinstance(v, dict) and str(v.get("name", "")).strip().lower() == key:
-                    target = v
-                    break
-            # Fallback to FI_Star_View if the requested name isn't present
-            if target is None:
-                for v in views:
-                    if isinstance(v, dict) and v.get("name") == "FI_Star_View":
-                        target = v
-                        break
-            if not isinstance(target, dict):
-                return None
-            llm_profile = target.get("llm_profile", {}) or {}
-            cols = llm_profile.get("exposed_columns") or []
-            out: Set[str] = set()
-            for c in cols:
-                try:
-                    s = str(c).strip()
-                    # Normalize quotes for comparison/storage, but keep original label
-                    if s.startswith('"') and s.endswith('"') and len(s) > 1:
-                        s = s[1:-1]
-                    if s:
-                        out.add(s)
-                except Exception:
-                    continue
-            self._view_exposed_columns_cache[cache_key] = out
-            return out
+            return None
         except Exception:
             return None
 
