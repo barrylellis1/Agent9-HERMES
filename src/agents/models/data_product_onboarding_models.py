@@ -601,6 +601,16 @@ class DataProductOnboardingWorkflowRequest(A9AgentBaseRequest):
         default_factory=dict,
         description="Additional context forwarded to the QA helper",
     )
+    discovery_only: bool = Field(
+        False,
+        description=(
+            "True for a preview-only call (the onboarding wizard's Schema Discovery "
+            "step, data_product_id='temp_discovery') -- skips register_data_product "
+            "(and everything gated on it: KPI/business-process registration) entirely. "
+            "Without this, every discovery call planted a junk data product row into "
+            "the real registry (Phase 16, DEVELOPMENT_PLAN.md O3 follow-up)."
+        ),
+    )
 
 
 class DataProductOnboardingWorkflowResponse(A9AgentBaseResponse):

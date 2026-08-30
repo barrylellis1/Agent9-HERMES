@@ -264,6 +264,11 @@ export function DataProductOnboardingNew({
                 include_samples: false,
                 environment: 'dev',
                 connection_overrides: overrides,
+                // Preview-only: this call exists to list tables, not to register
+                // anything. Without this flag every discovery click planted a
+                // junk 'temp_discovery' row into the real data_products table
+                // for whichever client was targeted (found live 2026-08-30).
+                discovery_only: true,
             }
 
             const response = await fetch(buildUrl(API_ENDPOINTS.workflows.dataProductOnboarding.run), {

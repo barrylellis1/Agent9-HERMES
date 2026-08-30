@@ -648,76 +648,90 @@ class A9_Orchestrator_Agent:
             schema_summary = inspection_details.get("tables", [])
             inferred_kpis = inspection_details.get("inferred_kpis", [])
 
-            # Register data product directly to Supabase (no YAML contract generation)
-            registration_payload = {
-                "request_id": request.request_id,
-                "principal_id": request.principal_id,
-                "client_id": request.client_id,
-                "source_system": request.source_system,
-                "data_product_id": request.data_product_id,
-                "contract_path": None,
-                "display_name": request.data_product_name,
-                "domain": request.data_product_domain,
-                "description": request.data_product_description,
-                "tags": request.data_product_tags or [],
-                "owner_metadata": request.owner_metadata or {},
-                "additional_metadata": request.additional_metadata or {},
-                "schema_summary": schema_summary,
-            }
-            registration_step = await _run_step(
-                "A9_Data_Product_Agent",
-                "register_data_product",
-                DataProductRegistrationRequest,
-                registration_payload,
-                "register_data_product",
-            )
-            if registration_step.status == "error":
-                return _build_response("error", "Registry registration failed")
-
-            registration_details = context.get("register_data_product", {})
-            if registration_details.get("registry_entry"):
-                activation_context = {"registry_entry": registration_details.get("registry_entry")}
-
-            if request.kpi_entries:
-                kpi_payload = {
+            # discovery_only (DEVELOPMENT_PLAN.md Phase 16, O3 follow-up) — the
+            # onboarding wizard's "Schema Discovery" step calls this workflow
+            # purely to preview tables, with data_product_id='temp_discovery'
+            # and no display_name/domain/description. Every prior version of
+            # this method registered that placeholder anyway, unconditionally,
+            # which planted a junk 'temp_discovery' row into the real
+            # data_products table for whichever client happened to be
+            # targeted -- found live 2026-08-30 (two stray rows, one from
+            # 2026-07-24). Registration (and everything gated on it: KPI/BP
+            # mapping) is now skipped entirely for a discovery-only call;
+            # inspection still runs and its result still flows back
+            # unaffected, since the UI only reads the inspect_source_schema
+            # step from this response during discovery.
+            if not request.discovery_only:
+                # Register data product directly to Supabase (no YAML contract generation)
+                registration_payload = {
                     "request_id": request.request_id,
                     "principal_id": request.principal_id,
+                    "client_id": request.client_id,
+                    "source_system": request.source_system,
                     "data_product_id": request.data_product_id,
-                    "kpis": request.kpi_entries,
-                    "overwrite_existing": request.overwrite_existing_kpis,
+                    "contract_path": None,
+                    "display_name": request.data_product_name,
+                    "domain": request.data_product_domain,
+                    "description": request.data_product_description,
+                    "tags": request.data_product_tags or [],
+                    "owner_metadata": request.owner_metadata or {},
+                    "additional_metadata": request.additional_metadata or {},
+                    "schema_summary": schema_summary,
                 }
-                kpi_step = await _run_step(
-                    "A9_Data_Governance_Agent",
-                    "register_kpi_metadata",
-                    KPIRegistryUpdateRequest,
-                    kpi_payload,
-                    "register_kpi_metadata",
+                registration_step = await _run_step(
+                    "A9_Data_Product_Agent",
+                    "register_data_product",
+                    DataProductRegistrationRequest,
+                    registration_payload,
+                    "register_data_product",
                 )
-                if kpi_step.status == "error":
-                    governance_status = "error"
-                    return _build_response("error", "KPI registry update failed")
-                governance_status = "success"
+                if registration_step.status == "error":
+                    return _build_response("error", "Registry registration failed")
 
-            if request.business_process_mappings:
-                mapping_payload = {
-                    "request_id": request.request_id,
-                    "principal_id": request.principal_id,
-                    "data_product_id": request.data_product_id,
-                    "mappings": request.business_process_mappings,
-                    "overwrite_existing": request.overwrite_existing_mappings,
-                }
-                mapping_step = await _run_step(
-                    "A9_Data_Governance_Agent",
-                    "map_business_process",
-                    BusinessProcessMappingRequest,
-                    mapping_payload,
-                    "map_business_processes",
-                )
-                if mapping_step.status == "error":
-                    governance_status = "error"
-                    return _build_response("error", "Business process mapping failed")
-                if governance_status != "error":
+                registration_details = context.get("register_data_product", {})
+                if registration_details.get("registry_entry"):
+                    activation_context = {"registry_entry": registration_details.get("registry_entry")}
+
+                if request.kpi_entries:
+                    kpi_payload = {
+                        "request_id": request.request_id,
+                        "principal_id": request.principal_id,
+                        "data_product_id": request.data_product_id,
+                        "kpis": request.kpi_entries,
+                        "overwrite_existing": request.overwrite_existing_kpis,
+                    }
+                    kpi_step = await _run_step(
+                        "A9_Data_Governance_Agent",
+                        "register_kpi_metadata",
+                        KPIRegistryUpdateRequest,
+                        kpi_payload,
+                        "register_kpi_metadata",
+                    )
+                    if kpi_step.status == "error":
+                        governance_status = "error"
+                        return _build_response("error", "KPI registry update failed")
                     governance_status = "success"
+
+                if request.business_process_mappings:
+                    mapping_payload = {
+                        "request_id": request.request_id,
+                        "principal_id": request.principal_id,
+                        "data_product_id": request.data_product_id,
+                        "mappings": request.business_process_mappings,
+                        "overwrite_existing": request.overwrite_existing_mappings,
+                    }
+                    mapping_step = await _run_step(
+                        "A9_Data_Governance_Agent",
+                        "map_business_process",
+                        BusinessProcessMappingRequest,
+                        mapping_payload,
+                        "map_business_processes",
+                    )
+                    if mapping_step.status == "error":
+                        governance_status = "error"
+                        return _build_response("error", "Business process mapping failed")
+                    if governance_status != "error":
+                        governance_status = "success"
 
             if (
                 request.candidate_owner_ids

@@ -327,6 +327,13 @@ class DataProductOnboardingWorkflowApiRequest(BaseModel):
     qa_additional_context: Dict[str, Any] = Field(
         default_factory=dict, description="Additional context forwarded to QA"
     )
+    discovery_only: bool = Field(
+        False,
+        description=(
+            "True for a preview-only call (the onboarding wizard's Schema Discovery "
+            "step) -- skips registering a data product entirely."
+        ),
+    )
 
 
 @router.post("/situations/run", response_model=Envelope, status_code=status.HTTP_202_ACCEPTED)
@@ -1642,6 +1649,7 @@ async def _run_data_product_onboarding_workflow(
             qa_enabled=request.qa_enabled,
             qa_checks=request.qa_checks,
             qa_additional_context=request.qa_additional_context,
+            discovery_only=request.discovery_only,
         )
 
         response = await orchestrator.orchestrate_data_product_onboarding(workflow_request)

@@ -2848,20 +2848,33 @@ manually-seeded list; `version` gets correctly stripped by DA's ban-list at read
 extended unit tests in `tests/unit/test_data_product_agent_schema_generation.py`. 1449 unit tests
 pass (1443 + 6 new — 2 of the 8 extend an existing test rather than add a new one).
 
-**A separate, pre-existing bug found in the same investigation, NOT fixed.** Every "Schema
-Discovery" wizard step calls `orchestrate_data_product_onboarding` unconditionally with
-`data_product_id='temp_discovery'`, which calls `register_data_product` unconditionally —
-meaning a junk `temp_discovery` data product gets registered into Supabase for whichever client
-is targeted, on every discovery run, forever. Found two stray rows this way (`brookshire_brothers`
-from 2026-07-24, `hess` from this session's own live testing); both deleted directly. The wizard
-itself is unchanged and will keep doing this. Flagged for a future fix — likely either skip
-registration entirely during the discovery-only call, or use a client-scoped ephemeral id that
-never lands in the real `data_products` table.
+**A separate, pre-existing bug found in the same investigation — FIXED same day (2026-08-30,
+local Supabase).** Every "Schema Discovery" wizard step calls `orchestrate_data_product_onboarding`
+unconditionally with `data_product_id='temp_discovery'`, which called `register_data_product`
+unconditionally — meaning a junk `temp_discovery` data product got registered into Supabase for
+whichever client was targeted, on every discovery run. Found two stray rows this way
+(`brookshire_brothers` from 2026-07-24 — this had been happening in production-shaped local data
+for over a month before anyone noticed; `hess` from this session's own live testing); both
+deleted directly. **This is the same bug already named, unsolved, in the Settings → Data Products
+UI audit** ("`temp_discovery` record is a discovery artifact leaking into production data" — see
+the UI polish backlog below) — that entry recommended "root cause better" over a cosmetic filter,
+which is what this fix does. New `discovery_only: bool` flag on
+`DataProductOnboardingWorkflowRequest`, threaded from the wizard's `handleSchemaDiscovery` call;
+`orchestrate_data_product_onboarding` skips `register_data_product` (and everything gated on it)
+entirely when set, defaulting to `False` so every other caller keeps registering exactly as
+before. Verified live: re-ran the same wizard test against hess after the fix — no `temp_discovery`
+row appears, and the real registration at the "Metadata Analysis" step still succeeds and still
+writes `dimension_semantics` correctly. 4 new unit tests in
+`tests/unit/test_orchestrator_data_product_onboarding.py`. 1453 unit tests pass (1449 + 4 new).
 
 **Not yet done:** `fallback_group_by_dimensions` (O3's other half — a different field, seed-data
 only, unrelated to this fix); O2 (`measure_semantics`, the field that actually caused the Hess
-sign bug — real new detection logic, not yet started); the `temp_discovery` junk-row bug above;
-synced to production.
+sign bug — real new detection logic, not yet started); the two ALREADY-LIVE-IN-PRODUCTION rows
+this bug produced before today (`temp_discovery_ProfitCenters_view`,
+`dp_lubricants_sqlserver_LubricantsStarSchemaView_vi...` — visible in the UI polish backlog's
+items 3/10 below) still need manual cleanup once this fix is synced to production — the code fix
+prevents new ones, it does not retroactively clean up what's already there; this fix itself is
+also not yet synced to production.
 
 **Relationship to the existing Data Onboarding Refinement track** (below): that track is UI and workflow polish — chooser screen, wizard foundation, templates. This is a *content* gap in what the wizard produces, and it should be sequenced ahead of the polish. A better-looking wizard that still emits an incomplete contract is a faster way to a wrong briefing.
 
@@ -4243,7 +4256,7 @@ Settings → Data Products shows **3 records** (all Lubricants-tagged) while Con
 
 | # | Recommendation | File / component / scope | Effort |
 |---|---|---|---|
-| 1 | `temp_discovery` record is a discovery artifact leaking into production data — investigate why discovery artifacts persist as Data Products. Either clean up Supabase data, or filter `temp_` prefix from production views (cosmetic fix; root cause better) | Data Product registry data + discovery workflow cleanup | M |
+| 1 | ~~`temp_discovery` record is a discovery artifact leaking into production data — investigate why discovery artifacts persist as Data Products. Either clean up Supabase data, or filter `temp_` prefix from production views (cosmetic fix; root cause better)~~ **ROOT-CAUSED AND FIXED (2026-08-30, local Supabase, not yet synced to production)** — `orchestrate_data_product_onboarding` called `register_data_product` unconditionally on every Schema Discovery preview click; new `discovery_only` flag skips it. See Phase 16's O3 follow-up write-up and `A9_Orchestrator_Agent_card.md`. Two stray production-shaped rows found and deleted locally; the underlying production rows referenced by items 3/10 below still need the same cleanup once this fix is synced | Data Product registry data + discovery workflow cleanup | M |
 | 2 | `+ Onboard Data Product` CTA — wizard handoff undefined. Add effort signal (`Onboard Data Product (8 steps, ~10 min)`) or confirmation modal explaining what the wizard covers | Data Products tab CTA | S |
 | 3 | No Connection Health column — Data Products' #1 diagnostic question is "is this connected?". Add per-row indicator (green/amber/red) based on last connection test + last successful query timestamp + source system badge | Master table column + connection probe API | M |
 | 4 | No "Test Connection" action from list view — one-click connection test per row (fastest path to diagnose issues like the Snowflake MFA failure) | Master table row action + connection probe | S |
