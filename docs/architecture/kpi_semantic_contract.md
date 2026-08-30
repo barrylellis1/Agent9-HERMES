@@ -109,6 +109,66 @@ cogs:
   inverse_logic: true                   # a rise is bad
 ```
 
+### 3a. This generalizes beyond finance — worked example for an operational client
+
+Every worked example above is a P&L KPI, and that's worth correcting for explicitly: nothing about
+`unit_class`/`additive_across_dimensions`/`aggregation_method` is finance-specific. `sign_convention`
+and `scope_eligible` are the only two fields with a genuinely accounting-flavored shape (a signed
+ledger; an enterprise P&L rollup) — the rest apply unchanged to an operational key-figure model with
+no `account_type` column anywhere in it (a manufacturing OEE/throughput schema, a logistics
+on-time-delivery model, a support-ticket SLA model):
+
+```yaml
+units_produced:
+  unit_class: count
+  additive_across_dimensions: true       # a flow/count genuinely sums across lines, shifts, plants
+  aggregation_method: sum
+  sign_convention: natural               # not accounting data -- always positive, nothing to declare
+  inverse_logic: false
+
+oee_pct:                                 # Overall Equipment Effectiveness
+  unit_class: ratio
+  additive_across_dimensions: false      # <-- exactly the same trap as gross_margin_pct
+  aggregation_method: weighted_avg
+  weight_column: planned_production_time # OEE weighted by the time base it was computed over
+  sign_convention: natural
+  inverse_logic: false                   # higher OEE is better
+
+on_time_delivery_rate:
+  unit_class: ratio
+  additive_across_dimensions: false
+  aggregation_method: weighted_avg
+  weight_column: order_count
+  sign_convention: natural
+  inverse_logic: false
+
+avg_cycle_time_hours:
+  unit_class: duration
+  additive_across_dimensions: false      # an average of averages is not the average
+  aggregation_method: weighted_avg
+  weight_column: order_count
+  sign_convention: natural
+  inverse_logic: true                    # lower cycle time is better
+
+inventory_on_hand:
+  unit_class: count
+  additive_across_dimensions: false      # a STOCK, not a flow -- summing across time periods is
+  aggregation_method: weighted_avg       # meaningless (it's not "how much moved", it's "how much
+  weight_column: null                    # existed at a point in time"); summing across LOCATIONS at
+  sign_convention: natural                # the SAME instant is fine, but that's a different dimension
+  inverse_logic: false                    # than time, and this field doesn't distinguish the two yet
+                                           # (see the flow-vs-stock note under Phase 21's honest gaps)
+```
+
+The failure mode is identical to `gross_margin_pct`'s: `oee_pct` for three production lines at
+82%, 74%, and 91% cannot be added to produce "the plant's OEE" any more than three margin
+percentages can be added to produce the enterprise margin — and nothing downstream today
+(`groundedness.cross_segment_summation`, same heuristic either domain) reliably catches a
+*correctly-computed* wrong sum in either case. The `inventory_on_hand` case additionally shows a
+real gap this contract doesn't fully close yet: additivity can differ **by dimension** for the
+same KPI (sums fine across locations at one instant, never across time) — see Phase 21's honest
+gaps in `DEVELOPMENT_PLAN.md`.
+
 ---
 
 ## 4. Sliceability — the KPI × dimension axis

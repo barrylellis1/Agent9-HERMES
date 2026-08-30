@@ -3387,7 +3387,7 @@ documentation.
 
 | # | Prerequisite | Why it must precede the exhibit |
 |---|---|---|
-| **T1** | **Phase 16 step 2** — `measure_semantics`, `additive_across_dimensions` | Without it the spine can silently mis-add. That is the −53pp header bug rendered as a tree, and **a wrong number in a diagram is harder to challenge than one in a table** — the picture carries authority the arithmetic has not earned. Hard prerequisite. |
+| **T1** | **Phase 16 step 2** (`measure_semantics`, data-product-level, ✅ done) **+ Phase 21** (`additive_across_dimensions`, KPI-level, not started) | Without it the spine can silently mis-add. That is the −53pp header bug rendered as a tree, and **a wrong number in a diagram is harder to challenge than one in a table** — the picture carries authority the arithmetic has not earned. Hard prerequisite. Corrected 2026-08-30: these are two different fields at two different grains (data product vs. KPI) — see Phase 21 for why they were never the same piece of work. |
 | **T2** | **KPI decomposition model** — arithmetic parentage | New. Useful well beyond this exhibit: it is also what would let impact claims roll up correctly, and what a `scope_eligible` check would lean on. |
 | **T3** | **Assumption grading (step 2)** — the write-back that marks an assumption held or broken | The holding/breaking marker *is* section 4. Without it that panel is a list, not a verdict. Already designed and gated on VA outcome data (see the assumption-grading notes). |
 | **T4** | **Port model** — external drivers with lag and buffer | Conceptually the smallest of the four, but nothing exists. Turns MA prose into structured entries the exhibit can attach to a branch. |
@@ -3903,6 +3903,105 @@ Intelligence accordion. `tsc --noEmit` and `npm run build` both clean.
 🟡 **Live verification**: in progress (see this session's own live-verification discipline — code-complete
 and unit-tested is not the same claim as "verified live").
 Card update + commit: pending completion of live verification.
+
+---
+
+### Phase 21: KPI Semantic Contract — additivity, unit class, and sliceability as declared facts
+
+**Not started — this section is the plan, not a build log.** Full design already exists at
+`docs/architecture/kpi_semantic_contract.md` (§1–§7); this phase entry sequences it, corrects a
+stale cross-reference to it, generalizes it beyond the finance-only examples it shipped with, and
+ties it to the detect-then-confirm precedent Phase 16 O2 just validated.
+
+**Goal:** a KPI's own arithmetic properties — can its segment values be summed, what does the unit
+mean, is the sign natural or ledger-stored, can it be claimed at enterprise scope — become a
+declared fact on the registry record, not something every downstream reader (an LLM synthesis
+prompt, a groundedness heuristic, a chart) has to re-infer from the KPI's name or formula text.
+
+**Why this is a phase and not a chore — it has already produced a real, shipped-to-a-briefing
+defect.** The design doc's own worked example is not hypothetical: `gross_margin_pct` was summed
+across segments (`43.24 + 16.76 + 15.18`) and claimed as an enterprise move, and a `−457.71%`
+margin for one customer reached a finished briefing — both "passed SA, DA, three MBB personas and
+a briefing intact" (caught on inspection, the same way the Aug-9 finding and this session's own
+Hess/two-baseline bugs were all caught — a human looked at the output). The existing heuristic
+cover (`groundedness.cross_segment_summation`) is stated plainly as insufficient: *"an LLM that
+sums three segment percentages correctly currently passes every check we have."* This is the same
+"a fact existed in two places, or in none" failure family Phase 16 was named for — here the fact
+(is this KPI additive) exists in **no** place at all, declared or inferred reliably.
+
+**Scope correction, made explicit 2026-08-30 (this was asked and answered in conversation, not
+assumed):** this is **not** the same work as Phase 16 step 2. `measure_semantics` (step 2, ✅ done,
+synced to production) is a **data-product-level** fact — one sign convention per raw ledger
+column, detected by querying `SUM(amount) GROUP BY account_type`. `additive_across_dimensions`/
+`unit_class` (this phase) are **KPI-level** facts — a KPI's formula, not a raw column, determines
+whether its *output* can be summed (`gross_margin_pct` is non-additive even though both of its
+input columns, `net_revenue` and `cogs`, are individually additive). Different grain, different
+detection mechanism, correctly two separate pieces of work. The stale Phase 17 T1 row that
+conflated them has been corrected.
+
+**Not finance-specific, despite every worked example in the design doc being one.** Raised directly
+in conversation: does this apply to operational key-figure models (manufacturing OEE, logistics
+on-time-delivery, support SLAs) with no `account_type` column at all? Yes — `unit_class`/
+`additive_across_dimensions`/`aggregation_method` are domain-general; only `sign_convention`/
+`scope_eligible` carry an accounting-specific shape. `kpi_semantic_contract.md` §3a now has a full
+worked example (`oee_pct`, `on_time_delivery_rate`, `avg_cycle_time_hours`, `inventory_on_hand`) —
+the failure mode is identical: `82%`, `74%`, `91%` OEE across three production lines cannot be
+summed into "the plant's OEE" any more than three margin percentages sum into an enterprise
+margin, and nothing today catches a correctly-computed wrong sum in either domain. Until this
+phase exists, **an operational client hits this defect on day one** with strictly less cover than
+lubricants has today (lubricants' one stress-tested ratio KPI, `gross_margin_pct`, has bespoke
+hand-built "ratio bridge" decomposition SQL in `a9_deep_analysis_agent.py` that correctly weights
+contributions instead of naively summing — a one-off fix for the single KPI that's been pushed on
+hardest, not a general mechanism, and it does not exist for any KPI an operational client would
+define).
+
+**Reusable pattern from Phase 16 O2, the precedent this phase should follow rather than
+reinvent:** O2 proved detect-then-confirm end to end for `measure_semantics` — a live query
+proposes a value, a required UI card shows exactly what was detected per value, nothing is trusted
+until an admin explicitly confirms or corrects it, and the correction (not the raw detection) is
+what persists. `unit_class`/`additive_across_dimensions` are more *inferable* than they might look
+at KPI-authoring time (not just "ask a human and hope"): a KPI whose name/formula matches
+percentage/rate/ratio/average tokens, or whose defining SQL is a division of two other measures,
+or whose live sampled values all fall in `[0,1]`/`[0,100]`, is a strong signal for
+`unit_class: ratio` + `additive_across_dimensions: false` — propose it, then gate on the same kind
+of confirmation card O2 shipped, never a silent auto-write given this field's higher stakes (same
+reasoning O2's own honesty note already applied to itself).
+
+**Sequence** (adapted from the design doc's §7, order preserved, sized into gate-able slices):
+
+| # | Work | Status |
+|---|---|---|
+| **1** | Schema + migration: `unit_class`, `additive_across_dimensions`, `aggregation_method`, `weight_column`, `sign_convention` (KPI-level), `inverse_logic`, `scope_eligible` on the KPI registry record. Seed lubricants by hand first (the doc's own suggested first client); `unknown` tolerated everywhere else — an unset value must never default to `true`/permissive (design doc §6.3) | Not started |
+| **2** | Detect-then-confirm at KPI-authoring time (new, beyond the original design doc — the piece that actually answers "how does this work for a new operational client"): heuristic proposal (name/formula tokens + live value-range sampling) in the onboarding wizard's KPI Definition step, gated by a required confirmation card mirroring O2's exactly | Not started |
+| **3** | Wire `scripts/check_slice_validity.py` into onboarding so `not_sliceable_by` (§4 — a *different* axis: which dimension cuts are meaningful at all, not whether segments sum) is populated by coverage profiling, not authored — ships with step 1/2, not after (design doc §7: "same governance surface, same migration") | Not started |
+| **4** | Scorers (`groundedness.py`, `narrative_claims.py`) prefer the declared fact over their existing heuristic; fall back to the heuristic only when `unknown` | Not started |
+| **5** | `A9_Deep_Analysis_Agent` excludes `not_sliceable_by` dimensions from `dims_to_process`, and records every exclusion on `dimensions_excluded` (never narrow the investigation silently — same rule Stage I Part A was built to enforce for `dimensions_analyzed`) | Not started |
+| **6** | Solution Finder's synthesis prompt is told the declared facts (one line per KPI: "X is not additive; do not sum segment deltas to an enterprise figure") | Not started |
+| **7** | DGA exposes `get_kpi_semantics(kpi_id, client_id)`; `validate_registry_integrity` gains a check for KPIs missing a semantic contract, and surfaces every `not_sliceable_by` entry with `reason_class: pipeline_gap` as an open defect rather than letting it sit silently as apparent diligence (design doc §4.6) | Not started |
+| **8** | Backfill remaining clients (apex_lubricants, hess, bicycle); flip `unknown` from tolerated to a registry-integrity warning once coverage is real | Not started |
+
+**Honest gaps, carried forward from the design doc's §6 plus one found while writing this phase
+entry:**
+1. Prevention-adjacent, not prevention — declaring non-additivity doesn't stop an LLM from
+   summing anyway; it makes the violation deterministically *checkable* (design doc §6.1).
+2. A registry schema change needing backfill across every client — heavier than it looks
+   (design doc §6.2).
+3. Unset must read as *unknown*, never *permissive* (design doc §6.3) — same discipline as
+   Phase 16's own `NULL`-means-not-migrated posture, not a new rule.
+4. **New, found writing this phase's operational worked example:** additivity can differ *by
+   dimension* for the same KPI, and the current field shape (one boolean per KPI) can't represent
+   that. `inventory_on_hand` sums correctly across *locations* at one instant but never across
+   *time* — the same KPI is additive on one axis and not on another. The design doc's model
+   doesn't distinguish these; closing this fully may need `additive_across_dimensions` to become
+   dimension-aware rather than a flat KPI-level boolean. Not resolved here — flagged so step 1's
+   schema isn't built assuming a simpler shape than the truth requires, without at least having
+   named the tradeoff once.
+5. Sliceability (§4) catches known/detectable invalidity via coverage profiling, not unknown
+   invalidity — a fully-allocated-but-wrong cost driver looks perfect to it (design doc §6.5).
+
+**Dependency note:** Phase 17's Value Driver Tree (T1) needs step 1 of this phase as a hard
+prerequisite — corrected from a stale reference that conflated it with Phase 16 step 2 (fixed
+2026-08-30).
 
 ---
 
