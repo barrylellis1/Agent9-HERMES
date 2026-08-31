@@ -1124,6 +1124,48 @@ KPI_DECOMPOSITIONS: List[Dict[str, Any]] = [
 ]
 
 
+# External-world ports (Phase 17 T4, docs/architecture/theory_layer_design.md §2.3).
+#
+# This is the exact story the 2026-08-22 kpi_relationship_basis_design.md
+# reclassification (see the base_oil_cost -> cogs edge above) explicitly
+# removed and flagged as homeless: "The old mechanism ('price moves pass
+# through with an inventory-buffered lag') described the real, but
+# genuinely external, causal story... which this edge does not encode
+# ... That external claim has no KPI to attach to yet." A Port is that home
+# -- base oil SPOT PRICE is not itself a registered KPI (it's an external
+# field), so it cannot be a kpi_relationships edge; linked_kpi_id is the
+# INTERNAL side (base_oil_cost) the external move enters at.
+#
+# PROVENANCE HONESTY (same caveat as KPI_RELATIONSHIPS/ASSUMPTIONS above):
+# current_signal below is a qualitative restatement of the 11F anchor
+# scenario itself (Base Oil rising while COGS/base_oil_cost declines -- the
+# transmission that SHOULD have happened and hasn't), not a live-queried
+# number. source='manual' says so explicitly; a live MA re-query
+# (source='ma_query') is a follow-up, not built this stage.
+PORTS: List[Dict[str, Any]] = [
+    {
+        "client_id": CLIENT_ID,
+        "name": "Base Oil Price",
+        "port_type": "input_costs",
+        "linked_kpi_id": "base_oil_cost",
+        "lag_periods": 1,
+        "buffer_description": (
+            "One-month inventory buffer between spot base-oil purchases and COGS "
+            "recognition; hedges and contract repricing lag further slow transmission "
+            "-- carried over verbatim from the mechanism text the kpi_relationships "
+            "edge above used to hold before its 2026-08-22 reclassification."
+        ),
+        "current_signal": (
+            "Base oil spot price rising while base_oil_cost/COGS is declining -- an "
+            "external move that should have transmitted and hasn't (theory_layer_design.md "
+            "§2.3's own anchor scenario). The interesting object is whatever is absorbing "
+            "it in the chain (inventory layers, hedges, mix shift) -- not yet identified."
+        ),
+        "source": "manual",
+    },
+]
+
+
 # Theory-layer assumption register (see docs/architecture/theory_layer_design.md).
 #
 # Seeded rows carry an EXPLICIT stable `id` so onboarding upserts on the primary key

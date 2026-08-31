@@ -165,6 +165,7 @@ _RLS_TABLES = [
     "kpi_accountability",
     "kpi_relationships",
     "kpi_decompositions",
+    "ports",
     "connection_profiles",
     "briefing_runs",
     "assessment_runs",

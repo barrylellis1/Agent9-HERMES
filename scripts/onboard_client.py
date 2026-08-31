@@ -32,6 +32,7 @@ Seeding order (all idempotent upserts):
     8. kpi_relationships      (optional — only if KPI_RELATIONSHIPS is exported)
     9. assumptions            (optional — only if ASSUMPTIONS is exported)
     10. kpi_decompositions    (optional — only if KPI_DECOMPOSITIONS is exported)
+    11. ports                 (optional — only if PORTS is exported)
 """
 
 import argparse
@@ -508,6 +509,23 @@ def onboard_client(
             # doesn't reliably resolve conflicts on composite keys.
             _delete_by_client(http, base_url, service_key, "kpi_decompositions", client_id, dry_run)
             n = _upsert(http, base_url, service_key, "kpi_decompositions", kpi_decompositions, dry_run)
+            print(f"  OK  {n} row(s) upserted\n")
+
+        # ------------------------------------------------------------------
+        # 11. ports  (optional — only if client exports PORTS)
+        # ------------------------------------------------------------------
+        ports: List[Dict[str, Any]] = getattr(mod, "PORTS", [])
+        if ports:
+            print("[11/11] ports")
+            bad_p = [p["linked_kpi_id"] for p in ports if p.get("client_id") != client_id]
+            if bad_p:
+                print(f"  ERROR: {len(bad_p)} port(s) have wrong or missing client_id: {bad_p}")
+                sys.exit(1)
+            # Delete-first, same reason as steps 8/10: composite uniqueness
+            # (client_id, linked_kpi_id, port_type), PostgREST merge-duplicates
+            # doesn't reliably resolve conflicts on composite keys.
+            _delete_by_client(http, base_url, service_key, "ports", client_id, dry_run)
+            n = _upsert(http, base_url, service_key, "ports", ports, dry_run)
             print(f"  OK  {n} row(s) upserted\n")
 
     print(f"{'='*60}")
