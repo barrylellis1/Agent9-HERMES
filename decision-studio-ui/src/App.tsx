@@ -28,6 +28,10 @@ const CouncilDebatePage = lazy(() =>
   import('./pages/CouncilDebatePage').then(m => ({ default: m.CouncilDebatePage })))
 const Portfolio = lazy(() =>
   import('./pages/Portfolio').then(m => ({ default: m.Portfolio })))
+// Phase 17 dev-only exhibit harness — lazy so it costs a production bundle
+// nothing; the route it serves is intentionally unlinked from any nav.
+const TheoryLayerDevPage = lazy(() =>
+  import('./pages/TheoryLayerDevPage').then(m => ({ default: m.TheoryLayerDevPage })))
 const HowItWorks = lazy(() =>
   import('./pages/HowItWorks').then(m => ({ default: m.HowItWorks })))
 const InsightsBIModernization = lazy(() =>
@@ -117,6 +121,13 @@ function App() {
         <Route path="/settings/governance/:subsection" element={<GovernanceView />} />
         <Route path="/settings/governance" element={<GovernanceView />} />
         <Route path="/portfolio" element={<Portfolio />} />
+
+        {/* Phase 17 theory-layer exhibit — DEV-ONLY, deliberately absent from
+            every nav surface. Phase 17's delivery rule forbids showing a
+            partial exhibit, and the Causal Edges density gate is not passed
+            for any client yet (cleared by accumulated VA verdicts over real
+            use, never by seeding). Reachable only by typing the URL. */}
+        <Route path="/dev/theory-layer" element={<TheoryLayerDevPage />} />
         {/* Corporate landing page accessible directly on any domain */}
         <Route path="/landing" element={<LandingPage />} />
         {/* Architecture / how it works */}

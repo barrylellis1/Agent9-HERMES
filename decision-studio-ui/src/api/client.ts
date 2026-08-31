@@ -1386,3 +1386,101 @@ export async function commitBusinessProcessTemplates(
     },
   );
 }
+
+// ---------------------------------------------------------------------------
+// Theory layer exhibit (Phase 17)
+// ---------------------------------------------------------------------------
+
+export interface TheorySpineNode {
+  kpi_id: string;
+  name: string;
+  unit: string | null;
+  unit_class: string | null;
+  additive_across_dimensions: boolean | null;
+  aggregation_method: string | null;
+  scope_eligible: string | null;
+  value: number | null;
+  prior_value: number | null;
+}
+
+export interface TheorySpineEdge {
+  parent_kpi_id: string;
+  child_kpi_id: string;
+  operation: 'linear' | 'ratio';
+  sign: number;
+  weight_kpi_id: string | null;
+}
+
+export interface TheoryCausalEdge {
+  kpi_id: string;
+  related_kpi_id: string;
+  basis: 'accounting_identity' | 'causal_estimate';
+  mechanism: string | null;
+  lag_periods: number | null;
+  causal_rung: string | null;
+  provenance: string;
+  confidence: string | null;
+  causal_direction: string;
+  hops: number;
+  verdict: string | null;
+}
+
+export interface TheoryPort {
+  id: string | null;
+  name: string;
+  port_type: string;
+  linked_kpi_id: string;
+  lag_periods: number | null;
+  buffer_description: string | null;
+  current_signal: string | null;
+  source: string;
+}
+
+export interface TheoryLayerPayload {
+  kpi_id: string;
+  kpi_name: string;
+  client_id: string;
+  spine: {
+    nodes: TheorySpineNode[];
+    edges: TheorySpineEdge[];
+    reconciliation: { ok: boolean; detail: string | null } | null;
+    variance_bridge: {
+      prior_value: number;
+      current_value: number;
+      total_move: number;
+      effects: { kpi_id: string; effect: number }[];
+      residual: number;
+      exact: boolean;
+      note: string | null;
+    } | null;
+  };
+  causal_edges: TheoryCausalEdge[];
+  ports: TheoryPort[];
+  epistemic_summary: {
+    identities: number;
+    causal_claims: number;
+    tested: number;
+    asserted: number;
+    template: number;
+    density_gate_passed: boolean;
+  };
+  values_included: boolean;
+  notes: string[];
+}
+
+export async function getTheoryLayer(
+  kpiId: string,
+  clientId: string,
+  includeValues = false,
+  timeframe = 'year_to_date',
+): Promise<TheoryLayerPayload> {
+  const params = new URLSearchParams({
+    client_id: clientId,
+    include_values: String(includeValues),
+    timeframe,
+  });
+  const envelope = await requestJson<Envelope<TheoryLayerPayload>>(
+    `/registry/theory-layer/${encodeURIComponent(kpiId)}?${params.toString()}`
+  );
+  return envelope.data;
+}

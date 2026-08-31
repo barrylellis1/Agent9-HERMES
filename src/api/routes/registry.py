@@ -986,3 +986,240 @@ async def create_client(payload: dict):
         # even if persistence fails (e.g. provider missing method)
 
     return wrap(row)
+
+
+# ---------------------------------------------------------------------------
+# Theory layer exhibit (Phase 17) — assembled Spine / Causal Edges / Ports
+# ---------------------------------------------------------------------------
+
+
+def _epistemic_summary(causal_edges: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Count what is CERTAIN vs ASSERTED vs ASSUMED, from recorded fields only.
+
+    The exhibit's whole thesis is "what we know versus what we assumed"
+    (DEVELOPMENT_PLAN.md Phase 17), so these counts come from `basis` /
+    `causal_rung` / `provenance` — all recorded fields, never inferred.
+
+    Identities are counted SEPARATELY from causal claims and never fold into a
+    "confirmed" total: an accounting identity is arithmetic, not verified
+    theory, and letting it inflate the confirmed count would manufacture
+    exactly the impression the density gate exists to prevent.
+    """
+    identities = [e for e in causal_edges if e.get("basis") == "accounting_identity"]
+    claims = [e for e in causal_edges if e.get("basis") != "accounting_identity"]
+    tested = [e for e in claims if e.get("causal_rung") == "intervention_tested"]
+    template = [e for e in claims if e.get("provenance") == "template"]
+    asserted = [e for e in claims if e not in tested and e not in template]
+    return {
+        "identities": len(identities),
+        "causal_claims": len(claims),
+        "tested": len(tested),
+        "asserted": len(asserted),
+        "template": len(template),
+        # DEVELOPMENT_PLAN.md Phase 17's stated bar: confirmed
+        # (intervention_tested) edges outnumber template/unconfirmed ones.
+        # Reported as a fact; the caller decides what to do with a False.
+        "density_gate_passed": len(tested) > (len(claims) - len(tested)),
+    }
+
+
+@router.get("/theory-layer/{kpi_id}", response_model=Envelope)
+async def get_theory_layer(
+    kpi_id: str,
+    client_id: str = Query(...),
+    include_values: bool = Query(False, description="Execute each spine KPI's SQL for live values (costs real warehouse queries)"),
+    timeframe: str = Query("year_to_date", description="Timeframe for the current period; the prior period is the SAME SPAN shifted back one period (comparison_period=True), never a full-prior-period token"),
+):
+    """Assemble the theory-layer exhibit for one KPI: Spine, Causal Edges, Ports.
+
+    Structure follows docs/architecture/kpi_relationship_basis_design.md §5:
+    each section is CONDITIONAL (present only with real content) rather than a
+    fixed four-quadrant grid, because a grid reserving space for all four
+    concepts recreates Phase 17's own delivery-rule failure one level down.
+    Assumptions is deliberately NOT a section — a held/falsified verdict is a
+    marker on an edge, so verdicts ride along on each causal edge instead.
+
+    `include_values=False` by default: structure and provenance are free, but
+    real KPI values cost live warehouse queries. Values are strictly optional —
+    a spine with no numbers is honest; a spine with WRONG numbers is the exact
+    failure Phase 17's T1 gate exists to prevent.
+    """
+    from src.registry.providers.kpi_decomposition_provider import KPIDecompositionProvider
+    from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
+    from src.registry.providers.port_provider import PortProvider
+
+    notes: List[str] = []
+    try:
+        factory = RegistryFactory()
+        kpi_provider = factory.get_provider("kpi")
+
+        def _kpi(kid: str):
+            return kpi_provider.get(kid, client_id=client_id) if kpi_provider else None
+
+        primary = _kpi(kpi_id)
+
+        # --- Spine: arithmetic parentage (Phase 17 T2) ---------------------
+        decomp = await KPIDecompositionProvider().get_full_tree(kpi_id, client_id)
+        node_ids: List[str] = []
+        for e in decomp:
+            for nid in (e.parent_kpi_id, e.child_kpi_id, e.weight_kpi_id):
+                if nid and nid not in node_ids:
+                    node_ids.append(nid)
+
+        # Current AND prior period. The prior half is not optional garnish: the
+        # Spine's chart is a VARIANCE bridge, not a composition bridge
+        # (kpi_relationship_basis_design.md §4 — "the framing question is 'why
+        # did this move'... A composition bridge doesn't answer that at all"),
+        # and a variance bridge is uncomputable without both periods.
+        # generate_sql_for_kpi(comparison_period=...) is the same proven pattern
+        # A9_Deep_Analysis_Agent._fetch_neighbour_snapshot already uses, so DPA's
+        # own backend routing is reused rather than reimplemented.
+        values: Dict[str, float] = {}
+        prior_values: Dict[str, float] = {}
+        if include_values and node_ids:
+            try:
+                # get_orchestrator is a METHOD on an async-acquired AgentRuntime,
+                # not a module function — the first attempt called it as
+                # `runtime.get_orchestrator()` and this block's own non-fatal
+                # note is what surfaced the mistake, rather than silently
+                # rendering an empty spine.
+                from src.api.runtime import get_agent_runtime
+                _rt = await get_agent_runtime()
+                orchestrator = _rt.get_orchestrator()
+                dpa = await orchestrator.get_agent("A9_Data_Product_Agent")
+
+                # A timeframe is REQUIRED, not optional garnish: with none, both
+                # calls return the same all-time rollup and the bridge reports a
+                # flat 0.00pp move that closes perfectly — a wrong answer wearing
+                # the costume of a right one. Found live: prior == current on
+                # every node. `comparison_period=True` shifts THIS span back one
+                # period (TimeFilter.previous_period_name's docstring warns at
+                # length against the full-prior-period alternative — a real
+                # production briefing carried two baselines and understated a
+                # decline by ~40% that way).
+                async def _val(k, comparison: bool) -> Optional[float]:
+                    gen = await dpa.generate_sql_for_kpi(k, timeframe=timeframe, comparison_period=comparison)
+                    if not gen.get("success"):
+                        return None
+                    res = await dpa.execute_sql(gen.get("sql"), data_product_id=getattr(k, "data_product_id", None))
+                    rows = (res or {}).get("rows") or []
+                    if not rows:
+                        return None
+                    first = rows[0]
+                    v = list(first.values())[0] if isinstance(first, dict) else first[0]
+                    return float(v) if isinstance(v, (int, float)) else None
+
+                for nid in node_ids:
+                    k = _kpi(nid)
+                    if k is None:
+                        continue
+                    cur = await _val(k, False)
+                    prev = await _val(k, True)
+                    if cur is not None:
+                        values[nid] = cur
+                    if prev is not None:
+                        prior_values[nid] = prev
+            except Exception as exc:
+                notes.append(f"Live values unavailable ({exc}) - spine renders structure only.")
+
+        spine_nodes = []
+        for nid in node_ids:
+            k = _kpi(nid)
+            spine_nodes.append({
+                "kpi_id": nid,
+                "name": getattr(k, "name", nid) if k else nid,
+                "unit": getattr(k, "unit", None) if k else None,
+                "unit_class": getattr(k, "unit_class", None) if k else None,
+                "additive_across_dimensions": getattr(k, "additive_across_dimensions", None) if k else None,
+                "aggregation_method": getattr(k, "aggregation_method", None) if k else None,
+                "scope_eligible": getattr(k, "scope_eligible", None) if k else None,
+                "value": values.get(nid),
+                "prior_value": prior_values.get(nid),
+            })
+
+        # Reconciliation is the spine's own integrity check — a derived tree
+        # that does not reproduce its parent is a wrong number in a diagram,
+        # which Phase 17 calls harder to challenge than a wrong number in a
+        # table. Only computable when values were actually fetched.
+        reconciliation = None
+        bridge = None
+        if values:
+            from src.analysis.decomposition import check_tree_reconciles, variance_bridge
+            direct = [e for e in decomp if e.parent_kpi_id == kpi_id]
+            violation = check_tree_reconciles(
+                kpi_id, direct, values,
+                parent_unit_class=getattr(primary, "unit_class", None) if primary else None,
+            )
+            reconciliation = {"ok": violation is None, "detail": violation}
+
+            # The variance bridge — the Spine's actual chart per §4. Computed
+            # generically from the recorded decomposition operations, not from
+            # a hardcoded margin formula: §4 left "which arithmetic" as an open
+            # gap, and T2's operation/sign fields close it for any tree.
+            unit_classes = {n["kpi_id"]: n["unit_class"] for n in spine_nodes if n["unit_class"]}
+            bridge = variance_bridge(
+                kpi_id, decomp, values, prior_values, unit_classes=unit_classes,
+            )
+            if bridge is None and prior_values:
+                notes.append(
+                    "Variance bridge unavailable — prior-period values missing for one or more "
+                    "spine inputs, so the move cannot be decomposed exactly."
+                )
+
+        # --- Causal edges (Phase 15 D/E + basis, §2) -----------------------
+        neighbourhood = await KPIRelationshipProvider().get_causal_neighbourhood(kpi_id, client_id)
+        causal_edges = []
+        for rel, hops in neighbourhood:
+            d = rel.model_dump()
+            d["hops"] = hops
+            # Assumptions ride along as a marker per §5, never as a section.
+            # No graded verdict attaches to an EDGE today — T3 grades
+            # assumptions per SOLUTION — so this is explicitly pending rather
+            # than silently absent.
+            d["verdict"] = None
+            causal_edges.append(d)
+
+        # --- Ports (Phase 17 T4) -------------------------------------------
+        port_rows = await PortProvider().get_all(client_id)
+        # Scope = the spine PLUS the causal neighbourhood, not the spine alone.
+        # theory_layer_design.md §7 describes ports as "off-tree nodes docking
+        # into tree nodes" — and the anchor case proves the point: the Base Oil
+        # port docks into base_oil_cost, which reaches gross_margin_pct through
+        # CAUSAL edges (base_oil_cost -> cogs -> gross_margin_pct, 2 hops), not
+        # through the arithmetic decomposition. Scoping to the spine alone
+        # silently dropped the one port that exists — and it is precisely the
+        # 11F anchor scenario §2.3 says this exhibit should render literally.
+        reachable = set(node_ids) | {kpi_id}
+        for e in causal_edges:
+            reachable.add(e["kpi_id"])
+            reachable.add(e["related_kpi_id"])
+        ports = [p.model_dump() for p in port_rows if p.linked_kpi_id in reachable]
+
+        summary = _epistemic_summary(causal_edges)
+        if not summary["density_gate_passed"]:
+            notes.append(
+                f"Causal Edges density gate NOT passed: {summary['tested']} tested vs "
+                f"{summary['causal_claims'] - summary['tested']} unconfirmed claim(s). "
+                "Per DEVELOPMENT_PLAN.md Phase 17 this bar is cleared by real accretion "
+                "(VA verdicts), never by seeding."
+            )
+
+        return Envelope(data={
+            "kpi_id": kpi_id,
+            "kpi_name": getattr(primary, "name", kpi_id) if primary else kpi_id,
+            "client_id": client_id,
+            "spine": {
+                "nodes": spine_nodes,
+                "edges": [e.model_dump() for e in decomp],
+                "reconciliation": reconciliation,
+                "variance_bridge": bridge,
+            },
+            "causal_edges": causal_edges,
+            "ports": ports,
+            "epistemic_summary": summary,
+            "values_included": bool(values),
+            "notes": notes,
+        })
+    except Exception as e:
+        logger.warning("theory-layer assembly failed for %s/%s: %s", client_id, kpi_id, e)
+        return Envelope(status="error", data=error_response("server_error", str(e)))

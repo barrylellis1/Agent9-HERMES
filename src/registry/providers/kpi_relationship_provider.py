@@ -40,6 +40,11 @@ def _row_to_model(row: asyncpg.Record) -> KPIRelationship:
         # causal_direction="unknown" for every edge despite the DB (checked
         # directly via REST) holding the correct backfilled values.
         causal_direction=row["causal_direction"],
+        # kpi_relationship_basis_design.md §2 -- same mapping trap the two
+        # comments above warn about twice already; a missing line here reads
+        # back as the Pydantic default ('causal_estimate') for every row,
+        # silently erasing the identity classification the exhibit depends on.
+        basis=row["basis"] if "basis" in row.keys() else "causal_estimate",
     )
 
 
@@ -177,8 +182,8 @@ class KPIRelationshipProvider:
                 """
                 INSERT INTO kpi_relationships
                     (kpi_id, related_kpi_id, client_id, relationship_type, conflict_direction, description,
-                     mechanism, lag_periods, causal_rung, provenance, confidence, causal_direction)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                     mechanism, lag_periods, causal_rung, provenance, confidence, causal_direction, basis)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 ON CONFLICT (client_id, kpi_id, related_kpi_id) DO UPDATE SET
                     relationship_type = EXCLUDED.relationship_type,
                     conflict_direction = EXCLUDED.conflict_direction,
@@ -188,7 +193,8 @@ class KPIRelationshipProvider:
                     causal_rung = EXCLUDED.causal_rung,
                     provenance = EXCLUDED.provenance,
                     confidence = EXCLUDED.confidence,
-                    causal_direction = EXCLUDED.causal_direction
+                    causal_direction = EXCLUDED.causal_direction,
+                    basis = EXCLUDED.basis
                 RETURNING *
                 """,
                 item.kpi_id,
@@ -203,6 +209,7 @@ class KPIRelationshipProvider:
                 item.provenance,
                 item.confidence,
                 item.causal_direction,
+                item.basis,
             )
         logger.info(
             "Upserted KPI relationship '%s' ↔ '%s' for client '%s'",

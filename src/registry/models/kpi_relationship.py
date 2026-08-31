@@ -54,6 +54,27 @@ class KPIRelationship(BaseModel):
         None, description="Categorical, matching SolutionAssumption.confidence -- deliberately not a float."
     )
 
+    # --- kpi_relationship_basis_design.md §2 (designed 2026-08-21, built 2026-08-30) ---
+    basis: Literal["accounting_identity", "causal_estimate"] = Field(
+        "causal_estimate",
+        description=(
+            "Whether this edge is TRUE BY CONSTRUCTION (accounting_identity -- e.g. "
+            "gross_margin_pct is calculated FROM cogs; base_oil_cost is an "
+            "account_category component summing INTO cogs) or a genuinely uncertain "
+            "empirical claim (causal_estimate). There is no 'confidence' in "
+            "arithmetic, which is why the identity edges correctly carry "
+            "confidence=None/causal_rung=None -- but that ABSENCE was the only "
+            "signal distinguishing them, and it collides with a real causal edge "
+            "that simply hasn't been graded yet (product_sales_revenue<->cogs, live "
+            "in the lubricants seed, is exactly that case). Defaults to "
+            "causal_estimate so no existing edge silently upgrades itself to "
+            "'certain'. Consumed by the theory-layer exhibit to separate what is "
+            "certain from what is asserted -- the distinction that exhibit exists "
+            "to show, so it must be a RECORDED fact, never inferred from the "
+            "absence of other fields."
+        ),
+    )
+
     # --- causal_edge_direction_and_magnitude_design.md (Aug 2026) ---
     causal_direction: Literal["kpi_causes_related", "related_causes_kpi", "bidirectional", "unknown"] = Field(
         "unknown",

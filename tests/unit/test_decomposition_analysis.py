@@ -113,3 +113,121 @@ class TestInconsistentOperations:
         result = check_tree_reconciles("x", edges, {"x": 10.0, "a": 5.0, "b": 5.0, "d": 1.0})
         assert result is not None
         assert "inconsistent operations" in result
+
+
+class TestVarianceBridge:
+    """kpi_relationship_basis_design.md §4 — the chart the Spine must actually
+    render. Pinned against §4's OWN worked numbers, not invented fixtures."""
+
+    def _edges(self):
+        return [
+            KPIDecompositionEdge(parent_kpi_id="gross_margin_pct", child_kpi_id="gross_profit",
+                                  client_id="lubricants", operation="ratio", weight_kpi_id="net_revenue"),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="net_revenue",
+                                  client_id="lubricants", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="cogs",
+                                  client_id="lubricants", operation="linear", sign=-1),
+        ]
+
+    def test_reproduces_the_design_notes_own_worked_example(self):
+        """§4: R0=100, C0=65 -> 35.0%; R1=110, C1=77 -> 30.0%.
+        Revenue effect +5.9pp, COGS effect -10.9pp, summing to exactly -5.0pp."""
+        from src.analysis.decomposition import variance_bridge
+        b = variance_bridge(
+            "gross_margin_pct", self._edges(),
+            {"net_revenue": 110.0, "cogs": 77.0},
+            {"net_revenue": 100.0, "cogs": 65.0},
+            unit_classes={"gross_margin_pct": "ratio"},
+        )
+        assert b is not None
+        assert b["prior_value"] == pytest.approx(35.0)
+        assert b["current_value"] == pytest.approx(30.0)
+        assert b["total_move"] == pytest.approx(-5.0)
+        by = {e["kpi_id"]: e["effect"] for e in b["effects"]}
+        assert by["net_revenue"] == pytest.approx(5.9, abs=0.05)
+        assert by["cogs"] == pytest.approx(-10.9, abs=0.05)
+
+    def test_effects_close_with_no_residual_for_two_inputs(self):
+        """The property §4 calls 'worth protecting'."""
+        from src.analysis.decomposition import variance_bridge
+        b = variance_bridge(
+            "gross_margin_pct", self._edges(),
+            {"net_revenue": 440245582.78, "cogs": 298679848.02},
+            {"net_revenue": 400000000.0, "cogs": 250000000.0},
+            unit_classes={"gross_margin_pct": "ratio"},
+        )
+        assert b["residual"] == pytest.approx(0.0, abs=1e-9)
+        assert b["exact"] is True
+        assert b["note"] is None
+
+    def test_three_inputs_flags_order_dependence_rather_than_claiming_exactness(self):
+        """§4's own tripwire: closure 'stops holding automatically the moment a
+        third identity input joins the same bridge'. Must disclose, not pretend."""
+        from src.analysis.decomposition import variance_bridge
+        edges = [
+            KPIDecompositionEdge(parent_kpi_id="cogs", child_kpi_id="base_oil_cost",
+                                  client_id="c", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="cogs", child_kpi_id="distribution_cost",
+                                  client_id="c", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="cogs", child_kpi_id="other_cogs",
+                                  client_id="c", operation="linear", sign=1),
+        ]
+        b = variance_bridge(
+            "cogs", edges,
+            {"base_oil_cost": 120.0, "distribution_cost": 60.0, "other_cogs": 30.0},
+            {"base_oil_cost": 100.0, "distribution_cost": 50.0, "other_cogs": 25.0},
+        )
+        assert b["exact"] is False
+        assert b["note"] is not None and "order-dependent" in b["note"]
+
+    def test_missing_prior_value_yields_none_not_a_partial_bridge(self):
+        from src.analysis.decomposition import variance_bridge
+        b = variance_bridge(
+            "gross_margin_pct", self._edges(),
+            {"net_revenue": 110.0, "cogs": 77.0},
+            {"net_revenue": 100.0},  # cogs prior missing
+            unit_classes={"gross_margin_pct": "ratio"},
+        )
+        assert b is None
+
+
+class TestLeafInputs:
+    def test_shared_node_counted_once_not_twice(self):
+        """net_revenue is both gross_profit's child AND the ratio denominator.
+        Counting it twice would fabricate a third bar in a two-input bridge."""
+        from src.analysis.decomposition import leaf_inputs
+        edges = [
+            KPIDecompositionEdge(parent_kpi_id="gross_margin_pct", child_kpi_id="gross_profit",
+                                  client_id="c", operation="ratio", weight_kpi_id="net_revenue"),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="net_revenue",
+                                  client_id="c", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="cogs",
+                                  client_id="c", operation="linear", sign=-1),
+        ]
+        assert leaf_inputs("gross_margin_pct", edges) == ["net_revenue", "cogs"]
+
+
+class TestEvaluateTree:
+    def test_computes_parent_from_leaves_through_two_levels(self):
+        from src.analysis.decomposition import evaluate_tree
+        edges = [
+            KPIDecompositionEdge(parent_kpi_id="gross_margin_pct", child_kpi_id="gross_profit",
+                                  client_id="c", operation="ratio", weight_kpi_id="net_revenue"),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="net_revenue",
+                                  client_id="c", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="cogs",
+                                  client_id="c", operation="linear", sign=-1),
+        ]
+        v = evaluate_tree("gross_margin_pct", edges, {"net_revenue": 100.0, "cogs": 65.0},
+                          unit_classes={"gross_margin_pct": "ratio"})
+        assert v == pytest.approx(35.0)
+
+    def test_missing_leaf_yields_none_not_zero(self):
+        from src.analysis.decomposition import evaluate_tree
+        edges = [
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="net_revenue",
+                                  client_id="c", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="cogs",
+                                  client_id="c", operation="linear", sign=-1),
+        ]
+        assert evaluate_tree("gross_profit", edges, {"net_revenue": 100.0}) is None

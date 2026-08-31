@@ -111,6 +111,17 @@ _COLUMN_DEFAULTS: Dict[str, Any] = {
     # NULL for the omitted ones via _normalize_rows' uniform-key-set fill.
     "synonyms": [],
     "technical_mappings": {},
+    # kpi_relationships.basis is NOT NULL DEFAULT 'causal_estimate'
+    # (kpi_relationship_basis_design.md §2). Only the identity edges set it
+    # explicitly, so every other row in the same batch would otherwise send an
+    # explicit null and raise 23502. The default here must match the DB's --
+    # and 'causal_estimate' is deliberately the safe side: nothing silently
+    # becomes "certain" by omission.
+    "basis": "causal_estimate",
+    # kpi_decompositions.sign is NOT NULL DEFAULT 1 -- same trap, found live
+    # in Phase 17 T2 when the ratio edge (which legitimately omits sign)
+    # shared a batch with the linear edges that set it.
+    "sign": 1,
 }
 
 

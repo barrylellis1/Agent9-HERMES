@@ -26,7 +26,7 @@ values the caller already has (from a live DA run, or a test fixture):
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from src.registry.models.kpi_decomposition import KPIDecompositionEdge
 
@@ -51,6 +51,164 @@ def roll_up_scope(
     if not enterprise_weight:
         return None
     return segment_delta * (segment_weight / enterprise_weight)
+
+
+def evaluate_tree(
+    kpi_id: str,
+    edges: List[KPIDecompositionEdge],
+    values: Dict[str, float],
+    *,
+    unit_classes: Optional[Dict[str, str]] = None,
+    _depth: int = 0,
+) -> Optional[float]:
+    """Compute `kpi_id`'s value from its LEAF inputs, through the tree.
+
+    A leaf (no outgoing decomposition edges) returns its own value. A parent is
+    computed from its children -- signed sum for 'linear', child/weight for
+    'ratio' (percent-scaled when the parent's unit_class is 'ratio', matching
+    every seeded KPI's own sql_query).
+
+    Returns None whenever any needed input is missing -- never a partial or
+    zero-filled result, same documented no-op posture as check_tree_reconciles.
+
+    This is what makes a variance bridge computable GENERICALLY rather than by
+    hardcoding one KPI's formula: kpi_relationship_basis_design.md §4 named
+    that as an open gap ("`accounting_identity` says an edge is exact
+    arithmetic, not WHICH arithmetic"), and the Phase 17 T2 decomposition model
+    records the operation explicitly, which closes it for any tree it covers.
+    """
+    if _depth > 6:
+        return None
+    children = [e for e in edges if e.parent_kpi_id == kpi_id]
+    if not children:
+        return values.get(kpi_id)
+
+    ops = {e.operation for e in children}
+    if len(ops) > 1:
+        return None
+    op = ops.pop()
+
+    if op == "linear":
+        total = 0.0
+        for e in children:
+            v = evaluate_tree(e.child_kpi_id, edges, values, unit_classes=unit_classes, _depth=_depth + 1)
+            if v is None:
+                return None
+            total += e.sign * v
+        return total
+
+    if op == "ratio":
+        if len(children) != 1:
+            return None
+        e = children[0]
+        num = evaluate_tree(e.child_kpi_id, edges, values, unit_classes=unit_classes, _depth=_depth + 1)
+        den = evaluate_tree(e.weight_kpi_id, edges, values, unit_classes=unit_classes, _depth=_depth + 1) if e.weight_kpi_id else None
+        if num is None or not den:
+            return None
+        scale = 100.0 if (unit_classes or {}).get(kpi_id) == "ratio" else 1.0
+        return scale * num / den
+
+    return None
+
+
+def leaf_inputs(kpi_id: str, edges: List[KPIDecompositionEdge]) -> List[str]:
+    """The independent inputs at the bottom of `kpi_id`'s tree, in stable order.
+
+    A KPI appearing both as an intermediate parent and as a leaf elsewhere
+    (net_revenue is both gross_profit's child AND gross_margin_pct's ratio
+    denominator) is counted ONCE -- it is one independent quantity, and
+    double-counting it would fabricate a third bar in a two-input bridge.
+    """
+    out: List[str] = []
+    seen: set = set()
+
+    def walk(kid: str, depth: int = 0) -> None:
+        if depth > 6 or kid in seen:
+            return
+        children = [e for e in edges if e.parent_kpi_id == kid]
+        if not children:
+            if kid not in out:
+                out.append(kid)
+            return
+        seen.add(kid)
+        for e in children:
+            walk(e.child_kpi_id, depth + 1)
+            if e.weight_kpi_id:
+                walk(e.weight_kpi_id, depth + 1)
+
+    walk(kpi_id)
+    return out
+
+
+def variance_bridge(
+    kpi_id: str,
+    edges: List[KPIDecompositionEdge],
+    current: Dict[str, float],
+    prior: Dict[str, float],
+    *,
+    unit_classes: Optional[Dict[str, str]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Decompose a KPI's MOVE between two periods into per-input effects.
+
+    docs/architecture/kpi_relationship_basis_design.md §4 — the composition
+    bridge (decomposing the CURRENT value into its inputs) was explicitly
+    rejected as the wrong chart: "the framing question is 'why did this move'
+    — inherently about the DELTA between periods, not the current value's
+    arithmetic." This is the variance bridge it specified instead.
+
+    Method: sequential substitution. Starting from all-prior, swap one input to
+    its current value at a time; each swap's effect on the parent is that
+    input's contribution. The effects then sum to the observed move EXACTLY,
+    with no residual term — the property §4 calls "worth protecting".
+
+    THE TRIPWIRE, implemented rather than just noted: that exact closure holds
+    for exactly TWO inputs. §4 — "It stops holding automatically the moment a
+    third identity input joins the same bridge... order of substitution then
+    affects the split, and either a disclosed convention or an order-
+    independent method (Shapley) is needed." So a tree with anything other
+    than two leaf inputs returns `exact=False` and a stated reason rather than
+    silently emitting an order-dependent split as though it were exact.
+
+    Returns None when the bridge cannot be computed at all (missing values).
+    """
+    leaves = leaf_inputs(kpi_id, edges)
+    if len(leaves) < 2:
+        return None
+    if not all(k in current and k in prior for k in leaves):
+        return None
+
+    start = evaluate_tree(kpi_id, edges, prior, unit_classes=unit_classes)
+    end = evaluate_tree(kpi_id, edges, current, unit_classes=unit_classes)
+    if start is None or end is None:
+        return None
+
+    working = dict(prior)
+    effects: List[Dict[str, Any]] = []
+    running = start
+    for leaf in leaves:
+        working[leaf] = current[leaf]
+        after = evaluate_tree(kpi_id, edges, working, unit_classes=unit_classes)
+        if after is None:
+            return None
+        effects.append({"kpi_id": leaf, "effect": after - running})
+        running = after
+
+    total = end - start
+    residual = total - sum(e["effect"] for e in effects)
+    exact = len(leaves) == 2
+    return {
+        "prior_value": start,
+        "current_value": end,
+        "total_move": total,
+        "effects": effects,
+        "residual": residual,
+        "exact": exact,
+        "note": None if exact else (
+            f"{len(leaves)} inputs — sequential substitution is order-dependent beyond two "
+            "inputs, so this split is one convention among several, not the exact "
+            "decomposition (kpi_relationship_basis_design.md §4)."
+        ),
+    }
 
 
 def check_tree_reconciles(

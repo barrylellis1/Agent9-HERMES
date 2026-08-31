@@ -896,6 +896,11 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "mechanism": "Gross Margin % is calculated from Net Revenue and COGS; revenue movements (volume, price, mix) move the ratio directly, not the reverse.",
         "provenance": "confirmed",
         "causal_direction": "kpi_causes_related",
+        # kpi_relationship_basis_design.md §2, built 2026-08-30: the field the
+        # 2026-08-22 reclassification above described in prose but had nowhere
+        # to record. Makes "true by construction" a fact, not an inference
+        # from absent confidence/causal_rung.
+        "basis": "accounting_identity",
     },
     {
         "kpi_id": "product_sales_revenue",
@@ -907,6 +912,13 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         # Describes a co-movement (revenue vs. COGS growth rates), not a
         # recorded cause -- "unknown", same honesty as above.
         "causal_direction": "unknown",
+        # Deliberately NOT marked accounting_identity, and left to the
+        # 'causal_estimate' default. This edge is the live counter-example
+        # that made the `basis` field necessary rather than derivable: it
+        # carries causal_rung=None + confidence=None exactly like the four
+        # identity edges, but it is NOT an identity -- it's an ungraded
+        # empirical claim. Any heuristic reading those NULLs as "identity"
+        # misclassifies this row. See kpi_relationship_basis_design.md §2.
     },
     {
         "kpi_id": "gross_margin_pct",
@@ -929,6 +941,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         # attach to yet -- see design note §3, not solved by this edit.
         "mechanism": "Gross Margin % is calculated from Net Revenue and COGS; COGS movements directly move the ratio (Revenue held constant), not the reverse.",
         "provenance": "confirmed",
+        "basis": "accounting_identity",  # see the net_revenue<->gross_margin_pct edge above
         # The formula is explicit: COGS (via the ratio) drives margin, not
         # the reverse. related_kpi_id (cogs) causes kpi_id (gross_margin_pct).
         "causal_direction": "related_causes_kpi",
@@ -959,6 +972,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         # an identity component sums same-period, by construction.
         "mechanism": "Raw Materials (base oil) is an account_category component of COGS; it sums into the COGS total directly, not via an inferred pass-through.",
         "provenance": "confirmed",
+        "basis": "accounting_identity",  # exact account_category sub-slice of COGS, per this edge's own comment above
         # base_oil_cost (kpi_id) causes cogs (related_kpi_id) -- this is the
         # edge that lets base_oil_cost validly reach a gross_margin_pct
         # analysis at 2 hops (through the cogs edge above, both confirmed).
@@ -1003,6 +1017,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "provenance": "confirmed",
         # distribution_cost (kpi_id) causes cogs (related_kpi_id).
         "causal_direction": "kpi_causes_related",
+        "basis": "accounting_identity",  # exact account_category sub-slice of COGS, same shape as base_oil_cost above
     },
     # ------------------------------------------------------------------
     # Cross-data-product: Sales (dp_lubricants_sales) volume/price drivers
@@ -1113,12 +1128,9 @@ KPI_DECOMPOSITIONS: List[Dict[str, Any]] = [
         "child_kpi_id": "gross_profit",
         "client_id": CLIENT_ID,
         "operation": "ratio",
-        # sign is ignored for operation='ratio' (see the model docstring) but
-        # still set explicitly -- PostgREST's bulk insert derives its column
-        # list from the request's first row, so a later row omitting a key
-        # present elsewhere in the same batch sends NULL instead of letting
-        # the column's DB DEFAULT apply.
-        "sign": 1,
+        # sign is genuinely inapplicable to a ratio edge (see the model
+        # docstring) so it is omitted here; onboard_client.py's
+        # _COLUMN_DEFAULTS fills the DB default for the batch.
         "weight_kpi_id": "net_revenue",
     },
 ]
