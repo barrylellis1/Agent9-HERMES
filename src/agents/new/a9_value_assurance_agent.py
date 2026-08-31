@@ -239,6 +239,82 @@ async def _grade_assumptions_from_verdict(
         )
 
 
+async def _confirm_causal_edge_from_verdict(
+    client_id: Optional[str],
+    claimed_causal_edge: Optional[str],
+    verdict: "SolutionVerdict",
+    logger_: logging.Logger,
+) -> None:
+    """Density-gate write-back infrastructure (Phase 17 T2/T3 follow-on,
+    DEVELOPMENT_PLAN.md's Causal Edges density gate).
+
+    When a solution's mechanism was traceable to a specific kpi_relationships
+    edge AT APPROVAL TIME (SF's moderator_grade.causal_grounding, normalized
+    via src.analysis.mechanism.normalize_causal_edge and captured on
+    StrategySnapshot.claimed_causal_edge), and VA's DiD attribution VALIDATES
+    that solution, confirm that SPECIFIC edge as
+    causal_rung='intervention_tested' + provenance='va_validated' --
+    respecting KPIRelationship's own model validator, which requires exactly
+    that pairing.
+
+    This is infrastructure, not a result: it lets confirmed edges accumulate
+    through real subsequent pipeline runs. It does NOT itself get any client
+    over the Causal Edges density bar (confirmed edges outnumbering template
+    ones) -- that requires real use over time, exactly as DEVELOPMENT_PLAN.md
+    states; no amount of code closes it.
+
+    Never fires without a traceable, real edge -- no speculative confirmation:
+    - Only `verdict == VALIDATED` confirms. PARTIAL/FAILED/MEASURING do not --
+      a partial or failed outcome doesn't say the CITED mechanism specifically
+      was what worked or didn't (same "one bit per solution" limitation as
+      assumption grading above).
+    - `claimed_causal_edge` must be a real "a<->b" pair, not None,
+      'ungrounded', or 'insufficient_data'.
+    - A matching kpi_relationships row must actually exist for this client --
+      an edge cited in prose that was never registered confirms nothing.
+
+    Non-fatal: a persistence failure must never break the VA response that
+    triggered it, same posture as the assumption grading write-back above.
+    """
+    if verdict != SolutionVerdict.VALIDATED:
+        return
+    if not client_id or not claimed_causal_edge or claimed_causal_edge in ("ungrounded", "insufficient_data"):
+        return
+    parts = claimed_causal_edge.split("<->")
+    if len(parts) != 2:
+        return
+    a, b = parts
+    try:
+        from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
+
+        provider = KPIRelationshipProvider()
+        edges = await provider.get_all(client_id)
+        match = next((e for e in edges if {e.kpi_id, e.related_kpi_id} == {a, b}), None)
+        if match is None:
+            logger_.info(
+                "[VA] claimed_causal_edge '%s' has no matching kpi_relationships row for "
+                "client '%s' -- not confirming (no speculative confirmation)",
+                claimed_causal_edge, client_id,
+            )
+            return
+        if match.causal_rung == "intervention_tested" and match.provenance == "va_validated":
+            return  # already confirmed -- nothing to do
+        confirmed = match.model_copy(update={
+            "causal_rung": "intervention_tested",
+            "provenance": "va_validated",
+        })
+        await provider.upsert(confirmed)
+        logger_.info(
+            "[VA] Confirmed causal edge '%s' <-> '%s' as intervention_tested for client '%s'",
+            match.kpi_id, match.related_kpi_id, client_id,
+        )
+    except Exception as exc:
+        logger_.warning(
+            "[VA] Causal edge confirmation write-back failed (non-fatal) for client '%s': %s",
+            client_id, exc,
+        )
+
+
 class A9_Value_Assurance_Agent:
     """
     Value Assurance Agent.
@@ -429,6 +505,16 @@ class A9_Value_Assurance_Agent:
             snapshot = StrategySnapshot(**{
                 **snapshot.model_dump(),
                 "key_assumptions": request.bets_on_assumptions,
+            })
+
+        # Phase 17 density-gate write-back infrastructure: same threading
+        # pattern as bets_on_assumptions above -- capture the claimed edge
+        # at approval time, regardless of whether the snapshot came from the
+        # caller or the fallback builder.
+        if request.claimed_causal_edge:
+            snapshot = StrategySnapshot(**{
+                **snapshot.model_dump(),
+                "claimed_causal_edge": request.claimed_causal_edge,
             })
 
         # --- Compute three-trajectory projections ---
@@ -676,6 +762,13 @@ class A9_Value_Assurance_Agent:
         # design as the Supabase persist immediately above.
         await _grade_assumptions_from_verdict(
             request.solution_id, solution.client_id, verdict, self.logger,
+        )
+
+        # Phase 17 density-gate write-back infrastructure: confirm the
+        # specific causal edge this solution's mechanism claimed at approval,
+        # when the verdict validates it. Non-fatal by the same design.
+        await _confirm_causal_edge_from_verdict(
+            solution.client_id, solution.strategy_snapshot.claimed_causal_edge, verdict, self.logger,
         )
 
         return EvaluateSolutionResponse(

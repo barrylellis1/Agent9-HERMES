@@ -105,6 +105,26 @@ mapping — a further follow-up, not attempted here. Never overwrites an already
 'active'` rows are skipped). Non-fatal, same posture as the Supabase evaluation persist immediately
 above it.
 
+## Density-Gate Write-Back Infrastructure (Phase 17, 2026-08-30)
+
+`register_solution()` now captures `StrategySnapshot.claimed_causal_edge` — the approved option's
+`moderator_grade.causal_grounding`, normalized via `src.analysis.mechanism.normalize_causal_edge` to a
+sorted `"a<->b"` string, threaded in from `src/api/routes/workflows.py` at the same approval call site
+that already threads `bets_on_assumptions` (same "commit to the claim before the outcome is known"
+discipline).
+
+`evaluate_solution_impact()` then calls `_confirm_causal_edge_from_verdict()`: when the verdict is
+`VALIDATED` and `claimed_causal_edge` names a real, currently-registered `kpi_relationships` edge, that
+SPECIFIC edge is written back as `causal_rung='intervention_tested'` + `provenance='va_validated'` —
+respecting `KPIRelationship`'s own model validator, which requires exactly that pairing. Never fires
+speculatively: no claimed edge, `'ungrounded'`/`'insufficient_data'`, no matching registered row, or a
+non-`VALIDATED` verdict are all documented no-ops.
+
+**This is infrastructure, not a result.** It lets confirmed edges accumulate through real subsequent
+pipeline runs. It does NOT itself get any client over the Causal Edges density gate (confirmed edges
+outnumbering template ones) — that requires real use over time (`DEVELOPMENT_PLAN.md` Phase 17); no
+amount of code closes it.
+
 ## Strategy Alignment Check
 
 At registration: a `StrategySnapshot` captures principal priorities, KPI threshold, business process domain, data product ID, and key assumptions.

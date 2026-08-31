@@ -114,6 +114,16 @@ class StrategySnapshot(BaseModel):
     business_context_name: str
     strategic_rationale: Optional[str] = None
     captured_at: str  # ISO datetime string
+    # Phase 17 (density-gate write-back infrastructure): the approved option's
+    # moderator_grade.causal_grounding, normalized via
+    # src.analysis.mechanism.normalize_causal_edge to a sorted "a<->b" string
+    # (or None/'ungrounded'/'insufficient_data'). Captured at APPROVAL time,
+    # same "commit to the claim before the outcome is known" discipline as
+    # key_assumptions above — lets evaluate_solution_impact() confirm this
+    # SPECIFIC kpi_relationships edge as intervention_tested only when a
+    # later VALIDATED verdict traces back to the mechanism actually claimed,
+    # never a speculative confirmation of whichever edge happens to exist.
+    claimed_causal_edge: Optional[str] = None
 
     @field_validator("key_assumptions", mode="before")
     @classmethod
@@ -290,6 +300,9 @@ class RegisterSolutionRequest(BaseModel):
     # (SolutionAssumption shape) or legacy strings both work — reconstructing the
     # snapshot re-runs its existing legacy-coercion validator.
     bets_on_assumptions: Optional[List[dict]] = None
+    # Phase 17 density-gate write-back infrastructure -- see StrategySnapshot's
+    # own field docstring for the full rationale.
+    claimed_causal_edge: Optional[str] = None
 
 
 class RegisterSolutionResponse(BaseModel):

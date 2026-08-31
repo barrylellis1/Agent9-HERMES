@@ -1117,6 +1117,24 @@ async def _record_solution_action(
             # was always an empty stub with nothing threading real data into it.
             bets_on_assumptions = matched.get("key_assumptions") or None
 
+            # Phase 17 density-gate write-back infrastructure: capture which
+            # kpi_relationships edge the approved option's moderator grade
+            # cited, at approval time -- before the outcome is known, same
+            # discipline as bets_on_assumptions above. moderator_grades is
+            # keyed by option id (Phase 15 Stage H); normalize_causal_edge
+            # reduces the moderator's prose to a comparable "a<->b" string,
+            # or None/'ungrounded'/'insufficient_data' when there's nothing
+            # to trace. A lookup failure here is a documented no-op --
+            # _confirm_causal_edge_from_verdict never fires speculatively.
+            _claimed_causal_edge = None
+            try:
+                from src.analysis.mechanism import normalize_causal_edge
+                _mod_grades = result_solutions.get("moderator_grades") or {}
+                _mod_grade = _mod_grades.get(matched.get("id")) or {}
+                _claimed_causal_edge = normalize_causal_edge(_mod_grade.get("causal_grounding"))
+            except Exception:
+                _claimed_causal_edge = None
+
             # A solution written without a tenant is not a degraded record — it is an
             # invisible one. Every VA read (portfolio tracker, covenant check, ROI
             # rollup) filters on client_id, so a NULL here silently drops the approval
@@ -1149,6 +1167,7 @@ async def _record_solution_action(
                 bets_on_assumptions=bets_on_assumptions,
                 framing_snapshot=framing_snapshot,
                 target_metric=target_metric,
+                claimed_causal_edge=_claimed_causal_edge,
             )
 
             va_resp = await orchestrator.execute_agent_method(
