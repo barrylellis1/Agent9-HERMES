@@ -42,6 +42,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
+from src.registry.models.kpi import KPI
+
 # A headline claim is only worth checking when the sentence ASSERTS a value FOR
 # the headline. "Chain A fell 43.24pp" is a true segment statement, and so is
 # "performance beneath that headline number is mixed: Chain A (-43.24pp)..." —
@@ -206,6 +208,42 @@ def check_stated_sums(text: str, field_name: str) -> List[NarrativeFinding]:
     return out
 
 
+def check_additive_claim(text: str, field_name: str, kpi: Optional[KPI]) -> List[NarrativeFinding]:
+    """Flag a 'combined/total/collectively' claim in this KPI's own
+    narrative when the KPI is declared additive_across_dimensions=false --
+    regardless of whether the stated sum is arithmetically self-consistent
+    (that's check_stated_sums's job, immediately above). Phase 17 T1/T2:
+    additivity is a METHODOLOGY fact -- summing this KPI's segment values is
+    invalid on principle even when the arithmetic in the sentence checks out,
+    the same distinction src/registry/validators/additivity_validator.py
+    already draws for structured impact_estimate claims. This extends that
+    same coverage to free narrative prose, the smallest concrete SF-facing
+    use of the Phase 17 T2 decomposition work landing alongside it.
+
+    kpi=None or additive_across_dimensions is not explicitly False
+    (undeclared or True) is a documented no-op, matching every other
+    optional-KPI check in this codebase.
+    """
+    out: List[NarrativeFinding] = []
+    if kpi is None or kpi.additive_across_dimensions is not False:
+        return out
+    for sentence in _sentences(text):
+        m = _SUM_CUE.search(sentence)
+        if not m:
+            continue
+        out.append(NarrativeFinding(
+            kind="non_additive_summation", field=field_name,
+            claimed=float(m.group(2)), expected=None,
+            detail=(
+                f"'{kpi.id}' is declared additive_across_dimensions=false -- this sentence states "
+                f"a combined/total figure across segments, which is not a valid way to derive this "
+                f"KPI's enterprise value regardless of whether the arithmetic itself is self-consistent"
+            ),
+            excerpt=sentence,
+        ))
+    return out
+
+
 # "32.63% -> 29.94%", "from 32.63% to 29.94%". Captures both endpoints so the
 # direction they describe can be compared with the direction claimed alongside.
 _TRANSITION = re.compile(
@@ -273,10 +311,15 @@ def check_narrative(
     *,
     headline_value: Optional[float] = None,
     headline_delta: Optional[float] = None,
+    kpi: Optional[KPI] = None,
 ) -> NarrativeCheck:
     """Validate every narrative field against numbers the pipeline already knows.
 
     `narrative_fields` maps a name (e.g. "problem_reframe.situation") to its text.
+    `kpi` (Phase 17 T1/T2): the registry KPI record for the headline KPI this
+    narrative discusses, when available. Enables check_additive_claim below;
+    omitted entirely (None) when the caller has no registry connection, same
+    documented-no-op posture as every other optional input here.
     Never raises — a validation failure must not be able to break generation.
     """
     result = NarrativeCheck()
@@ -288,6 +331,7 @@ def check_narrative(
             result.findings.extend(check_headline_claims(text, name, headline_value, headline_delta))
             result.findings.extend(check_stated_sums(text, name))
             result.findings.extend(check_transition_direction(text, name))
+            result.findings.extend(check_additive_claim(text, name, kpi))
         except Exception:
             # Bookkeeping must never break the pipeline it observes.
             continue

@@ -190,6 +190,19 @@ within 90 chars of the cue. Result on the real payload: **exactly the 2 real err
 positives.** Tests: `tests/unit/test_narrative_claims.py` (20), several pinning the *absence* of
 those false positives.
 
+**Extended 2026-08-30 (Phase 17 T1/T2): `check_additive_claim`.** The two errors above are
+arithmetic-typo bugs — the components in a sentence don't sum to the stated total. A THIRD class is
+methodological, not arithmetic: a "combined/collectively/total Npp" sentence about a KPI whose
+registry record declares `additive_across_dimensions=false` (e.g. `gross_margin_pct`) is invalid
+*regardless of whether the cited numbers add up correctly* — summing that KPI's own segment values
+is not a valid way to reach its enterprise figure at all (the −53pp header-arithmetic bug, restated:
+each segment's number was individually correct). `check_narrative` now takes an optional `kpi`
+(the headline KPI's registry record, resolved via the existing `_lookup_kpi_scoped` — a lookup
+failure is a documented no-op, not a hard dependency on `enable_causal_grounding`). Findings append
+kind `non_additive_summation` to the same `narrative_claim_mismatch` audit event. Only fires when
+`additive_across_dimensions` is explicitly `False`; an undeclared KPI (`None`) is never treated as
+either additive or non-additive.
+
 ## Stage 1 Attribution Fix (Aug 2026)
 Stage 1 results are keyed **positionally** from `asyncio.gather()` order — never by the LLM
 echoing `persona_id` back. The old keying silently discarded a successful call whose JSON

@@ -1066,6 +1066,64 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
 ]
 
 
+# KPI arithmetic decomposition (Phase 17 T2, see
+# src/registry/models/kpi_decomposition.py's module docstring for the full
+# linear/ratio design). Only the two edges that reconcile EXACTLY against real
+# BigQuery values are seeded -- deliberately, not the full account_category
+# tree implied by cogs' own sql_query.
+#
+# gross_profit = net_revenue - cogs: true by construction (gross_profit's
+# sql_query literally sums the same Revenue+COGS rows net_revenue and cogs
+# each sum separately). cogs's edge carries sign=-1 because the `cogs` KPI's
+# OWN reported value is already a positive cost magnitude (its sql_query
+# negates the raw signed amount) -- net_revenue MINUS that positive magnitude
+# is gross_profit, not a plain addition of both KPI values.
+#
+# gross_margin_pct = ratio(gross_profit, net_revenue), matching its own
+# sql_query's 100 * SUM(Revenue+COGS) / SUM(Revenue) exactly.
+#
+# NOT seeded: cogs -> base_oil_cost + distribution_cost. base_oil_cost
+# (Raw Materials) is only 41.5% of COGS (122.0M of 293.8M, per that KPI's own
+# comment) and distribution_cost covers another slice -- neither this pair
+# nor any other combination of currently-registered KPIs sums to the full
+# COGS total (Packaging, Labor and other account_categories exist in the
+# data with no KPI of their own). Seeding that edge would fail
+# check_tree_reconciles against real values -- exactly the defect the
+# reconciliation check exists to catch, so it is not seeded rather than
+# seeded-and-silenced. Filed as a fast-follow: either register the
+# remaining COGS account_categories as their own KPIs, or don't decompose
+# COGS further until that's done.
+KPI_DECOMPOSITIONS: List[Dict[str, Any]] = [
+    {
+        "parent_kpi_id": "gross_profit",
+        "child_kpi_id": "net_revenue",
+        "client_id": CLIENT_ID,
+        "operation": "linear",
+        "sign": 1,
+    },
+    {
+        "parent_kpi_id": "gross_profit",
+        "child_kpi_id": "cogs",
+        "client_id": CLIENT_ID,
+        "operation": "linear",
+        "sign": -1,
+    },
+    {
+        "parent_kpi_id": "gross_margin_pct",
+        "child_kpi_id": "gross_profit",
+        "client_id": CLIENT_ID,
+        "operation": "ratio",
+        # sign is ignored for operation='ratio' (see the model docstring) but
+        # still set explicitly -- PostgREST's bulk insert derives its column
+        # list from the request's first row, so a later row omitting a key
+        # present elsewhere in the same batch sends NULL instead of letting
+        # the column's DB DEFAULT apply.
+        "sign": 1,
+        "weight_kpi_id": "net_revenue",
+    },
+]
+
+
 # Theory-layer assumption register (see docs/architecture/theory_layer_design.md).
 #
 # Seeded rows carry an EXPLICIT stable `id` so onboarding upserts on the primary key

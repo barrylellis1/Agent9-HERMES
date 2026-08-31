@@ -3013,6 +3013,19 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             _sm = situation_metadata or {}
                             _hv = _sm.get("current_value")
                             _cv = _sm.get("comparison_value")
+                            # Phase 17 T1/T2: resolve the headline KPI (independent of
+                            # enable_causal_grounding above -- this check has no
+                            # dependency on that flag) so check_additive_claim can
+                            # flag a 'combined X pp' sentence for a KPI declared
+                            # additive_across_dimensions=false. A lookup failure (no
+                            # registry, unresolvable name) is a documented no-op, same
+                            # posture as every other optional input to check_narrative.
+                            _nc_kpi_ref = da_summary.get("kpi_name") if da_summary else None
+                            _nc_client_id = (
+                                (da_summary.get("client_id") if da_summary else None)
+                                or getattr(request, "client_id", None)
+                            )
+                            _nc_kpi = _lookup_kpi_scoped(_nc_kpi_ref, _nc_client_id, self.logger)
                             _nc = check_narrative(
                                 extract_narrative_fields({
                                     "problem_reframe": problem_reframe,
@@ -3021,6 +3034,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 headline_value=_hv if isinstance(_hv, (int, float)) else None,
                                 headline_delta=((_hv - _cv) if isinstance(_hv, (int, float))
                                                 and isinstance(_cv, (int, float)) else None),
+                                kpi=_nc_kpi,
                             )
                             _ev = _nc.as_audit_event()
                             if _ev:

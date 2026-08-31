@@ -164,6 +164,7 @@ _RLS_TABLES = [
     "value_assurance_solutions",
     "kpi_accountability",
     "kpi_relationships",
+    "kpi_decompositions",
     "connection_profiles",
     "briefing_runs",
     "assessment_runs",

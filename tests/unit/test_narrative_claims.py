@@ -227,3 +227,73 @@ class TestReversedTransitionDirection:
         from src.analysis.narrative_claims import check_narrative
         res = check_narrative({"f": "move (-2.69 points, 29.94%->32.63%) observed"})
         assert any(x.kind == "direction_mismatch" for x in res.findings)
+
+
+class TestAdditiveClaim:
+    """Phase 17 T1/T2: a THIRD error class, methodological rather than
+    arithmetic -- a 'combined Npp' sentence about a KPI declared
+    additive_across_dimensions=false is invalid regardless of whether the
+    cited numbers actually add up (that's check_stated_sums's job)."""
+
+    def _kpi(self, **overrides):
+        from src.registry.models.kpi import KPI
+        base = dict(
+            id="gross_margin_pct", client_id="lubricants", name="Gross Margin %",
+            domain="Finance", data_product_id="dp_lubricants_financials",
+            additive_across_dimensions=False,
+        )
+        base.update(overrides)
+        return KPI(**base)
+
+    def test_flags_a_combined_sentence_even_when_arithmetic_is_correct(self):
+        """The real gap check_stated_sums cannot close: 43.24+16.76+15.18
+        really does equal 75.18 here (unlike the REAL_COMPLICATION fixture
+        above, which is also wrong arithmetically) -- so check_stated_sums
+        alone would pass this sentence, yet summing gross_margin_pct's
+        segments is still invalid on principle."""
+        from src.analysis.narrative_claims import check_additive_claim, check_stated_sums
+        text = ("Three segments are collectively dragging margin down by 75.18pp "
+                "of combined drag (43.24pp + 16.76pp + 15.18pp).")
+        assert check_stated_sums(text, "f") == []  # arithmetic checks out
+        findings = check_additive_claim(text, "f", self._kpi())
+        assert findings, "must flag even though the arithmetic is self-consistent"
+        assert findings[0].kind == "non_additive_summation"
+
+    def test_no_op_when_kpi_is_none(self):
+        from src.analysis.narrative_claims import check_additive_claim
+        text = "Segments are collectively dragging margin down by 75.18pp of combined drag."
+        assert check_additive_claim(text, "f", None) == []
+
+    def test_no_op_when_additivity_undeclared(self):
+        """None (not yet declared) must never be treated as either additive or not."""
+        from src.analysis.narrative_claims import check_additive_claim
+        kpi = self._kpi(additive_across_dimensions=None)
+        text = "Segments are collectively dragging margin down by 75.18pp of combined drag."
+        assert check_additive_claim(text, "f", kpi) == []
+
+    def test_no_op_when_kpi_is_declared_additive(self):
+        """e.g. net_revenue -- summing segment dollars IS valid."""
+        from src.analysis.narrative_claims import check_additive_claim
+        kpi = self._kpi(id="net_revenue", additive_across_dimensions=True)
+        text = "Three regions collectively contributed $75.18M of combined revenue."
+        assert check_additive_claim(text, "f", kpi) == []
+
+    def test_no_sum_cue_present_yields_no_finding(self):
+        from src.analysis.narrative_claims import check_additive_claim
+        text = "Gross Margin % declined 6.10 points year over year."
+        assert check_additive_claim(text, "f", self._kpi()) == []
+
+    def test_runs_inside_check_narrative_with_kpi_param(self):
+        from src.analysis.narrative_claims import check_narrative
+        res = check_narrative(
+            {"f": "Segments are collectively dragging margin down by 75.18pp of combined drag."},
+            kpi=self._kpi(),
+        )
+        assert any(x.kind == "non_additive_summation" for x in res.findings)
+
+    def test_check_narrative_default_kpi_none_is_backward_compatible(self):
+        """Every existing call site (kpi not yet threaded through) must see
+        zero behavior change -- kpi defaults to None."""
+        from src.analysis.narrative_claims import check_narrative
+        res = check_narrative({"f": "Segments are collectively dragging margin down by 75.18pp of combined drag."})
+        assert not any(x.kind == "non_additive_summation" for x in res.findings)

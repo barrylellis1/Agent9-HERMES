@@ -31,6 +31,7 @@ Seeding order (all idempotent upserts):
     7. kpi_accountability     (optional — only if ACCOUNTABILITY is exported)
     8. kpi_relationships      (optional — only if KPI_RELATIONSHIPS is exported)
     9. assumptions            (optional — only if ASSUMPTIONS is exported)
+    10. kpi_decompositions    (optional — only if KPI_DECOMPOSITIONS is exported)
 """
 
 import argparse
@@ -490,6 +491,23 @@ def onboard_client(
                 )
                 sys.exit(1)
             n = _upsert(http, base_url, service_key, "assumptions", assumptions, dry_run)
+            print(f"  OK  {n} row(s) upserted\n")
+
+        # ------------------------------------------------------------------
+        # 10. kpi_decompositions  (optional — only if client exports KPI_DECOMPOSITIONS)
+        # ------------------------------------------------------------------
+        kpi_decompositions: List[Dict[str, Any]] = getattr(mod, "KPI_DECOMPOSITIONS", [])
+        if kpi_decompositions:
+            print("[10/10] kpi_decompositions")
+            bad_d = [d["parent_kpi_id"] for d in kpi_decompositions if d.get("client_id") != client_id]
+            if bad_d:
+                print(f"  ERROR: {len(bad_d)} decomposition edge(s) have wrong or missing client_id: {bad_d}")
+                sys.exit(1)
+            # Delete-first, same reason as step 8: composite PK
+            # (client_id, parent_kpi_id, child_kpi_id), PostgREST merge-duplicates
+            # doesn't reliably resolve conflicts on composite keys.
+            _delete_by_client(http, base_url, service_key, "kpi_decompositions", client_id, dry_run)
+            n = _upsert(http, base_url, service_key, "kpi_decompositions", kpi_decompositions, dry_run)
             print(f"  OK  {n} row(s) upserted\n")
 
     print(f"{'='*60}")
