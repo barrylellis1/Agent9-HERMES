@@ -175,6 +175,70 @@ def _utcnow() -> str:
     return datetime.utcnow().isoformat() + "Z"
 
 
+async def _grade_assumptions_from_verdict(
+    solution_id: str,
+    client_id: Optional[str],
+    verdict: "SolutionVerdict",
+    logger_: logging.Logger,
+) -> None:
+    """Phase 17 T3 (theory_layer_design.md, DEVELOPMENT_PLAN.md's assumption-
+    grading notes): write VA's verdict back onto every assumption this
+    solution pre-registered at HITL approval (Assumption.status).
+
+    VALIDATED -> held (the bet paid off). FAILED -> falsified (it didn't).
+    PARTIAL / MEASURING -> left 'active' -- a partial validation does not
+    say WHICH assumption held and which broke, so grading either as if it
+    held or broke would overclaim precision this method doesn't have.
+
+    Honest scope: this is a SOLUTION-LEVEL verdict cascaded to every linked
+    assumption, not independent per-assumption mechanism grading.
+    DEVELOPMENT_PLAN.md's own limitation still applies after this lands:
+    "VA returns roughly one bit per solution" -- closing that needs the
+    Phase 17 T2 decomposition model's mechanism mapping (which lever
+    actually moved which KPI), a further follow-up, not attempted here.
+
+    Never clobbers an already-graded row (status != 'active' is skipped) --
+    matches AssumptionProvider.upsert's own existing non-clobber posture for
+    the re-approval path, applied here for the analogous re-evaluation case.
+    Non-fatal: a persistence failure must never break the VA response that
+    triggered it, same posture as the Supabase evaluation persist above.
+    """
+    if not client_id:
+        logger_.warning(
+            "[VA] Cannot grade assumptions for solution '%s': no client_id on the solution record",
+            solution_id,
+        )
+        return
+    new_status = {
+        SolutionVerdict.VALIDATED: "held",
+        SolutionVerdict.FAILED: "falsified",
+    }.get(verdict)
+    if new_status is None:
+        return  # PARTIAL / MEASURING -- insufficient signal to grade yet
+    try:
+        from src.registry.providers.assumption_provider import AssumptionProvider
+
+        provider = AssumptionProvider()
+        assumptions = await provider.get_for_solution(solution_id, client_id)
+        graded = 0
+        for a in assumptions:
+            if a.status != "active":
+                continue  # already graded or lifted -- never overwrite an existing verdict
+            a.status = new_status
+            await provider.upsert(a)
+            graded += 1
+        if graded:
+            logger_.info(
+                "[VA] Graded %d assumption(s) '%s' for solution '%s' (verdict=%s)",
+                graded, new_status, solution_id, verdict.value,
+            )
+    except Exception as exc:
+        logger_.warning(
+            "[VA] Assumption grading write-back failed (non-fatal) for solution '%s': %s",
+            solution_id, exc,
+        )
+
+
 class A9_Value_Assurance_Agent:
     """
     Value Assurance Agent.
@@ -606,6 +670,13 @@ class A9_Value_Assurance_Agent:
                 await self._va_store.update_phase(request.solution_id, SolutionPhase.COMPLETE.value, completed_at=_utcnow())
             except Exception as exc:
                 self.logger.warning("%s: Supabase evaluation persist failed (non-fatal): %s", self.name, exc)
+
+        # Phase 17 T3 ("VA feedback"): grade this solution's pre-registered
+        # assumptions against the verdict just reached. Non-fatal by the same
+        # design as the Supabase persist immediately above.
+        await _grade_assumptions_from_verdict(
+            request.solution_id, solution.client_id, verdict, self.logger,
+        )
 
         return EvaluateSolutionResponse(
             solution_id=request.solution_id,

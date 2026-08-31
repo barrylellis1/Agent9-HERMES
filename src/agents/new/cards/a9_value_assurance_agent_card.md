@@ -85,6 +85,26 @@ attributable_impact = total_kpi_change
 | FAILED      | DRIFTED           | Strategic waste | ✗ (exec attention) |
 | FAILED      | SUPERSEDED        | Irrelevant failure | ✗ |
 
+## Assumption Grading Write-Back (Phase 17 T3, 2026-08-30)
+
+`evaluate_solution_impact()` now closes the theory layer's accretion loop: after the verdict above is
+computed, `_grade_assumptions_from_verdict()` (module-level helper) writes it back onto every
+`assumptions` row this solution pre-registered at HITL approval (`linked_solution_id` match, via
+`AssumptionProvider.get_for_solution`).
+
+| Verdict | Assumption.status write |
+|---|---|
+| `VALIDATED` | `held` |
+| `FAILED` | `falsified` |
+| `PARTIAL` / `MEASURING` | left `active` — insufficient signal to grade *which* assumption held vs. broke |
+
+**Honest scope — this is solution-level, not per-assumption, grading.** A verdict says whether the
+*solution* worked; it does not say which specific lever inside it did. Distinguishing "the lever worked
+but was offset" from "the lever did not work" needs the Phase 17 T2 KPI decomposition model's mechanism
+mapping — a further follow-up, not attempted here. Never overwrites an already-graded row (`status !=
+'active'` rows are skipped). Non-fatal, same posture as the Supabase evaluation persist immediately
+above it.
+
 ## Strategy Alignment Check
 
 At registration: a `StrategySnapshot` captures principal priorities, KPI threshold, business process domain, data product ID, and key assumptions.
