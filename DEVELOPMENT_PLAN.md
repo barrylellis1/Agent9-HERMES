@@ -3571,6 +3571,47 @@ The decomposition model is filed under Phase 17 because the VDT needs it, but it
 - **Few observations make weak elasticities**, and the provenance ladder must apply here too. A *computed* impact carries more authority than a guessed one, so a badly-grounded elasticity is more dangerous than a badly-grounded guess.
 - **Bounding the option space excludes the reframe.** Sometimes the right answer is not a leaf on the tree — it is that the tree is the wrong tree.
 
+#### RESOLVED 2026-08-31: the theory layer feeds SF by COMPUTING, not by prompting
+
+The obvious next move after T1–T4 looked like threading the four pillars into the SF synthesis
+prompt. **Rejected, on this repo's own evidence.**
+
+`persona_council_experiments.md` §7b already ran nearly that experiment — six real SF runs, deeper
+causal context — and measured **no effect on what the options act on**. Its explanation is the
+load-bearing part: the direct edge's `mechanism` prose already narrates what the deeper context
+would contribute. *"Graph depth and mechanism prose are substitutes."* The one real improvement it
+did find was different in kind: market signals **corrected a specific wrong fact** (a base-oil
+surcharge indexed to WTI crude became "Group I/II spot, 30-day lookback").
+
+That yields the discriminator applied here: **context carrying a concept the model already has
+changes nothing; context correcting a fact it gets wrong helps.** Scored against it, three of the
+four candidate sections predict no effect — Ports worst of all, since §7b found base oil already
+reaches the model through four channels, one of which "cannot be closed." Only the arithmetic /
+`additive_across_dimensions` facts target a documented wrong output (segment margins summed into an
+enterprise figure).
+
+And even that one is the weak form of the fix. This section's own thesis is *"impact stops being
+asserted and becomes computed"* — **instructing a model not to sum percentages is strictly worse
+than not asking it for that number at all.** So the successor work is not prompt engineering:
+
+> **Stage 2b — computed impact.** SF proposes the *operational* change ("3–5% list increase on
+> ~35–45% of volume"); `evaluate_tree` / `roll_up_scope` (`src/analysis/decomposition.py`, built in
+> T2) compute the KPI effect. Removes the failure mode instead of instructing against it, and is
+> what the decomposition model was built for.
+
+**This does NOT apply to the briefing output — asked and answered separately (2026-08-31).**
+Input shapes what gets recommended; output makes risk legible. Those are different jobs, and §7b
+measured only the first. If anything the output case is *stronger* without input grounding: SF
+generating blind to which edges are confirmed may lean hard on an untested one **and not know it**,
+leaving the briefing as the only place that surfaces. The precedent is live — a production briefing
+flagged that an unconfirmed template edge drove **30–50% of every option's projected recovery**,
+which is actionable whatever the model saw at generation time. Two fixes rather than removal:
+strip internal vocabulary from executive prose (`causal_rung`, "template provenance", raw KPI ids —
+the ID-leakage defect already logged in Wave 2), and gate disclosure on **materiality** so badges
+don't become wallpaper.
+
+---
+
 #### Acceptance demo: cold KPI vs matured KPI — does grounding produce more trustable proposals?
 
 The demo that proves the thesis, and the missing demonstration behind the pricing/NRR claim that **year two beats year one**. Accretion is invisible by nature; this makes it visible.

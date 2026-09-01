@@ -223,6 +223,50 @@ VA is the only agent observing **tested** causality:
 
 Proposals are confirmed inside an **existing ritual** (monthly assessment-run review) with a named owner, or not generated at all. A standing proposal queue with no owner becomes a dead-letter queue (§9.3).
 
+### 5.4b Can ML accelerate accretion instead of waiting on VA verdicts? (asked 2026-08-31)
+
+Accretion is slow by construction: one edge is confirmed per real intervention that VA measures.
+The natural question is whether statistical/ML methods on the historical series could quantify
+causal relationships directly and skip the wait. **Partly — and never past the ladder.**
+
+**The boundary, and why it is not negotiable.** Observational methods (Granger, PCMCI, transfer
+entropy, lagged regression) estimate *association with temporal precedence*. On this document's own
+Pearl ladder that is `correlational`, at best `intervention_hypothesized`. It is **not**
+`intervention_tested` — and §5.5's guardrail enforces that at the DB layer specifically so that no
+write path, "human or automated," can grant the tested rung. An ML model auto-promoting an edge is
+the hand-typed confirmation that guardrail exists to forbid, with extra steps. The badge is worth
+something *because* it cannot be earned this way.
+
+**Where it genuinely helps, ranked:**
+
+1. **Better counterfactuals inside the DiD already being run — highest value.** VA's attribution is
+   `total − control − market_recovery − seasonal`, where `market_recovery_estimate` and
+   `seasonal_estimate` arrive as caller-supplied numbers
+   (`EvaluateSolutionRequest`). Synthetic control or matching would construct a real weighted
+   counterfactual instead of an estimate. This does not bypass intervention — it makes **each
+   intervention more informative**, so fewer are needed to reach confidence. That is genuine
+   acceleration, entirely inside the ladder.
+2. **Falsification of template edges — safer than confirmation.** The density gate is a *ratio*
+   (confirmed must outnumber unconfirmed), so retiring unsupported edges moves it as surely as
+   confirming new ones. Statistics is far better at "these two have never co-moved at any lag over
+   five years" than at "X causes Y". Cheap, and it improves the denominator.
+3. **Lag estimation.** A much easier estimand than effect size, and §5.5 already states a preference
+   for Granger-derived lag over guessed values. Directly reduces the timing risk of declaring an
+   intervention failed before its mechanism could transmit.
+4. **Triage.** Rank which edges deserve expensive human/VA attention. Prioritisation makes no causal
+   claim at all.
+
+**Constraints that bound all four.** Monthly single-client data is tens of observations, not
+thousands — well under what causal structure learning wants. Business KPIs are also heavily
+confounded, with volume, season and macro moving nearly everything together. And §"Three limits" in
+`DEVELOPMENT_PLAN.md` Phase 17 binds hardest here: *"a badly-grounded elasticity is more dangerous
+than a badly-grounded guess"* — a computed number borrows authority a guess does not, so a thin
+coefficient rendered as a solid line is worse than no line at all.
+
+**Scope note:** this is adjacent to, but distinguishable from, the 2026-08-22 decision to keep
+forecasting and scenario-planning out of Agent9. That decision concerns *projecting what will
+happen*; this concerns *inference about what already did*.
+
 ### 5.5 Schema deltas — DESIGNED 2026-07-23, not yet applied
 
 Migration: `supabase/migrations/20260723_theory_layer_causal_schema.sql`. Models: `src/registry/models/kpi_relationship.py` (extended), `src/registry/models/assumption.py` (new). Designed after researching causal-graph modeling practices (Pearl's ladder of causation, AIOps causality graphs, DiD/Granger causality) — see DEVELOPMENT_PLAN.md Phase 15 Stage D notes for the full research synthesis.
