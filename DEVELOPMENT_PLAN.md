@@ -3461,6 +3461,38 @@ document's own Registry Data Sync Protocol.
 
 ### Phase 17: Theory Layer Visualization — the Value Driver Tree as a causal object
 
+> **STATUS 2026-08-31 — T1–T4 all BUILT, exhibit prototyped dev-only, density gate still unpassed.**
+> Branch `phase17-theory-layer`, 6 commits, 1562 unit tests passing. Every data-model prerequisite
+> below now exists and was verified against live BigQuery/Supabase, not just unit-tested:
+>
+> | # | Prereq | Status | Where |
+> |---|---|---|---|
+> | **T1** | `measure_semantics` (Phase 16 step 2) **+** `additive_across_dimensions` | ✅ both done — the second half shipped 2026-08-30 with the KPI Semantic Contract §3 fields and `additivity_validator.py` | `src/registry/models/kpi.py`, migration `20260830160000` |
+> | **T2** | KPI decomposition — arithmetic parentage | ✅ `kpi_decompositions` + provider + `src/analysis/decomposition.py` (`evaluate_tree`, `roll_up_scope`, `check_tree_reconciles`, `variance_bridge`) | migration `20260830170000` |
+> | **T3** | Assumption grading write-back | ✅ `_grade_assumptions_from_verdict` in VA; solution-level verdict cascaded, honest scope documented | `a9_value_assurance_agent.py` |
+> | **T4** | Port model | ✅ `ports` table + `Port` + provider; lubricants' base-oil port seeded | migration `20260830180000` |
+>
+> **Two corrections to this section's own framing, from design notes written after it:**
+> 1. **Not a fixed four-panel layout.** `kpi_relationship_basis_design.md` §5 (2026-08-21) rejected
+>    the grid — it "recreates exactly that failure at the panel level." The exhibit is a
+>    *conditional stack* (Spine → Edges → Ports, each rendering only with real content).
+> 2. **"Assumptions" is not a section.** Same §5: "Assumptions was never a fourth section to begin
+>    with" — a held/broken verdict is a **marker on an edge**, not a panel. So the deliverable is
+>    three conditional sections plus a per-card verdict badge, not four sections.
+>
+> **Also built, beyond the four prereqs:** the density-gate write-back infrastructure (VA confirms a
+> specific `kpi_relationships` edge as `intervention_tested` when a VALIDATED verdict traces to the
+> mechanism claimed at approval — never speculatively), and `basis`
+> (`accounting_identity | causal_estimate`), which makes "certain vs. asserted" a recorded fact
+> rather than an inference.
+>
+> **What remains, and it is not code:** the density gate. Lubricants stands at **0 tested / 3
+> asserted / 2 template** causal claims (plus 4 arithmetic identities, counted separately so
+> arithmetic can never inflate "confirmed"). Per the Delivery Rule below, the exhibit stays
+> dev-only until confirmed edges outnumber unconfirmed ones — and that bar clears through
+> accumulated VA verdicts over real use, never by seeding. Registry data changes are also **not yet
+> synced to production** (`onboard_client.py --env production`).
+
 **The deliverable is one exhibit with four sections:**
 
 | # | Section | Content |

@@ -1,7 +1,10 @@
 # KPI Relationship `basis` — Separating Accounting Identity from Causal Estimate
 
 **Created:** 2026-08-21
-**Status:** Design note, not built
+**Status:** **§2 (`basis`), §4 (variance bridge) and §5 (panel structure) BUILT 2026-08-30**
+(Phase 17 Stage 6). §3 (the Port-model gap) built the same day as Phase 17 T4 — see
+`src/registry/models/port.py`. This note is now a record of decisions that shipped, not a
+proposal; per-section status is stated in §6.
 **Triggered by:** the waterfall-chart question on the Framing Evidence Map mockup
 (`docs/architecture/ui_refinement_plan.md`'s sibling conversation) — whether a waterfall would
 work for causal-graph alternatives. Answer: not for causal estimates, but for the subset of
@@ -237,9 +240,43 @@ production** — per the registry data-sync protocol (root `CLAUDE.md`), this se
 `onboard_client.py --client lubricants --env production` run explicitly before it reaches the live
 framing gate; local/dev only until then. All 1345 unit tests pass unchanged.
 
-**Not built:** the `basis` field itself (§2) — today's fix corrects the *values* on the four known
-edges by hand; it doesn't add the field that would let a validator catch the next misclassified
-edge automatically, or drive the Framing Evidence Map's chart choice programmatically. The
-variance-bridge computation (§4), the panel restructuring (§5), and the Port-model gap (§3) all
-remain design-only, explicitly deferred as lower priority than validating the framing gate itself
-first (conversation 2026-08-21/22).
+**Built 2026-08-30 (Phase 17 Stage 6)** — everything the "Not built" paragraph below originally
+listed. Superseded text kept as the record of what was outstanding at the time:
+
+> ~~**Not built:** the `basis` field itself (§2) — today's fix corrects the *values* on the four
+> known edges by hand; it doesn't add the field that would let a validator catch the next
+> misclassified edge automatically, or drive the Framing Evidence Map's chart choice
+> programmatically. The variance-bridge computation (§4), the panel restructuring (§5), and the
+> Port-model gap (§3) all remain design-only, explicitly deferred as lower priority than
+> validating the framing gate itself first (conversation 2026-08-21/22).~~
+
+| § | What shipped | Where |
+|---|---|---|
+| **2** | `basis` (`accounting_identity` \| `causal_estimate`), NOT NULL DEFAULT `causal_estimate` so no edge silently becomes "certain". Model + provider mapping + migration; the four identity edges marked in the lubricants seed | `src/registry/models/kpi_relationship.py`, `supabase/migrations/20260830190000_kpi_relationship_basis.sql` |
+| **3** | The Port model — the home for the external base-oil story this note evicted from `base_oil_cost→cogs` and flagged as having "no KPI to attach to yet" | `src/registry/models/port.py`, `ports` table (Phase 17 T4) |
+| **4** | `variance_bridge()` — sequential substitution, closes with no residual; §4's tripwire (>2 inputs ⇒ order-dependent) implemented as `exact=False` + a stated reason rather than a silent split | `src/analysis/decomposition.py` |
+| **5** | Conditional Spine→Edges→Ports stack; Assumptions as a per-card marker, never a section | `decision-studio-ui/src/components/theory/TheoryLayerExhibit.tsx` |
+
+**Why `basis` had to be a recorded field, confirmed empirically rather than assumed.** The
+build first considered deriving identity-ness from the absence of `causal_rung`/`confidence` —
+the signature the 2026-08-22 pass left behind. That would have been **wrong on live data**:
+`product_sales_revenue↔cogs` carries `causal_rung=NULL` **and** `confidence=NULL` exactly like
+the four identity edges, yet is not an identity (its own seed comment calls it "a co-movement,
+not a recorded cause"). A heuristic reading those NULLs misclassifies it. The counter-example is
+now documented inline in the seed so the reasoning survives.
+
+**§4's "which arithmetic" gap is closed, not carried forward.** §4 noted that
+`accounting_identity` says an edge is exact arithmetic but not *which* arithmetic, and suggested
+hardcoding Gross Margin %'s formula as a first cut. That proved unnecessary: Phase 17 T2's
+`kpi_decompositions` records the operation (`linear`/`ratio`) and per-edge `sign` explicitly, so
+`variance_bridge()` is generic over any tree the decomposition model covers.
+
+**Verified against this note's own worked example** (§4: R₀=100, C₀=65 → 35.0%; R₁=110, C₁=77 →
+30.0%): revenue effect **+5.91pp**, COGS effect **−10.91pp**, summing to exactly **−5.0pp**,
+residual 0. Also verified live against BigQuery for lubricants YTD: 34.43% → 29.94%, a −4.48pp
+move decomposing to net_revenue **+1.95pp** / cogs **−6.43pp**, residual exactly 0.
+
+**Still not synced to production.** The `basis` values are seed-file data — per the registry
+data-sync protocol (root `CLAUDE.md`) they need
+`onboard_client.py --client lubricants --env production` before reaching the live framing gate.
+Local/dev only until then, same caveat the 2026-08-22 pass carried.

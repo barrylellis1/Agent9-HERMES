@@ -1,8 +1,18 @@
 # KPI Semantic Contract — Governing What a Number *Means*
 
-**Status:** §3 (additivity, unit_class, aggregation_method, sign_convention, inverse_logic,
-scope_eligible) — design note, genuinely not built anywhere (confirmed 2026-08-30: absent from
-every PRD, this doc, and a direct code search). **§4 (sliceability) — this "Status" line was
+**Status:** **§3 BUILT 2026-08-30** (Phase 17 Stage 1 — it was T1's remaining half, the hard
+prerequisite for the theory-layer exhibit). All seven fields are live on `KPI`
+(`src/registry/models/kpi.py`) with `supabase/migrations/20260830160000_kpi_semantic_contract_additivity.sql`,
+seeded for lubricants' four core FI KPIs, and enforced by
+`src/registry/validators/additivity_validator.py` — a declared field with no enforcement was
+explicitly not considered done, matching how Phase 16 step 2 shipped `measure_semantics`
+(field + negation validator together). `additive_across_dimensions` defaults to **None, never
+True**, per §6's own warning that an additive-by-default assumption "would silently re-authorise
+the exact defect". Still open for §3: threading these facts into the SF *prompt* — today they are
+checked on SF's OUTPUT (`groundedness.py`, `narrative_claims.py::check_additive_claim`), not
+supplied as generation-time input, so the model still writes an invalid cross-segment sum and is
+caught afterward rather than prevented. Not yet synced to production (seed data — see the
+registry data-sync protocol). **§4 (sliceability) — this "Status" line was
 stale for three weeks: it IS built.** `KPI.not_sliceable_by` is real, computed by
 `A9_Data_Governance_Agent.check_slice_validity()`, enforced in `A9_Deep_Analysis_Agent`
 (excluded from `dims_to_process`, recorded on `dimensions_excluded`), and backfilled for all
@@ -12,6 +22,15 @@ doc or the DA/DGA PRDs (neither mentions it either). Not yet built for §4: auto
 trigger (still admin-only), scorer consumption, SF prompt wiring, the DGA `get_kpi_semantics`
 entrypoint, and `validate_registry_integrity` surfacing `pipeline_gap` entries.
 **Date:** 2026-08-09 · **§4 sliceability added 2026-08-11, built 2026-08-15, header corrected 2026-08-30**
+· **§3 built 2026-08-30 (Phase 17 Stage 1)**
+
+> **Note on this header, twice over.** §4's status line sat stale for three weeks while the
+> feature was live. §3's said "genuinely not built anywhere" and was accurate for about six hours
+> before Stage 1 built it. A status line is only true on the day it is written — check the code.
+> That lesson recurred three times in the 2026-08-30 session alone: this header, the
+> `20260723_theory_layer_causal_schema.sql` migration documented as "held, not applied" that had
+> in fact been applied, and a stale local `master` ref read as "Phase 16 was never deployed" when
+> `origin/master` showed it had been.
 **Related:** `theory_layer_design.md` (what is *causally true*), this doc (what a number *means*),
 `DEVELOPMENT_PLAN.md` Phase 15 Stage H / Stage I, `src/analysis/` (the deterministic scorers that
 would consume it), `scripts/check_slice_validity.py` (the profiler that would populate §4)
