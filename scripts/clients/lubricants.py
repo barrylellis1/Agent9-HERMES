@@ -880,6 +880,91 @@ KPIS: List[Dict[str, Any]] = [
         "metadata": {"line": "middle", "altitude": "operational", "positive_trend_is_good": "true"},
     },
     {
+        # A real gross-to-net revenue bridge (2026-09-02) -- asked directly
+        # whether "gross revenue, discounts, rebates" existed as an
+        # alternative to the order_count x average_order_value decomposition
+        # above. Neither discounts nor rebates exist as fields anywhere in
+        # this dataset (FI's account_type='Revenue' has only two
+        # account_categories: Product Sales, Service Revenue -- no
+        # deduction lines at all). What DOES exist, live-verified: gross_
+        # revenue - tax = net_revenue, exactly, to the cent
+        # ($478,830,174.18 - $38,526,565.56 = $440,303,608.62 vs
+        # SUM(net_amount) = $440,303,607.89). A pure two-term SUM, so unlike
+        # the product edge above it carries no order-dependence question at
+        # all in its own variance bridge.
+        #
+        # order_gross_amount/order_net_amount/order_tax_amount are ORDER-level
+        # totals duplicated on every line item of that order (avg 2.47 lines/
+        # order) -- a real trap found while checking this: a naive
+        # SUM(order_gross_amount) over all LINE rows triple-counts
+        # ($1.31B instead of the correct $440.3M for net alone). The
+        # GROUP BY sales_order_id subquery below is not decorative; omitting
+        # it silently inflates the KPI by roughly the average line count per
+        # order.
+        "id": "gross_revenue",
+        "client_id": CLIENT_ID,
+        "name": "Gross Revenue",
+        "domain": "Finance",
+        "description": "Total order value before tax -- the Sales-side gross bookings figure, one exact ORDER-level total per sales_order_id (not per line item).",
+        "unit": "$",
+        "data_product_id": _SALES_DP_ID,
+        "view_name": _SALES_VIEW,
+        "business_process_ids": ["sales_operations", "finance_revenue_growth_analysis"],
+        "sql_query": (
+            f"SELECT SUM(gross) AS value FROM ("
+            f"SELECT sales_order_id, fiscal_year, fiscal_period, ANY_VALUE(order_gross_amount) AS gross "
+            f"FROM {_SALES_BQ_PREFIX} GROUP BY sales_order_id, fiscal_year, fiscal_period"
+            f") WHERE 1=1"
+        ),
+        "filters": {},
+        "unit_class": "currency",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "natural",
+        "inverse_logic": False,
+        "scope_eligible": "both",
+        "thresholds": [
+            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+        ],
+        "dimensions": _SALES_DIMS,
+        "tags": ["sales", "revenue", "gross", "lubricants"],
+        "owner_role": "CFO",
+        "stakeholder_roles": ["CFO", "Sales Manager"],
+        "metadata": {"line": "top", "altitude": "operational", "positive_trend_is_good": "true"},
+    },
+    {
+        "id": "sales_tax_collected",
+        "client_id": CLIENT_ID,
+        "name": "Sales Tax Collected",
+        "domain": "Finance",
+        "description": "Total tax collected on sales orders -- the entire gross-to-net revenue gap in this dataset (no separate discount/rebate lines exist).",
+        "unit": "$",
+        "data_product_id": _SALES_DP_ID,
+        "view_name": _SALES_VIEW,
+        "business_process_ids": ["finance_revenue_growth_analysis"],
+        "sql_query": (
+            f"SELECT SUM(tax) AS value FROM ("
+            f"SELECT sales_order_id, fiscal_year, fiscal_period, ANY_VALUE(order_tax_amount) AS tax "
+            f"FROM {_SALES_BQ_PREFIX} GROUP BY sales_order_id, fiscal_year, fiscal_period"
+            f") WHERE 1=1"
+        ),
+        "filters": {},
+        "unit_class": "currency",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "natural",
+        "inverse_logic": False,
+        "scope_eligible": "both",
+        "thresholds": [
+            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
+        ],
+        "dimensions": _SALES_DIMS,
+        "tags": ["sales", "tax", "lubricants"],
+        "owner_role": "CFO",
+        "stakeholder_roles": ["CFO"],
+        "metadata": {"line": "top", "altitude": "operational", "positive_trend_is_good": "false"},
+    },
+    {
         "id": "order_fulfillment_rate",
         "client_id": CLIENT_ID,
         "name": "Order Fulfillment Rate",
@@ -1238,6 +1323,34 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "causal_direction": "kpi_causes_related",
         "basis": "accounting_identity",
     },
+    # The gross-to-net bridge (2026-09-02) -- see gross_revenue/sales_tax_
+    # collected's own KPI-definition comments above for why this is a pure
+    # sum (net_revenue + tax = gross_revenue), not a product, and why
+    # discounts/rebates could not be modelled (they don't exist in this data).
+    {
+        "kpi_id": "net_revenue",
+        "related_kpi_id": "gross_revenue",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        "conflict_direction": "converging",
+        "description": "Net revenue plus tax collected reproduces gross revenue exactly",
+        "mechanism": "gross_revenue = net_revenue + sales_tax_collected, an order-level accounting identity (order_gross_amount = order_net_amount + order_tax_amount for every order), not an inferred pass-through.",
+        "provenance": "confirmed",
+        "causal_direction": "kpi_causes_related",
+        "basis": "accounting_identity",
+    },
+    {
+        "kpi_id": "sales_tax_collected",
+        "related_kpi_id": "gross_revenue",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        "conflict_direction": "converging",
+        "description": "Tax collected is the entire gross-to-net revenue gap in this dataset",
+        "mechanism": "gross_revenue = net_revenue + sales_tax_collected, an order-level accounting identity, not an inferred pass-through.",
+        "provenance": "confirmed",
+        "causal_direction": "kpi_causes_related",
+        "basis": "accounting_identity",
+    },
 ]
 
 
@@ -1287,6 +1400,24 @@ KPI_DECOMPOSITIONS: List[Dict[str, Any]] = [
         "child_kpi_id": "average_order_value",
         "client_id": CLIENT_ID,
         "operation": "product",
+    },
+    # gross_revenue's own decomposition (2026-09-02) -- a pure two-term SUM
+    # (net_revenue + tax), unlike net_revenue's own product edges above.
+    # See gross_revenue/sales_tax_collected's own KPI-definition comments for
+    # the live-verified magnitudes and the order-level dedup trap this closed.
+    {
+        "parent_kpi_id": "gross_revenue",
+        "child_kpi_id": "net_revenue",
+        "client_id": CLIENT_ID,
+        "operation": "linear",
+        "sign": 1,
+    },
+    {
+        "parent_kpi_id": "gross_revenue",
+        "child_kpi_id": "sales_tax_collected",
+        "client_id": CLIENT_ID,
+        "operation": "linear",
+        "sign": 1,
     },
     {
         "parent_kpi_id": "gross_profit",
@@ -1702,6 +1833,28 @@ ACCOUNTABILITY: List[Dict[str, Any]] = [
         "scope_value": None,
         "role": "accountable",
         "notes": "CFO owns top-line revenue performance enterprise-wide.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_cfo_gross_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "gross_revenue",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO owns gross bookings and the gross-to-net revenue bridge.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_cfo_sales_tax_collected",
+        "client_id": CLIENT_ID,
+        "kpi_id": "sales_tax_collected",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO owns tax compliance and remittance.",
         "created_by": "seed",
     },
     {
