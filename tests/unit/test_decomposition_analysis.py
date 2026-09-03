@@ -342,3 +342,53 @@ class TestComputeLeverImpact:
             unit_classes=self._uc(),
         )
         assert result["effect_low"] <= result["effect_high"]
+
+
+class TestCogsFourCategoryReconciliation:
+    """Regression pin, 2026-09-02 -- 'strengthen the Core Spine'. cogs =
+    base_oil_cost + distribution_cost + manufacturing_cost + packaging_cost
+    is the first FOUR-way linear decomposition seeded (gross_profit's own
+    cogs edge is only two-way); this is real, previously-missing structural
+    coverage, not just a bigger fixture, so it gets its own pinned test
+    against live-verified magnitudes rather than living only inside the
+    generic two-input tests above."""
+
+    def _edges(self):
+        return [
+            KPIDecompositionEdge(parent_kpi_id="cogs", child_kpi_id="base_oil_cost",
+                                  client_id="lubricants", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="cogs", child_kpi_id="distribution_cost",
+                                  client_id="lubricants", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="cogs", child_kpi_id="manufacturing_cost",
+                                  client_id="lubricants", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="cogs", child_kpi_id="packaging_cost",
+                                  client_id="lubricants", operation="linear", sign=1),
+        ]
+
+    def test_reconciles_against_real_live_bigquery_magnitudes(self):
+        """Pinned from a live query, not a round-number fixture: Raw Materials
+        40.1%, Manufacturing 29.9%, Distribution 18.0%, Packaging 12.0% of
+        COGS -- confirmed to be the COMPLETE set (no fifth account_category)."""
+        values = {
+            "cogs": 298_679_848.02,
+            "base_oil_cost": 119_772_491.08,
+            "distribution_cost": 53_672_206.84,
+            "manufacturing_cost": 89_453_678.41,
+            "packaging_cost": 35_781_471.69,
+        }
+        assert check_tree_reconciles("cogs", self._edges(), values) is None
+
+    def test_a_missing_category_would_be_caught(self):
+        """Confirms the pin above isn't vacuous -- dropping manufacturing_cost's
+        contribution from the total (simulating the pre-strengthening gap)
+        must fail reconciliation, not silently pass at a coarser tolerance."""
+        values = {
+            "cogs": 298_679_848.02,
+            "base_oil_cost": 119_772_491.08,
+            "distribution_cost": 53_672_206.84,
+            "manufacturing_cost": 0.0,  # simulates the unregistered-category gap
+            "packaging_cost": 35_781_471.69,
+        }
+        result = check_tree_reconciles("cogs", self._edges(), values)
+        assert result is not None
+        assert "does not reconcile" in result

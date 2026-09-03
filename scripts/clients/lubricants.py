@@ -642,6 +642,13 @@ KPIS: List[Dict[str, Any]] = [
         # than the warehouse actually carries.
         "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Raw Materials' AND version = 'Actual'",
         "filters": {"account_category": "Raw Materials", "version": "Actual"},
+        # Phase 17 T1 -- backfilled 2026-09-02, same reason as distribution_cost above.
+        "unit_class": "currency",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "negative_stored",
+        "inverse_logic": True,
+        "scope_eligible": "both",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": -5.0, "yellow_threshold": 5.0, "red_threshold": 15.0, "inverse_logic": True},
         ],
@@ -663,11 +670,85 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["finance_expense_management"],
         "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Distribution' AND version = 'Actual'",
         "filters": {"account_category": "Distribution", "version": "Actual"},
+        # Phase 17 T1 -- backfilled 2026-09-02 alongside the two new COGS
+        # components below, closing the reconciliation gap that made
+        # cogs -> base_oil_cost + distribution_cost fail check_tree_reconciles
+        # against real data (this pair was only ~58% of COGS on its own).
+        "unit_class": "currency",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "negative_stored",
+        "inverse_logic": True,
+        "scope_eligible": "both",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cost", "distribution", "logistics", "lubricants"],
+        "owner_role": "Finance Manager",
+        "stakeholder_roles": ["CFO", "COO"],
+        "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false"},
+    },
+    {
+        # Strengthening the Core Spine (2026-09-02): live BigQuery shows COGS
+        # has four account_categories, not two -- Raw Materials 40.1% ($119.8M),
+        # Manufacturing 29.9% ($89.5M), Distribution 18.0% ($53.7M), Packaging
+        # 12.0% ($35.8M). Only the first and third were ever registered as
+        # KPIs, so cogs -> base_oil_cost + distribution_cost accounted for
+        # only ~58% of COGS -- seeding that as a full decomposition would have
+        # failed check_tree_reconciles against real data (and was explicitly
+        # NOT seeded in Phase 17 T2 for exactly this reason). Manufacturing is
+        # the SECOND-LARGEST category, larger than Distribution -- not a
+        # residual, a real, named cost driver that deserves its own KPI.
+        "id": "manufacturing_cost",
+        "client_id": CLIENT_ID,
+        "name": "Manufacturing Cost",
+        "domain": "Finance",
+        "description": "Blending, filling, and production overhead cost — the account_category 'Manufacturing' component of total COGS",
+        "unit": "$",
+        "data_product_id": "dp_lubricants_financials",
+        "view_name": _VIEW,
+        "business_process_ids": ["finance_expense_management"],
+        "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Manufacturing' AND version = 'Actual'",
+        "filters": {"account_category": "Manufacturing", "version": "Actual"},
+        "unit_class": "currency",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "negative_stored",
+        "inverse_logic": True,
+        "scope_eligible": "both",
+        "thresholds": [
+            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
+        ],
+        "dimensions": _DIMS,
+        "tags": ["finance", "cost", "manufacturing", "overhead", "lubricants"],
+        "owner_role": "Finance Manager",
+        "stakeholder_roles": ["CFO", "COO"],
+        "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false"},
+    },
+    {
+        "id": "packaging_cost",
+        "client_id": CLIENT_ID,
+        "name": "Packaging Cost",
+        "domain": "Finance",
+        "description": "Containers, labeling, and packaging materials cost — the account_category 'Packaging' component of total COGS",
+        "unit": "$",
+        "data_product_id": "dp_lubricants_financials",
+        "view_name": _VIEW,
+        "business_process_ids": ["finance_expense_management"],
+        "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Packaging' AND version = 'Actual'",
+        "filters": {"account_category": "Packaging", "version": "Actual"},
+        "unit_class": "currency",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "negative_stored",
+        "inverse_logic": True,
+        "scope_eligible": "both",
+        "thresholds": [
+            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
+        ],
+        "dimensions": _DIMS,
+        "tags": ["finance", "cost", "packaging", "lubricants"],
         "owner_role": "Finance Manager",
         "stakeholder_roles": ["CFO", "COO"],
         "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false"},
@@ -1019,6 +1100,34 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "causal_direction": "kpi_causes_related",
         "basis": "accounting_identity",  # exact account_category sub-slice of COGS, same shape as base_oil_cost above
     },
+    {
+        # Strengthening the Core Spine (2026-09-02): the other two of COGS's
+        # four real account_categories, closing the reconciliation gap
+        # base_oil_cost+distribution_cost alone left open (see manufacturing_cost/
+        # packaging_cost's own KPI-definition comments above).
+        "kpi_id": "manufacturing_cost",
+        "related_kpi_id": "cogs",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        "conflict_direction": "converging",
+        "description": "Blending, filling, and production overhead is a direct COGS component",
+        "mechanism": "Manufacturing is an account_category component of COGS; it sums into the COGS total directly, not via an inferred pass-through.",
+        "provenance": "confirmed",
+        "causal_direction": "kpi_causes_related",
+        "basis": "accounting_identity",
+    },
+    {
+        "kpi_id": "packaging_cost",
+        "related_kpi_id": "cogs",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        "conflict_direction": "converging",
+        "description": "Containers, labeling, and packaging materials is a direct COGS component",
+        "mechanism": "Packaging is an account_category component of COGS; it sums into the COGS total directly, not via an inferred pass-through.",
+        "provenance": "confirmed",
+        "causal_direction": "kpi_causes_related",
+        "basis": "accounting_identity",
+    },
     # ------------------------------------------------------------------
     # Cross-data-product: Sales (dp_lubricants_sales) volume/price drivers
     # of Net Revenue (dp_lubricants_financials), added Aug 2026.
@@ -1083,9 +1192,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
 
 # KPI arithmetic decomposition (Phase 17 T2, see
 # src/registry/models/kpi_decomposition.py's module docstring for the full
-# linear/ratio design). Only the two edges that reconcile EXACTLY against real
-# BigQuery values are seeded -- deliberately, not the full account_category
-# tree implied by cogs' own sql_query.
+# linear/ratio design).
 #
 # gross_profit = net_revenue - cogs: true by construction (gross_profit's
 # sql_query literally sums the same Revenue+COGS rows net_revenue and cogs
@@ -1097,17 +1204,19 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
 # gross_margin_pct = ratio(gross_profit, net_revenue), matching its own
 # sql_query's 100 * SUM(Revenue+COGS) / SUM(Revenue) exactly.
 #
-# NOT seeded: cogs -> base_oil_cost + distribution_cost. base_oil_cost
-# (Raw Materials) is only 41.5% of COGS (122.0M of 293.8M, per that KPI's own
-# comment) and distribution_cost covers another slice -- neither this pair
-# nor any other combination of currently-registered KPIs sums to the full
-# COGS total (Packaging, Labor and other account_categories exist in the
-# data with no KPI of their own). Seeding that edge would fail
-# check_tree_reconciles against real values -- exactly the defect the
-# reconciliation check exists to catch, so it is not seeded rather than
-# seeded-and-silenced. Filed as a fast-follow: either register the
-# remaining COGS account_categories as their own KPIs, or don't decompose
-# COGS further until that's done.
+# cogs = base_oil_cost + distribution_cost + manufacturing_cost +
+# packaging_cost -- strengthened 2026-09-02. Originally NOT seeded: this pair
+# alone was only ~58% of COGS (Raw Materials 40.1% + Distribution 18.0%;
+# Manufacturing 29.9% and Packaging 12.0% had no KPI of their own), and
+# seeding an incomplete decomposition would have failed check_tree_reconciles
+# against real values -- exactly the defect the check exists to catch. Closed
+# by registering the two missing account_categories as their own KPIs
+# (manufacturing_cost, packaging_cost) rather than bucketing them into a vague
+# "other_cogs" residual -- Manufacturing at 29.9% is the SECOND-LARGEST COGS
+# category, a real named driver, not noise. Live BigQuery confirms this is
+# now the complete set: 119,772,491.08 + 89,453,678.41 + 53,672,206.84 +
+# 35,781,471.69 = 298,679,848.02, COGS's own total exactly, verified via
+# check_tree_reconciles against live data (not just this arithmetic check).
 KPI_DECOMPOSITIONS: List[Dict[str, Any]] = [
     {
         "parent_kpi_id": "gross_profit",
@@ -1132,6 +1241,39 @@ KPI_DECOMPOSITIONS: List[Dict[str, Any]] = [
         # docstring) so it is omitted here; onboard_client.py's
         # _COLUMN_DEFAULTS fills the DB default for the batch.
         "weight_kpi_id": "net_revenue",
+    },
+    # COGS's four real account_categories -- all sign=+1 since each cost KPI's
+    # own reported value is already a positive magnitude (its sql_query negates
+    # the raw signed amount, same convention as cogs itself), so plain addition
+    # is correct: no double negation needed the way gross_profit's cogs edge
+    # above needs sign=-1.
+    {
+        "parent_kpi_id": "cogs",
+        "child_kpi_id": "base_oil_cost",
+        "client_id": CLIENT_ID,
+        "operation": "linear",
+        "sign": 1,
+    },
+    {
+        "parent_kpi_id": "cogs",
+        "child_kpi_id": "distribution_cost",
+        "client_id": CLIENT_ID,
+        "operation": "linear",
+        "sign": 1,
+    },
+    {
+        "parent_kpi_id": "cogs",
+        "child_kpi_id": "manufacturing_cost",
+        "client_id": CLIENT_ID,
+        "operation": "linear",
+        "sign": 1,
+    },
+    {
+        "parent_kpi_id": "cogs",
+        "child_kpi_id": "packaging_cost",
+        "client_id": CLIENT_ID,
+        "operation": "linear",
+        "sign": 1,
     },
 ]
 
@@ -1618,6 +1760,28 @@ ACCOUNTABILITY: List[Dict[str, Any]] = [
         "scope_value": None,
         "role": "accountable",
         "notes": "COO owns logistics network efficiency.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_coo_manufacturing_cost",
+        "client_id": CLIENT_ID,
+        "kpi_id": "manufacturing_cost",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO owns blending, filling, and production overhead cost.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_coo_packaging_cost",
+        "client_id": CLIENT_ID,
+        "kpi_id": "packaging_cost",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO owns packaging materials sourcing and cost.",
         "created_by": "seed",
     },
     {
