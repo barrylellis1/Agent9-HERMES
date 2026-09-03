@@ -16,13 +16,19 @@ values the caller already has (from a live DA run, or a test fixture):
    risk register, which is what happened before this existed).
 
 2. `check_tree_reconciles` -- verifies a parent's declared children
-   actually combine (via `linear`'s signed sum, or `ratio`) to reproduce
-   the parent's OWN current value. DEVELOPMENT_PLAN.md Phase 17, "RESOLVED:
-   derive the structure, author the presentation": "Derived structure is
-   testable. Assert that children reconcile to their parent -- if
-   gross_profit's children do not sum to gross_profit, either the tree or
-   the KPI is wrong, and it surfaces at build time rather than in front of
-   a CFO."
+   actually combine (via `linear`'s signed sum, `ratio`, or `product`) to
+   reproduce the parent's OWN current value. DEVELOPMENT_PLAN.md Phase 17,
+   "RESOLVED: derive the structure, author the presentation": "Derived
+   structure is testable. Assert that children reconcile to their parent --
+   if gross_profit's children do not sum to gross_profit, either the tree
+   or the KPI is wrong, and it surfaces at build time rather than in front
+   of a CFO."
+
+`product` (2026-09-02) is what makes a genuinely cross-data-product
+decomposition possible: net_revenue = sales_order_count *
+average_order_value, spanning dp_lubricants_sales -> dp_lubricants_financials.
+Building it surfaced a real, separate correctness finding in
+`variance_bridge` -- see that function's own docstring.
 """
 from __future__ import annotations
 
@@ -108,6 +114,15 @@ def evaluate_tree(
         scale = 100.0 if (unit_classes or {}).get(kpi_id) == "ratio" else 1.0
         return scale * num / den
 
+    if op == "product":
+        total = 1.0
+        for e in children:
+            v = evaluate_tree(e.child_kpi_id, edges, values, unit_classes=unit_classes, _depth=_depth + 1)
+            if v is None:
+                return None
+            total *= v
+        return total
+
     return None
 
 
@@ -140,6 +155,40 @@ def leaf_inputs(kpi_id: str, edges: List[KPIDecompositionEdge]) -> List[str]:
     return out
 
 
+def _is_pure_linear_tree(kpi_id: str, edges: List[KPIDecompositionEdge], _depth: int = 0) -> bool:
+    """True iff `kpi_id`'s ENTIRE decomposition subtree uses only 'linear'
+    (signed-sum) operations -- no 'ratio', no 'product', anywhere below it.
+
+    This is the real criterion for whether a variance-bridge split is
+    order-independent, corrected 2026-09-02 from an earlier, wrong leaf-count
+    heuristic (`len(leaves) == 2`) that this function's own history briefly
+    used. Sequential substitution's TOTAL always telescopes exactly to the
+    observed move for ANY function, linear or not -- that part was never in
+    doubt. What actually varies is whether the INDIVIDUAL per-leaf split is
+    the same regardless of swap order:
+
+    - 'linear' has zero cross-derivatives between leaves (a sum's partial
+      derivatives don't depend on the other terms), so swapping in any order
+      produces IDENTICAL per-leaf effects, for any number of leaves.
+    - 'ratio' and 'product' both have a genuine cross term. Worked example,
+      margin%(R,C) = (R-C)/R, R0=100 C0=65->35.0%, R1=110 C1=77->30.0% (this
+      module's own pinned test): swapping R first gives Revenue effect
+      +5.9pp / COGS effect -10.9pp; swapping C first gives Revenue effect
+      +7.0pp / COGS effect -12.0pp. Both orders sum to the same -5.0pp total
+      (telescoping guarantees that), but the TWO INDIVIDUAL splits disagree
+      -- at exactly two leaves, not "beyond two". The original `len(leaves)
+      == 2` rule got this specific, real case backwards.
+    """
+    if _depth > 6:
+        return True  # depth guard mirrors evaluate_tree/leaf_inputs
+    children = [e for e in edges if e.parent_kpi_id == kpi_id]
+    if not children:
+        return True  # leaf: nothing left to combine
+    if {e.operation for e in children} != {"linear"}:
+        return False
+    return all(_is_pure_linear_tree(e.child_kpi_id, edges, _depth + 1) for e in children)
+
+
 def variance_bridge(
     kpi_id: str,
     edges: List[KPIDecompositionEdge],
@@ -158,16 +207,19 @@ def variance_bridge(
 
     Method: sequential substitution. Starting from all-prior, swap one input to
     its current value at a time; each swap's effect on the parent is that
-    input's contribution. The effects then sum to the observed move EXACTLY,
-    with no residual term — the property §4 calls "worth protecting".
+    input's contribution. The effects ALWAYS sum to the observed move exactly
+    (`residual` is a floating-point sanity check, not a meaningful pass/fail —
+    it telescopes to zero for any function, by construction, whether the tree
+    is linear, ratio, or product).
 
-    THE TRIPWIRE, implemented rather than just noted: that exact closure holds
-    for exactly TWO inputs. §4 — "It stops holding automatically the moment a
-    third identity input joins the same bridge... order of substitution then
-    affects the split, and either a disclosed convention or an order-
-    independent method (Shapley) is needed." So a tree with anything other
-    than two leaf inputs returns `exact=False` and a stated reason rather than
-    silently emitting an order-dependent split as though it were exact.
+    What is NOT always true, and what `exact` actually reports: whether the
+    PER-LEAF SPLIT is the same regardless of swap order. `exact=True` only for
+    a purely 'linear' (sum-only) subtree (see `_is_pure_linear_tree`) — a
+    'ratio' or 'product' anywhere in the tree makes the individual attribution
+    order-dependent EVEN AT EXACTLY TWO LEAVES, contrary to this function's
+    own earlier (incorrect) `len(leaves) == 2` heuristic. §4's own worked
+    example is the proof: swapping Revenue vs. COGS first in the margin%
+    ratio gives two DIFFERENT individual splits of the same total move.
 
     Returns None when the bridge cannot be computed at all (missing values).
     """
@@ -195,7 +247,7 @@ def variance_bridge(
 
     total = end - start
     residual = total - sum(e["effect"] for e in effects)
-    exact = len(leaves) == 2
+    exact = _is_pure_linear_tree(kpi_id, edges)
     return {
         "prior_value": start,
         "current_value": end,
@@ -204,9 +256,11 @@ def variance_bridge(
         "residual": residual,
         "exact": exact,
         "note": None if exact else (
-            f"{len(leaves)} inputs — sequential substitution is order-dependent beyond two "
-            "inputs, so this split is one convention among several, not the exact "
-            "decomposition (kpi_relationship_basis_design.md §4)."
+            "this tree combines its leaves via a ratio or product operation, so the "
+            "per-leaf split above is ONE valid convention (the total always closes "
+            "exactly to the observed move), not the unique attribution — swapping the "
+            "substitution order would split the same total differently "
+            "(kpi_relationship_basis_design.md §4)."
         ),
     }
 
@@ -338,6 +392,16 @@ def check_tree_reconciles(
         if child_value is None or not weight_value:
             return None
         computed = (100.0 if parent_unit_class == "ratio" else 1.0) * child_value / weight_value
+    elif operation == "product":
+        contributions = []
+        for e in edges:
+            v = current_values.get(e.child_kpi_id)
+            if v is None:
+                return None
+            contributions.append(v)
+        computed = 1.0
+        for v in contributions:
+            computed *= v
     else:
         # Unknown operation -- nothing to check yet, matching every other
         # not-checkable case above.

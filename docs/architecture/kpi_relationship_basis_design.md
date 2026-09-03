@@ -254,7 +254,7 @@ listed. Superseded text kept as the record of what was outstanding at the time:
 |---|---|---|
 | **2** | `basis` (`accounting_identity` \| `causal_estimate`), NOT NULL DEFAULT `causal_estimate` so no edge silently becomes "certain". Model + provider mapping + migration; the four identity edges marked in the lubricants seed | `src/registry/models/kpi_relationship.py`, `supabase/migrations/20260830190000_kpi_relationship_basis.sql` |
 | **3** | The Port model — the home for the external base-oil story this note evicted from `base_oil_cost→cogs` and flagged as having "no KPI to attach to yet" | `src/registry/models/port.py`, `ports` table (Phase 17 T4) |
-| **4** | `variance_bridge()` — sequential substitution, closes with no residual; §4's tripwire (>2 inputs ⇒ order-dependent) implemented as `exact=False` + a stated reason rather than a silent split | `src/analysis/decomposition.py` |
+| **4** | `variance_bridge()` — sequential substitution, closes with no residual; §4's tripwire implemented as `exact=False` + a stated reason rather than a silent split (corrected 2026-09-02 — see below: the real trigger is a ratio/product operation ANYWHERE in the tree, not leaf count) | `src/analysis/decomposition.py` |
 | **5** | Conditional Spine→Edges→Ports stack; Assumptions as a per-card marker, never a section | `decision-studio-ui/src/components/theory/TheoryLayerExhibit.tsx` |
 
 **Why `basis` had to be a recorded field, confirmed empirically rather than assumed.** The
@@ -280,3 +280,28 @@ move decomposing to net_revenue **+1.95pp** / cogs **−6.43pp**, residual exact
 data-sync protocol (root `CLAUDE.md`) they need
 `onboard_client.py --client lubricants --env production` before reaching the live framing gate.
 Local/dev only until then, same caveat the 2026-08-22 pass carried.
+
+**Correction, 2026-09-02 — the tripwire's real trigger, found while extending the Core Spine
+across data products.** This section's own table above (and `docs/CLAUDE.md`'s index entry)
+described the tripwire as ">2 inputs ⇒ order-dependent". That was wrong, caught while adding a
+`product` operation for `net_revenue = sales_order_count * average_order_value`
+(`dp_lubricants_sales → dp_lubricants_financials`, live-verified as an exact identity:
+24,961 × $17,639.6622 = $440,303,607.89 = `SUM(net_amount)` exactly).
+
+Sequential substitution's TOTAL always telescopes to the observed move exactly, for ANY function
+— that was never actually in question, at any leaf count, linear or not. What genuinely varies is
+whether the **individual per-leaf split** is order-independent, and that depends on the
+**operation**, not the leaf count: a pure `linear` (sum-only) subtree has zero cross-derivatives
+between leaves, so every substitution order gives identical individual effects, however many
+leaves there are. A `ratio` or `product` node introduces a real cross term — and does so **even at
+exactly two leaves**. Hand-verified on this very section's own worked numbers: swapping Revenue
+before COGS gives +5.9pp / −10.9pp; swapping COGS first gives +7.0pp / −12.0pp for the *same*
+−5.0pp total move. Two leaves, and still order-dependent — the opposite of what the original
+`len(leaves) == 2 ⇒ exact` rule assumed.
+
+`variance_bridge()`'s `exact` flag is now derived from the tree's operations (pure-linear ⇒ `True`
+regardless of depth; any `ratio`/`product` anywhere ⇒ `False`), not leaf count. Live consequence:
+`gross_margin_pct`'s own variance bridge — reported as `exact=True` in this section's earlier
+verification — was **wrong under the old rule** (its tree includes a `ratio` node) and now
+correctly reports `exact=False` with the order-dependence caveat surfaced in the UI. The pure-COGS
+four-category bridge (all `linear`) correctly stays `exact=True` at four leaves.

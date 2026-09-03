@@ -793,6 +793,15 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["sales_operations", "order_processing"],
         "sql_query": f"SELECT COUNT(DISTINCT sales_order_id) AS value FROM {_SALES_BQ_PREFIX}",
         "filters": {},
+        # Phase 17 T1/T2 (2026-09-02): a segment's order count genuinely sums
+        # to the total -- the plain-vanilla additive case, and one of the two
+        # 'product' factors of net_revenue (see KPI_DECOMPOSITIONS below).
+        "unit_class": "count",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "natural",
+        "inverse_logic": False,
+        "scope_eligible": "both",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
@@ -814,6 +823,17 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["sales_operations", "operations_order_to_cash_cycle_optimization"],
         "sql_query": f"SELECT SUM(quantity) AS value FROM {_SALES_BQ_PREFIX}",
         "filters": {},
+        # Phase 17 T1 (2026-09-02): additive, same shape as sales_order_count
+        # above -- units_sold is NOT part of net_revenue's clean product
+        # decomposition (average_order_value is per-ORDER, not per-unit), so
+        # it stays outside KPI_DECOMPOSITIONS; its kpi_relationships edge to
+        # net_revenue correctly stays causal_estimate, unchanged below.
+        "unit_class": "count",
+        "additive_across_dimensions": True,
+        "aggregation_method": "sum",
+        "sign_convention": "natural",
+        "inverse_logic": False,
+        "scope_eligible": "both",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
@@ -835,6 +855,21 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["sales_operations"],
         "sql_query": f"SELECT SAFE_DIVIDE(SUM(net_amount), COUNT(DISTINCT sales_order_id)) AS value FROM {_SALES_BQ_PREFIX}",
         "filters": {},
+        # Phase 17 T1/T2 (2026-09-02): defined AS a per-order average, so it is
+        # NOT additive across segments (same non-additive shape as
+        # gross_margin_pct) -- weighted by sales_order_count, mirroring
+        # gross_margin_pct's own weight_column=net_revenue precedent. The
+        # other of net_revenue's two 'product' factors (see KPI_DECOMPOSITIONS
+        # below) -- sales_order_count * average_order_value = net_revenue is
+        # tautological BY this KPI's own SAFE_DIVIDE(SUM(net_amount),
+        # COUNT(...)) definition, not an estimate.
+        "unit_class": "currency",
+        "additive_across_dimensions": False,
+        "aggregation_method": "weighted_avg",
+        "weight_column": "sales_order_count",
+        "sign_convention": "natural",
+        "inverse_logic": False,
+        "scope_eligible": "both",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
@@ -1132,18 +1167,38 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
     # Cross-data-product: Sales (dp_lubricants_sales) volume/price drivers
     # of Net Revenue (dp_lubricants_financials), added Aug 2026.
     #
-    # NOT arithmetic in disguise, despite Sales SUM(net_amount) reconciling
-    # to net_revenue exactly by construction (see
-    # generate_lubricants_sales_data.py). These three are genuine
-    # decomposition DRIVERS, the same epistemic shape as premium_mix_pct's
-    # existing edge into gross_margin_pct: each is ONE factor (volume, order
-    # frequency, price/mix), not the whole story, and each carries real
-    # information -- knowing units_sold rose doesn't by itself tell you
-    # net_revenue rose (price/mix could move the other way). order_fulfillment_rate
-    # and order_cancellation_rate deliberately NOT mapped here -- their
-    # relationship to revenue is real but more indirect, and needs its own
-    # look at whether cancelled/unfulfilled orders are already excluded
-    # from units_sold's own count before claiming a clean edge.
+    # RECLASSIFIED 2026-09-02: units_sold stays a genuine causal_estimate
+    # driver (unchanged below) -- units_sold rising doesn't by itself tell
+    # you net_revenue rose, since price/mix could move the other way, and it
+    # is NOT part of a clean identity (average_order_value is per-ORDER, not
+    # per-unit). sales_order_count and average_order_value are DIFFERENT:
+    # average_order_value is DEFINED as SAFE_DIVIDE(SUM(net_amount),
+    # COUNT(DISTINCT sales_order_id)), so sales_order_count *
+    # average_order_value = SUM(net_amount) is tautological, not an
+    # estimate -- live-verified exactly (order_count=24,961,
+    # avg_value=17,639.6622, product=440,303,607.89 = SUM(net_amount)
+    # exactly). That is the accounting_identity shape, same as the COGS
+    # component edges above, and it is now ALSO formalized as a real
+    # 'product' decomposition edge in KPI_DECOMPOSITIONS below --
+    # net_revenue's first genuinely cross-data-product Core Spine branch.
+    #
+    # Sales SUM(net_amount) does NOT reconcile exactly to FI's net_revenue,
+    # however -- live-checked, not assumed: $440,303,607.89 (Sales) vs
+    # $440,245,582.78 (FI), a $58,025 / 0.01% gap, most likely independent
+    # synthetic-data generation between the two data products rather than a
+    # true double-entry link. Well within check_tree_reconciles' default 1%
+    # tolerance, but worth recording honestly rather than repeating the
+    # earlier "exactly by construction" claim this comment used to make
+    # about the CROSS-DATA-PRODUCT reconciliation specifically (the Sales-
+    # side identity itself -- order_count * avg_value = SUM(net_amount) --
+    # IS exact; it is only the two data products' TOTALS that carry the tiny
+    # gap).
+    #
+    # order_fulfillment_rate and order_cancellation_rate deliberately NOT
+    # mapped here -- their relationship to revenue is real but more
+    # indirect, and needs its own look at whether cancelled/unfulfilled
+    # orders are already excluded from units_sold's own count before
+    # claiming a clean edge.
     # ------------------------------------------------------------------
     {
         "kpi_id": "units_sold",
@@ -1165,13 +1220,11 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "client_id": CLIENT_ID,
         "relationship_type": "custom",
         "conflict_direction": "diverging",
-        "description": "Order count moving opposite to net revenue signals an order-size or mix problem",
-        "mechanism": "More completed orders, average order value held constant, drives higher revenue -- the transaction-frequency component, distinct from order size.",
-        "lag_periods": 0,
-        "causal_rung": "correlational",
+        "description": "Order count is one of the two exact factors of net revenue (order_count * average_order_value)",
+        "mechanism": "average_order_value is DEFINED as SUM(net_amount) / COUNT(DISTINCT sales_order_id), so sales_order_count * average_order_value reproduces total sales revenue by construction, not via an inferred pass-through.",
         "provenance": "confirmed",
-        "confidence": "high",
         "causal_direction": "kpi_causes_related",
+        "basis": "accounting_identity",
     },
     {
         "kpi_id": "average_order_value",
@@ -1179,13 +1232,11 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "client_id": CLIENT_ID,
         "relationship_type": "custom",
         "conflict_direction": "diverging",
-        "description": "Average order value moving opposite to net revenue signals an order-volume problem",
-        "mechanism": "Higher average order value, order count held constant, drives higher revenue -- the price/mix component, distinct from order volume.",
-        "lag_periods": 0,
-        "causal_rung": "correlational",
+        "description": "Average order value is one of the two exact factors of net revenue (order_count * average_order_value)",
+        "mechanism": "average_order_value is DEFINED as SUM(net_amount) / COUNT(DISTINCT sales_order_id), so sales_order_count * average_order_value reproduces total sales revenue by construction, not via an inferred pass-through.",
         "provenance": "confirmed",
-        "confidence": "high",
         "causal_direction": "kpi_causes_related",
+        "basis": "accounting_identity",
     },
 ]
 
@@ -1218,6 +1269,25 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
 # 35,781,471.69 = 298,679,848.02, COGS's own total exactly, verified via
 # check_tree_reconciles against live data (not just this arithmetic check).
 KPI_DECOMPOSITIONS: List[Dict[str, Any]] = [
+    # net_revenue's own decomposition -- the first genuinely cross-data-
+    # product branch of the Core Spine (dp_lubricants_sales ->
+    # dp_lubricants_financials), added 2026-09-02. Live-verified as an exact
+    # identity on the Sales side: 24,961 orders * $17,639.6622/order =
+    # $440,303,607.89 = SUM(net_amount) exactly. Deliberately NOT
+    # units_sold -- see kpi_relationships' own comment above for why that
+    # stays a causal_estimate driver, not part of this identity.
+    {
+        "parent_kpi_id": "net_revenue",
+        "child_kpi_id": "sales_order_count",
+        "client_id": CLIENT_ID,
+        "operation": "product",
+    },
+    {
+        "parent_kpi_id": "net_revenue",
+        "child_kpi_id": "average_order_value",
+        "client_id": CLIENT_ID,
+        "operation": "product",
+    },
     {
         "parent_kpi_id": "gross_profit",
         "child_kpi_id": "net_revenue",

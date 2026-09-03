@@ -16,18 +16,31 @@ docs/architecture/kpi_relationship_basis_design.md proposes splitting out of
 kpi_relationships (that edge type is conflated there today); a formal home
 for it here is what that design note was arguing kpi_relationships needed.
 
-Only 'linear' and 'ratio' are modelled -- deliberately, not a general
+'linear', 'ratio', and 'product' are modelled -- deliberately, not a general
 expression tree. A KPI's OWN reported value already carries its intended
 sign (e.g. the `cogs` KPI negates its raw signed amount to report a positive
 cost magnitude, per KPI.sign_convention) -- so "gross_profit decomposes into
 net_revenue and cogs" is not a plain sum of KPI values, it's
 `net_revenue - cogs`. `sign` on each edge carries exactly that: whether this
 child ADDS to or SUBTRACTS from the parent, using each KPI's own reported
-(already-sign-converted) value. A 'difference'/'product' operation literal
-was considered and dropped -- 'linear' (a signed sum, which subsumes plain
-addition and subtraction alike via `sign`) covers every FI decomposition
-this stage seeds, and does not need an arbitrary "first child minus the
-rest" ordering convention the way a bare 'difference' literal would.
+(already-sign-converted) value. A bare 'difference' literal was considered
+and dropped -- 'linear' (a signed sum, which subsumes plain addition and
+subtraction alike via `sign`) covers every FI decomposition this stage
+seeds, and does not need an arbitrary "first child minus the rest" ordering
+convention the way a bare 'difference' literal would.
+
+'product' was added 2026-09-02 for the first genuinely cross-data-product
+decomposition: `net_revenue = sales_order_count * average_order_value`
+(dp_lubricants_sales -> dp_lubricants_financials), verified live as an exact
+identity on the Sales side (average_order_value is DEFINED as
+SAFE_DIVIDE(SUM(net_amount), COUNT(DISTINCT sales_order_id)), so the product
+is tautological, not estimated). Multiplication itself needs no ordering
+convention (it's commutative, unlike a bare 'difference'), but see
+src/analysis/decomposition.py's `variance_bridge` docstring for a real,
+separate finding this addition surfaced: attributing a MOVE between two
+periods to each factor of a product (or a ratio) is order-dependent even
+though the multiplication/division itself is not -- a distinct concern from
+this model's own shape.
 """
 from __future__ import annotations
 
@@ -52,16 +65,24 @@ class KPIDecompositionEdge(BaseModel):
     (gross_margin_pct = 100 * gross_profit / net_revenue -- the 100x
     percent-scaling is a display convention, checked via KPI.unit_class by
     src/analysis/decomposition.py, not stored on the edge itself).
+
+    'product': the parent is the product of ALL its direct children's own
+    reported values -- `parent = child_1 * child_2 * ...`. E.g.
+    net_revenue's two edges: sales_order_count and average_order_value ->
+    net_revenue = sales_order_count * average_order_value. `sign` is
+    ignored for 'product', same as for 'ratio'.
     """
     parent_kpi_id: str = Field(..., description="The KPI being decomposed")
     child_kpi_id: str = Field(..., description="One component of the parent")
     client_id: str = Field(..., description="Client/tenant this edge belongs to")
-    operation: Literal["linear", "ratio"] = Field(
+    operation: Literal["linear", "ratio", "product"] = Field(
         ...,
         description=(
             "'linear': this child contributes sign * child_value to a signed sum "
             "that produces the parent. 'ratio': child_kpi_id / weight_kpi_id = "
-            "parent (weight_kpi_id required; a parent has exactly one such edge)."
+            "parent (weight_kpi_id required; a parent has exactly one such edge). "
+            "'product': all of the parent's 'product' children multiply together "
+            "to produce the parent."
         ),
     )
     sign: int = Field(
