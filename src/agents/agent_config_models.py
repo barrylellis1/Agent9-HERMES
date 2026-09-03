@@ -525,6 +525,24 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
         False, description="Inject kpi_relationships causal chain + active constraints into the synthesis prompt (Phase 15 Stage D)"
     )
 
+    # Phase 17 D2: compute impact_estimate.recovery_range from the KPI decomposition
+    # tree instead of taking the LLM's own arithmetic on faith, when the model names
+    # a specific leaf input and an assumed delta (impact_estimate.lever). Default
+    # False for two independent reasons: (1) same pilot-gating discipline as
+    # enable_causal_grounding above — the read path is non-fatal and degrades to the
+    # LLM's own estimate untouched, but real usage needs validating first; (2) a
+    # DISTINCT, documented risk this flag alone doesn't resolve — the synthesis
+    # prompt already runs ~20k output tokens per project_sf_synthesis_output_ceiling.md,
+    # and asking for 3 more fields per option (leaf_kpi_id, delta_low_pct,
+    # delta_high_pct) risks the SAME truncation-into-stub failure that made
+    # ImpactEstimate.scope/scope_label deferred rather than added alongside
+    # recovery_range. Flip only after a live run at real option-count confirms no
+    # truncation regression (see the SF card's D2 section).
+    enable_computed_impact: bool = Field(
+        False,
+        description="Override impact_estimate.recovery_range with a value computed from kpi_decompositions when the option names a computable lever (Phase 17 D2)",
+    )
+
     # Phase 15 Stage E: critic pass (generate -> critique-against-theory -> synthesize).
     # Default False, same gating discipline as the other Phase 15 stages. Also
     # requires enable_causal_grounding — a critic with no causal graph to check

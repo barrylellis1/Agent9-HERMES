@@ -29,6 +29,7 @@ from src.agents.models.solution_finder_models import (
     DecisionAsk,
     ImmediateAction,
     ImpactEstimate,
+    ImpactLever,
     RecoveryRange,
     SFSynthesisSchema,
 )
@@ -557,6 +558,17 @@ def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
         # _scope_contradiction() on the same raw dict to emit the audit event.
         if _scope == "enterprise" and raw.get("scope_label"):
             _scope = None
+        # Phase 17 D2: an optional lever claim, parsed the same defensive way
+        # as recovery_range above — malformed or absent is None, never a
+        # partial ImpactLever that looks complete but is missing a field
+        # compute_lever_impact() needs.
+        _lever_raw = raw.get("lever")
+        lever = None
+        if isinstance(_lever_raw, dict):
+            try:
+                lever = ImpactLever(**_lever_raw)
+            except Exception:
+                lever = None
         return ImpactEstimate(
             metric=raw.get("metric"),
             unit=raw.get("unit"),
@@ -564,8 +576,84 @@ def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
             basis=raw.get("basis"),
             scope=_scope,
             scope_label=raw.get("scope_label"),
+            lever=lever,
         )
     except Exception:
+        return None
+
+
+async def _compute_impact_from_lever(
+    kpi_id: str,
+    client_id: str,
+    lever: Optional["ImpactLever"],
+    orchestrator: Any,
+    logger_: logging.Logger,
+) -> Optional[Dict[str, Any]]:
+    """Phase 17 D2: fetch the decomposition tree + current leaf values for
+    `kpi_id` and compute the named lever's effect via
+    `src.analysis.decomposition.compute_lever_impact`.
+
+    Non-fatal by the same discipline as every other optional-context fetch in
+    this file (`_lookup_kpi_scoped`, causal-neighbourhood, etc.): any failure
+    -- no tree for this KPI, no live query path, a missing current value --
+    returns None, and the caller falls back to the LLM's own recovery_range
+    unchanged. This function must never be able to break option generation,
+    and it must never return a PARTIAL computed result dressed up as whole.
+    """
+    if not lever or not lever.leaf_kpi_id or lever.delta_low_pct is None or lever.delta_high_pct is None:
+        return None
+    try:
+        from src.analysis.decomposition import compute_lever_impact, leaf_inputs
+        from src.registry.factory import RegistryFactory
+        from src.registry.providers.kpi_decomposition_provider import KPIDecompositionProvider
+
+        edges = await KPIDecompositionProvider().get_full_tree(kpi_id, client_id)
+        if not edges:
+            return None
+        # leaf_inputs already de-duplicates a KPI appearing as both an
+        # intermediate parent's child AND a ratio denominator (see its own
+        # docstring) -- kpi_id itself is added only so its unit_class is
+        # fetched below, for the ratio-scaling evaluate_tree needs at the root.
+        needed = set(leaf_inputs(kpi_id, edges)) | {kpi_id}
+
+        if orchestrator is None:
+            return None
+        dpa = await orchestrator.get_agent("A9_Data_Product_Agent")
+        if dpa is None:
+            return None
+        kpi_provider = RegistryFactory().get_provider("kpi")
+        if kpi_provider is None:
+            return None
+
+        current_values: Dict[str, float] = {}
+        unit_classes: Dict[str, str] = {}
+        for nid in needed:
+            k = kpi_provider.get(nid, client_id=client_id)
+            if k is None:
+                continue
+            if getattr(k, "unit_class", None):
+                unit_classes[nid] = k.unit_class
+            sql = getattr(k, "sql_query", None)
+            if not sql:
+                continue
+            res = await dpa.execute_sql(sql, data_product_id=getattr(k, "data_product_id", None))
+            rows = (res or {}).get("rows") or []
+            if not rows:
+                continue
+            first = rows[0]
+            v = list(first.values())[0] if isinstance(first, dict) else first[0]
+            if isinstance(v, (int, float)):
+                current_values[nid] = float(v)
+
+        return compute_lever_impact(
+            kpi_id, edges, current_values,
+            lever.leaf_kpi_id, lever.delta_low_pct, lever.delta_high_pct,
+            unit_classes=unit_classes,
+        )
+    except Exception as exc:
+        logger_.warning(
+            "[SF] Computed-impact lever evaluation failed (non-fatal) for '%s': %s", kpi_id, exc,
+        )
         return None
 
 
@@ -2868,6 +2956,18 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         self.logger.error(f"[SF] LLM call failed: {getattr(llm_resp, 'error', 'unknown error')}")
                     # Fallback if non-JSON returned
                     if isinstance(parsed, dict) and parsed.get("options"):
+                        # Phase 17 D2: resolve the headline KPI/client_id once for
+                        # the whole options list (same lookup pattern used for the
+                        # narrative-additivity check and causal grounding elsewhere
+                        # in this method) so each option below can attempt a
+                        # computed impact_estimate override without repeating the
+                        # tenant-scoped lookup per option.
+                        _di_kpi_ref = da_summary.get("kpi_name") if da_summary else None
+                        _di_client_id = (
+                            (da_summary.get("client_id") if da_summary else None)
+                            or getattr(request, "client_id", None)
+                        )
+                        _di_kpi = _lookup_kpi_scoped(_di_kpi_ref, _di_client_id, self.logger)
                         for idx, o in enumerate(parsed.get("options", []) or []):
                             try:
                                 # Construct lens views.
@@ -2899,6 +2999,55 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         "scope_label": (o.get("impact_estimate") or {}).get("scope_label"),
                                         "resolution": "scope reset to None (unverified)",
                                     })
+                                _opt_impact_estimate = _parse_impact_estimate(o.get("impact_estimate"))
+
+                                # Phase 17 D2: when the model named a computable
+                                # lever, attempt to OVERRIDE its own recovery_range
+                                # with an arithmetic-derived one from the real
+                                # decomposition tree. Gated behind
+                                # enable_computed_impact (default False — see that
+                                # flag's own docstring for the truncation-risk
+                                # reasoning) and a resolved headline KPI/client_id;
+                                # failure at any point (no tree, no lever named, DPA
+                                # unavailable) leaves the LLM's own estimate
+                                # untouched with source='llm_estimated' — this must
+                                # never be able to break option generation.
+                                if (
+                                    getattr(self.config, "enable_computed_impact", False)
+                                    and _opt_impact_estimate is not None
+                                    and _opt_impact_estimate.lever is not None
+                                    and _di_kpi is not None
+                                    and _di_client_id
+                                ):
+                                    _computed = await _compute_impact_from_lever(
+                                        _di_kpi.id, _di_client_id, _opt_impact_estimate.lever,
+                                        self.orchestrator, self.logger,
+                                    )
+                                    if _computed is not None:
+                                        _opt_impact_estimate = _opt_impact_estimate.model_copy(update={
+                                            "recovery_range": RecoveryRange(
+                                                low=_computed["effect_low"], high=_computed["effect_high"],
+                                            ),
+                                            "source": "computed",
+                                            "basis": (
+                                                f"Computed from {_computed['leaf_kpi_id']} assumed "
+                                                f"{_computed['leaf_delta_low_pct']:+.1f}% to "
+                                                f"{_computed['leaf_delta_high_pct']:+.1f}% "
+                                                f"(current {_computed['leaf_current_value']:g}) via the "
+                                                f"registered decomposition tree — the leaf assumption "
+                                                f"itself is unverified and should be registered as a "
+                                                f"bet, not the resulting number."
+                                            ),
+                                        })
+                                        audit_log.append({
+                                            "event": "impact_estimate_computed",
+                                            "option_id": str(o.get("id") or f"opt{idx+1}"),
+                                            "kpi_id": _di_kpi.id,
+                                            "leaf_kpi_id": _computed["leaf_kpi_id"],
+                                            "effect_low": _computed["effect_low"],
+                                            "effect_high": _computed["effect_high"],
+                                        })
+
                                 options.append(
                                     SolutionOption(
                                         id=str(o.get("id") or f"opt{idx+1}"),
@@ -2914,7 +3063,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         lens_views=pers_list,
                                         implementation_triggers=o.get("implementation_triggers", []),
                                         prerequisites=o.get("prerequisites", []),
-                                        impact_estimate=_parse_impact_estimate(o.get("impact_estimate")),
+                                        impact_estimate=_opt_impact_estimate,
                                         # Phase 15 Stage B: per-option "bets on" assumptions
                                         key_assumptions=_parse_key_assumptions(o.get("key_assumptions")),
                                         # Phase 15 Stage E: critic-pass side effects, if any

@@ -231,3 +231,114 @@ class TestEvaluateTree:
                                   client_id="c", operation="linear", sign=-1),
         ]
         assert evaluate_tree("gross_profit", edges, {"net_revenue": 100.0}) is None
+
+
+class TestComputeLeverImpact:
+    """Phase 17 D2 -- compute_lever_impact: the LLM proposes a lever
+    (which leaf input, roughly what magnitude); this derives the resulting
+    headline-KPI effect through the real decomposition tree, replacing an
+    LLM-asserted recovery_range with an arithmetic one."""
+
+    def _edges(self):
+        return [
+            KPIDecompositionEdge(parent_kpi_id="gross_margin_pct", child_kpi_id="gross_profit",
+                                  client_id="lubricants", operation="ratio", weight_kpi_id="net_revenue"),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="net_revenue",
+                                  client_id="lubricants", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="cogs",
+                                  client_id="lubricants", operation="linear", sign=-1),
+        ]
+
+    def _current(self):
+        # Real seeded-scale magnitudes, not round numbers.
+        return {"net_revenue": 440245582.78, "cogs": 298679848.02}
+
+    def _uc(self):
+        return {"gross_margin_pct": "ratio"}
+
+    def test_price_lever_on_net_revenue_moves_margin_up(self):
+        """A price lever assumed to move net_revenue +3% to +5% (COGS held
+        constant) must raise gross_margin_pct -- sign sanity check first."""
+        from src.analysis.decomposition import compute_lever_impact
+        result = compute_lever_impact(
+            "gross_margin_pct", self._edges(), self._current(),
+            leaf_kpi_id="net_revenue", delta_low_pct=3.0, delta_high_pct=5.0,
+            unit_classes=self._uc(),
+        )
+        assert result is not None
+        assert result["effect_low"] > 0
+        assert result["effect_high"] > result["effect_low"]
+
+    def test_cost_lever_on_cogs_moves_margin_down(self):
+        """A cost INCREASE lever on cogs (the leaf sign is -1 in the tree) must
+        LOWER gross_margin_pct -- confirms the tree's sign, not just the
+        lever's, drives the direction."""
+        from src.analysis.decomposition import compute_lever_impact
+        result = compute_lever_impact(
+            "gross_margin_pct", self._edges(), self._current(),
+            leaf_kpi_id="cogs", delta_low_pct=3.0, delta_high_pct=5.0,
+            unit_classes=self._uc(),
+        )
+        assert result is not None
+        assert result["effect_low"] < 0
+        assert result["effect_high"] < 0
+
+    def test_magnitude_matches_hand_computed_value(self):
+        """Pinned arithmetic, not just a sign check. 3% net_revenue increase,
+        COGS held constant: margin moves from baseline to
+        100*(NR*1.03 - COGS)/(NR*1.03)."""
+        from src.analysis.decomposition import compute_lever_impact, evaluate_tree
+        current = self._current()
+        baseline = evaluate_tree("gross_margin_pct", self._edges(), current, unit_classes=self._uc())
+        perturbed = dict(current)
+        perturbed["net_revenue"] = current["net_revenue"] * 1.03
+        expected_after = evaluate_tree("gross_margin_pct", self._edges(), perturbed, unit_classes=self._uc())
+        result = compute_lever_impact(
+            "gross_margin_pct", self._edges(), current,
+            leaf_kpi_id="net_revenue", delta_low_pct=3.0, delta_high_pct=3.0,
+            unit_classes=self._uc(),
+        )
+        assert result["effect_low"] == pytest.approx(expected_after - baseline)
+        assert result["baseline_value"] == pytest.approx(baseline)
+
+    def test_lever_on_non_leaf_kpi_is_not_computable(self):
+        """gross_profit is an INTERMEDIATE node (has its own children), not a
+        leaf -- a lever aimed at it is not computable and must not fabricate
+        a number."""
+        from src.analysis.decomposition import compute_lever_impact
+        result = compute_lever_impact(
+            "gross_margin_pct", self._edges(), self._current(),
+            leaf_kpi_id="gross_profit", delta_low_pct=3.0, delta_high_pct=5.0,
+            unit_classes=self._uc(),
+        )
+        assert result is None
+
+    def test_lever_on_unrelated_kpi_is_not_computable(self):
+        from src.analysis.decomposition import compute_lever_impact
+        result = compute_lever_impact(
+            "gross_margin_pct", self._edges(), self._current(),
+            leaf_kpi_id="units_sold", delta_low_pct=3.0, delta_high_pct=5.0,
+            unit_classes=self._uc(),
+        )
+        assert result is None
+
+    def test_missing_leaf_current_value_yields_none(self):
+        from src.analysis.decomposition import compute_lever_impact
+        result = compute_lever_impact(
+            "gross_margin_pct", self._edges(), {"net_revenue": 440245582.78},  # cogs missing
+            leaf_kpi_id="net_revenue", delta_low_pct=3.0, delta_high_pct=5.0,
+            unit_classes=self._uc(),
+        )
+        assert result is None
+
+    def test_reversed_delta_order_is_normalized_low_le_high(self):
+        """A cost lever's delta_low/delta_high describe the LEAF's assumed
+        move, not the (inverted) KPI effect's ordering -- effect_low must
+        still be <= effect_high regardless of which leaf-delta produced it."""
+        from src.analysis.decomposition import compute_lever_impact
+        result = compute_lever_impact(
+            "gross_margin_pct", self._edges(), self._current(),
+            leaf_kpi_id="cogs", delta_low_pct=3.0, delta_high_pct=5.0,
+            unit_classes=self._uc(),
+        )
+        assert result["effect_low"] <= result["effect_high"]

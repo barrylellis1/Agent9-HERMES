@@ -203,6 +203,47 @@ kind `non_additive_summation` to the same `narrative_claim_mismatch` audit event
 `additive_across_dimensions` is explicitly `False`; an undeclared KPI (`None`) is never treated as
 either additive or non-additive.
 
+## Phase 17 D2 — Computed Impact From a Lever (Aug/Sep 2026, gated OFF by default)
+
+`impact_estimate.recovery_range` has never had Python arithmetic behind it — the LLM asserts the
+number directly, and two real, documented briefing errors (segment promoted to headline KPI; three
+cited figures summing to 140.4pp instead of 75.18) trace to exactly that gap. D2 replaces the
+assertion with a computation, for the one class of KPI where it's now possible: an option names an
+**`ImpactLever`** (`leaf_kpi_id`, `delta_low_pct`, `delta_high_pct` — e.g. "assumes net_revenue
++3% to +5%"), and `_compute_impact_from_lever()` fetches the KPI's decomposition tree
+(`kpi_decompositions`, Phase 17 T2) plus current leaf values via DPA, and calls
+`src.analysis.decomposition.compute_lever_impact()` to derive the headline KPI's effect
+arithmetically. On success, `impact_estimate.recovery_range` is OVERRIDDEN with the computed
+bounds and `source` flips to `'computed'` (default `'llm_estimated'`) — never silently; an
+`impact_estimate_computed` audit event records which leaf and bounds were used.
+
+**The LLM proposes the lever (a business judgement it's well-placed to make); the system computes
+the KPI effect (arithmetic it should not be trusted with freestanding).** The leaf-level delta
+itself stays exactly as uncertain as before — this doesn't validate the elasticity, it makes the
+translation from an assumed elasticity to a KPI number exact instead of guessed. The leaf
+assumption is the thing that should be registered as a falsifiable bet for VA to grade later
+(same discipline as `key_assumptions`), not the resulting computed number.
+
+**Gated behind `A9SolutionFinderAgentConfig.enable_computed_impact` (default False), and this session
+deliberately did NOT wire the synthesis prompt to request `lever`.** The reason is a real, measured
+regression documented a few lines below in this same card (Stage 1 Attribution Fix's neighbour, the
+scope/scope_label deferral note): adding 2 more string/float fields to `impact_estimate`'s JSON schema
+previously pushed the ~20k-token synthesis response past its output budget and reproduced a
+truncation-into-stub failure 3/3 times. A lever addition (3 fields: `leaf_kpi_id`,
+`delta_low_pct`, `delta_high_pct`) is comparable in size. **The read/compute path is fully built and
+unit-tested (parsing, the pure arithmetic, the async fetch-and-compute wrapper, all against real
+BigQuery magnitudes) — what's NOT done is asking the model for `lever` in a live run.** Do not add the
+prompt instruction without a live-harness validation at real option count first, exactly as the
+scope/scope_label note already prescribes for this class of change.
+
+**Verified:** `src.analysis.decomposition.compute_lever_impact` reproduces sign and magnitude
+correctly (net_revenue lever raises margin, cogs lever lowers it; pinned against hand-computed
+values). `_compute_impact_from_lever` live-verified against real BigQuery: a 3-5% net_revenue lever
+on lubricants' `gross_margin_pct` (baseline 32.16%) computed **+1.98pp to +3.23pp** — correctly
+signed, real magnitudes, not a fixture. 17 new unit tests
+(`tests/unit/test_impact_lever_computed.py`, `TestComputeLeverImpact` in
+`test_decomposition_analysis.py`).
+
 ## Stage 1 Attribution Fix (Aug 2026)
 Stage 1 results are keyed **positionally** from `asyncio.gather()` order — never by the LLM
 echoing `persona_id` back. The old keying silently discarded a successful call whose JSON

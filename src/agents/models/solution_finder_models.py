@@ -76,6 +76,28 @@ class RecoveryRange(A9AgentBaseModel):
     high: Optional[float] = None
 
 
+class ImpactLever(A9AgentBaseModel):
+    """Phase 17 D2: the OPERATIONAL lever an option's impact estimate rests on,
+    named explicitly so the KPI effect can be COMPUTED from the decomposition
+    tree (`kpi_decompositions`) instead of the LLM asserting the number itself.
+
+    `leaf_kpi_id` must name a KPI reachable as a leaf input of the headline
+    KPI's decomposition tree (`src.analysis.decomposition.leaf_inputs`) — e.g.
+    'net_revenue' or 'cogs' for a gross_margin_pct option. This is the one
+    thing an LLM is well-placed to judge (which lever, roughly what
+    magnitude) paired with the one thing it should not be trusted to compute
+    (the resulting KPI effect, which is arithmetic once the lever is named).
+
+    `delta_low_pct`/`delta_high_pct` are the assumed low/high percentage
+    change to `leaf_kpi_id` itself (e.g. a 3-5% price increase asserted to
+    move net_revenue by roughly +3% to +5%) — NOT the resulting change to the
+    headline KPI, which is what gets computed FROM this.
+    """
+    leaf_kpi_id: Optional[str] = None
+    delta_low_pct: Optional[float] = None
+    delta_high_pct: Optional[float] = None
+
+
 class ImpactEstimate(A9AgentBaseModel):
     """Typed replacement for the previously untyped impact_estimate dict.
 
@@ -111,6 +133,15 @@ class ImpactEstimate(A9AgentBaseModel):
     #                the bug this field exists to prevent.
     scope: Optional[Literal["enterprise", "segment"]] = None
     scope_label: Optional[str] = None  # e.g. "National Auto Parts Chain A"
+
+    # Phase 17 D2. lever: the model's named operational lever (optional, see
+    # ImpactLever). source: which produced recovery_range above — 'computed'
+    # ONLY when src.analysis.decomposition arithmetic actually overrode the
+    # LLM's own number; defaults to 'llm_estimated' so every pre-existing
+    # payload (and any run where the lever wasn't computable) is correctly
+    # labelled as asserted, not silently reclassified as verified.
+    lever: Optional[ImpactLever] = None
+    source: Literal["llm_estimated", "computed"] = "llm_estimated"
 
 
 class TradeOffCriterion(A9AgentBaseModel):

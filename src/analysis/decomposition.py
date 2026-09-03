@@ -211,6 +211,72 @@ def variance_bridge(
     }
 
 
+def compute_lever_impact(
+    headline_kpi_id: str,
+    edges: List[KPIDecompositionEdge],
+    current_values: Dict[str, float],
+    leaf_kpi_id: str,
+    delta_low_pct: float,
+    delta_high_pct: float,
+    *,
+    unit_classes: Optional[Dict[str, str]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Phase 17 D2: compute a headline KPI's impact range from an OPERATIONAL
+    lever, instead of an LLM asserting the resulting number directly.
+
+    The LLM proposes the lever (which input, roughly what magnitude — a
+    business judgement it is well-placed to make); this computes what that
+    lever does to `headline_kpi_id` through the real decomposition tree — an
+    arithmetic question it should not be trusted to answer freestanding. Two
+    real, documented briefing errors this session traced (a segment number
+    promoted to the headline KPI; three cited figures summing to 140.4pp
+    instead of 75.18) both originated in exactly this gap: SF's
+    `recovery_range` has no Python arithmetic behind it anywhere.
+
+    `leaf_kpi_id` must be a genuine leaf of `headline_kpi_id`'s tree
+    (`leaf_inputs`) — a lever aimed at an intermediate node or an unrelated
+    KPI is not computable and returns None, never a fabricated number.
+    `delta_low_pct`/`delta_high_pct` perturb `leaf_kpi_id` ITSELF (e.g. a
+    price lever assumed to move net_revenue +3% to +5%); the corresponding
+    headline-KPI effect is what this function derives, via `evaluate_tree`.
+
+    Returns None whenever the lever isn't computable or a needed current
+    value is missing — never a partial or best-guess result. On success,
+    returns a dict carrying both bounds plus the leaf-level assumption that
+    produced them, so a caller can register that assumption for later VA
+    grading (the same falsifiable-bet discipline `_grade_assumptions_from_verdict`
+    already applies) rather than treating the computed number as free of its
+    own uncertainty.
+    """
+    if leaf_kpi_id not in leaf_inputs(headline_kpi_id, edges):
+        return None
+    leaf_value = current_values.get(leaf_kpi_id)
+    if leaf_value is None:
+        return None
+    baseline = evaluate_tree(headline_kpi_id, edges, current_values, unit_classes=unit_classes)
+    if baseline is None:
+        return None
+
+    bounds = []
+    for delta_pct in (delta_low_pct, delta_high_pct):
+        perturbed = dict(current_values)
+        perturbed[leaf_kpi_id] = leaf_value * (1.0 + delta_pct / 100.0)
+        effect_value = evaluate_tree(headline_kpi_id, edges, perturbed, unit_classes=unit_classes)
+        if effect_value is None:
+            return None
+        bounds.append(effect_value - baseline)
+
+    return {
+        "baseline_value": baseline,
+        "effect_low": min(bounds),
+        "effect_high": max(bounds),
+        "leaf_kpi_id": leaf_kpi_id,
+        "leaf_current_value": leaf_value,
+        "leaf_delta_low_pct": delta_low_pct,
+        "leaf_delta_high_pct": delta_high_pct,
+    }
+
+
 def check_tree_reconciles(
     parent_kpi_id: str,
     edges: List[KPIDecompositionEdge],
