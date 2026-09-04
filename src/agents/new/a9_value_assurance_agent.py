@@ -58,12 +58,12 @@ from src.agents.models.value_assurance_models import (
 from src.agents.new.a9_llm_service_agent import (
     A9_LLM_AnalysisRequest,
 )
-from src.llm_services.claude_service import ClaudeTaskType, get_claude_model_for_task
+from src.llm_services.model_routing import TaskType as A9TaskType
 
 logger = logging.getLogger(__name__)
 
-# Model used for narrative generation — cheap, fast
-_NARRATIVE_MODEL = get_claude_model_for_task(ClaudeTaskType.NLP_PARSING)
+# Narrative generation — cheap, fast; resolved per provider at call time
+_NARRATIVE_TASK = A9TaskType.NLP_PARSING
 
 
 # ---------------------------------------------------------------------------
@@ -1513,7 +1513,7 @@ class A9_Value_Assurance_Agent:
                 content=prompt,
                 analysis_type="value_assurance_narrative",
                 context="Executive narrative for approved solution outcome.",
-                model=_NARRATIVE_MODEL,
+                task_type=_NARRATIVE_TASK,
                 max_tokens=512,
             )
             if self.orchestrator is not None:

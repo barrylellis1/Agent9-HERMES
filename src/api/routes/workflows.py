@@ -737,8 +737,8 @@ async def briefing_qa(
         ]
         history_block = "\n\n### Previous Q&A\n" + "\n".join(history_lines)
 
-    from src.llm_services.claude_service import get_claude_model_for_task, ClaudeTaskType
-    model = get_claude_model_for_task(ClaudeTaskType.NLP_PARSING if tier <= 2 else ClaudeTaskType.BRIEFING)
+    from src.llm_services.model_routing import TaskType as A9TaskType
+    task_type = A9TaskType.NLP_PARSING if tier <= 2 else A9TaskType.BRIEFING
 
     prompt = (
         "You are an executive briefing analyst. Answer the principal's question based ONLY "
@@ -762,7 +762,7 @@ async def briefing_qa(
             request_id=str(uuid.uuid4()),
             principal_id=request.principal_id,
             prompt=prompt,
-            model=model,
+            task_type=task_type,
             max_tokens=800,
             operation="generate",
         )

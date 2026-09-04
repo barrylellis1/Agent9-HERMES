@@ -23,6 +23,7 @@ from src.llm_services.response_parsing import parse_llm_json
 from src.llm_services.openai_service import (
     OpenAIService, create_openai_service, TaskType, get_model_for_task
 )
+from src.llm_services.model_routing import resolve_model, provider_of, TaskType as A9TaskType
 
 from pydantic import BaseModel, Field, ConfigDict
 from dotenv import load_dotenv
@@ -58,6 +59,16 @@ class A9_LLM_Request(A9AgentBaseRequest):
         None, description="JSON schema (e.g. PydanticModel.model_json_schema()) to force via tool_choice"
     )
     tool_name: Optional[str] = Field(None, description="Tool name for the forced tool_choice call")
+    reasoning_effort: Optional[str] = Field(
+        None,
+        description="OpenAI gpt-5.x/gpt-6 reasoning budget: none|low|medium|high|xhigh. Ignored by Anthropic.",
+    )
+    task_type: Optional[str] = Field(
+        None,
+        description="Provider-neutral task type (see model_routing.TaskType). Preferred over "
+                    "`model`: the configured provider's routing table picks the model, so the "
+                    "same call site works on Anthropic and OpenAI.",
+    )
 
 
 class A9_LLM_TemplateRequest(A9AgentBaseRequest):
@@ -84,6 +95,9 @@ class A9_LLM_AnalysisRequest(A9AgentBaseRequest):
         None, description="JSON schema to force via tool_choice (forced structured output)"
     )
     tool_name: Optional[str] = Field(None, description="Tool name for the forced tool_choice call")
+    task_type: Optional[str] = Field(
+        None, description="Provider-neutral task type (see model_routing.TaskType)."
+    )
 
 
 class A9_LLM_SummaryRequest(A9AgentBaseRequest):
@@ -263,12 +277,12 @@ class A9_LLM_Service_Agent:
             # Determine model name - use explicit config or auto-select based on task_type
             model_name = self.config.model_name
             task_type = getattr(self.config, 'task_type', TaskType.GENERAL)
-            if not model_name and self.config.provider.lower() == "openai":
-                model_name = get_model_for_task(task_type)
-                logger.info(f"Auto-selected model '{model_name}' for task type '{task_type}'")
-            elif not model_name:
-                model_name = get_claude_model_for_task(task_type)
-                logger.info(f"Auto-selected Claude model '{model_name}' for task type '{task_type}'")
+            if not model_name:
+                model_name = resolve_model(self.config.provider, task_type)
+                logger.info(
+                    f"Auto-selected model '{model_name}' for task type '{task_type}' "
+                    f"on provider '{self.config.provider}'"
+                )
             
             # Convert agent config to service config
             service_config = {
@@ -400,7 +414,15 @@ class A9_LLM_Service_Agent:
             system_prompt = request.system_prompt or self.get_system_prompt()
             max_tokens = request.max_tokens or self.config.max_tokens
             temperature = request.temperature or self.config.temperature
-            model = request.model or self.config.model_name
+            # Resolution order: an explicit model wins (escape hatch, and what a
+            # bake-off harness uses to pin one call to one model), then the
+            # provider-neutral task type, then the service's configured default.
+            if request.model:
+                model = request.model
+            elif getattr(request, "task_type", None):
+                model = resolve_model(self.config.provider, request.task_type)
+            else:
+                model = self.config.model_name
             
             # Log request (if enabled)
             if self.config.log_all_requests:
@@ -454,13 +476,53 @@ class A9_LLM_Service_Agent:
                     raise e
             elif provider == "openai":
                 try:
-                    # Use the service layer to generate the response - OpenAI service is NOT async
-                    result = self.llm_service.generate(
-                        prompt=request.prompt,
-                        system_prompt=system_prompt,
-                        max_tokens=max_tokens,
-                        temperature=temperature
-                    )
+                    # Backstop. Every in-tree call site now passes `task_type`
+                    # and is resolved per provider before this point, so this
+                    # should not fire — it catches a caller that hardcodes a
+                    # provider-specific model ID (see test_model_routing.py,
+                    # which fails the build if one reappears). Substituting
+                    # loudly beats sending "claude-…" to OpenAI for a 400, but a
+                    # warning here means a call site regressed.
+                    _model = model
+                    if _model and provider_of(_model) not in (None, "openai"):
+                        task_type = getattr(self.config, "task_type", TaskType.GENERAL)
+                        _model = get_model_for_task(task_type)
+                        logger.warning(
+                            f"Non-OpenAI model {model!r} requested on the OpenAI provider; "
+                            f"substituting {_model!r} for task_type={task_type!r}. "
+                            f"Callers should pass a task type, not a provider-specific model ID."
+                        )
+
+                    # `model` MUST be forwarded: without it the service falls back to
+                    # the model fixed at construction and silently ignores the
+                    # caller's choice, which makes per-task-type routing (and any
+                    # model comparison) impossible.
+                    if getattr(request, "response_schema", None):
+                        # Structured output, mirroring the Anthropic branch above.
+                        # OpenAI uses native response_format json_schema where
+                        # Anthropic uses forced tool-use; both guarantee the shape,
+                        # so a schema-adherence difference between the two providers
+                        # would be an artifact rather than a model property.
+                        result = await self.llm_service.generate_structured(
+                            prompt=request.prompt,
+                            tool_schema=request.response_schema,
+                            tool_name=getattr(request, "tool_name", None) or "emit_response",
+                            system_prompt=system_prompt,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            model=_model,
+                            reasoning_effort=getattr(request, "reasoning_effort", None),
+                        )
+                    else:
+                        result = await self.llm_service.generate(
+                            prompt=request.prompt,
+                            system_prompt=system_prompt,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            model=_model,
+                            reasoning_effort=getattr(request, "reasoning_effort", None),
+                        )
+                    model = _model  # report what was actually used
                     
                     # Extract response text and usage from service result
                     response_text = result.get("response", "")
@@ -671,6 +733,10 @@ class A9_LLM_Service_Agent:
                 operation=request.operation,
                 response_schema=getattr(request, "response_schema", None),
                 tool_name=getattr(request, "tool_name", None),
+                # Must be threaded through: SF, MA and VA all reach the LLM via
+                # analyze(), so dropping it here would silently fall back to the
+                # service's configured default model for every one of them.
+                task_type=getattr(request, "task_type", None),
             )
 
             # Process using the standard generate method

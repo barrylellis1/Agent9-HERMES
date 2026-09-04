@@ -5,7 +5,7 @@ All agent configuration models must be defined here for centralized validation.
 
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, ConfigDict, Field
-from src.llm_services.claude_service import ClaudeTaskType, get_claude_model_for_task
+from src.llm_services.model_routing import TaskType as A9TaskType, resolve_model
 from src.agents.models.nlp_models import (
     NLPBusinessQueryInput,
     NLPBusinessQueryResult,
@@ -652,7 +652,7 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
         5, description="Default maximum number of market signals to retrieve per request"
     )
     synthesis_model: str = Field(
-        default_factory=lambda: get_claude_model_for_task(ClaudeTaskType.SYNTHESIS),
+        default_factory=lambda: resolve_model(_default_llm_provider(), A9TaskType.SYNTHESIS),
         description="Claude model for market signal synthesis — follows the SYNTHESIS routing table entry (honours CLAUDE_MODEL_SYNTHESIS)",
     )
     require_orchestrator: bool = Field(

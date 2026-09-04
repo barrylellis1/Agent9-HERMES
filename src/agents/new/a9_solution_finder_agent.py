@@ -37,7 +37,7 @@ from src.agents.new.a9_llm_service_agent import (
     A9_LLM_AnalysisRequest,
     A9_LLM_AnalysisResponse,
 )
-from src.llm_services.claude_service import get_claude_model_for_task, ClaudeTaskType
+from src.llm_services.model_routing import TaskType as A9TaskType
 from src.registry.consulting_personas import (
     get_consulting_persona,
     get_council_preset,
@@ -2411,8 +2411,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     content=s1_prompt,
                                     analysis_type="custom",
                                     context="",
-                                    # Light model for focused single-persona call (overridable via CLAUDE_MODEL_STAGE1)
-                                    model=get_claude_model_for_task(ClaudeTaskType.STAGE1_PERSONA),
+                                    # Light model for focused single-persona call
+                                    # (CLAUDE_MODEL_STAGE1 / OPENAI_MODEL_STAGE1)
+                                    task_type=A9TaskType.STAGE1_PERSONA,
                                     # temperature=0 ensures identical inputs always produce the same
                                     # hypothesis — prevents mode drift across repeated runs on the same DA data
                                     temperature=0.0,
@@ -2574,7 +2575,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 # "Best model spent here" per the design intent — routes to the
                                 # same Sonnet 5 default as REASONING/SYNTHESIS (11O-C keeps Fable
                                 # deferred to the offline path, not this interactive one).
-                                model=get_claude_model_for_task(ClaudeTaskType.CRITIC),
+                                task_type=A9TaskType.CRITIC,
                                 max_tokens=2000,
                             )
                             if self.orchestrator is not None:
@@ -2846,8 +2847,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         content=full_prompt,  # Full prompt with instructions + data
                         analysis_type="custom",
                         context="",  # Empty context since debate_spec is now in content
-                        # Full-power model for synthesis/cross-review (overridable via CLAUDE_MODEL_SYNTHESIS)
-                        model=get_claude_model_for_task(ClaudeTaskType.SYNTHESIS),
+                        # Full-power model for synthesis/cross-review
+                        # (CLAUDE_MODEL_SYNTHESIS / OPENAI_MODEL_SYNTHESIS)
+                        task_type=A9TaskType.SYNTHESIS,
                         # Synthesis JSON for complex datasets can exceed 10000 tokens — use full budget.
                         # Bumped from 16384 (Phase 11O's "thin headroom" watch item, DEVELOPMENT_PLAN.md
                         # line ~1358) after a live Phase 15 Stage D/E test reproduced the predicted

@@ -26,7 +26,7 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
     model_config = ConfigDict(extra="allow")
     enable_perplexity: bool = True   # Set False for LLM-only mode
     max_signals: int = 5             # Max market signals per request
-    synthesis_model: str    # default follows the SYNTHESIS routing table entry (claude-sonnet-5 as of 11O-B; honours CLAUDE_MODEL_SYNTHESIS)
+    synthesis_model: str    # UNUSED by the agent (it passes task_type=SYNTHESIS); default now resolves per configured provider
     require_orchestrator: bool = False  # Can run standalone
     log_all_requests: bool = True
 ```
@@ -35,7 +35,7 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
 1. Build a search query from `(kpi_name, industry, da_structural_context)` — structural segment names included for specificity; **no DA conclusion** at this stage to avoid confirmation bias
 2. Call `PerplexityService` to fetch web-search results (signals + citations)
 3. Convert Perplexity citations into `MarketSignal` objects
-4. Send signals + `kpi_context` + `analysis_mode` to `A9_LLM_Service_Agent` (SYNTHESIS routing — claude-sonnet-5) for synthesis and conflict assessment — DA conclusion (analysis_mode/scqa) enters here, not at signal fetch
+4. Send signals + `kpi_context` + `analysis_mode` to `A9_LLM_Service_Agent` (SYNTHESIS task type — resolved per provider) for synthesis and conflict assessment — DA conclusion (analysis_mode/scqa) enters here, not at signal fetch
 5. Return `MarketAnalysisResponse` with signals, synthesis narrative, conflict dict, and confidence score
 
 ## Context Enrichment Strategy (May 2026)
@@ -54,11 +54,17 @@ Signal generation uses a two-tier enrichment to produce business-specific signal
 - `A9_LLM_Service_Agent` — synthesis narrative (acquired from AgentRegistry if not injected)
 
 ## LLM Configuration
-| Task Type | Model | Rationale |
-|-----------|-------|-----------|
-| `synthesis` | `claude-sonnet-5` | Executive-quality market narrative synthesis (11O-B: 4.6 → 5) |
+The agent names a **task type**, not a model (Sep 2026). It passes
+`task_type=SYNTHESIS` on its three `analyze()` calls and the LLM Service Agent
+resolves that against whichever provider is configured — the module-level
+`_SYNTHESIS_MODEL` constant that pinned a Claude model ID at import time is gone,
+replaced by `_SYNTHESIS_TASK`. See `src/llm_services/model_routing.py`.
 
-Environment variable override: `CLAUDE_MODEL_SYNTHESIS`
+| Task Type | Resolves to (anthropic) | Resolves to (openai) | Rationale |
+|-----------|-------------------------|----------------------|-----------|
+| `synthesis` | `claude-sonnet-5` | `gpt-5.6-terra` | Executive-quality market narrative synthesis (11O-B: 4.6 → 5) |
+
+Environment variable override: `CLAUDE_MODEL_SYNTHESIS` / `OPENAI_MODEL_SYNTHESIS`
 
 ## Integration Points (Mar 2026)
 - **SF Agent**: Called after synthesis completes; result stored in `SolutionFinderResponse.market_intelligence`

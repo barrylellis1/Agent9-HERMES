@@ -47,15 +47,16 @@ from src.agents.new.a9_llm_service_agent import (
     A9_LLM_AnalysisRequest,
     A9_LLM_AnalysisResponse,
 )
-from src.llm_services.claude_service import ClaudeTaskType, get_claude_model_for_task
+from src.llm_services.model_routing import TaskType as A9TaskType
 from src.llm_services.perplexity_service import PerplexityService
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Synthesis model — use SYNTHESIS task routing so env-var overrides work
+# Synthesis task type — resolved per provider at call time by the LLM service
+# agent, so env-var overrides work and the agent is not pinned to one vendor.
 # ---------------------------------------------------------------------------
-_SYNTHESIS_MODEL = get_claude_model_for_task(ClaudeTaskType.SYNTHESIS)
+_SYNTHESIS_TASK = A9TaskType.SYNTHESIS
 
 
 class A9_Market_Analysis_Agent:
@@ -653,7 +654,7 @@ class A9_Market_Analysis_Agent:
                 principal_id=request.principal_id or "system",
                 prompt=prompt,
                 system_prompt="You are a market intelligence analyst. Return only valid JSON, no other text.",
-                model=_SYNTHESIS_MODEL,
+                task_type=_SYNTHESIS_TASK,
                 operation="generate",
                 temperature=0.3,
             )
@@ -790,7 +791,7 @@ class A9_Market_Analysis_Agent:
                 content=prompt,
                 analysis_type="custom",
                 context="",
-                model=_SYNTHESIS_MODEL,
+                task_type=_SYNTHESIS_TASK,
             )
 
             # Route through orchestrator when available, otherwise call directly
@@ -1116,7 +1117,7 @@ class A9_Market_Analysis_Agent:
                 principal_id=principal_id or "system",
                 prompt=prompt,
                 system_prompt="Return only valid JSON. No markdown. No preamble.",
-                model=_SYNTHESIS_MODEL,
+                task_type=_SYNTHESIS_TASK,
                 operation="generate",
                 temperature=temperature,
                 max_tokens=8192,

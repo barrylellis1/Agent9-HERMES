@@ -4011,7 +4011,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         
         try:
             from src.agents.new.a9_llm_service_agent import A9_LLM_Request
-            from src.llm_services.claude_service import get_claude_model_for_task, ClaudeTaskType
+            from src.llm_services.model_routing import TaskType as A9TaskType
 
             extraction_prompt = f"""Extract structured refinements from the user's response.
 
@@ -4044,8 +4044,8 @@ If nothing relevant is found for a category, use an empty list."""
                 prompt=extraction_prompt,
                 operation="generate",
                 temperature=0.1,  # Low temperature for structured extraction
-                # Haiku: pure JSON classification — no reasoning needed (overridable via CLAUDE_MODEL_NLP)
-                model=get_claude_model_for_task(ClaudeTaskType.NLP_PARSING),
+                # Cheap model: pure JSON classification, no reasoning needed
+                task_type=A9TaskType.NLP_PARSING,
             )
             
             response = await self.llm_service_agent.generate(request)
@@ -4576,7 +4576,7 @@ If nothing relevant is found for a category, use an empty list."""
 
         try:
             from src.agents.new.a9_llm_service_agent import A9_LLM_Request
-            from src.llm_services.claude_service import get_claude_model_for_task, ClaudeTaskType
+            from src.llm_services.model_routing import TaskType as A9TaskType
 
             if analysis_mode == "opportunity":
                 prompt = (
@@ -4717,7 +4717,7 @@ If nothing relevant is found for a category, use an empty list."""
                 prompt=prompt,
                 operation="generate",
                 temperature=0.3,
-                model=get_claude_model_for_task(ClaudeTaskType.NLP_PARSING),
+                task_type=A9TaskType.NLP_PARSING,
             )
             resp = await self.llm_service_agent.generate(req)
             content = (getattr(resp, "content", "") or "").strip()
