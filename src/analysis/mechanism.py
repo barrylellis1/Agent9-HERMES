@@ -85,6 +85,39 @@ LEVER_PATTERNS: List[Tuple[str, List[str]]] = [
         r"rebalanc",
         r"assortment",
     ]),
+    # EXIT/de-emphasize an underperforming segment or tier, distinct from
+    # mix_shift (which rebalances among things you KEEP). Added 2026-09-05
+    # (Phase 22 Stage A) after reading, not guessing: 5 real options across
+    # BOTH arms of frontier_bakeoff_2026-09-04 fell through to `unclassified`
+    # describing this exact mechanism —
+    #   "Portfolio Reallocation: De-emphasize Structurally Impaired Value-Tier
+    #    Grades, Redirect to Margin-Accretive Formulations"
+    #   "Gated Value-Tier Withdrawal and Higher-Contribution Portfolio
+    #    Reallocation"
+    #   "Gate Specialty Reallocation on Restored Contribution"
+    # — none satisfying mix_shift's `reallocat...mix` pattern because none
+    # phrase it near the word "mix". Patterns below are drawn only from these
+    # five titles' actual vocabulary; NOT "exit" or "walk-away" despite this
+    # being close kin to the structural lens's own real named framework
+    # ("Reallocation / Exit Economics", consulting_personas_registry.yaml) —
+    # per this taxonomy's own provenance rule, a plausible a priori addition
+    # is exactly what didn't survive contact with the data the first time.
+    # Placed after mix_shift and volume_for_margin so a same-position tie
+    # (e.g. "reallocate mix") resolves in their favor, not this broader one.
+    #
+    # NOT included: a bare "withdraw" pattern. It looked justified by one of
+    # the five motivating titles ("Gated Value-Tier Withdrawal...") but that
+    # title is independently covered by `realloc` — checked against the full
+    # corpus before shipping, "withdraw" alone was responsible for zero of
+    # the 9 correct reclassifications and exactly one false positive: an
+    # option whose real thesis was demand repositioning, description-matched
+    # via "withdrawal of discretionary, noncontractual PROMOTIONS" — a
+    # commercial-terms detail, not a portfolio exit. Evidence-necessary only.
+    ("portfolio_exit", [
+        r"de-?emphasi[sz]",
+        r"portfolio\s+reposition",
+        r"realloc",
+    ]),
     # Contractual mechanism that ties price to an input-cost index. Distinct from
     # a plain price increase: the lever is the CLAUSE, not the level.
     ("indexation", [
