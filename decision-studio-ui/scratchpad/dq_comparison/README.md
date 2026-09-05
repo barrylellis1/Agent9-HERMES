@@ -11,25 +11,33 @@ Referenced as the held-out validation corpus in
 | `gross_margin_reframe_run` | 2026-08-22 | Gross Margin % / lubricants (CFO, owner) | **reframed** → COGS (1 hop, accounting identity) | **no** | 5/5 (L5 not-checked) |
 | `ecommerce_confirm_run` | 2026-08-22 | E-Commerce Revenue / bicycle (CEO, non-owner, mixed-mode) | **confirmed** (0 alternatives offered) | **no** | 4/5, capped by L1 |
 | `frontier_bakeoff_2026-09-04/` | 2026-09-04 | Gross Margin % / lubricants (lens council) | n/a (replay of `lens_run`'s DA payload) | **yes** (per run) | 10 matched pairs per arm — see its own README |
-| `lens_probe_validation_2026-09-05/` | 2026-09-05 | Gross Margin % / lubricants (lens council) | n/a | n/a (Stage 1 diversity test, not a full SF run) | NEGATIVE -- see its own README |
+| `lens_probe_validation_2026-09-05/` | 2026-09-05 | Gross Margin % / lubricants (lens council) | n/a | n/a (Stage 1 diversity test, not a full SF run) | NEGATIVE (3 independent measurement attempts) -- see its own README |
 
 ## What `lens_probe_validation_2026-09-05` adds
 
 Phase 22 Stage D: does persona-keyed refinement (Stages A-C) actually increase
 Stage 1 hypothesis diversity? Measured directly via classify_lever on Stage 1's
-own proposed_option titles -- no synthesis call needed. TWO completed runs,
-kept both: **v1** gave the simulated executive only a 3-line recap, missing 4
-of 5 segment-level change_points the questions themselves asked about -- every
-answer hedged, mean dropped to 2.60 vs baseline's 3.00, later found to be a
-harness confound (under-provisioned information), not evidence about
-lens-probing. **v2**, corrected to give the simulator the COMPLETE DA output,
-came back near-neutral: mean 2.90 vs baseline's 3.00 (9/10 tied, 1/10 below,
-0/10 above) -- baseline was already at the diversity ceiling (3/3) on this
-fixture, leaving no headroom to show improvement either way. Neither run
-indicts the Stage A-C plumbing (independently unit-tested and confirmed
-working); both share the same irreducible limitation -- no live executive
-answered these questions, and no simulation can substitute for that. See its
-own README for the full two-run writeup.
+own proposed_option titles -- no synthesis call needed. THREE completed runs,
+kept all three: **v1** gave the simulated executive only a 3-line recap,
+missing 4 of 5 segment-level change_points the questions themselves asked
+about -- every answer hedged, mean dropped to 2.60 vs baseline's 3.00, later
+found to be a harness confound (under-provisioned information), not evidence
+about lens-probing. **v2**, corrected to give the simulator the COMPLETE DA
+output, came back near-neutral: mean 2.90 vs baseline's 3.00 (9/10 tied, 1/10
+below, 0/10 above) -- attributed to baseline already sitting at the diversity
+ceiling (3/3) on this fixture. **v3**, on direct instruction, prescribed
+three simulated-executive postures (conservative/assertive/middle) with
+non-hedging enforced by regex check (not just requested) rather than left to
+chance -- all three postures came back at or slightly below a *fresh* baseline
+draw (2.50, 2.50, 2.40 vs baseline's 2.60), and that fresh baseline draw was
+NOT at ceiling, contradicting v2's ceiling explanation. The real finding from
+v3: baseline's own run-to-run swing (3.00 in v2 vs 2.60 in v3, same fixture,
+same code) is as large as any posture-vs-baseline gap observed -- this
+measurement's noise floor rivals the effect size it's trying to detect.
+None of the three runs indict the Stage A-C plumbing (independently
+unit-tested and confirmed working); all three share the same irreducible
+limitation -- no live executive answered these questions, and no simulation
+can substitute for that. See its own README for the full three-run writeup.
 
 ## What `frontier_bakeoff_2026-09-04` adds
 

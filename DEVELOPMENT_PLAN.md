@@ -4260,10 +4260,10 @@ first, independent of everything else below.
   pattern already exists for this).
 - [ ] Wire `lens_refinement` into the `SolutionFinderRequest.preferences` payload.
 
-**Stage D — Validation (done, 2026-09-05 — result: NEAR-NEUTRAL after correcting a real confound;
-does not settle the phase).** `scripts/run_lens_probe_validation.py` measured `classify_lever`'s
-distinct-family count directly on Stage 1's own `proposed_option` titles (no synthesis call
-needed), lens council, `lens_run` fixture. Two completed runs, both kept:
+**Stage D — Validation (done, 2026-09-05 — result: NEGATIVE across 3 independent measurement
+designs; does not settle the phase).** `scripts/run_lens_probe_validation.py` measured
+`classify_lever`'s distinct-family count directly on Stage 1's own `proposed_option` titles (no
+synthesis call needed), lens council, `lens_run` fixture. Three completed runs, all kept:
 
 - **v1**: the simulated executive answering the lens-probe questions received only a 3-line recap
   (`kt_is_is_not.what_is[:3]`), missing 4 of this fixture's 5 segment-level change points — exactly
@@ -4275,31 +4275,43 @@ needed), lens council, `lens_run` fixture. Two completed runs, both kept:
   mechanism.
 - **v2**: corrected to hand the simulator the COMPLETE DA execution output (no recap of any size —
   removing the information ceiling rather than narrowing it). Answers became genuinely substantive
-  (real cross-referenced segment/region/channel figures, confident conclusions). Result: **near-null,
-  not negative** — mean 2.90 vs baseline's 3.00, 9/10 tied, 1/10 below, 0/10 above. Baseline was
-  already at the diversity ceiling (3 of 3 possible) in all 10 runs on this fixture/council, leaving
-  no headroom for any intervention to show as an improvement on this specific metric here — a ceiling
-  effect, not proof the mechanism has no value.
+  (real cross-referenced segment/region/channel figures, confident conclusions). Result: near-null —
+  mean 2.90 vs baseline's 3.00, 9/10 tied, 1/10 below, 0/10 above. Baseline sat at the diversity
+  ceiling (3 of 3 possible) in all 10 runs on this fixture/council, attributed at the time to a
+  ceiling effect leaving no headroom for improvement — not proof the mechanism has no value.
+- **v3** (on direct instruction, a deliberate widening of the design, not a re-roll of v2 hoping for
+  a friendlier number): prescribed three explicit simulated-executive **postures** —
+  conservative, assertive, middle-of-the-road — with non-hedging **enforced by a regex check**
+  (regenerate on any hedge/non-answer), not merely requested. Zero of 30 with-lens calls needed a
+  regeneration — the instruction alone was already being followed. Result: all three postures came
+  back at or slightly below a *fresh* baseline draw (2.50, 2.50, 2.40 vs baseline's 2.60), and that
+  fresh baseline draw was **not** at ceiling — directly undercutting v2's ceiling-effect explanation.
+  The load-bearing finding from v3: baseline's own run-to-run swing on identical code and fixture
+  (3.00 in v2 vs 2.60 in v3) is as large as any posture-vs-baseline gap observed, meaning Stage 1's
+  temperature=0 noise floor rivals the effect size this measurement is trying to detect.
 
-Neither run indicts Stages A–C's plumbing: `ps_s1` is confirmed genuinely persona-keyed by direct
-unit test (`test_sf_lens_probe_persona_keying.py`), independent of what either simulated-executive
-result shows. Both share the same irreducible limitation named before either run happened: no live
-executive answered these questions, and no simulation — however well-provisioned — substitutes for
-one. Full two-run writeup, both manifests preserved distinctly (not overwritten), and the actual
-hedged-vs-substantive answer text: `decision-studio-ui/scratchpad/dq_comparison/
-lens_probe_validation_2026-09-05/README.md`.
+None of the three runs indict Stages A–C's plumbing: `ps_s1` is confirmed genuinely persona-keyed by
+direct unit test (`test_sf_lens_probe_persona_keying.py`), independent of what any
+simulated-executive result shows. All three share the same irreducible limitation named before any
+run happened: no live executive answered these questions, and no simulation — however
+well-provisioned, however carefully postured — substitutes for one. Full three-run writeup, all
+three manifests preserved distinctly (not overwritten), and the actual answer text per posture:
+`decision-studio-ui/scratchpad/dq_comparison/lens_probe_validation_2026-09-05/README.md`.
 
 **Verdict: Phase 22 is not validated by this measurement, in either direction.** Consistent with
 how this codebase already treats the theory-layer exhibit's own density gate — clears only through
 accumulated VA verdicts over real use, never by seeding — this mechanism's real test can only come
 from real executives answering real questions through Stage C's shipped UI, not from a simulated
 proxy. Ship it, watch what real answers look like, re-measure against real HITL/VA outcomes before
-concluding either way. The v1→v2 correction was made because a specific, identified methodological
-flaw was found (under-provisioned information, confirmed by direct comparison against production's
-own recap-building code) — not because v1's result was inconvenient. There is no flaw remaining to
-correct; do not run a third simulated-answer variant hoping for a clearer number — that is the
-multiple-comparisons trap this project's own analytical discipline (`src/analysis/__init__.py`)
-exists to name and avoid.
+concluding either way. Each correction (v1→v2, v2→v3) was made because a specific, identified
+methodological flaw was found (under-provisioned information; then an uncontrolled hedging/posture
+variable) — not because the prior result was inconvenient. There is no flaw remaining to correct;
+do not run a fourth simulated-answer variant on this same fixture hoping for a clearer number — three
+independent, methodologically-distinct attempts now agree no signal clears this measurement's own
+noise floor, and a fourth attempt at the same measurement would be exactly the multiple-comparisons
+trap this project's own analytical discipline (`src/analysis/__init__.py`) exists to name and avoid.
+The next legitimate move, if this is revisited, is a different measurement design entirely (larger
+N, multiple fixtures, or real usage data) — not another single-fixture N=10 simulated-answer sweep.
 
 **Phase 23 (named, not built): Skip support.** Plain skip only when picked up — falls back to
 the shared refinement context, no inference from principal context. If personalized defaults are

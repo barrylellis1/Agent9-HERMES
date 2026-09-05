@@ -1,0 +1,738 @@
+{
+ "fixture": "decision-studio-ui\\scratchpad\\dq_comparison\\lens_run",
+ "personas": [
+  "commercial",
+  "operational",
+  "structural"
+ ],
+ "n": 10,
+ "postures": [
+  "conservative",
+  "assertive",
+  "middle"
+ ],
+ "baseline_runs": [
+  {
+   "run": 1,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Implement Tiered Pricing with Minimum Margin Floor and Accelerate Mix Shift to Premium Synthetic Full",
+    "operational": "Input Cost & Procurement Price Variance Audit with Selective Price-Pass Mechanism",
+    "structural": "Portfolio De-Emphasis & Category Exit Economics Assessment"
+   }
+  },
+  {
+   "run": 2,
+   "families": {
+    "commercial": "pricing_corridor",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 2,
+   "titles": {
+    "commercial": "Repricing & Channel Mix Rebalancing: Recover Synthetic Blend Margin via Tiered Pricing & Selective Volume Redirection",
+    "structural": "Reposition or De-Emphasize Synthetic Blend Engine Oil; Reallocate Portfolio Weight to Higher-Margin Specialty Oils"
+   }
+  },
+  {
+   "run": 3,
+   "families": {
+    "commercial": "indexation",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Tiered Price Realization & Mix Steering: Synthetic Blend Engine Oil Contract Renewal with Escalator Indexation",
+    "operational": "Procurement Cost Hedge & Feedstock Supplier Renegotiation",
+    "structural": "Portfolio Reallocation: De-emphasize Commodity Engine Oil; Redirect Volume to Specialty/Premium Segments"
+   }
+  },
+  {
+   "run": 4,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Implement Tiered Pricing & Mix Shift Away from Value Segment in Synthetic Blend",
+    "operational": "Procurement Cost & Input-Price Hedging Review with Margin-Recovery Pricing Adjustment",
+    "structural": "Reposition Synthetic Blend as Premium-Tier Offering and Exit Low-Margin Volume"
+   }
+  },
+  {
+   "run": 5,
+   "families": {
+    "commercial": "indexation",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Indexed Price Recovery on Synthetic Blend Engine Oil via Contract Escalation & Channel Tiering",
+    "operational": "Input Cost Reconciliation and Procurement Hedge Realignment for Synthetic Base Stock",
+    "structural": "Portfolio Reallocation: Deprioritize Commodity Engine Oil; Reallocate Volume to Higher-Margin Specialty Segments"
+   }
+  },
+  {
+   "run": 6,
+   "families": {
+    "commercial": "mix_shift",
+    "operational": "indexation",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Synthetic Blend Engine Oil Price-Mix Optimization & Tiering Realignment",
+    "operational": "Feedstock Cost Pass-Through & Pricing Realization Audit",
+    "structural": "De-Emphasize Commodity Oil Portfolio; Reallocate Capacity to Higher-Margin Specialty Lubricant Segments"
+   }
+  },
+  {
+   "run": 7,
+   "families": {
+    "commercial": "unclassified",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 2,
+   "titles": {
+    "commercial": "Tiered Price Realization and Mix Acceleration Toward Premium Synthetic Full Synthetic SKUs",
+    "operational": "Input Cost Rebaseline & Procurement Hedging for Synthetic Blend Engine Oil",
+    "structural": "Reposition Synthetic Blend Engine Oil as Premium Tier; Exit or Harvest Conventional Segment"
+   }
+  },
+  {
+   "run": 8,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "pricing_corridor"
+   },
+   "distinct": 2,
+   "titles": {
+    "commercial": "Willingness-to-Pay Segmentation & Tiered Pricing Realignment for Synthetic Blend",
+    "operational": "Procurement Cost Hedging & Dynamic Pricing Realignment for Synthetic Blend Engine Oil",
+    "structural": "Exit or Reposition Synthetic Blend Engine Oil from Margin-Dependent to Volume-Efficient Participation"
+   }
+  },
+  {
+   "run": 9,
+   "families": {
+    "commercial": "mix_shift",
+    "operational": "hedging",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Tiered Price Escalation + Mix Incentive Rebalancing for Synthetic Blend Engine Oil",
+    "operational": "Input Cost Hedging & Procurement Renegotiation for Synthetic Blend Base Stocks",
+    "structural": "Reposition Synthetic Blend from Commodity Margin to Volume-Driven Participation with Selective Exit from Value Tier"
+   }
+  },
+  {
+   "run": 10,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "pricing_corridor",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 2,
+   "titles": {
+    "commercial": "Implement Willingness-to-Pay Segmentation and Tiered Pricing Indexation for Synthetic Blend Engine Oil",
+    "operational": "Input Cost Reconciliation & Dynamic Pricing Adjustment for Commodity-Linked Products",
+    "structural": "Reposition Synthetic Blend Engine Oil from Volume-Driven to Margin-Protected SKU Mix"
+   }
+  }
+ ],
+ "lens_probe_questions": {
+  "commercial": "Across these three oil products, did the gross margin compression come from price reductions, unfavorable mix shift toward lower-margin SKUs within each product line, or input cost inflation that you couldn't reprice\u2014and which product shows the clearest pattern?",
+  "operational": "For Synthetic Blend Engine Oil specifically, has the COGS per unit increased, the selling price per unit decreased, or has the product mix shifted toward lower-margin SKUs within that product line\u2014and do you have procurement/input-cost data that explains which of these three cost-structure changes is driving the 7.14 point margin decline?",
+  "structural": "Across these three engine oil products showing margin compression, has your portfolio participation in this category shifted toward lower-tier SKUs or increased volume in lower-margin segments, or is this a pricing/cost structure change within your existing category mix?"
+ },
+ "with_lens_by_posture": {
+  "conservative": [
+   {
+    "run": 1,
+    "answers": {
+     "commercial": "The 7.14-point decline in Synthetic Blend Engine Oil and 6.61-point decline in Conventional Engine Oil, combined with the Value product category declining 6.42 points while Premium declines only 3.61 points, indicates the compression is driven primarily by unfavorable mix shift toward lower-margin SKUs within each product line rather than uniform pricing or input-cost pressure. Conventional Engine Oil shows the clearest pattern, having fallen to 19.16% margin (from 25.77%), suggesting aggressive volume-chasing in lower-tier segments of that product.",
+     "operational": "For Synthetic Blend Engine Oil, the magnitude of the 7.14-point margin collapse (current 20.64% vs. prior 27.78%) combined with the parallel 6.42-point decline in the Value category indicates the primary driver is mix shift toward lower-margin SKUs within that product line, as the compression is concentrated in value-tier products rather than uniform across all tiers. Without procurement data in the analysis, the conservative interpretation attributes this to deliberate or market-forced portfolio repositioning toward lower-priced variants rather than input-cost inflation that would show more uniform margin pressure across premium and value segments.",
+     "structural": "The data shows all five customer segments and all six regions declining by 4.3\u20135.0 points uniformly, while product-level declines range from 3.26 to 7.14 points, indicating the portfolio participation has shifted materially toward lower-tier SKUs within the engine oil and industrial lubricant categories rather than a company-wide pricing or cost-structure change. This is most evident in the Value category's 6.42-point decline versus Specialty's 2.95-point decline, confirming that volume has migrated downward within existing product lines rather than uniform margin erosion across the portfolio."
+    },
+    "families": {
+     "commercial": "mix_shift",
+     "operational": "cost_audit",
+     "structural": "pricing_corridor"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Value Tier Price Floor & SKU Rationalization with Tiered Margin Guardrails",
+     "operational": "Value-Tier SKU Margin Recovery via Cost-to-Serve Reallocation and Procurement Hedging",
+     "structural": "Reposition Synthetic Blend Engine Oil Participation Through Tiered Pricing & Specialty Bundling"
+    }
+   },
+   {
+    "run": 2,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil show the clearest pattern of margin compression (-7.14 and -6.61 points respectively), concentrated in the Value product category which declined 6.42 points year-to-date, indicating the primary driver is unfavorable mix shift toward lower-margin SKUs within these product lines rather than broad pricing or input-cost changes, since Premium and Specialty categories show smaller declines of 3.61 and 2.95 points.",
+     "operational": "For Synthetic Blend Engine Oil specifically, the data shows margin compression from 27.78% to 20.64% (-7.14 points), and given that all 15 products in the portfolio declined uniformly across the same timeframe with no offsetting gains anywhere, the most conservative reading attributes this to input cost inflation that could not be repriced rather than unit price reductions or SKU mix shifts, though the uniform 13% decline across all products suggests a systemic cost or pricing structure change.",
+     "structural": "Portfolio participation has shifted materially toward lower-tier SKUs, as evidenced by the Value category declining 6.42 points while Premium declined only 3.61 points and Specialty only 2.95 points, indicating volume growth (or mix deterioration) is concentrating in lower-margin segments within your engine oil and industrial lubricant categories rather than representing a company-wide cost structure change."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "portfolio_exit"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Value-to-Premium Tier Migration Program via Tiered Pricing and Willingness-to-Pay Segmentation",
+     "operational": "Conduct Procurement & Input-Cost Hedging Review for Base Oil Feedstocks",
+     "structural": "Portfolio Reallocation: De-emphasize Volume-Chasing in Synthetic Blend; Redirect Mix Toward Premium and Specialty Tiers"
+    }
+   },
+   {
+    "run": 3,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil (-7.14pp) shows the clearest pattern of margin compression, with the Value product category declining 6.42pp year-over-year, indicating that the deterioration is driven primarily by unfavorable mix shift toward lower-margin SKUs within each engine oil line rather than uniform price reductions across the board. Engine Oils as a product line declined 5.80pp, suggesting systematic compression across the category that points to competitive pressure forcing SKU mix downward rather than across-the-board repricing.",
+     "operational": "For Synthetic Blend Engine Oil, the 7.14-point margin decline reflects a combination of COGS-per-unit pressure and mix shift, as evidenced by the Value category's 6.42pp decline and the product line's 5.80pp decline\u2014both steeper than the company total of 4.49pp\u2014indicating that input cost inflation you could not reprice is the primary driver, compounded by forced migration of sales volume toward lower-margin SKUs. Without unit-level procurement data in the analysis, the conservative reading attributes the majority of the decline to input cost inflation rather than pure pricing power loss.",
+     "structural": "Your portfolio participation has shifted measurably toward lower-tier SKUs within engine oils, as evidenced by the Value category's 6.42pp margin decline exceeding the company average of 4.49pp, indicating that volume growth (if any) is concentrating in lower-margin segments rather than premium tiers. This structural shift toward value-tier products within your existing engine oil category mix is the primary mechanism of margin compression, amplified by the inability to reprice input cost inflation."
+    },
+    "families": {
+     "commercial": "mix_shift",
+     "operational": "cost_audit",
+     "structural": "mix_shift"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Rationalize Low-Margin Value SKUs and Rebalance Mix Toward Premium Tiering",
+     "operational": "Procurement Cost Hedging & Dynamic Pricing Realignment for Synthetic Blend Engine Oil",
+     "structural": "Rebalance Engine Oil Portfolio Mix Away from Value Tier; Reposition or De-emphasize Synthetic Blend SKU"
+    }
+   },
+   {
+    "run": 4,
+    "answers": {
+     "commercial": "The margin compression is driven primarily by input cost inflation that you couldn't reprice, as evidenced by the uniform 5.7\u20137.1 point decline across all engine oil products and the broad-based compression across product categories from Value (-6.4pp) to Premium (-3.6pp); Synthetic Blend Engine Oil shows the clearest pattern with the steepest decline (-7.14pp), indicating this product line absorbed the largest unrecovered cost increase.",
+     "operational": "For Synthetic Blend Engine Oil, COGS per unit has increased without corresponding price recovery, as the 7.14 point margin decline is consistent across the entire product line (Engine Oils down 5.8pp) and all customer segments (ranging -4.3pp to -5.0pp), ruling out a mix shift and pointing to a structural cost increase that pricing did not offset.",
+     "structural": "Your portfolio participation has not shifted materially toward lower-tier SKUs; instead, this is a pricing/cost structure change within your existing category mix, as the decline is proportional across all price tiers (Value -6.4pp, Mid-Range -5.4pp, Premium -3.6pp) and all customer segments and regions show similar compression ratios (-4.3pp to -5.1pp), indicating uniform cost pressure rather than category mix deterioration."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "hedging"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Accelerated Cost-Plus Repricing with Contract Renewal Leverage",
+     "operational": "Procurement & Input-Cost Hedging: Base-Oil and Additive Package Price Recovery",
+     "structural": "Cost Structure Renegotiation & Feedstock Hedging Lock-In"
+    }
+   },
+   {
+    "run": 5,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil (-7.14pp) and Conventional Engine Oil (-6.61pp) show the clearest pattern of margin compression, with the Value product category declining -6.42pp year-over-year, indicating that unfavorable mix shift toward lower-margin SKUs within Engine Oils is the primary driver rather than isolated pricing or input cost moves. The Engine Oils product line itself fell -5.80pp while Premium and Specialty categories held better (-3.61pp and -2.95pp respectively), confirming that the compression is concentrated in volume-weighted lower-tier segments rather than uniform cost inflation across all price tiers.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point margin decline is most consistent with a structural mix shift toward lower-margin SKUs within that product line, as evidenced by the Value category's -6.42pp decline and the Engine Oils line's -5.80pp decline outpacing premium tier products; without unit-level COGS and price data in the analysis, the conservative reading attributes this primarily to unfavorable SKU mix rather than uniform input cost inflation that would compress all tiers equally.",
+     "structural": "Your portfolio participation in engine oils has demonstrably shifted toward lower-tier SKUs\u2014the Value category fell -6.42pp while Premium fell only -3.61pp, and Conventional and Synthetic Blend Engine Oils (your lower-margin volume drivers) declined -6.61pp and -7.14pp respectively versus Full Synthetic's -3.83pp\u2014indicating a volume-weighted mix migration downward rather than a uniform pricing or cost structure change."
+    },
+    "families": {
+     "commercial": "mix_shift",
+     "operational": "mix_shift",
+     "structural": "mix_shift"
+    },
+    "distinct": 1,
+    "titles": {
+     "commercial": "Value-Tier Engine Oil Mix Rebalancing via Tiered Pricing and Channel Incentive Realignment",
+     "operational": "SKU-Level Margin Recovery via Value-to-Premium Mix Rebalancing",
+     "structural": "Rebalance Portfolio Participation: Reallocate Volume Incentives from Synthetic Blend to Full Synthetic & Premium Tier"
+    }
+   },
+   {
+    "run": 6,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil (-7.14pp) and Conventional Engine Oil (-6.61pp) show the clearest pattern of margin compression, with the Value product category declining -6.42pp year-over-year, indicating that unfavorable mix shift toward lower-margin SKUs within these engine oil lines is the primary driver rather than isolated pricing or cost moves\u2014the fact that all 15 product names and all 5 product categories are in breach suggests systematic mix degradation across the portfolio rather than input-cost inflation alone.",
+     "operational": "For Synthetic Blend Engine Oil, the 7.14-point margin decline reflects a combination of mix shift (evidenced by the Value category's -6.42pp decline) and likely COGS pressure, but the data does not isolate per-unit price or per-unit cost movements, so attribution between selling-price reduction, COGS-per-unit increase, and SKU-mix shift cannot be determined without procurement and transaction-level pricing data.",
+     "structural": "Across all three engine oil products, the portfolio has shifted toward lower-tier SKUs or lower-margin segments within the existing category mix, as evidenced by Engine Oils line declining -5.80pp and the Value category declining -6.42pp\u2014this is a structural portfolio participation shift rather than a pricing or cost-structure change within a static mix, given the universal breach across all product dimensions."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "mix_shift"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Tiered Repricing & Mix-Up Incentive for Synthetic Blend Engine Oil",
+     "operational": "Procurement Cost Hedging & Input Price Lock for Synthetic Blend Feedstock",
+     "structural": "Rebalance Portfolio Mix: Restore Synthetic Blend Volume Share and Deprioritize Value-Tier Cannibalization"
+    }
+   },
+   {
+    "run": 7,
+    "answers": {
+     "commercial": "The 7.14-point decline in Synthetic Blend Engine Oil and 6.61-point decline in Conventional Engine Oil, combined with the 6.42-point compression in the Value product category, indicate that input cost inflation unmatched by pricing is the primary driver, as the Value category shows the largest margin hit across all product categories and all engine oil SKUs are uniformly compressed rather than showing selective repricing. Conventional Engine Oil's fall to 19.16% margin (from 25.77%) represents the clearest pattern of structural margin erosion, suggesting commodity cost pass-through failure rather than mix-driven deterioration.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point margin decline is most conservatively attributed to COGS per unit increases driven by input cost inflation that pricing has not recovered, as the compression is uniform across the product line and the Value category shows the steepest overall decline, indicating a cost structure problem rather than selective SKU mix shift or price reductions on specific SKUs. Without procurement data, the 20.64% current margin versus 27.78% prior-year margin points to approximately 25.7% relative margin erosion, consistent with unrecovered input cost inflation across the lubricant supply chain.",
+     "structural": "The portfolio's shift toward the Value category (down 6.42 points) while all engine oil products compress uniformly suggests the company has maintained or increased participation in lower-margin segments without compensating through higher-tier SKU growth, indicating a structural portfolio composition problem rather than a within-SKU mix shift. The International Division and International Distributors also show -4.98 point declines, suggesting that geographic and channel mix toward lower-margin international distribution has compounded the effect of unrecovered input costs."
+    },
+    "families": {
+     "commercial": "indexation",
+     "operational": "cost_audit",
+     "structural": "mix_shift"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Indexed Cost-Plus Repricing on Synthetic Blend and Conventional Engine Oil with Tiered Implementation",
+     "operational": "Procurement Cost Recovery and Dynamic Pricing Calibration",
+     "structural": "Portfolio Rebalancing: Deprioritize Value Category Volume, Reallocate Capacity to Premium Tier SKUs"
+    }
+   },
+   {
+    "run": 8,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil\u2014both falling 6.6\u20137.1 points\u2014show the clearest pattern of margin compression concentrated in the Value product category (down 6.4 points), indicating the driver is unfavorable mix shift toward lower-margin SKUs within each engine oil line rather than broad-based input cost inflation, since Premium and Specialty categories compress only 3.6\u20132.95 points.",
+     "operational": "Synthetic Blend Engine Oil's 7.14 point decline is driven by a combination of mix shift into lower-margin SKUs within the product line and likely input cost inflation that pricing has not recovered, as the entire Engine Oils line fell 5.8 points year-over-year and the Value category (which anchors this product) fell 6.4 points\u2014without unit-level COGS and pricing data, conservatively attribute the majority of the decline to the mix shift into lower-tier SKUs rather than pure cost passthrough failure.",
+     "structural": "Your portfolio has shifted materially toward lower-tier SKUs within engine oils: the Value category margin compressed 6.4 points while Premium compressed only 3.6 points, and Synthetic Blend Engine Oil (typically a mid-to-premium offering) fell 7.1 points, indicating either deliberate volume push into value segments or loss of premium mix to competitors, with the compressed margins concentrated in lower-margin tiers rather than uniform pricing pressure across all SKUs."
+    },
+    "families": {
+     "commercial": "mix_shift",
+     "operational": "indexation",
+     "structural": "mix_shift"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Value Tier Price Rebalancing and Tiered SKU Rationalization",
+     "operational": "SKU-Level Margin Recovery & Input Cost Pass-Through Audit",
+     "structural": "Premium Mix Recovery: Rebalance Portfolio Away from Value Commoditization"
+    }
+   },
+   {
+    "run": 9,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil (\u22127.14 pp) and Conventional Engine Oil (\u22126.61 pp) show the sharpest declines, with the Value product category down 6.42 pp year-over-year, indicating the margin compression stems primarily from unfavorable mix shift toward lower-margin SKUs within engine oils rather than uniform price erosion, since Premium and Specialty categories show only \u22123.61 pp and \u22122.95 pp respectively.",
+     "operational": "For Synthetic Blend Engine Oil, the 7.14 point margin collapse\u2014the largest across all products\u2014most likely reflects a combination of input cost inflation that could not be fully repassed and mix deterioration toward budget-tier SKUs, as the Value category as a whole declined 6.42 pp and the entire Engine Oils line fell 5.80 pp, suggesting structural pressure on the lower-priced segments of this product family.",
+     "structural": "Your portfolio participation in engine oils has shifted materially toward lower-tier SKUs; the Value category compressed 6.42 pp while Premium fell only 3.61 pp, and all three engine oil products (Synthetic Blend, Conventional, and High Mileage) rank in the top declines, indicating the margin loss is driven by volume migration into lower-margin segments rather than across-the-board pricing or cost-structure changes within your existing mix."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "pricing_corridor",
+     "structural": "portfolio_exit"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Tiered Pricing Realignment with Value-to-Premium Migration Incentive",
+     "operational": "Implement Tiered Pricing Adjustment and Input-Cost Hedging Strategy for Synthetic Blend Engine Oil",
+     "structural": "Portfolio De-Emphasis & Selective Exit from Value Engine Oil Segment"
+    }
+   },
+   {
+    "run": 10,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil shows the clearest pattern with a 7.14-point decline, suggesting the compression is primarily driven by input cost inflation you couldn't fully reprice, since the product maintains its position within the Engine Oils line (which declined 5.80 points overall) rather than being displaced by lower-margin alternatives. The Value category's 6.42-point decline\u2014steeper than the overall 4.49-point drop\u2014indicates unfavorable mix shift toward lower-priced SKUs is a secondary but material factor across the engine oil segment.",
+     "operational": "For Synthetic Blend Engine Oil, the 7.14-point margin decline reflects COGS per unit increases that you could not fully reprice, as evidenced by the margin compression being larger than the product-line average and occurring uniformly across all customer segments and channels, which rules out localized mix or pricing power loss. Without procurement data in the analysis, the conservative reading attributes the decline primarily to raw material or manufacturing cost escalation rather than demand-driven SKU mix shifts within the product.",
+     "structural": "Your portfolio has shifted toward lower-tier SKUs within engine oils, as demonstrated by the Value category declining 6.42 points versus Premium declining only 3.61 points, indicating increased volume participation in lower-margin segments is compounding the underlying cost-structure headwinds. This structural shift toward value tiers is occurring across all channels and geographies, suggesting it reflects both customer demand migration and your own volume-mix strategy rather than isolated pricing or cost exceptions."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "mix_shift"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Tiered Repricing with Value-Tier Margin Floor and Premium Upsell Indexation",
+     "operational": "Procurement Cost Hedging and Input-Cost Pass-Through Acceleration",
+     "structural": "Rebalance Engine Oil Portfolio Mix: Shift Volume Share from Value to Premium Tiers"
+    }
+   }
+  ],
+  "assertive": [
+   {
+    "run": 1,
+    "answers": {
+     "commercial": "The margin compression across Synthetic Blend Engine Oil (-7.14pp), Conventional Engine Oil (-6.61pp), and Compressor Oil (-5.86pp) stems primarily from input cost inflation that could not be repriced, evidenced by the uniform 5-7pp decline across all three products and the parallel 6.42pp compression in the Value category\u2014indicating a systemic cost-structure issue rather than selective mix shift or pricing strategy changes.",
+     "operational": "Synthetic Blend Engine Oil's 7.14pp margin decline reflects a combination of increased COGS per unit driven by input cost inflation and an unfavorable mix shift within the product line toward lower-margin SKUs, as the product's current margin of 20.64% is the lowest among all engine oils analyzed and sits well below the portfolio average of 29.94%.",
+     "structural": "Your portfolio participation in engine oils has shifted materially toward lower-tier SKUs within the Value category (-6.42pp), which now represents the largest margin drag across all product categories; this structural rebalancing toward value-tier products, combined with inability to reprice against rising input costs, accounts for the concentrated 5-7pp compression across the three engine oil products."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "hedging",
+     "structural": "mix_shift"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Accelerated Contract Repricing with Cost-Index Escalation Clause Deployment",
+     "operational": "Input Cost Hedging & SKU Mix Rebalancing for Synthetic Blend Engine Oil",
+     "structural": "Rebalance Engine Oil Portfolio: De-Emphasize Value Tier, Reposition Toward Premium/Standard Mix"
+    }
+   },
+   {
+    "run": 2,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil, Conventional Engine Oil, and Compressor Oil all show uniform margin compression of 5.8\u20137.1 points across the board, indicating this is a broad input-cost inflation or systematic repricing failure rather than mix shift, with Synthetic Blend Engine Oil's 7.14-point decline being the sharpest signal of unabsorbed cost pressure in your highest-volume engine oil segment.",
+     "operational": "Synthetic Blend Engine Oil's margin collapsed from 27.78% to 20.64%, and since this compression is identical in magnitude across all three engine oil products despite their different price tiers, the driver is unambiguously input-cost inflation that procurement has not recovered through price increases\u2014COGS per unit has risen without corresponding selling-price adjustment.",
+     "structural": "Your portfolio participation in engine oils has not shifted toward lower-tier SKUs; rather, the Value category itself (which houses Synthetic and Conventional Engine Oils) declined 6.42 points year-over-year, proving this is a cost-structure change within your existing mix, not a compositional shift toward cheaper products\u2014you are selling the same product slate at lower realized margins due to unrecovered input costs."
+    },
+    "families": {
+     "commercial": "indexation",
+     "operational": "cost_audit",
+     "structural": "pricing_corridor"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Indexed Price Escalation on Synthetic Blend Engine Oil with Tiered Contractual Adjustment Mechanism",
+     "operational": "Procurement Price Recovery & Dynamic Cost-Plus Repricing Initiative",
+     "structural": "Dynamic Pricing Reset & Contract Renegotiation for Synthetic Blend Engine Oil"
+    }
+   },
+   {
+    "run": 3,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil show the clearest pattern of margin compression driven by input cost inflation that you couldn't reprice, as both products experienced 7.1 and 6.6 point declines respectively across your entire customer and channel base simultaneously, ruling out mix shift and pointing instead to uniform cost pressures across the Value category.",
+     "operational": "Synthetic Blend Engine Oil's 7.14 point margin decline stems from input cost inflation that you absorbed without corresponding price increases, as evidenced by the uniform 7-point compression across all customer segments and regions\u2014procurement data will confirm whether raw material or finished goods costs from your suppliers increased.",
+     "structural": "Your portfolio participation in engine oils has shifted decisively toward lower-tier SKUs within the Value category, where margin compression of 6.4 points indicates both price resistance at the consumer level and your forced acceptance of lower margins to maintain volume in this segment rather than a across-the-board cost structure change."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "mix_shift"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Implement Tiered Pricing Escalator with Commodity Indexation on Synthetic Blend Engine Oil",
+     "operational": "Procurement Cost Verification & Dynamic Pricing Rebalancing",
+     "structural": "Rebalance Portfolio Mix Away from Value Tier; Restore Premium & Mid-Tier Participation"
+    }
+   },
+   {
+    "run": 4,
+    "answers": {
+     "commercial": "The margin compression is driven by input cost inflation that you couldn't fully reprice, with Synthetic Blend Engine Oil showing the clearest pattern\u2014it declined 7.14 points while maintaining relatively stable volume, indicating the margin loss is structural rather than mix-driven. Engine Oils as a line fell 5.80 points and Value category fell 6.42 points, confirming that cost pressures hit hardest in lower-tier products where pricing power is most constrained.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point margin decline stems from COGS per unit increases driven by input cost inflation, not SKU mix shift or pricing changes, as evidenced by the uniform compression across all engine oil products regardless of tier. The procurement data shows raw material costs rose significantly year-to-date without corresponding price increases to customers, compressing margins across the entire Engine Oils line by 5.80 points.",
+     "structural": "Your portfolio mix within engine oils has not shifted toward lower-tier SKUs\u2014instead, the margin compression is a pricing/cost structure issue where input costs rose faster than you could reprice, hitting the Value category hardest at -6.42 points. This is a within-category profitability squeeze rather than a composition shift, as all three engine oil products declined uniformly (Synthetic Blend -7.14, Conventional -6.61, Full Synthetic -3.83), indicating cost inflation is the driver, not volume migration to lower-margin segments."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "pricing_corridor"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Tiered Price Escalation on Synthetic Blend Engine Oil with Contract Renewal Leverage",
+     "operational": "Implement Procurement Cost-Hedging & Staged Price Recovery for Engine Oils Line",
+     "structural": "Accelerated Cost-Recovery Repricing in Value & Mid-Tier Engine Oil Segments"
+    }
+   },
+   {
+    "run": 5,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil show the clearest pattern of margin compression (-7.14pp and -6.61pp respectively), driven primarily by input cost inflation that you were unable to reprice, as evidenced by the Value product category declining 6.42pp year-over-year across all customer segments and channels uniformly. The compression is structural across your entire lubricants portfolio rather than isolated to mix shifts, indicating a broad cost-pass-through failure in your pricing strategy.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point margin decline stems from COGS per unit increases that you could not offset through price increases, as the margin compression is consistent across all customer segments (National Auto Parts Chain A down 5.24pp, Fleet Customer A down 5.00pp) and channels, ruling out a mix-shift explanation. Without procurement data in this analysis, the uniform 13% relative margin decline across the entire product portfolio points to commodity input cost inflation as the root cause.",
+     "structural": "Your portfolio has not shifted toward lower-tier SKUs; rather, the Value category itself compressed 6.42pp, meaning margin erosion occurred within existing tier definitions across all segments uniformly. This is a pricing/cost structure change where input costs rose broadly across lubricants (Engine Oils down 5.80pp, Industrial Lubricants down 5.47pp, Transmission & Drivetrain down 5.43pp) and your pricing did not keep pace, indicating a company-wide cost recovery failure rather than a category mix migration."
+    },
+    "families": {
+     "commercial": "indexation",
+     "operational": "cost_audit",
+     "structural": "pricing_corridor"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Implement Indexed Price Escalation with Retroactive Contract Reconciliation",
+     "operational": "Implement Fixed-Price Procurement Contracts with Commodity Hedging for Base Oil Inputs",
+     "structural": "Implement Tiered Cost Recovery Pricing & Contract Renegotiation for High-Input-Cost Products"
+    }
+   },
+   {
+    "run": 6,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil\u2014both down 6.6\u20137.1 points\u2014show the clearest pattern of margin compression driven by input cost inflation you could not reprice, evidenced by the uniform 13% gross margin decline across all product categories and customer segments, which rules out isolated mix shifts and points instead to a company-wide cost structure squeeze.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point decline reflects COGS per unit increases that were not offset by selling price adjustments, as the compression appears across all customer segments and channels uniformly rather than concentrating in specific SKUs, indicating a procurement or input-cost challenge at the product-line level rather than internal mix migration.",
+     "structural": "Your portfolio has not shifted toward lower-tier SKUs\u2014the Value category shows the largest compression at 6.42 points, but Premium and Specialty categories declined only 3.6\u20132.95 points, proving the damage is spread across tiers; this is a pricing and cost structure change within your existing mix, not a participation shift toward lower-margin segments."
+    },
+    "families": {
+     "commercial": "indexation",
+     "operational": "cost_audit",
+     "structural": "indexation"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Implement Indexed Pricing Escalator Tied to Brent Crude and Base Stock Cost Indices",
+     "operational": "Procurement Cost Hedging & Selling Price Recalibration for Synthetic Blend Engine Oil",
+     "structural": "Reposition Synthetic Blend as Premium-Tier Product via Specification Upgrade and Selective Channel Migration"
+    }
+   },
+   {
+    "run": 7,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil\u2014your two largest margin compressors at -7.14pp and -6.61pp respectively\u2014show the clearest pattern: the entire Engine Oils product line fell 5.80pp while the Value product category fell 6.42pp, indicating this is driven by unfavorable mix shift toward lower-margin SKUs within each engine oil product, not uniform price erosion across the board. The fact that Premium category margins compressed only 3.61pp versus Value's 6.42pp confirms the deterioration is concentrated in your lower-tier SKU mix, not input cost inflation hitting all tiers equally.",
+     "operational": "Synthetic Blend Engine Oil's 7.14pp decline is primarily a product mix shift toward lower-margin SKUs within that line, evidenced by the Value category (which houses these lower-tier synthetics) declining 6.42pp while the Premium category only fell 3.61pp; without unit-level COGS and price data in this output, the margin compression pattern points to SKU mix as the dominant driver rather than uniform cost inflation or pricing action across the product.",
+     "structural": "Your portfolio participation has shifted materially toward lower-tier SKUs\u2014the Value category fell 6.42pp versus Premium's 3.61pp decline, and this 2.81pp differential is your smoking gun showing that within engine oils and across the lubricants business, you are losing margin not from cost structure changes but from a volume-weighted shift in customer demand or your own go-to-market strategy toward lower-margin segments. This is a portfolio composition problem, not a pricing or procurement problem."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "mix_shift",
+     "structural": "mix_shift"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Repricing and Tiered SKU Rationalization: Migrate Value-Tier Volume to Premium Synthetic Blend Positioning",
+     "operational": "SKU-Level Margin Recovery via Value-to-Premium Mix Rebalancing and Procurement Cost Hedging",
+     "structural": "Rebalance Portfolio Mix: De-emphasize Value Engine Oils and Redirect Volume to Premium and Specialty Tiers"
+    }
+   },
+   {
+    "run": 8,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil show the clearest pattern of margin compression, with Synthetic Blend declining 7.14 points to 20.64% and Conventional declining 6.61 points to 19.16%, indicating this is a structural pricing or cost issue rather than mix shift, as both products have deteriorated uniformly across all customer segments and channels. The Value product category declined 6.42 points overall, suggesting input cost inflation that pricing has not recovered rather than a shift toward lower-margin SKUs, since the compression appears systematic across the entire product portfolio.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point margin decline from 27.78% to 20.64% reflects either COGS-per-unit increases or selling-price-per-unit decreases, as the product shows consistent compression across all 20 customer names and all 6 regions without evidence of SKU-mix shift within the product line. The data does not contain procurement or input-cost records, but the uniform decline across all customer and channel dimensions points to a cost-structure or pricing change at the product level rather than internal mix deterioration.",
+     "structural": "The Engine Oils product line declined 5.80 points uniformly across all customer segments and regions, and all three engine oil products (Synthetic Blend, Conventional, High Mileage) show similar 4\u20137 point declines without any evidence of portfolio shift toward lower-tier SKUs. This indicates a systematic pricing or input-cost issue affecting the entire engine oil category rather than a structural shift in SKU participation or volume concentration in lower-margin segments."
+    },
+    "families": {
+     "commercial": "indexation",
+     "operational": "cost_audit",
+     "structural": "indexation"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Implement Dynamic Cost-Indexed Pricing with Quarterly Escalation Clauses",
+     "operational": "Conduct Procurement Cost-Variance Analysis and Establish Input-Cost Hedging Protocol",
+     "structural": "Cost Pass-Through & Supplier Renegotiation for Engine Oil Portfolio"
+    }
+   },
+   {
+    "run": 9,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil show the clearest pattern of margin compression driven by input cost inflation that couldn't be repriced\u2014both products dropped 6.6\u20137.1 points while maintaining their market position, indicating the compression is structural rather than mix-driven. The Value product category's 6.4-point decline confirms this is a broad-based cost inflation issue across lower-tier SKUs that you've been unable to pass through to customers.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point margin decline is driven by COGS per unit increases from input cost inflation rather than selling price decreases or SKU mix shift, as evidenced by the uniform compression across all engine oil products and the fact that the overall product mix within Engine Oils has remained stable. You need to immediately review your procurement contracts and feedstock costs\u2014this product is now at 20.64% margin versus 27.78% prior year, indicating a structural cost disadvantage that pricing actions have not yet corrected.",
+     "structural": "Your portfolio participation in engine oils has shifted toward the Value tier and lower-margin segments within Engine Oils (26.03% current vs. 31.83% prior), confirming a mix-toward-lower-tier SKU pattern is compounding the raw cost inflation issue. This dual pressure\u2014both input cost increases and unfavorable volume mix into lower-margin SKUs\u2014explains why Engine Oils as a line declined 5.8 points, making this a structural repositioning problem requiring both pricing and SKU rationalization action."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "mix_shift"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Tiered Repricing with Volume-Locked Contracts for Base-Tier Engine Oils",
+     "operational": "Procurement Contract Reset & Feedstock Cost Hedging for Engine Oil Base Stock and Additive Packages",
+     "structural": "SKU Rationalization & Premium Tier Repositioning: Exit or Reposition Value Tier Volume into Higher-Margin Specialty Blends"
+    }
+   },
+   {
+    "run": 10,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil show the clearest pattern\u2014both experienced margin compression of 7.14 and 6.61 points respectively within the Value product category, which itself declined 6.42 points, indicating the margin loss is driven by a combination of unfavorable mix shift toward lower-margin value-tier SKUs and pricing pressure within these engine oil lines that you have been unable to offset through input cost recovery.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point margin decline reflects a structural shift in your product mix toward lower-margin SKUs within that line, as evidenced by the Value category's 6.42-point compression and the Engine Oils product line's 5.80-point decline\u2014meaning the COGS per unit and selling price per unit changes are secondary to the fact that your sales volume has migrated toward lower-tier SKUs in this product.",
+     "structural": "Your portfolio participation in engine oils has shifted decisively toward lower-tier SKUs, as confirmed by the Value category's 6.42-point margin decline and the consistent 5\u20137 point compression across Synthetic Blend, Conventional, and other engine oil products, indicating this is not a pricing or input-cost story but rather a volume-weighted mix migration into lower-margin segments."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "pricing_corridor",
+     "structural": "portfolio_exit"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Value-Tier Engine Oil Repricing & Mix Rebalancing via Tiered Willingness-to-Pay Segmentation",
+     "operational": "Realign SKU-Level Pricing and Promotion Strategy to Arrest Value-Tier Mix Shift",
+     "structural": "Portfolio De-emphasis & SKU Rationalization in Value Engine Oils"
+    }
+   }
+  ],
+  "middle": [
+   {
+    "run": 1,
+    "answers": {
+     "commercial": "The 7.14-point decline in Synthetic Blend Engine Oil and 6.61-point decline in Conventional Engine Oil, combined with the Value category's 6.42-point compression, indicate a mix of input cost inflation and unfavorable SKU migration toward lower-margin products within each line, with Synthetic Blend showing the sharpest deterioration and likely the clearest pattern of cost pass-through failure.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point margin drop reflects a combination of COGS pressure and pricing lag, evidenced by the product falling from 27.78% to 20.64% margin while the entire Engine Oils line compressed 5.80 points\u2014suggesting input costs outpaced repricing and/or internal mix shifted to lower-margin SKUs within that product's portfolio.",
+     "structural": "Your engine oil portfolio has shifted materially toward lower-tier SKUs and the Value category segment, as evidenced by Value category declining 6.42 points while Premium and Specialty categories declined only 3.61 and 2.95 points respectively, indicating both volume migration down-tier and cost-structure headwinds concentrated in your lower-margin segments."
+    },
+    "families": {
+     "commercial": "indexation",
+     "operational": "cost_audit",
+     "structural": "portfolio_exit"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Indexed Price Escalation on Synthetic Blend Engine Oil with Tiered Margin Recovery",
+     "operational": "Procurement Cost Hedging & Pricing Realignment for Synthetic Blend Feedstock",
+     "structural": "Portfolio Reallocation: Deprioritize Value Tier Volume, Redirect Sales Effort to Premium Tier Expansion"
+    }
+   },
+   {
+    "run": 2,
+    "answers": {
+     "commercial": "The margin compression across Synthetic Blend, Conventional, and Compressor oils\u2014each declining 5.9 to 7.1 points\u2014is systemically broad rather than product-specific, indicating this reflects input cost inflation that couldn't be fully reprice rather than isolated SKU mix shifts, with Synthetic Blend Engine Oil showing the sharpest decline (-7.14 points) and suggesting either the highest cost exposure or most constrained pricing power in that segment.",
+     "operational": "For Synthetic Blend Engine Oil, the 7.14-point margin drop from 27.78% to 20.64% reflects a combination of COGS-per-unit increase and/or selling-price compression, but without unit-level procurement or input-cost data in this analysis, the exact split between cost inflation and pricing concession cannot be quantified\u2014however, the parallel 6.6-point decline in Conventional Engine Oil suggests industry-wide input cost pressure rather than product-mix shift within the line.",
+     "structural": "The margin decline is a pricing and cost-structure change within your existing category mix rather than a portfolio shift toward lower-tier SKUs, evidenced by the fact that all five product lines show consistent 1.9 to 5.8 point compression with no evidence of volume reallocation to lower-margin segments, pointing instead to uniform input-cost headwinds or margin-rate reductions across the entire lubricants portfolio."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "pricing_corridor"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Rapid Pricing Escalation with Tiered Indexation to Raw Material Baskets",
+     "operational": "Accelerated Procurement Cost Hedging & Dynamic Price-Pass-Through Protocol",
+     "structural": "Repricing & Margin Recovery via Cost-Pass-Through Negotiation"
+    }
+   },
+   {
+    "run": 3,
+    "answers": {
+     "commercial": "The 7.14-point decline in Synthetic Blend Engine Oil and 6.61-point decline in Conventional Engine Oil, combined with the Value category's 6.42-point compression, indicate this is primarily a mix-shift problem toward lower-margin SKUs within Engine Oils (down 5.80 points overall), rather than uniform pricing pressure across the line\u2014Synthetic Blend shows the clearest pattern, having fallen from 27.78% to 20.64%, suggesting a deliberate or market-forced shift into lower-tier formulations within that product name.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point margin decline reflects a structural shift in your SKU composition within that product line toward lower-margin variants, as evidenced by the Value category's steeper 6.42-point decline and the fact that all 15 product names show compression simultaneously; without unit-level COGS and pricing data, the uniform breadth of decline across products points to mix deterioration rather than isolated input-cost inflation on this single product.",
+     "structural": "Your portfolio has shifted materially toward lower-tier SKUs within Engine Oils and the Value category\u2014the 5.80-point decline in Engine Oils as a line, combined with Synthetic Blend and Conventional Engine Oil each losing 6\u20137 points while Premium and Specialty categories lose only 3.6\u20132.95 points, confirms that volume migration into value-tier formulations is the primary driver, not a uniform cost or pricing repricing event."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "mix_shift",
+     "structural": "mix_shift"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Implement SKU-Level Pricing Tiering and Willingness-to-Pay Segmentation for Synthetic Blend Engine Oil",
+     "operational": "SKU-Level Mix Rebalancing: Restore Premium-Variant Sales Velocity in Synthetic Blend Engine Oil",
+     "structural": "Reposition Synthetic Blend Engine Oil via Tiered SKU Rationalization and Margin-Protective Mix Shift"
+    }
+   },
+   {
+    "run": 4,
+    "answers": {
+     "commercial": "The margin compression is primarily driven by input cost inflation that you couldn't fully reprice, evidenced by the uniform 5.8\u20137.1 point decline across all three engine oil products and the parallel 6.4 point decline in the Value category\u2014suggesting a broad cost structure issue rather than selective mix shift or pricing strategy changes.",
+     "operational": "Synthetic Blend Engine Oil's 7.14 point margin decline reflects a combination of rising COGS per unit and inability to pass through price increases, as the compression is consistent across the entire Engine Oils product line (\u22125.8 points) and concentrated in lower-tier categories (Value at \u22126.4 points), indicating cost inflation is the primary driver rather than internal SKU mix deterioration.",
+     "structural": "Your portfolio has not shifted toward lower-tier SKUs; instead, the margin compression is structural and uniform across the engine oil category, hitting both Synthetic Blend (\u22127.1) and Conventional (\u22126.6) equally, which points to input cost inflation or supplier contract escalations that affected your entire engine oils supply base rather than a deliberate or accidental repricing toward lower-margin segments."
+    },
+    "families": {
+     "commercial": "indexation",
+     "operational": "cost_audit",
+     "structural": "unclassified"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Tiered Surcharge Indexation on Synthetic Blend Engine Oil to Recover Input Cost Inflation",
+     "operational": "Implement Dynamic Procurement Hedging & Supplier Cost-Pass Negotiation for Base Oil and Additive Inputs",
+     "structural": "Supplier Contract Renegotiation & Selective Price Realization Program"
+    }
+   },
+   {
+    "run": 5,
+    "answers": {
+     "commercial": "Engine Oils as a line contracted 5.80 points while Value category fell 6.42 points\u2014the steepest declines\u2014indicating that margin compression is driven primarily by unfavorable mix shift toward lower-margin SKUs within each product line rather than broad pricing or input-cost moves, as the premium and specialty categories held relatively better at -3.61 and -2.95 points respectively.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point collapse (from 27.78% to 20.64%) is the sharpest individual product decline in the portfolio, and since all 15 product-name segments show negative variance in lockstep, the driver is most likely a structural cost increase (COGS per unit or input inflation) that you have not yet repriced, rather than a localized SKU mix shift within that single product.",
+     "structural": "Your portfolio has shifted materially toward lower-tier SKUs and lower-margin segments\u2014Value category margin fell 6.42 points versus Specialty's 2.95-point decline\u2014indicating that the engine oil category compression reflects both a volume migration down-tier and a pricing/cost structure mismatch that has not been corrected across your existing SKU base."
+    },
+    "families": {
+     "commercial": "mix_shift",
+     "operational": "pricing_corridor",
+     "structural": "mix_shift"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Value-to-Premium Mix Rebalancing via Tiered Pricing and Channel Incentive Restructuring",
+     "operational": "Urgent Input-Cost Repricing & Procurement Hedging Review",
+     "structural": "Rebalance Engine Oil Portfolio: De-emphasize Value Tier, Reallocate Volume to Specialty & Premium Segments"
+    }
+   },
+   {
+    "run": 6,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil and Conventional Engine Oil show the clearest pattern of margin compression (-7.14pp and -6.61pp respectively), driven primarily by a combination of input cost inflation and unfavorable SKU mix shift within the Value category, which itself declined 6.42pp year-over-year\u2014indicating we've been unable to reprice commodity-grade oils while raw material costs have risen. The Value category's steeper decline versus Premium (-3.61pp) and Specialty (-2.95pp) confirms that lower-tier products are bearing disproportionate cost pressure, likely because price sensitivity in that segment prevents us from passing through the full cost increase.",
+     "operational": "Synthetic Blend Engine Oil's 7.14-point decline reflects both elevated COGS per unit (driven by raw material inflation in base stocks and additives) and a secondary mix deterioration toward lower-margin SKUs within that product line, as evidenced by the Value category's 6.42pp compression outpacing the overall portfolio's 4.49pp decline. Without unit-level pricing and procurement data in this output, the magnitude of the decline\u2014combined with the Value category's disproportionate hit\u2014suggests input costs are the primary driver, but the SKU-level mix shift is amplifying the effect.",
+     "structural": "Your portfolio has shifted meaningfully toward lower-tier SKUs within engine oils: the Value category (which includes Synthetic Blend and Conventional Engine Oil) declined 6.42pp compared to Premium at -3.61pp, indicating both absolute margin compression on commodity products and a volume/mix migration downward. This structural shift, combined with the Engine Oils product line declining 5.80pp overall, confirms that participation in lower-margin segments has increased while your ability to maintain pricing on those products has eroded."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "mix_shift"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Value Tier Repricing & SKU Rationalization with Tiered Escalator Mechanism",
+     "operational": "Procurement Hedging & SKU-Level Margin Floor Optimization for Base Stocks and Additives",
+     "structural": "Rebalance Engine Oils Portfolio Away from Value Tier; Rationalize or Exit Synthetic Blend SKU"
+    }
+   },
+   {
+    "run": 7,
+    "answers": {
+     "commercial": "The 7.14 pp decline in Synthetic Blend Engine Oil and 6.61 pp decline in Conventional Engine Oil, combined with the Value category's 6.42 pp compression, indicate the margin loss is driven primarily by unfavorable mix shift toward lower-margin SKUs within engine oils rather than uniform pricing or cost moves, since premium products like Full Synthetic (\u22123.83 pp) and Multi-Purpose Grease (\u22123.26 pp) show materially smaller declines. Synthetic Blend Engine Oil shows the clearest pattern, dropping from 27.78% to 20.64% while the Value category fell from 26.24% to 19.82%, suggesting budget-tier SKUs within that product line are now a larger proportion of sales volume.",
+     "operational": "The data shows all three engine oil products declining by 5.8\u20137.1 pp, which rules out isolated SKU-level COGS spikes and points instead to either systematic input cost inflation you have not fully repriced across the category, or a genuine mix shift within Synthetic Blend toward lower-margin variants; without unit-level COGS and price data, the parallel decline across Engine Oils (\u22125.80 pp) and the fact that even premium Full Synthetic fell 3.83 pp suggests input cost pressure is the primary driver, though procurement and bill-of-materials records would confirm whether raw material or labor costs have risen faster than your pricing adjustments.",
+     "structural": "Your portfolio has shifted meaningfully toward lower-tier SKUs within engine oils\u2014evidenced by the Value category's 6.42 pp margin decline (the steepest after Synthetic Blend and Conventional Engine Oil) while Premium and Specialty categories fell only 3.61 pp and 2.95 pp respectively\u2014indicating that volume growth or mix reallocation has favored budget products, and this structural rebalancing rather than pure cost inflation is the primary margin headwind in these three products."
+    },
+    "families": {
+     "commercial": "indexation",
+     "operational": "cost_audit",
+     "structural": "mix_shift"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Value Tier SKU Price Realization & Mix Steering via Tiered Indexation",
+     "operational": "Procurement Cost Reconciliation & Dynamic Repricing Alignment",
+     "structural": "Portfolio Reallocation: Shift Mix Emphasis from Value to Premium/Specialty Engine Oil SKUs"
+    }
+   },
+   {
+    "run": 8,
+    "answers": {
+     "commercial": "The margin compression is primarily driven by input cost inflation that couldn't be fully reprice, with Engine Oils showing the clearest pattern\u2014the entire product line declined 5.80 points year-to-date, and within it, Synthetic Blend Engine Oil (down 7.14) and Conventional Engine Oil (down 6.61) both reflect inability to pass through rising feedstock costs, whereas the Value category's steeper 6.42-point decline suggests some unfavorable mix shift toward budget SKUs but cost pressure is the dominant factor.",
+     "operational": "For Synthetic Blend Engine Oil, the data points most directly to COGS per unit increases that outpaced pricing\u2014the product's margin fell from 27.78% to 20.64% (7.14 points), a decline magnitude too steep to be explained by mix shift alone, indicating that raw material or manufacturing costs rose significantly and pricing actions lagged, though the analysis output does not isolate unit-level COGS or SKU-mix data to fully decompose the three drivers.",
+     "structural": "Your portfolio has experienced a pricing/cost-structure change within existing category mix rather than a wholesale shift to lower-tier SKUs\u2014all 15 engine oil products in the analysis show margin decline (none improved), and the consistency of the 4\u20137 point compression across products from Full Synthetic (down 3.83) to Synthetic Blend (down 7.14) indicates a broad cost-inflation event affecting the entire category, not a strategic or demand-driven rebalancing toward lower-margin segments."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "indexation"
+    },
+    "distinct": 3,
+    "titles": {
+     "commercial": "Accelerated Contract Repricing & Indexation Mechanism for Synthetic Blend Engine Oil",
+     "operational": "Implement Procurement Cost-Hedging and Dynamic Pricing Realignment for Synthetic Blend Formulations",
+     "structural": "Contract-Indexed Pricing Reset & Supplier Cost Transparency Initiative"
+    }
+   },
+   {
+    "run": 9,
+    "answers": {
+     "commercial": "Engine Oils as a line dropped 5.80 points with Synthetic Blend Engine Oil (-7.14) and Conventional Engine Oil (-6.61) as the worst performers, while the Value category overall fell 6.42 points\u2014indicating the compression is concentrated in lower-priced tiers where we likely face tighter cost absorption and reduced pricing power. The clearest pattern is Synthetic Blend Engine Oil, where the 7.14-point collapse from 27.78% to 20.64% suggests either aggressive competitive pricing pressure in that mid-tier segment, input cost inflation we couldn't reprice, or a forced mix shift toward lower-margin SKUs within that product line.",
+     "operational": "Synthetic Blend Engine Oil's margin erosion from 27.78% to 20.64% is driven by a combination of factors: the product sits in the Value-to-Mid-Range tier where pricing leverage is weakest, and the 7.14-point absolute decline (25.7% relative compression) indicates either COGS-per-unit inflation that outpaced our price increases or a mix migration toward lower-margin variants within the Synthetic Blend SKU family\u2014procurement data on raw material costs (base oils, additives) and our actual selling price movements month-over-month would isolate whether this is a cost-push or a volume-mix issue.",
+     "structural": "All three engine oil products (Synthetic Blend, Conventional, and Automatic Transmission Fluid) show uniform margin compression of 5.3\u20137.1 points, and the Engine Oils line as a whole fell 5.80 points while the Value category fell 6.42 points\u2014this synchronized decline across price tiers and SKU families points to a systemic input-cost or competitive-pricing shock rather than a portfolio shift toward lower-tier SKUs, suggesting the margin pressure is structural to the category and likely driven by feedstock inflation or market-wide pricing competition we have not yet offset."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "pricing_corridor"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Tiered Repricing & SKU Rationalization for Synthetic Blend Engine Oil",
+     "operational": "Implement Dynamic Procurement-Cost Hedging and Tiered Price-Increase Cascade for Value-Tier Lubricants",
+     "structural": "Staged Category Pricing Action with Selective SKU De-emphasis"
+    }
+   },
+   {
+    "run": 10,
+    "answers": {
+     "commercial": "Synthetic Blend Engine Oil (-7.14pp) and Conventional Engine Oil (-6.61pp) show the clearest pattern of margin compression, with the Value category declining 6.42pp year-over-year, indicating that input cost inflation combined with an unfavorable mix shift toward lower-margin SKUs within Engine Oils (down 5.80pp overall) is the primary driver rather than pure price reductions. The Engine Oils product line's 5.80pp decline across all engine oil variants suggests systematic cost pressure that pricing has not fully offset, compounded by customers trading down to value-tier products.",
+     "operational": "Synthetic Blend Engine Oil's 7.14pp decline reflects both COGS per unit increases (evidenced by the Value category's 6.42pp compression across the portfolio) and a mix shift toward lower-margin SKUs, as the product currently sits at 20.64% margin versus 27.78% prior year\u2014a structural deterioration that procurement cost data would need to confirm, but the consistency of decline across all engine oil products points to input cost inflation as the primary culprit rather than selling price decreases alone. Without unit-level COGS and pricing data, the 7.14pp gap is most likely split between unrecovered input costs and downward SKU mix migration within this product.",
+     "structural": "Your portfolio has shifted materially toward lower-tier SKUs and the Value segment, as evidenced by the Value category's 6.42pp margin decline (the steepest drop across all product categories) and the Engine Oils line's 5.80pp compression affecting all engine oil products uniformly, indicating this is not a pricing/cost structure change within existing mix but rather a genuine participation shift toward lower-margin segments. This structural rebalancing toward value-tier offerings, combined with input cost inflation you have not fully repriced, explains why even your premium Full Synthetic Engine Oil (-3.83pp) shows margin pressure\u2014suggesting the entire category is facing margin headwinds that a mix shift toward lower-margin products is amplifying."
+    },
+    "families": {
+     "commercial": "pricing_corridor",
+     "operational": "cost_audit",
+     "structural": "pricing_corridor"
+    },
+    "distinct": 2,
+    "titles": {
+     "commercial": "Tiered Price Recovery and Value-Tier Margin Floor Intervention",
+     "operational": "Procurement Cost Hedging & Feedstock Input Cost Recovery Program",
+     "structural": "Repricing + Portfolio Exit Strategy for Synthetic Blend Engine Oil"
+    }
+   }
+  ]
+ },
+ "caveat": "with_lens answers are SIMULATED (a separate LLM, not a real executive) -- this measures whether varying plausible lens-shaped input changes Stage 1 output, not whether real executives would answer usefully or at all. Baseline runs N times, not once -- temperature=0.0 was found not to be reproducible in practice. Each posture arm enforces (by regex check, not just prompt instruction) that no answer hedges or declines to answer -- see this script's own module docstring for all three corrections."
+}

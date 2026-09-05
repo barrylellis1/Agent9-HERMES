@@ -62,12 +62,38 @@ test than narrowing it. If diversity still doesn't improve when the
 simulator has every fact DA produced, that is a materially stronger
 negative result than "under-provisioned" could ever be.
 
+EXTENSION (2026-09-05, on direct instruction): both runs above shared an
+uncontrolled nuisance variable -- how confident or hedged each simulated
+answer happened to be was left to whatever temperature=0.8 sampling
+produced, not something this script chose. That conflates two different
+questions: "does a substantive answer exist at all" (already answered by
+v2 -- yes, and it barely moved the number) and "does the STANCE of a
+substantive answer matter" (never tested). This extension prescribes three
+distinct, deliberately-worded simulated-executive POSTURES --
+conservative, assertive, and middle-of-the-road -- as three separate arms,
+each run N times against the SAME baseline and SAME lens_probe questions
+already established. All three postures share one hard, enforced rule:
+no hedge, no non-answer. "I don't know" / "I'd need more data" / "unclear"
+are excluded outright, not just discouraged -- generate_simulated_answers()
+now regex-scans every returned answer for hedge language and forces a
+regeneration if any persona's answer hedges, on the same retry budget
+already used for transient API failures. A posture is a stance on
+AMBIGUOUS evidence (which of two plausible readings to commit to), never
+permission to decline answering -- conservative still answers, it just
+answers toward the more risk-averse interpretation.
+
+Use --postures to select which arms run (default: all three). Each
+posture's questions are the same probe_resp.lens_probe_questions generated
+once at the top of the run; only the simulated ANSWER text differs by
+posture and by run index within a posture.
+
 USAGE
 -----
     python scripts/run_lens_probe_validation.py \
         --fixture decision-studio-ui/scratchpad/dq_comparison/lens_run \
         --personas commercial,operational,structural \
-        --n 10 --out scratchpad/lens_probe_validation
+        --n 10 --out scratchpad/lens_probe_validation \
+        --postures conservative,assertive,middle
 """
 from __future__ import annotations
 
@@ -76,6 +102,8 @@ import asyncio
 import inspect
 import json
 import logging
+import re
+import statistics
 import sys
 import time
 from pathlib import Path
@@ -192,8 +220,59 @@ def classify_all(options: Dict[str, Tuple[Optional[str], Optional[str]]]) -> Dic
             "titles": {pid: t for pid, (t, _) in options.items()}}
 
 
+# Postures are a stance on AMBIGUOUS evidence, never permission to decline
+# answering. Each instruction is deliberately worded to differ only in HOW
+# the simulator resolves ambiguity, not WHETHER it commits to an answer --
+# the shared HEDGE_BAN clause below is what enforces the "whether" half.
+POSTURE_INSTRUCTIONS: Dict[str, str] = {
+    "conservative": (
+        "Take a CONSERVATIVE, risk-averse stance: where the data admits more "
+        "than one plausible explanation, favor the more cautious, "
+        "downside-weighted reading -- e.g. attribute less of the effect to "
+        "the more favorable explanation. You must still commit to one "
+        "specific answer; conservatism is about which interpretation you "
+        "pick, never about declining to pick."
+    ),
+    "assertive": (
+        "Take an ASSERTIVE, decisive stance: pick the single most likely "
+        "explanation the data points to and state it with full confidence, "
+        "even where more than one reading is technically possible. Do not "
+        "soften the claim with qualifiers."
+    ),
+    "middle": (
+        "Take a BALANCED, middle-of-the-road stance: briefly acknowledge "
+        "that a competing explanation exists where the data admits one, but "
+        "still commit to a single specific working conclusion as your "
+        "primary answer, rather than picking either extreme."
+    ),
+}
+
+# Enforced, not just requested: every returned answer is regex-scanned for
+# these and regenerated if any match, on the same retry budget used for
+# transient API failures (see the loop below). Requesting "don't hedge" in
+# the prompt alone was found insufficient practice elsewhere in this
+# project (moderator self-report grading, Stage 1's temperature=0 "always
+# reproducible" comment) -- the discipline here is the same: verify the
+# output, don't trust the instruction to have been followed.
+_HEDGE_PATTERNS = [
+    r"\bi don'?t know\b", r"\bi do not know\b", r"\bi'?d need\b",
+    r"\bi would need\b", r"\bcan'?t (?:confirm|say|tell)\b",
+    r"\bcannot (?:confirm|say|tell)\b", r"\bno visibility\b",
+    r"\bunclear\b", r"\bhard to say\b", r"\bdifficult to say\b",
+    r"\bnot (?:yet )?(?:sure|certain)\b", r"\bwould need more data\b",
+    r"\bneed(?:s)? more (?:data|information|detail)\b",
+    r"\btoo early to (?:say|tell|know)\b",
+]
+_HEDGE_RE = re.compile("|".join(_HEDGE_PATTERNS), re.IGNORECASE)
+
+
+def _hedged_personas(answers: Dict[str, str]) -> List[str]:
+    return [pid for pid, a in answers.items() if _HEDGE_RE.search(a)]
+
+
 async def generate_simulated_answers(llm_agent, questions: Dict[str, str],
-                                     da_full: Dict[str, Any], temperature: float) -> Dict[str, str]:
+                                     da_full: Dict[str, Any], temperature: float,
+                                     posture: str = "middle") -> Dict[str, str]:
     """ONE combined call, all personas at once -- cheaper than N separate
     calls, and the simulation model sees all three questions together so it
     doesn't need to be told the questions are related.
@@ -216,6 +295,12 @@ async def generate_simulated_answers(llm_agent, questions: Dict[str, str],
     DOES improve given full information, that marks the recap's compactness,
     not the lens-probing mechanism itself, as the actual constraint.
 
+    EXTENSION (2026-09-05, third pass): `posture` selects one of
+    POSTURE_INSTRUCTIONS, added to the prompt verbatim, plus a shared
+    hard hedge-ban clause that applies regardless of posture. See
+    POSTURE_INSTRUCTIONS' own comment for why a posture is a stance on
+    ambiguity, not license to decline answering.
+
     Uses .analyze() + A9_LLM_AnalysisRequest, not the plain .generate() path
     -- the same JSON-out pattern _run_stage1 and _generate_lens_probe both
     use server-side, rather than a raw-text call this script would have to
@@ -224,6 +309,7 @@ async def generate_simulated_answers(llm_agent, questions: Dict[str, str],
     """
     from src.agents.new.a9_llm_service_agent import A9_LLM_AnalysisRequest
 
+    posture_instruction = POSTURE_INSTRUCTIONS[posture]
     q_block = "\n".join(f'- ({pid}) {q}' for pid, q in questions.items())
     prompt = (
         "You are simulating a well-informed CFO answering quick clarifying "
@@ -231,6 +317,13 @@ async def generate_simulated_answers(llm_agent, questions: Dict[str, str],
         "output your team produced -- use any relevant fact in it, at any "
         "level of detail. Keep each answer to one or two sentences, grounded "
         "in the data -- do not invent numbers not present in it.\n\n"
+        f"STANCE FOR THIS ANSWER SET: {posture_instruction}\n\n"
+        "HARD RULE, no exceptions: you must never answer with 'I don't "
+        "know', 'I'd need more data', 'unclear', 'can't confirm', or any "
+        "other hedge or non-answer. Every question gets one concrete, "
+        "specific one-to-two-sentence answer, grounded in facts from the "
+        "output below -- pick a reading and commit to it, even where the "
+        "data leaves room for more than one.\n\n"
         f"## COMPLETE DEEP ANALYSIS OUTPUT\n{json.dumps(da_full, indent=2, default=str)}\n\n"
         f"## QUESTIONS\n{q_block}\n\n"
         '## OUTPUT (JSON only): {"<persona_id>": "<one-to-two-sentence answer>", ...}'
@@ -242,20 +335,26 @@ async def generate_simulated_answers(llm_agent, questions: Dict[str, str],
     # unretried first version of this function crashed an N=10 run at run 7
     # on a single transient "[SF] LLM call failed: unknown error" -- the
     # exact class of intermittent failure this codebase's other harnesses
-    # already treat as routine, not exceptional.
+    # already treat as routine, not exceptional. The same budget now also
+    # covers a hedge-language regeneration, not just API failures.
     last_err: Optional[Exception] = None
-    for attempt in range(3):
+    for attempt in range(4):
         req = A9_LLM_AnalysisRequest(
             request_id=f"lpv-simanswer-{int(time.time()*1000)}-{attempt}", principal_id="cfo_001",
             content=prompt, analysis_type="custom", context="", temperature=temperature,
         )
         resp = await llm_agent.analyze(req)
         if resp.status == "success" and isinstance(resp.analysis, dict):
-            return {pid: str(a) for pid, a in resp.analysis.items() if pid in questions}
-        last_err = RuntimeError(f"status={resp.status} analysis_type={type(resp.analysis).__name__}")
-        if attempt < 2:
+            answers = {pid: str(a) for pid, a in resp.analysis.items() if pid in questions}
+            hedged = _hedged_personas(answers)
+            if not hedged:
+                return answers
+            last_err = RuntimeError(f"hedge language detected from: {hedged}")
+        else:
+            last_err = RuntimeError(f"status={resp.status} analysis_type={type(resp.analysis).__name__}")
+        if attempt < 3:
             await asyncio.sleep(1.5 * (attempt + 1))
-    raise RuntimeError(f"simulated-answer generation failed after 3 attempts: {last_err}")
+    raise RuntimeError(f"simulated-answer generation ({posture}) failed after 4 attempts: {last_err}")
 
 
 async def main_async(args) -> int:
@@ -263,10 +362,18 @@ async def main_async(args) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     personas = [p.strip() for p in args.personas.split(",") if p.strip()]
+    postures = [p.strip() for p in args.postures.split(",") if p.strip()]
+    for p in postures:
+        if p not in POSTURE_INSTRUCTIONS:
+            print(f"FAILED: unknown posture {p!r}; choices are {list(POSTURE_INSTRUCTIONS)}",
+                  file=sys.stderr)
+            return 1
 
     da = load_fixture(fixture)
     print(f"fixture  : {fixture}  (KPI={da.get('plan', {}).get('kpi_name')!r})")
     print(f"personas : {personas}")
+    print(f"postures : {postures}  (hedge/non-answers excluded by enforced regex check, "
+          f"not just prompt instruction)")
     print(f"n        : {args.n} runs per arm (baseline included -- see this script's "
           f"module docstring: temperature=0.0 was found NOT to be reproducible in "
           f"practice, so both arms need a real distribution, not one point vs ten)")
@@ -310,59 +417,71 @@ async def main_async(args) -> int:
 
     manifest: Dict[str, Any] = {
         "fixture": str(fixture), "personas": personas, "n": args.n,
+        "postures": postures,
         "baseline_runs": baseline_runs,
         "lens_probe_questions": questions,
-        "with_lens_runs": [],
+        "with_lens_by_posture": {},
         "caveat": (
             "with_lens answers are SIMULATED (a separate LLM, not a real "
             "executive) -- this measures whether varying plausible lens-shaped "
             "input changes Stage 1 output, not whether real executives would "
             "answer usefully or at all. Baseline runs N times, not once -- "
             "temperature=0.0 was found not to be reproducible in practice. "
-            "See this script's own module docstring for both caveats."
+            "Each posture arm enforces (by regex check, not just prompt "
+            "instruction) that no answer hedges or declines to answer -- see "
+            "this script's own module docstring for all three corrections."
         ),
     }
 
-    # ---- With-lens: N runs, each with a fresh simulated answer set ----
-    print(f"\n=== with lens_refinement ({args.n} runs, simulated answers) ===")
-    distinct_counts: List[int] = []
-    for i in range(1, args.n + 1):
-        answers = await generate_simulated_answers(llm_agent, questions, da, temperature=0.8)
-        resp = await run_sf(sf, da, "stage1_only", personas, answers,
-                            args.client_id, args.principal_id)
-        options = extract_proposed_options(resp)
-        scored = classify_all(options)
-        distinct_counts.append(scored["distinct"])
-        manifest["with_lens_runs"].append({
-            "run": i, "answers": answers,
-            "families": scored["families"], "distinct": scored["distinct"],
-            "titles": scored["titles"],
-        })
-        print(f"  run {i:02d}: distinct={scored['distinct']}  "
-              f"families={list(scored['families'].values())}")
+    # ---- With-lens: for each prescribed posture, N runs, each with a
+    # fresh simulated answer set under that posture's stance ----
+    baseline_mean = statistics.mean(baseline_distinct_counts)
+    posture_summaries: Dict[str, Dict[str, Any]] = {}
+    for posture in postures:
+        print(f"\n=== with lens_refinement -- posture={posture} ({args.n} runs) ===")
+        runs: List[Dict[str, Any]] = []
+        distinct_counts: List[int] = []
+        for i in range(1, args.n + 1):
+            answers = await generate_simulated_answers(llm_agent, questions, da,
+                                                       temperature=0.8, posture=posture)
+            resp = await run_sf(sf, da, "stage1_only", personas, answers,
+                                args.client_id, args.principal_id)
+            options = extract_proposed_options(resp)
+            scored = classify_all(options)
+            distinct_counts.append(scored["distinct"])
+            runs.append({
+                "run": i, "answers": answers,
+                "families": scored["families"], "distinct": scored["distinct"],
+                "titles": scored["titles"],
+            })
+            print(f"  run {i:02d}: distinct={scored['distinct']}  "
+                  f"families={list(scored['families'].values())}")
+        manifest["with_lens_by_posture"][posture] = runs
+        posture_summaries[posture] = {
+            "mean": statistics.mean(distinct_counts), "min": min(distinct_counts),
+            "max": max(distinct_counts),
+            "above_baseline_mean": sum(1 for c in distinct_counts if c > baseline_mean),
+            "below_baseline_mean": sum(1 for c in distinct_counts if c < baseline_mean),
+        }
 
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
 
-    import statistics as st
-
     print(f"\n{'='*70}")
-    print(f"baseline  distinct families : mean={st.mean(baseline_distinct_counts):.2f}  "
+    print(f"baseline distinct families : mean={baseline_mean:.2f}  "
           f"min={min(baseline_distinct_counts)}  max={max(baseline_distinct_counts)}  (N={args.n})")
-    print(f"with-lens distinct families : mean={st.mean(distinct_counts):.2f}  "
-          f"min={min(distinct_counts)}  max={max(distinct_counts)}  (N={args.n})")
-
-    # Unpaired comparison (the two arms are independent draws, not matched
-    # pairs -- with-lens varies the simulated answer, baseline varies only
+    # Unpaired comparison (each arm is an independent draw, not a matched
+    # pair -- with-lens varies the simulated answer, baseline varies only
     # whatever makes temperature=0 non-reproducible in practice, an
     # unrelated and uncontrolled source of variance). Sign-test-style count
     # against the pooled baseline mean is a coarse but honest summary; this
     # is NOT the matched-pairs design the 2026-09-04 bake-off used, and
-    # shouldn't be read with the same statistical weight.
-    baseline_mean = st.mean(baseline_distinct_counts)
-    higher = sum(1 for c in distinct_counts if c > baseline_mean)
-    lower = sum(1 for c in distinct_counts if c < baseline_mean)
-    print(f"with-lens runs above the baseline mean : {higher}/{args.n}")
-    print(f"with-lens runs below the baseline mean : {lower}/{args.n}")
+    # shouldn't be read with the same statistical weight. Three postures
+    # run here means three independent comparisons against the same
+    # baseline -- report all three, don't pick the one that moved.
+    for posture, s in posture_summaries.items():
+        print(f"with-lens [{posture:<12}] distinct families : mean={s['mean']:.2f}  "
+              f"min={s['min']}  max={s['max']}  "
+              f"({s['above_baseline_mean']} above / {s['below_baseline_mean']} below baseline mean, N={args.n})")
     print(f"manifest: {out / 'manifest.json'}")
     print(f"\nCAVEAT: with-lens answers are simulated, not real executive input. "
           f"See the module docstring before treating this as a live-usage result.")
@@ -374,6 +493,8 @@ def main(argv: List[str]) -> int:
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--fixture", required=True)
     p.add_argument("--personas", default="commercial,operational,structural")
+    p.add_argument("--postures", default="conservative,assertive,middle",
+                   help="comma-separated subset of conservative,assertive,middle")
     p.add_argument("--n", type=int, default=10)
     p.add_argument("--out", required=True)
     p.add_argument("--client-id", default="lubricants")
