@@ -4169,6 +4169,113 @@ Not landing page copy (landing page handled separately in the positioning plan).
 
 ---
 
+### Phase 22: Lens-Driven Analytical Differentiation (planned, 2026-09-05)
+
+Found live, 2026-09-05: the Hybrid Council's persona identity has no load-bearing effect on
+analysis. Problem refinement (`ProblemRefinementChat` → `refine_deep_analysis`) runs ONCE,
+persona-invariantly, before any lens or firm exists — `a9_solution_finder_agent.py`'s own
+comment names the shared `refined_problem_statement` text "computed ONCE here (persona-invariant
+text)". Personas are then asked to self-report a `"framework"` string with no constraint; even
+when the model correctly names a real anchor (persona registry's `methodology.frameworks` — e.g.
+McKinsey's "Three Horizons", Bain's "Full Potential Transformation") the underlying reasoning
+converges to the same generic mechanism under all three names — confirmed against
+`frontier_bakeoff_2026-09-04/astra/run_01`: three distinctly-labeled Stage 1 hypotheses,
+two of three final options both `indexation`. Root cause is architectural, not a labeling bug:
+by the time a persona/framework exists, refinement's diagnostic groundwork — what got asked,
+what evidence surfaced — is already locked, identical across all three.
+
+Same investigation surfaced a second, independent pattern: several UI surfaces present
+self-reported LLM output with the visual authority of a verified check. `VerificationLedger.tsx`
+(compact executive briefing) renders `moderator_grades.arithmetic_consistency` as a green
+PASS/red FAIL chip; it is not a check, it's a separate LLM call grading an option against its own
+claimed inputs, never the data — `groundedness.py`'s own docstring records a live incident
+(2026-08-06) where it returned `pass` on an option claiming a 26-47pp impact by summing unweighted
+segment deltas, against a KPI whose actual enterprise move was -1.67pp. The "conviction"
+(High/Medium/Low) badge on Stage 1 cards is the same shape: zero calibration, nothing downstream
+reads it.
+
+Also surfaced: `classify_lever` (`src/analysis/mechanism.py`) — the ONE genuinely independent
+signal in the pipeline, re-deriving lever family from an option's own title/description text
+rather than trusting any self-report — was derived entirely from Claude-only output (13 payloads,
+Aug 2026, before OpenAI was ever wired through SF) and has never been validated cross-model.
+Reading the bake-off's actual `unclassified` option titles found a real, confirmed coverage gap:
+5 options across both arms (fable + astra) describing the same mechanism — exit/de-emphasize an
+underperforming segment, redirect to margin-accretive ones — with no taxonomy bucket, because
+`reallocat\w*` only matches the `mix_shift` family when the word "mix" appears within 40 chars.
+Notably, this IS the structural lens's own real, defined framework ("Reallocation / Exit
+Economics", `consulting_personas_registry.yaml`) — the gap may be the structural persona
+correctly applying a framework nothing was set up to recognize.
+
+Decision, discussed at length: run genuine per-persona refinement (full re-interview per lens)
+vs. keep it single. Full per-persona was rejected — 3x the executive's interview time, directly
+undoes the goal the single-interview design was built for. Landed on a middle design: keep the
+existing shared interview EXACTLY as-is for topics that are facts, not interpretation
+(`hypothesis_validation`, `scope_boundaries`, `constraints`, `comparison_baseline`); add ONE short
+follow-up round after it completes — one framework-anchored question per persona
+(`external_context`, `success_criteria`, and the B-1 routed `tradeoff_tolerance` /
+`segment_specific_causation` topics are the ones that actually vary by lens). The three questions
+are independent by construction (none reads another persona's answer), so they generate AND are
+answered in parallel — reuses the exact `asyncio.gather` pattern Stage 1 already uses for its own
+3 persona calls, and reuses the `CouncilDebate`/`CouncilDebatePage` 3-column shell for the UI
+rather than building a new stepper.
+
+Skip-with-inferred-assumptions (populate a skipped lens from the principal's own context profile)
+was proposed and explicitly rejected for this phase: `decision_style` — the most obvious field to
+infer from — resolves to `"analytical"` for effectively every principal in production (per
+`A9_Principal_Context_Agent` audit, `ProblemRefinementChat.tsx`'s own comment), so an inference
+seeded from it would look personalized while being generic across nearly everyone — the same
+real-anchor/generic-output shape as the `framework` field this phase exists to fix, but worse:
+attributed to the PRINCIPAL rather than the model. Deferred to Phase 23, plain-skip only (no
+inference) if picked up.
+
+**Stage A — Stop presenting unverified signals as verified.** No architecture change; ships
+first, independent of everything else below.
+- [ ] `VerificationLedger.arithmetic_consistency`: swap the moderator's self-graded value for
+  `g3_arithmetic_plausible` (`src/analysis/groundedness.py`, already computed, already exists
+  because the self-graded version had the documented 2026-08-06 failure). Same chip, same
+  PASS/FLAG language, now backed by something.
+- [ ] Conviction badge: remove the colored pill or relabel as the model's own characterization —
+  no independent check exists or is planned.
+- [ ] `classify_lever`: add a `portfolio_exit` / `reallocation` family (`src/analysis/mechanism.py`).
+  Five real examples in hand from the bake-off corpus.
+
+**Stage B — Backend: persona-keyed refinement.** Buildable and unit-testable without any UI.
+- [ ] New `lens_probe` topic/question-generation, one per persona, via `asyncio.gather`
+  (mirrors `_run_stage1`'s existing pattern, `a9_solution_finder_agent.py`).
+- [ ] New `SolutionFinderRequest.preferences.lens_refinement: Dict[persona_id, str]` — same shape
+  as the existing `prior_stage1_hypotheses` dict.
+- [ ] The load-bearing change: `a9_solution_finder_agent.py:1875` — `ps_s1` stops being computed
+  once and shared across all three `_run_stage1(p)` calls; becomes persona-keyed, seeded with
+  that persona's lens-probe answer.
+- [ ] Unit tests: same DA input, different lens answers → genuinely different `ps_s1` strings per
+  persona (the thing that was structurally impossible before this stage).
+- [ ] Gate to Stage 1 is "all three lens probes answered" — no skip/fallback branching yet
+  (Phase 23).
+
+**Stage C — Frontend: parallel 3-column lens-probe screen.**
+- [ ] Reuse `CouncilDebate`/`CouncilDebatePage`'s existing 3-column shell, one stage earlier than
+  Stage 1's hypothesis cards.
+- [ ] Three independent single-turn Q&A cards, generated and submitted in parallel; no shared
+  conversation state across columns; independent per-column loading state (`FirmThinking`
+  pattern already exists for this).
+- [ ] Wire `lens_refinement` into the `SolutionFinderRequest.preferences` payload.
+
+**Stage D — Validation.** Don't declare success on architecture alone.
+- [ ] Re-run a bake-off (same fixture/council as `frontier_bakeoff_2026-09-04`, before/after this
+  phase). Primary signal: does `classify_lever`'s distinct-family count on final options actually
+  rise once Stage 1 has genuinely differentiated input? Secondary: does `framework` now correlate
+  with actually-distinct reasoning, or still converge under real names.
+  This stage is the gate — everything upstream is a hypothesis about mechanism until it confirms
+  the number moved.
+
+**Phase 23 (named, not built): Skip support.** Plain skip only when picked up — falls back to
+the shared refinement context, no inference from principal context. If personalized defaults are
+ever wanted, they need the same `grounded`/`confidence` honesty scaffolding `SolutionAssumption`
+already has (visible all the way to the briefing, never a bare string indistinguishable from a
+real answer) — see this phase's rejected-design note above.
+
+---
+
 ## UI Refinement Track (Parallel — no phase number)
 
 **Status:** Active (May 2026)
