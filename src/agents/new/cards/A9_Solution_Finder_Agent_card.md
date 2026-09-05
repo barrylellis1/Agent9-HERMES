@@ -169,10 +169,19 @@ persona-invariantly, before any lens/framework existed — the code's own prior 
   Stage 1/synthesis, and a full round trip: generate questions → feed answers back →
   differentiated Stage 1 prompts) + `test_sf_lens_probe_persona_keying.py` (3 — differentiation,
   no-lens-data regression guard, partial-adoption fallback). 1688 unit tests pass.
-- **Not yet built**: Stage C (the parallel 3-column UI an executive actually answers these
-  questions through — `lens_probe` currently has no frontend caller) and Stage D (re-run
-  `frontier_bakeoff_2026-09-04`-style to confirm `classify_lever`'s distinct-family count actually
-  rises with this input, not just that the architecture shipped).
+- **Stage C shipped** (`decision-studio-ui/src/pages/CouncilDebatePage.tsx`): a complete early
+  return, before the existing phase-based debate UI ever mounts — `lensProbeState` is deliberately
+  NOT folded into the existing `phase` numbering (StageProgress/conviction-badge/FirmThinking all
+  read `phase`; renumbering to insert an earlier stage would touch all of them for no benefit).
+  Reuses `getFirmColor`/`FirmThinking` from the existing 3-column shell. Three independent
+  columns — no shared state between them, any answer order — gated by one shared "Continue"
+  button once all three are non-empty (no skip; Phase 23). Non-fatal by design at every failure
+  point: no questions, a network error, or a disabled council all fall through to `runDebate()`
+  with no `lens_refinement`, identical to pre-Stage-C behavior — this addition can never block
+  Council Debate from running.
+- **Not yet built**: Stage D — re-run `frontier_bakeoff_2026-09-04`-style to confirm
+  `classify_lever`'s distinct-family count actually rises with this input, not just that the
+  architecture shipped end to end.
 
 ## Stage J — Enterprise Tradeoff Weights (Aug 2026) 🔴
 Option ranking no longer uses the agent's own constant. `_rank_options` consumes

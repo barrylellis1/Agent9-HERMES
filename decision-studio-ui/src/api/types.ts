@@ -347,6 +347,12 @@ export interface SolutionResponse {
   // arm INSTEAD of cross_review. Components must handle either shape (and old
   // localStorage briefings carrying neither).
   moderator_grades?: Record<string, ModeratorGrade>;
+  // Phase 22 Stage B/C: one framework-anchored clarifying question per persona,
+  // returned by debate_stage="lens_probe" only — every other debate_stage
+  // response leaves this undefined. Answers go back as
+  // preferences.lens_refinement (keyed the same way) on the stage1_only call
+  // that follows. See CouncilDebatePage.tsx's lens-probe screen.
+  lens_probe_questions?: Record<string, string>;
   // Phase 15 / Phase 13 Cat 2 — not yet rendered (Stage G, gated behind schema
   // compliance testing); typed here so API responses round-trip cleanly.
   decision_ask?: DecisionAsk;

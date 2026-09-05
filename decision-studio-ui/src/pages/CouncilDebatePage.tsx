@@ -128,6 +128,18 @@ export const CouncilDebatePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Phase 22 Stage C — lens probe. Deliberately NOT folded into `phase` below:
+  // that numbering is read in several places (StageProgress, conviction badge
+  // gating, FirmThinking's stageLabel) and renumbering it to make room for an
+  // earlier stage would touch all of them for no benefit — this screen is a
+  // complete early return before the existing phase-based render ever mounts,
+  // so it needs no phase number of its own. 'idle' -> 'loading' (questions
+  // being generated) -> 'awaiting_answers' (exec typing) -> 'done' (answers
+  // captured, existing debate flow proceeds exactly as before this stage).
+  const [lensProbeState, setLensProbeState] = useState<'idle' | 'loading' | 'awaiting_answers' | 'done'>('idle');
+  const [lensProbeQuestions, setLensProbeQuestions] = useState<Record<string, string> | null>(null);
+  const [lensProbeAnswers, setLensProbeAnswers] = useState<Record<string, string>>({});
+
   const [phase, setPhase] = useState<number>(0);
   const [stageOneHypotheses, setStageOneHypotheses] = useState<Record<string, any> | null>(null);
   const [crossReview, setCrossReview] = useState<Record<string, any> | null>(null);
@@ -218,14 +230,74 @@ export const CouncilDebatePage: React.FC = () => {
     }
   }, [situationId]);
 
-  // Run debate once data is ready
+  // Run the lens probe once data is ready; it hands off to runDebate itself
+  // (on completion, on failure, or if it finds no personas to probe) rather
+  // than this effect firing both — a single entry point per situation, same
+  // debateStarted guard the old direct-to-runDebate trigger used.
   useEffect(() => {
     if (loading || phase !== 0 || !situation || !debateConfig || debateStarted.current) return;
     debateStarted.current = true;
-    runDebate();
+    runLensProbe();
   }, [loading, situation, debateConfig]);
 
-  const runDebate = async () => {
+  const runLensProbe = async () => {
+    if (!situation || !debateConfig) return;
+    const firmIds: string[] = debateConfig.selectedPersonas?.length
+      ? debateConfig.selectedPersonas
+      : ['mckinsey', 'bcg', 'bain'];
+
+    try {
+      setLensProbeState('loading');
+      const deepAnalysisPayload = deepAnalysisResults || {
+        situation_id: situation.situation_id,
+        kpi_name: situation.kpi_name,
+      };
+      const preferencesBase: Record<string, any> = {
+        consulting_personas: firmIds,
+        council_preset: debateConfig.selectedPreset || 'recommended',
+      };
+      if (debateConfig.resolvedAnalysisMode) preferencesBase.analysis_mode = debateConfig.resolvedAnalysisMode;
+      if (debateConfig.refinementResult) preferencesBase.refinement_result = debateConfig.refinementResult;
+
+      const runClientId =
+        principalContext?.client_id || situation.client_id ||
+        localStorage.getItem('a9_active_client_id') || undefined;
+      const runPrincipalId =
+        principalContext?.principal_id || situation.principal_id ||
+        localStorage.getItem('a9_selected_principal_id') || 'default';
+
+      const probeResult = await runSolutionFinder(
+        deepAnalysisPayload, [], null, runPrincipalId,
+        { ...preferencesBase, debate_stage: 'lens_probe' },
+        principalContext || {}, situation.situation_id, runClientId
+      );
+      const questions = probeResult.result?.solutions?.lens_probe_questions || null;
+
+      // Non-fatal by design, same posture as every other optional signal in
+      // this flow: no questions (backend degraded, network hiccup, disabled
+      // council) means every persona falls back to today's shared refinement
+      // text -- proceed to the existing debate exactly as it ran before this
+      // stage, never block Council Debate on a NEW addition failing.
+      if (questions && Object.keys(questions).length > 0) {
+        setLensProbeQuestions(questions);
+        setLensProbeState('awaiting_answers');
+      } else {
+        setLensProbeState('done');
+        runDebate();
+      }
+    } catch (err) {
+      console.error('Lens probe failed (non-fatal, proceeding without it)', err);
+      setLensProbeState('done');
+      runDebate();
+    }
+  };
+
+  const submitLensProbeAnswers = () => {
+    setLensProbeState('done');
+    runDebate(lensProbeAnswers);
+  };
+
+  const runDebate = async (lensAnswers?: Record<string, string>) => {
     if (!situation || !debateConfig) return;
 
     try {
@@ -319,10 +391,17 @@ export const CouncilDebatePage: React.FC = () => {
       // produced by the synthesis call. See PRD 2026-08-04 block.
 
       // ── Stage 1: Hypotheses ────────────────────────────────────────────────
+      // Phase 22 Stage B/C: lens_refinement, when the exec answered the probe
+      // (undefined when they didn't, or when the probe itself found nothing
+      // to ask — the backend already treats a missing/empty dict as "no lens
+      // data", identical to today's behavior before this stage existed).
       const s1Result = await runSolutionFinder(
         deepAnalysisPayload, [], null,
         runPrincipalId,
-        { ...preferencesBase, debate_stage: 'stage1_only' },
+        {
+          ...preferencesBase, debate_stage: 'stage1_only',
+          ...(lensAnswers && Object.keys(lensAnswers).length > 0 ? { lens_refinement: lensAnswers } : {}),
+        },
         principalContext || {}, situation.situation_id,
         runClientId
       );
@@ -527,6 +606,86 @@ export const CouncilDebatePage: React.FC = () => {
       </div>
     </div>
   );
+
+  // ── Lens probe screen (Phase 22 Stage C) ──────────────────────────────────────
+  // A complete early return: the existing phase-based debate UI below never
+  // mounts until lensProbeState === 'done'. Three independent columns, same
+  // shell (getFirmColor, FirmThinking) as the debate cards below reuse —
+  // generated in parallel on the backend (asyncio.gather), answered in
+  // parallel here: no shared state between columns, any order, no per-column
+  // submit — one shared "Continue" gates on all three being non-empty.
+  if (lensProbeState === 'loading' || lensProbeState === 'awaiting_answers') {
+    const lensFirms: string[] = debateConfig?.selectedPersonas?.length
+      ? debateConfig.selectedPersonas
+      : ['mckinsey', 'bcg', 'bain'];
+    const allAnswered = lensFirms.every(f => (lensProbeAnswers[f] || '').trim().length > 0);
+
+    return (
+      <div className="min-h-screen bg-background text-foreground font-sans">
+        <header className="sticky top-0 z-50 px-8 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="p-2 text-slate-400 hover:text-white transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-semibold text-white">{situation?.kpi_name || 'KPI Analysis'}</h1>
+              <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">Before the Debate</p>
+            </div>
+          </div>
+          <BrandLogo size={28} />
+        </header>
+
+        <div className="p-8 max-w-7xl mx-auto">
+          <p className="text-sm text-slate-400 mb-6 max-w-2xl">
+            Each perspective below reasons from a different real analytical framework.
+            One quick question each, before they form their hypotheses — answering
+            shapes what each one actually investigates, not just how it's labeled.
+          </p>
+
+          <div className="grid grid-cols-3 gap-6">
+            {lensFirms.map(firmId => {
+              const c = getFirmColor(firmId);
+              const question = lensProbeQuestions?.[firmId];
+              return (
+                <div key={firmId} className={`rounded-xl border ${c.border} bg-slate-900 overflow-hidden flex flex-col`}>
+                  <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/40">
+                    <span className={`text-sm font-bold uppercase tracking-wider ${c.accent}`}>{c.label}</span>
+                  </div>
+                  <div className="p-4 flex flex-col gap-3 flex-1">
+                    {!question ? (
+                      <FirmThinking label={c.label} accent={c.accent} stageLabel="preparing its question" />
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-200 leading-relaxed">{question}</p>
+                        <textarea
+                          className="mt-auto w-full min-h-[80px] text-sm bg-slate-950 border border-slate-800 rounded-lg p-3 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-600 resize-none"
+                          placeholder="Your answer…"
+                          value={lensProbeAnswers[firmId] || ''}
+                          onChange={e => setLensProbeAnswers(prev => ({ ...prev, [firmId]: e.target.value }))}
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {lensProbeState === 'awaiting_answers' && (
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={submitLensProbeAnswers}
+                disabled={!allAnswered}
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white transition-colors"
+              >
+                Continue to Debate
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // ── Main render ──────────────────────────────────────────────────────────────
 
