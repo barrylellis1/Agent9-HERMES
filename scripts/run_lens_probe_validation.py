@@ -47,6 +47,21 @@ bother answering at all, or whether the questions themselves are ones a
 real principal would find sensible. That is a live-usage question, not a
 harness question, and no simulation substitutes for it.
 
+CORRECTION #2 (2026-09-05, on direct instruction): the first run's
+simulated-executive prompt used a 3-line recap (kt_is_is_not.what_is only),
+missing 4 of the fixture's 5 segment-level change_points — exactly the
+detail the lens-probe questions themselves ask about. A hedging answer from
+a simulator that was never given the numbers to answer confidently is not
+informative about lens-probing. Fixed once by matching a real persona's own
+compact recap (a9_solution_finder_agent.py's dataset_recap_lines), then
+fixed again, further: the simulator now receives the COMPLETE DA execution
+output, not a recap of any size. A persona's own prompt stays compact for
+token economy; nothing requires the SIMULATED EXECUTIVE to be similarly
+constrained, and removing the information ceiling entirely is a cleaner
+test than narrowing it. If diversity still doesn't improve when the
+simulator has every fact DA produced, that is a materially stronger
+negative result than "under-provisioned" could ever be.
+
 USAGE
 -----
     python scripts/run_lens_probe_validation.py \
@@ -178,7 +193,7 @@ def classify_all(options: Dict[str, Tuple[Optional[str], Optional[str]]]) -> Dic
 
 
 async def generate_simulated_answers(llm_agent, questions: Dict[str, str],
-                                     da_recap: str, temperature: float) -> Dict[str, str]:
+                                     da_full: Dict[str, Any], temperature: float) -> Dict[str, str]:
     """ONE combined call, all personas at once -- cheaper than N separate
     calls, and the simulation model sees all three questions together so it
     doesn't need to be told the questions are related.
@@ -187,6 +202,19 @@ async def generate_simulated_answers(llm_agent, questions: Dict[str, str],
     invocation produces a different plausible answer set, which is the
     actual independent variable this experiment varies. Never presented
     anywhere in this script's output as a real executive's input.
+
+    CORRECTION (2026-09-05, second pass): the first correction reused
+    a9_solution_finder_agent.py's own dataset_recap_lines-equivalent (top-3
+    change points), matching what a real Stage 1 persona sees. Changed again
+    on direct instruction: pass the COMPLETE DA execution output, not a
+    recap of any size -- removing the information-deficit question entirely
+    rather than narrowing it. A persona's own prompt is deliberately compact
+    for token economy; a SIMULATED EXECUTIVE has no such constraint, and if
+    it still hedges or Stage 1 still fails to diversify with every fact DA
+    produced in hand, that is a materially stronger negative signal than
+    "hedged because under-provisioned" could ever be -- and if diversity
+    DOES improve given full information, that marks the recap's compactness,
+    not the lens-probing mechanism itself, as the actual constraint.
 
     Uses .analyze() + A9_LLM_AnalysisRequest, not the plain .generate() path
     -- the same JSON-out pattern _run_stage1 and _generate_lens_probe both
@@ -198,22 +226,36 @@ async def generate_simulated_answers(llm_agent, questions: Dict[str, str],
 
     q_block = "\n".join(f'- ({pid}) {q}' for pid, q in questions.items())
     prompt = (
-        "You are simulating a well-informed but time-pressed CFO answering "
-        "quick clarifying questions from three advisors, based only on the "
-        "facts below. Keep each answer to one short sentence, grounded in "
-        "the facts -- do not invent numbers not implied by them.\n\n"
-        f"## KNOWN FACTS\n{da_recap}\n\n"
+        "You are simulating a well-informed CFO answering quick clarifying "
+        "questions from three advisors. Below is the COMPLETE Deep Analysis "
+        "output your team produced -- use any relevant fact in it, at any "
+        "level of detail. Keep each answer to one or two sentences, grounded "
+        "in the data -- do not invent numbers not present in it.\n\n"
+        f"## COMPLETE DEEP ANALYSIS OUTPUT\n{json.dumps(da_full, indent=2, default=str)}\n\n"
         f"## QUESTIONS\n{q_block}\n\n"
-        '## OUTPUT (JSON only): {"<persona_id>": "<one-sentence answer>", ...}'
+        '## OUTPUT (JSON only): {"<persona_id>": "<one-to-two-sentence answer>", ...}'
     )
-    req = A9_LLM_AnalysisRequest(
-        request_id=f"lpv-simanswer-{int(time.time()*1000)}", principal_id="cfo_001",
-        content=prompt, analysis_type="custom", context="", temperature=temperature,
-    )
-    resp = await llm_agent.analyze(req)
-    if resp.status != "success" or not isinstance(resp.analysis, dict):
-        raise RuntimeError(f"simulated-answer generation failed: status={resp.status}")
-    return {pid: str(a) for pid, a in resp.analysis.items() if pid in questions}
+    # Retried, not raised on the first failure: a 10-run sweep makes ~20 LLM
+    # calls, and this project's own multi-run scripts (run_dq_bakeoff.py) all
+    # treat one transient call failure as a per-run event to log and continue
+    # past, never a reason to abort the whole sweep. Found the hard way: an
+    # unretried first version of this function crashed an N=10 run at run 7
+    # on a single transient "[SF] LLM call failed: unknown error" -- the
+    # exact class of intermittent failure this codebase's other harnesses
+    # already treat as routine, not exceptional.
+    last_err: Optional[Exception] = None
+    for attempt in range(3):
+        req = A9_LLM_AnalysisRequest(
+            request_id=f"lpv-simanswer-{int(time.time()*1000)}-{attempt}", principal_id="cfo_001",
+            content=prompt, analysis_type="custom", context="", temperature=temperature,
+        )
+        resp = await llm_agent.analyze(req)
+        if resp.status == "success" and isinstance(resp.analysis, dict):
+            return {pid: str(a) for pid, a in resp.analysis.items() if pid in questions}
+        last_err = RuntimeError(f"status={resp.status} analysis_type={type(resp.analysis).__name__}")
+        if attempt < 2:
+            await asyncio.sleep(1.5 * (attempt + 1))
+    raise RuntimeError(f"simulated-answer generation failed after 3 attempts: {last_err}")
 
 
 async def main_async(args) -> int:
@@ -258,11 +300,13 @@ async def main_async(args) -> int:
     for pid, q in questions.items():
         print(f"  {pid:<12} {q}")
 
-    # Compact recap for the simulation model -- same facts Stage 1 itself sees,
-    # not invented for this script.
-    kt = da.get("kt_is_is_not") or {}
-    what_is = [i.get("text") if isinstance(i, dict) else str(i) for i in (kt.get("what_is") or [])][:3]
-    da_recap = "\n".join(what_is) or "(no recap available)"
+    # The simulated executive sees the COMPLETE DA execution output, not a
+    # recap -- see generate_simulated_answers()'s own docstring for the two
+    # corrections that led here (first: a 3-line recap missing 4 of 5
+    # segment-level change_points; second, on direct instruction: pass
+    # everything DA produced, removing the information-deficit question
+    # entirely rather than narrowing it). Both prior results are retained in
+    # lens_probe_validation_2026-09-05/ for the record.
 
     manifest: Dict[str, Any] = {
         "fixture": str(fixture), "personas": personas, "n": args.n,
@@ -283,7 +327,7 @@ async def main_async(args) -> int:
     print(f"\n=== with lens_refinement ({args.n} runs, simulated answers) ===")
     distinct_counts: List[int] = []
     for i in range(1, args.n + 1):
-        answers = await generate_simulated_answers(llm_agent, questions, da_recap, temperature=0.8)
+        answers = await generate_simulated_answers(llm_agent, questions, da, temperature=0.8)
         resp = await run_sf(sf, da, "stage1_only", personas, answers,
                             args.client_id, args.principal_id)
         options = extract_proposed_options(resp)

@@ -17,18 +17,19 @@ Referenced as the held-out validation corpus in
 
 Phase 22 Stage D: does persona-keyed refinement (Stages A-C) actually increase
 Stage 1 hypothesis diversity? Measured directly via classify_lever on Stage 1's
-own proposed_option titles -- no synthesis call needed. **Result: no, on this
-measurement -- with-lens mean 2.60 distinct families vs baseline's rock-stable
-3.00 (10/10 baseline runs hit exactly 3).** Root cause found in the data:
-every simulated executive answer hedges ("I don't have visibility yet...",
-"I'd need to confirm..."), and handing all three personas the same uncertain
-signal homogenizes their reasoning rather than diversifying it -- in baseline,
-each persona defaulted to its own framework's distinct lean instead. This does
-NOT indict the Stage A-C plumbing (independently unit-tested and confirmed
-working); it identifies that the mechanism's value depends entirely on
-getting substantive answers, which only a real executive -- not a simulation
-barred from inventing facts -- can supply. See its own README for the full
-writeup and why this doesn't settle Phase 22 either way.
+own proposed_option titles -- no synthesis call needed. TWO completed runs,
+kept both: **v1** gave the simulated executive only a 3-line recap, missing 4
+of 5 segment-level change_points the questions themselves asked about -- every
+answer hedged, mean dropped to 2.60 vs baseline's 3.00, later found to be a
+harness confound (under-provisioned information), not evidence about
+lens-probing. **v2**, corrected to give the simulator the COMPLETE DA output,
+came back near-neutral: mean 2.90 vs baseline's 3.00 (9/10 tied, 1/10 below,
+0/10 above) -- baseline was already at the diversity ceiling (3/3) on this
+fixture, leaving no headroom to show improvement either way. Neither run
+indicts the Stage A-C plumbing (independently unit-tested and confirmed
+working); both share the same irreducible limitation -- no live executive
+answered these questions, and no simulation can substitute for that. See its
+own README for the full two-run writeup.
 
 ## What `frontier_bakeoff_2026-09-04` adds
 

@@ -1,90 +1,117 @@
-# Phase 22 Stage D — lens-probe validation (negative result)
+# Phase 22 Stage D — lens-probe validation (two runs, corrected methodology)
 
 **Captured 2026-09-05.** Measures whether Stage 22's Stages A–C (persona-keyed
-refinement, replacing the single persona-invariant refined-problem string with
-one framework-anchored clarifying question per persona) actually increases
-Stage 1 hypothesis diversity, using `scripts/run_lens_probe_validation.py`.
+refinement — one framework-anchored clarifying question per persona, replacing
+a single persona-invariant refined-problem string) actually increases Stage 1
+hypothesis diversity, using `scripts/run_lens_probe_validation.py`. Two
+completed runs exist, under different simulated-answer information levels;
+both are kept, not just the final one.
 
-## Result: no — on this measurement, it made diversity worse
+## v2 (current): complete DA output — near-neutral, not negative
+
+`manifest_v2_complete_da_output.json`. The simulated executive answering the
+lens-probe questions received the **complete DA execution output** — every
+change point, every segment, every region, at full detail — not a recap of
+any size.
 
 | | baseline (no lens data) | with lens_refinement |
 |---|---|---|
-| distinct lever families (10 runs) | `[3,3,3,3,3,3,3,3,3,3]` | `[3,3,2,2,3,3,3,2,3,2]` |
-| mean | **3.00** | **2.60** |
-| runs above the other arm's mean | — | 0/10 |
-| runs below the other arm's mean | — | 4/10 |
+| distinct lever families (10 runs) | `[3,3,3,3,3,3,3,3,3,3]` | `[3,2,3,3,3,3,3,3,3,3]` |
+| mean | **3.00** | **2.90** |
+| runs above / tied / below the other arm | — | 0 above / 9 tied / 1 below |
 
-Fixture: `lens_run`'s DA payload (Gross Margin %, lubricants). Council: lens
-(commercial/operational/structural). Model: Anthropic (Haiku-tier, matching
-Stage 1's own production model). Measured directly on Stage 1's three
-`proposed_option` titles via `classify_lever` — no synthesis call needed.
+Answers under this version are genuinely substantive — real cross-referenced
+figures, not hedges:
 
-## The mechanism, found in the data, not guessed
+> *"All six customer segments... and all six regions... show margin
+> compression in the -4 to -5 point range, indicating the pressure is
+> broadly structural across the customer base... suggesting this is
+> category-wide pricing or cost pressure, not localized participation loss."*
 
-Every one of the 10 simulated executive answers hedges:
+**Baseline is already at ceiling.** All 10 baseline runs hit exactly 3 of 3
+possible distinct families (this fixture's 3-persona lens council already
+produces full diversity without any lens data, because each persona's
+default framework lean is already distinct: commercial→pricing,
+structural→portfolio exit, operational varying but distinct from both). That
+leaves essentially no headroom for lens-probing to show as an *improvement*
+on this specific metric, on this fixture — a ceiling effect, not evidence the
+mechanism has no value, just evidence this measurement can't see one if it
+exists here.
 
-> *"Without detailed price, mix, and cost data by SKU, I cannot definitively
-> isolate the driver..."*
-> *"I don't have visibility yet into whether this is a cost-structure issue..."*
-> *"I'd need to confirm whether raw material or procurement costs have
-> shifted..."*
+## v1 (superseded): 3-line recap — a genuine negative, later found confounded
 
-None state a fact the DA recap didn't already contain — correctly, since the
-simulation prompt explicitly forbade inventing numbers not implied by the
-facts. But handing all three personas the **same uncertain, non-committal
-signal** appears to pull them toward a shared "insufficient data, probably
-pricing/mix" read, rather than letting each fall back to its own framework's
-default lean. In baseline (no lens data at all), each persona reasoned from
-its own framework independently and consistently landed on a distinct family:
-commercial → `pricing_corridor`, operational → varied but distinct,
-structural → `portfolio_exit`, appearing in **every single one of the 10
-baseline runs**. A hedge homogenized what independence had kept apart.
+`manifest_v1_underprovisioned_recap.json`. The first version of this script
+gave the simulated executive only 3 generic lines
+(`kt_is_is_not.what_is[:3]`) — missing 4 of this fixture's 5 segment-level
+change points and the situation complication summary.
 
-## Why this is not evidence against the Stage A–C architecture
+| | baseline (N=1, later found non-reproducible) | with lens_refinement (N=10) |
+|---|---|---|
+| distinct families | 3 | mean 2.60, range `[3,3,2,2,3,3,3,2,3,2]` |
 
-The mechanism itself works exactly as built and tested — `ps_s1` is
-genuinely persona-keyed, three different lens answers reliably produce three
-different Stage 1 prompts (proven directly in
-`tests/unit/test_sf_lens_probe_persona_keying.py`). What this measures is a
-**downstream consequence of the *content* of the answers**, not a defect in
-the plumbing that delivers them.
+Root cause, found in the manifest: every simulated answer hedged —
+*"I don't have visibility yet...", "I'd need to confirm..."* — because the
+lens-probe questions ask about segment/mix-level detail (*"has the mix
+shifted toward lower-tier or value-segment SKUs"*) that this recap never gave
+the simulator the material to answer. **This was a confound in the harness,
+not evidence about lens-probing** — corrected in v2 by giving the simulator
+everything DA produced instead of narrowing what it saw.
 
-The real, load-bearing limitation is the one already named before this run
-happened, in the harness's own module docstring and in this phase's design
-discussion: **no live executive answered these questions.** A model asked to
-simulate a cautious CFO, explicitly forbidden from inventing facts, will
-hedge — correctly, for a simulation. Whether a real executive would hedge the
-same way, or bring genuine private knowledge the DA recap doesn't contain, is
-a live-usage question no harness can substitute for.
+A middle attempt (recap matched to `a9_solution_finder_agent.py`'s own
+`dataset_recap_lines`, i.e. what a real persona sees) was run but crashed
+mid-sweep on an unretried transient LLM failure at run 7/10 — no usable
+final number, not counted as a result. The retry logic added afterward
+(3 attempts, backoff) is what let v2 complete cleanly.
 
-## What this does and does not settle
+## What this two-run arc establishes
 
-- **Does not** confirm lens-probing improves analysis quality on this
-  fixture, with this council, under this simulation method.
-- **Does** identify a concrete, actionable risk: uninformative or hedged
-  lens-probe answers can homogenize rather than diversify Stage 1 reasoning,
-  and a UI that lets an executive answer with an "I don't know" should expect
-  this failure mode rather than be surprised by it.
-- **Does not** invalidate Stages A–C's mechanism-level tests, which verify
-  the plumbing does what it's supposed to do, correctly.
+- The sharp v1 negative result does not hold up once the harness gives the
+  simulator complete information — it was substantially an artifact of
+  under-provisioning, not a property of persona-keyed refinement.
+- v2's near-null result does not confirm the hypothesis either. It's
+  consistent with "no measurable effect on this fixture" and equally
+  consistent with "a ceiling effect on this fixture hides a real effect" —
+  this measurement cannot distinguish those.
+- Stages A–C's plumbing is unaffected by either result: `ps_s1` is confirmed
+  genuinely persona-keyed by direct unit test
+  (`test_sf_lens_probe_persona_keying.py`), independent of what Stage D's
+  simulated-executive proxy shows.
 
-## Recommendation
+## Why this still isn't the real answer, and won't be from a harness
 
-Do not treat Phase 22 as validated by this measurement. Consistent with how
-this codebase already treats the theory-layer exhibit's own density gate —
-"clears only through accumulated VA verdicts over real use, never by
-seeding" — this mechanism's real validation can only come from actual
-executives answering actual questions in the live UI, not from a simulated
-proxy. Ship Stage C, watch what real answers look like, and re-measure
-against real HITL outcomes before drawing a conclusion either way.
+Both runs share the same irreducible limitation: **no live executive
+answered these questions.** v2's simulator gives excellent, well-grounded
+answers because it was told to use everything DA produced and forbidden from
+inventing anything beyond it — a real executive might answer more
+confidently, less confidently, or answer something the DA payload doesn't
+even contain (institutional knowledge, a customer conversation, a
+competitor's move). Whether that changes Stage 1's diversity, or the
+resulting recommendation's actual quality, is not something any simulation
+can settle.
+
+## Recommendation (unchanged from the original finding)
+
+Do not treat Phase 22 as validated by either run, in either direction.
+Consistent with how this codebase already treats the theory-layer exhibit's
+own density gate — clears only through accumulated VA verdicts over real
+use, never by seeding — this mechanism's real test can only come from actual
+executives answering actual questions through Stage C's shipped UI. Ship it,
+watch what real answers look like, re-measure against real HITL/VA outcomes.
+Do not run a third simulated-answer variant hoping for a clearer number —
+both corrections above were made because a specific, identified
+methodological flaw was found (under-provisioned information, then a crash),
+not because the prior result was inconvenient. There is no flaw remaining to
+correct; further variation now would be exactly the multiple-comparisons
+trap `src/analysis/__init__.py`'s own design discipline exists to name and
+avoid.
 
 ## Reproducing
 
 ```bash
 python scripts/run_lens_probe_validation.py \
     --fixture decision-studio-ui/scratchpad/dq_comparison/lens_run \
-    --n 10 --out <this directory>
+    --n 10 --out <a fresh directory>
 ```
 
 Cost: Haiku-tier only (Stage 1 + lens-probe generation + simulated-answer
-generation), no synthesis calls. This run cost well under $1.
+generation), no synthesis calls. Each full run costs well under $1.

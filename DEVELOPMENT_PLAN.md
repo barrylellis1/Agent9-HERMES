@@ -4260,32 +4260,46 @@ first, independent of everything else below.
   pattern already exists for this).
 - [ ] Wire `lens_refinement` into the `SolutionFinderRequest.preferences` payload.
 
-**Stage D — Validation (done, 2026-09-05 — result: NEGATIVE, does not settle the phase).**
-`scripts/run_lens_probe_validation.py` measured `classify_lever`'s distinct-family count directly
-on Stage 1's own `proposed_option` titles (no synthesis call needed) across 10 runs per arm, lens
-council, `lens_run` fixture. **Baseline (no lens data) was rock-stable at 3/3 distinct families in
-all 10 runs; with-lens (simulated exec answers) dropped to a mean of 2.60, with 4/10 runs
-collapsing to 2.** Root cause found in the manifest, not guessed: every simulated answer hedges
-("I don't have visibility yet...", "I'd need to confirm...") — correctly, since the simulation was
-barred from inventing facts the DA recap didn't contain — and handing all three personas the SAME
-uncertain signal homogenizes their reasoning instead of diversifying it. In baseline, each persona
-defaulted to its own framework's distinct lean with nothing to converge around.
+**Stage D — Validation (done, 2026-09-05 — result: NEAR-NEUTRAL after correcting a real confound;
+does not settle the phase).** `scripts/run_lens_probe_validation.py` measured `classify_lever`'s
+distinct-family count directly on Stage 1's own `proposed_option` titles (no synthesis call
+needed), lens council, `lens_run` fixture. Two completed runs, both kept:
 
-This does **not** indict Stages A–C's plumbing: `ps_s1` is confirmed genuinely persona-keyed by
-direct unit test (`test_sf_lens_probe_persona_keying.py`), independent of this result. It identifies
-that the mechanism's real-world value hinges entirely on getting *substantive* answers — the one
-thing no harness can supply, since only a live executive can bring knowledge the DA recap doesn't
-contain. Full writeup, the actual per-run numbers, and the hedged-answer evidence:
-`decision-studio-ui/scratchpad/dq_comparison/lens_probe_validation_2026-09-05/README.md`.
+- **v1**: the simulated executive answering the lens-probe questions received only a 3-line recap
+  (`kt_is_is_not.what_is[:3]`), missing 4 of this fixture's 5 segment-level change points — exactly
+  the detail the questions themselves ask about. Every answer hedged ("I don't have visibility
+  yet...", "I'd need to confirm..."); with-lens mean dropped to 2.60 vs baseline's rock-stable 3.00
+  (10/10 at ceiling). On direct instruction, checked whether this was a harness confound rather than
+  a property of lens-probing: it was — the omitted detail was directly relevant to the questions
+  asked, and the hedging was a mechanical consequence of under-provisioning, not evidence about the
+  mechanism.
+- **v2**: corrected to hand the simulator the COMPLETE DA execution output (no recap of any size —
+  removing the information ceiling rather than narrowing it). Answers became genuinely substantive
+  (real cross-referenced segment/region/channel figures, confident conclusions). Result: **near-null,
+  not negative** — mean 2.90 vs baseline's 3.00, 9/10 tied, 1/10 below, 0/10 above. Baseline was
+  already at the diversity ceiling (3 of 3 possible) in all 10 runs on this fixture/council, leaving
+  no headroom for any intervention to show as an improvement on this specific metric here — a ceiling
+  effect, not proof the mechanism has no value.
+
+Neither run indicts Stages A–C's plumbing: `ps_s1` is confirmed genuinely persona-keyed by direct
+unit test (`test_sf_lens_probe_persona_keying.py`), independent of what either simulated-executive
+result shows. Both share the same irreducible limitation named before either run happened: no live
+executive answered these questions, and no simulation — however well-provisioned — substitutes for
+one. Full two-run writeup, both manifests preserved distinctly (not overwritten), and the actual
+hedged-vs-substantive answer text: `decision-studio-ui/scratchpad/dq_comparison/
+lens_probe_validation_2026-09-05/README.md`.
 
 **Verdict: Phase 22 is not validated by this measurement, in either direction.** Consistent with
 how this codebase already treats the theory-layer exhibit's own density gate — clears only through
 accumulated VA verdicts over real use, never by seeding — this mechanism's real test can only come
 from real executives answering real questions through Stage C's shipped UI, not from a simulated
 proxy. Ship it, watch what real answers look like, re-measure against real HITL/VA outcomes before
-concluding either way. Do not re-run this validation with a different simulation method hoping for
-a better number — that is the multiple-comparisons trap this project's own analytical discipline
-(`src/analysis/__init__.py`) exists to name and avoid.
+concluding either way. The v1→v2 correction was made because a specific, identified methodological
+flaw was found (under-provisioned information, confirmed by direct comparison against production's
+own recap-building code) — not because v1's result was inconvenient. There is no flaw remaining to
+correct; do not run a third simulated-answer variant hoping for a clearer number — that is the
+multiple-comparisons trap this project's own analytical discipline (`src/analysis/__init__.py`)
+exists to name and avoid.
 
 **Phase 23 (named, not built): Skip support.** Plain skip only when picked up — falls back to
 the shared refinement context, no inference from principal context. If personalized defaults are
