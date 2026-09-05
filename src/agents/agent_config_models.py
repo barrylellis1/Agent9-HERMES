@@ -4,7 +4,7 @@ All agent configuration models must be defined here for centralized validation.
 """
 
 from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from src.llm_services.model_routing import TaskType as A9TaskType, resolve_model
 from src.agents.models.nlp_models import (
     NLPBusinessQueryInput,
@@ -59,7 +59,7 @@ class A9_LLM_Service_Agent_Config(BaseModel):
         default_factory=_default_api_key_env_var,
         description="Environment variable containing the API key (auto-set from provider)"
     )
-    
+
     # Generation settings
     max_tokens: int = Field(4096, description="Default maximum tokens for completion")
     temperature: float = Field(0.7, description="Default temperature for generation")
@@ -81,6 +81,28 @@ class A9_LLM_Service_Agent_Config(BaseModel):
     # Environment settings
     use_mocks_in_test: bool = Field(True, 
                                    description="Whether to use mock responses in test environment")
+
+    @model_validator(mode="after")
+    def _align_api_key_env_var_with_provider(self):
+        """Derive the key variable from the PROVIDER THAT WAS SET, not the env var.
+
+        `_default_api_key_env_var` reads LLM_PROVIDER, so constructing
+        `Config(provider="openai")` while LLM_PROVIDER=anthropic produced an
+        OpenAI provider paired with ANTHROPIC_API_KEY — the Anthropic key was
+        then sent to OpenAI, which rejects it as `invalid_api_key` (observed
+        live 2026-09-04 while running a two-provider model comparison in one
+        process). Any code that constructs both providers in a single process
+        hits this; the env var can only describe one of them.
+
+        An explicitly-passed `api_key_env_var` still wins — this only fixes the
+        default, which had no way to see `provider`.
+        """
+        if "api_key_env_var" not in self.model_fields_set:
+            want = ("ANTHROPIC_API_KEY" if str(self.provider).lower() == "anthropic"
+                    else "OPENAI_API_KEY")
+            if self.api_key_env_var != want:
+                object.__setattr__(self, "api_key_env_var", want)
+        return self
 
 
 class A9_Data_Product_MCP_Service_Config(BaseModel):

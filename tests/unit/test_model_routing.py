@@ -147,3 +147,35 @@ class TestCallSitesUseTaskTypes:
             assert 'model="claude-' not in stripped and "model='claude-" not in stripped, (
                 f"{path} hardcodes a Claude model ID: {stripped[:80]}"
             )
+
+
+class TestProviderKeyPairing:
+    """`api_key_env_var` defaults from the LLM_PROVIDER env var, which can only
+    describe one provider. Constructing both in a single process — exactly what a
+    model bake-off does — paired the OpenAI provider with ANTHROPIC_API_KEY and
+    sent an `sk-ant-...` key to OpenAI (401 invalid_api_key, observed live)."""
+
+    def test_explicit_provider_selects_its_own_key(self, monkeypatch):
+        from src.agents.agent_config_models import A9_LLM_Service_Agent_Config
+
+        monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+        assert A9_LLM_Service_Agent_Config(provider="openai").api_key_env_var == "OPENAI_API_KEY"  # arch-allow-agent-ctor — config model, not an agent
+        assert A9_LLM_Service_Agent_Config(provider="anthropic").api_key_env_var == "ANTHROPIC_API_KEY"  # arch-allow-agent-ctor — config model, not an agent
+
+        monkeypatch.setenv("LLM_PROVIDER", "openai")
+        assert A9_LLM_Service_Agent_Config(provider="anthropic").api_key_env_var == "ANTHROPIC_API_KEY"  # arch-allow-agent-ctor — config model, not an agent
+        assert A9_LLM_Service_Agent_Config(provider="openai").api_key_env_var == "OPENAI_API_KEY"  # arch-allow-agent-ctor — config model, not an agent
+
+    def test_explicit_key_env_var_still_wins(self, monkeypatch):
+        from src.agents.agent_config_models import A9_LLM_Service_Agent_Config
+
+        monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+        cfg = A9_LLM_Service_Agent_Config(provider="openai", api_key_env_var="OPENAI_SOL_KEY")  # arch-allow-agent-ctor — config model, not an agent
+        assert cfg.api_key_env_var == "OPENAI_SOL_KEY"
+
+    def test_env_only_construction_unchanged(self, monkeypatch):
+        from src.agents.agent_config_models import A9_LLM_Service_Agent_Config
+
+        monkeypatch.setenv("LLM_PROVIDER", "openai")
+        cfg = A9_LLM_Service_Agent_Config()  # arch-allow-agent-ctor — config model, not an agent
+        assert (cfg.provider, cfg.api_key_env_var) == ("openai", "OPENAI_API_KEY")
