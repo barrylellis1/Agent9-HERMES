@@ -11,6 +11,24 @@ Referenced as the held-out validation corpus in
 | `gross_margin_reframe_run` | 2026-08-22 | Gross Margin % / lubricants (CFO, owner) | **reframed** → COGS (1 hop, accounting identity) | **no** | 5/5 (L5 not-checked) |
 | `ecommerce_confirm_run` | 2026-08-22 | E-Commerce Revenue / bicycle (CEO, non-owner, mixed-mode) | **confirmed** (0 alternatives offered) | **no** | 4/5, capped by L1 |
 | `frontier_bakeoff_2026-09-04/` | 2026-09-04 | Gross Margin % / lubricants (lens council) | n/a (replay of `lens_run`'s DA payload) | **yes** (per run) | 10 matched pairs per arm — see its own README |
+| `lens_probe_validation_2026-09-05/` | 2026-09-05 | Gross Margin % / lubricants (lens council) | n/a | n/a (Stage 1 diversity test, not a full SF run) | NEGATIVE -- see its own README |
+
+## What `lens_probe_validation_2026-09-05` adds
+
+Phase 22 Stage D: does persona-keyed refinement (Stages A-C) actually increase
+Stage 1 hypothesis diversity? Measured directly via classify_lever on Stage 1's
+own proposed_option titles -- no synthesis call needed. **Result: no, on this
+measurement -- with-lens mean 2.60 distinct families vs baseline's rock-stable
+3.00 (10/10 baseline runs hit exactly 3).** Root cause found in the data:
+every simulated executive answer hedges ("I don't have visibility yet...",
+"I'd need to confirm..."), and handing all three personas the same uncertain
+signal homogenizes their reasoning rather than diversifying it -- in baseline,
+each persona defaulted to its own framework's distinct lean instead. This does
+NOT indict the Stage A-C plumbing (independently unit-tested and confirmed
+working); it identifies that the mechanism's value depends entirely on
+getting substantive answers, which only a real executive -- not a simulation
+barred from inventing facts -- can supply. See its own README for the full
+writeup and why this doesn't settle Phase 22 either way.
 
 ## What `frontier_bakeoff_2026-09-04` adds
 

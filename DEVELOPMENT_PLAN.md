@@ -4260,13 +4260,32 @@ first, independent of everything else below.
   pattern already exists for this).
 - [ ] Wire `lens_refinement` into the `SolutionFinderRequest.preferences` payload.
 
-**Stage D — Validation.** Don't declare success on architecture alone.
-- [ ] Re-run a bake-off (same fixture/council as `frontier_bakeoff_2026-09-04`, before/after this
-  phase). Primary signal: does `classify_lever`'s distinct-family count on final options actually
-  rise once Stage 1 has genuinely differentiated input? Secondary: does `framework` now correlate
-  with actually-distinct reasoning, or still converge under real names.
-  This stage is the gate — everything upstream is a hypothesis about mechanism until it confirms
-  the number moved.
+**Stage D — Validation (done, 2026-09-05 — result: NEGATIVE, does not settle the phase).**
+`scripts/run_lens_probe_validation.py` measured `classify_lever`'s distinct-family count directly
+on Stage 1's own `proposed_option` titles (no synthesis call needed) across 10 runs per arm, lens
+council, `lens_run` fixture. **Baseline (no lens data) was rock-stable at 3/3 distinct families in
+all 10 runs; with-lens (simulated exec answers) dropped to a mean of 2.60, with 4/10 runs
+collapsing to 2.** Root cause found in the manifest, not guessed: every simulated answer hedges
+("I don't have visibility yet...", "I'd need to confirm...") — correctly, since the simulation was
+barred from inventing facts the DA recap didn't contain — and handing all three personas the SAME
+uncertain signal homogenizes their reasoning instead of diversifying it. In baseline, each persona
+defaulted to its own framework's distinct lean with nothing to converge around.
+
+This does **not** indict Stages A–C's plumbing: `ps_s1` is confirmed genuinely persona-keyed by
+direct unit test (`test_sf_lens_probe_persona_keying.py`), independent of this result. It identifies
+that the mechanism's real-world value hinges entirely on getting *substantive* answers — the one
+thing no harness can supply, since only a live executive can bring knowledge the DA recap doesn't
+contain. Full writeup, the actual per-run numbers, and the hedged-answer evidence:
+`decision-studio-ui/scratchpad/dq_comparison/lens_probe_validation_2026-09-05/README.md`.
+
+**Verdict: Phase 22 is not validated by this measurement, in either direction.** Consistent with
+how this codebase already treats the theory-layer exhibit's own density gate — clears only through
+accumulated VA verdicts over real use, never by seeding — this mechanism's real test can only come
+from real executives answering real questions through Stage C's shipped UI, not from a simulated
+proxy. Ship it, watch what real answers look like, re-measure against real HITL/VA outcomes before
+concluding either way. Do not re-run this validation with a different simulation method hoping for
+a better number — that is the multiple-comparisons trap this project's own analytical discipline
+(`src/analysis/__init__.py`) exists to name and avoid.
 
 **Phase 23 (named, not built): Skip support.** Plain skip only when picked up — falls back to
 the shared refinement context, no inference from principal context. If personalized defaults are

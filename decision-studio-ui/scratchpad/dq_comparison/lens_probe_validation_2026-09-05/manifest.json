@@ -1,0 +1,349 @@
+{
+ "fixture": "decision-studio-ui\\scratchpad\\dq_comparison\\lens_run",
+ "personas": [
+  "commercial",
+  "operational",
+  "structural"
+ ],
+ "n": 10,
+ "baseline_runs": [
+  {
+   "run": 1,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Repricing & Mix Recovery via Tiered Willingness-to-Pay Segmentation",
+    "operational": "Input Cost & Overhead Absorption Rebase\u2014Engine Oil Feedstock & Allocation Audit",
+    "structural": "Portfolio Reallocation: De-Emphasize Value-Tier Engine Oils and Redirect Volume to Premium Synthetic Segment"
+   }
+  },
+  {
+   "run": 2,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Implement Tiered Pricing Escalator and SKU Rationalization for Synthetic Blend Engine Oil",
+    "operational": "Procurement Cost Hedging & Dynamic Pricing Recalibration for Feedstock-Exposed Products",
+    "structural": "Reposition or Exit Synthetic Blend Engine Oil; Reallocate Portfolio Emphasis to Higher-Margin Specialty Formulations"
+   }
+  },
+  {
+   "run": 3,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Willingness-to-Pay Segmentation & Tiered Repricing with Mix Steering",
+    "operational": "Input-Cost Procurement Hedging & Dynamic Pricing Realignment for Synthetic Blend Engine Oil",
+    "structural": "Portfolio Reallocation: De-emphasize Low-Margin Engine Oil; Redirect Volume to Higher-Margin Specialty Lubricants"
+   }
+  },
+  {
+   "run": 4,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Price-Mix Recovery: Synthetic Blend Engine Oil Tiered Repricing & Channel Rebalancing",
+    "operational": "Procurement Cost Hedging & Dynamic Pricing Recalibration",
+    "structural": "Portfolio Reallocation: De-emphasize Margin-Compressed Commodity Oils, Reallocate Volume & Mix to Specialty/Synthetic Full Synthetic Segment"
+   }
+  },
+  {
+   "run": 5,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Repricing & Mix-Up Intervention via Willingness-to-Pay Segmentation and Contract Leverage",
+    "operational": "Procurement Cost Variance & Pricing Realization Audit with Dynamic Hedging Reset",
+    "structural": "Portfolio Reallocation: De-emphasize Commodity Engine Oil; Reposition Margin Recovery via Specialty/Synthetic Premium Tier"
+   }
+  },
+  {
+   "run": 6,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Implement Tiered Pricing Escalator & SKU-Level Mix Optimization for Synthetic Blend Engine Oil",
+    "operational": "Procurement & Input-Cost Hedging Review with Tiered Pricing Rebalancing",
+    "structural": "Reposition Synthetic Blend from Volume-Driven Commodity to Margin-Protected Specialty Tier"
+   }
+  },
+  {
+   "run": 7,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "indexation",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Repricing & Channel Mix Rebalancing: Synthetic Blend Engine Oil Tier Segmentation",
+    "operational": "Input Cost Pass-Through Pricing Realignment for Commodity-Exposed SKUs",
+    "structural": "Reposition Portfolio Mix Away from Margin-Compressed Commodity Tiers; Reallocate Capacity to Specialty/Premium Oil Segments"
+   }
+  },
+  {
+   "run": 8,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "hedging",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Realign Synthetic Blend Engine Oil pricing through willingness-to-pay segmentation and channel-level margin recovery",
+    "operational": "Implement Dynamic Input-Cost Hedging and Price-Elasticity Testing for Synthetic Blend Engine Oil",
+    "structural": "Engine Oil Category Exit or De-Emphasis with Reallocation to Higher-Margin Synthetic Specialty Lubricants"
+   }
+  },
+  {
+   "run": 9,
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "hedging",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Tiered Repricing & Mix-Up Initiative for Synthetic Blend Engine Oil",
+    "operational": "Input Cost Hedging & Selective Price Realization on Synthetic Blend Engine Oil",
+    "structural": "Category Participation Reallocation: Exit or Reposition Engine Oil Value Tier"
+   }
+  },
+  {
+   "run": 10,
+   "families": {
+    "commercial": "mix_shift",
+    "operational": "indexation",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Implement Tiered Price Escalation with SKU Rationalization on Synthetic Blend Engine Oil",
+    "operational": "Raw Material Cost Indexing & Selective Price Realization Program",
+    "structural": "Reposition or De-Emphasize Synthetic Blend Engine Oil; Reallocate Portfolio Mix to Higher-Margin Specialty Segments"
+   }
+  }
+ ],
+ "lens_probe_questions": {
+  "commercial": "Across these three oil products, did the gross margin compression come primarily from price reductions, unfavorable mix shift toward lower-margin SKUs/customers/channels, or input cost increases that weren't passed through?",
+  "operational": "Has there been a documented change in the cost-to-serve for these three oil products (e.g., raw material input costs, procurement contract terms, or manufacturing overhead allocation methodology), or is the margin compression visible across your entire product portfolio, suggesting a pricing/volume mix issue rather than a cost-structure shift?",
+  "structural": "Are these three engine oil products experiencing absolute margin compression across your entire customer base, or is the margin decline concentrated in specific customer segments or channels where you've lost pricing power or category share to competitors?"
+ },
+ "with_lens_runs": [
+  {
+   "run": 1,
+   "answers": {
+    "commercial": "Based on the 7.14-point variance in Synthetic Blend Engine Oil alone, we need to isolate pricing versus mix, but the data doesn't yet distinguish whether this reflects list price reductions, customer mix shift toward lower-margin channels, or both.",
+    "operational": "The 4.49-point gross margin compression year-to-date suggests a portfolio-wide issue rather than isolated to these three oils, so I'd need to confirm whether raw material or overhead cost increases are the primary driver versus a pricing/volume mix problem.",
+    "structural": "The concentrated 7.14-point variance in Synthetic Blend Engine Oil indicates the compression isn't uniform across all products, so I need segment-level data to determine if we've lost pricing power in specific channels or customer tiers."
+   },
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Implement Tiered Pricing & Channel Margin Floor with Selective List Price Recovery",
+    "operational": "Raw Material Cost Reconciliation & Procurement Hedging Reset",
+    "structural": "Channel & Customer Tier Reallocation: Exit or De-Emphasize Value-Tier Synthetic Blend Distribution"
+   }
+  },
+  {
+   "run": 2,
+   "answers": {
+    "commercial": "Based on the Synthetic Blend Engine Oil showing the largest variance of -7.14 percentage points, the compression appears driven by a combination of input cost increases and unfavorable mix, but I'd need to isolate price/cost/mix bridges by SKU to pinpoint which factor dominates.",
+    "operational": "The -4.49 point compression in gross margin YTD suggests this is broader than just these three oil products, pointing toward a pricing/volume mix issue rather than a documented cost-structure shift, though I'd need to confirm whether raw material costs spiked across our procurement contracts.",
+    "structural": "I cannot determine from the current data whether the margin decline is concentrated in specific customer segments or channels versus across our entire customer base\u2014I'd need segment-level gross margin trending to answer whether we've lost pricing power in particular channels."
+   },
+   "families": {
+    "commercial": "mix_shift",
+    "operational": "cost_audit",
+    "structural": "pricing_corridor"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Tiered Price Escalation & Value-Tier Mix Rebalancing for Synthetic Blend",
+    "operational": "Procurement Cost Reconciliation & Selective Price Recovery on High-Margin SKUs",
+    "structural": "Segment-Level Margin Recovery via Channel and Customer Tier Pricing Audit"
+   }
+  },
+  {
+   "run": 3,
+   "answers": {
+    "commercial": "Without detailed price, mix, and cost data by SKU, I cannot definitively isolate the driver, but the 7.14-point variance in Synthetic Blend Engine Oil\u2014our largest outlier\u2014suggests either a significant price concession or unfavorable channel/customer mix shift in that product line.",
+    "operational": "I'd need to compare margin compression across our full portfolio to rule out a cost-structure shift; if this 4.49-point decline is isolated to these three oil products, it points to pricing or mix pressure rather than a company-wide input cost issue.",
+    "structural": "The concentration of the largest variance in a single product (Synthetic Blend) hints the margin loss may not be uniform across all customers, but I cannot confirm whether it's channel-specific or customer-segment-specific without segmented P&L data."
+   },
+   "families": {
+    "commercial": "mix_shift",
+    "operational": "cost_audit",
+    "structural": "mix_shift"
+   },
+   "distinct": 2,
+   "titles": {
+    "commercial": "Channel/Customer Mix Rebalancing and Price-Tier Segmentation for Synthetic Blend",
+    "operational": "Input Cost Procurement Hedging Review & Dynamic Repricing Mechanism",
+    "structural": "Portfolio Reallocation: Shift Mix Away from Value Commodity Lubricants Toward Specialty/Premium Segments"
+   }
+  },
+  {
+   "run": 4,
+   "answers": {
+    "commercial": "Based on the -7.14 variance in Synthetic Blend Engine Oil being our largest driver, we need to isolate whether this reflects competitive pricing pressure, unfavorable channel/customer mix shifts, or raw material cost pass-through failures\u2014the data doesn't yet distinguish among these.",
+    "operational": "The 4.49-point portfolio-level margin compression suggests this is broader than a single cost-structure shift, pointing more toward a pricing or volume-mix dynamic across the product line rather than isolated input cost inflation.",
+    "structural": "We haven't yet segmented the -7.14 Synthetic Blend variance by customer segment or channel, so we can't confirm whether margin loss is systemic across all customers or concentrated in specific segments where we've lost pricing leverage."
+   },
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "mix_shift",
+    "structural": "pricing_corridor"
+   },
+   "distinct": 2,
+   "titles": {
+    "commercial": "Channel-Segmented Pricing Rebalance with Tiered Cost Recovery Indexation",
+    "operational": "Volume-Mix and Overhead Absorption Rebalance: Synthetic Blend Engine Oil Pricing & SKU Rationalization",
+    "structural": "Segment Margin Attribution Analysis: Isolate Pricing Leverage Loss by Customer Tier and Channel"
+   }
+  },
+  {
+   "run": 5,
+   "answers": {
+    "commercial": "Without product-level pricing and cost data, I can't isolate whether the 7.14-point Synthetic Blend decline stems from price cuts, SKU mix, or input costs\u2014but the 4.49-point portfolio compression suggests it's not purely a pricing issue across all three oils.",
+    "operational": "I don't have documented cost-structure changes in front of me, but the fact that Synthetic Blend Engine Oil carries the largest variance (-7.14) while overall margin fell 4.49 points suggests the issue is concentrated in that product rather than a portfolio-wide cost shock.",
+    "structural": "I can't determine whether the margin compression is uniform across customer segments or concentrated in specific channels without segment-level P&L data, but the outsized Synthetic Blend decline warrants immediate review of that product's customer and channel mix."
+   },
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "mix_shift"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Tiered Pricing & Mix Rebalance: Recover Synthetic Blend Margin via SKU Rationalization and Willingness-to-Pay Segmentation",
+    "operational": "Procurement Cost & Feedstock Hedge Review with Selective Price Recovery",
+    "structural": "Rebalance Customer & Channel Mix in Synthetic Blend Engine Oil: Shift Volume from Value to Direct/Premium Channels"
+   }
+  },
+  {
+   "run": 6,
+   "answers": {
+    "commercial": "Based on the 7.14-point variance in Synthetic Blend Engine Oil alone, I'd need to decompose that between our pricing actions and input cost absorption, but the 4.49-point portfolio compression suggests a mix of both pricing pressure and unfavorable SKU/channel mix rather than pure cost pass-through failure.",
+    "operational": "I don't have documented evidence of a cost-structure shift isolated to these three oil products, so the 13% margin decline points more toward a pricing/volume mix issue, but I'd need to compare the compression rate across our full portfolio to rule out input cost pressures hitting these products disproportionately.",
+    "structural": "The concentration of the variance in Synthetic Blend Engine Oil (versus the other two) suggests the margin compression isn't uniform across all customers and channels, indicating we've likely lost pricing power or share in specific segments rather than experiencing portfolio-wide absolute margin erosion."
+   },
+   "families": {
+    "commercial": "indexation",
+    "operational": "pricing_corridor",
+    "structural": "mix_shift"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Indexed Price Recovery and Value-Tier Mix Rebalancing",
+    "operational": "Baseline-Input Cost Reconciliation & Dynamic Pricing Hedge Reset",
+    "structural": "Rebalance Channel Mix & Exit Compressed Accounts in Synthetic Blend Segment"
+   }
+  },
+  {
+   "run": 7,
+   "answers": {
+    "commercial": "Without detailed price, mix, and cost data by SKU, I cannot definitively isolate the driver, but the 7.14-point variance in Synthetic Blend Engine Oil suggests product-level pressure\u2014likely a combination of input cost pass-through lag and potential mix shift toward lower-margin channels.",
+    "operational": "I don't have visibility into whether cost-to-serve has changed for these three products specifically, but the 4.49-point portfolio-level compression concentrated in one product (Synthetic Blend) points more toward a pricing/mix issue in that SKU than a company-wide cost-structure shift.",
+    "structural": "The data shows portfolio-level margin compression year-to-date, but I'd need customer and channel-level detail to determine whether the Synthetic Blend Engine Oil decline is broad-based or concentrated in specific segments where we've lost pricing power."
+   },
+   "families": {
+    "commercial": "indexation",
+    "operational": "hedging",
+    "structural": "pricing_corridor"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Implement Input Cost Index Escalator on Synthetic Blend & Conventional Engine Oil Contracts",
+    "operational": "Input-Cost Hedging & Selling-Price Realignment for Synthetic Blend Engine Oil",
+    "structural": "Conduct Customer & Channel Mix Audit to Distinguish Pricing Power Loss from Mix Shift"
+   }
+  },
+  {
+   "run": 8,
+   "answers": {
+    "commercial": "Without granular price and volume data by SKU, I can't definitively isolate the driver, but the -7.14 variance in Synthetic Blend suggests either a significant mix shift toward lower-margin SKUs or competitive pricing pressure we haven't fully offset.",
+    "operational": "I don't have documented cost-structure changes in front of me, so I'd need to confirm whether raw material or procurement costs have shifted; if margin compression is portfolio-wide, it points to pricing/mix, but if isolated to oils, it suggests a cost-to-serve issue.",
+    "structural": "I can see the aggregate margin decline across our oil products year-to-date, but I'd need to segment by customer and channel to determine whether we've lost pricing power in specific segments or if it's across-the-board."
+   },
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "cost_audit",
+    "structural": "pricing_corridor"
+   },
+   "distinct": 2,
+   "titles": {
+    "commercial": "Tiered Repricing & Mix-Up Incentive for Synthetic Blend Engine Oil",
+    "operational": "Procurement Cost & Overhead Absorption Audit for Oil Products",
+    "structural": "Segment-Level Pricing Power Audit and Selective Channel/Customer De-Emphasis"
+   }
+  },
+  {
+   "run": 9,
+   "answers": {
+    "commercial": "The 7.14-point variance in Synthetic Blend Engine Oil suggests input cost increases weren't fully passed through, but I'd need to isolate price/mix/volume impacts to confirm whether compression is primarily cost-driven or mix-driven across all three products.",
+    "operational": "I don't have documented cost-structure changes in front of me, so the 4.49-point portfolio compression could reflect either raw material/overhead pressures on these oils specifically or a broader pricing/volume mix issue\u2014I'd need to compare margin trends across non-oil categories to distinguish.",
+    "structural": "The data shows year-to-date compression versus prior year, but without segment-level margin detail, I can't confirm whether the decline is portfolio-wide or concentrated in specific customers or channels where we've lost pricing power."
+   },
+   "families": {
+    "commercial": "indexation",
+    "operational": "cost_audit",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 3,
+   "titles": {
+    "commercial": "Tiered Price Escalation with Contract Indexation Reset",
+    "operational": "Procurement Cost Baseline Audit & Dynamic Pricing Adjustment for Base Oil Input",
+    "structural": "Exit or Reposition Low-Margin Value Tier Oil Portfolio; Reallocate Volume to Higher-Margin Specialty Segments"
+   }
+  },
+  {
+   "run": 10,
+   "answers": {
+    "commercial": "Without price and mix data isolated from cost changes, I can confirm the 7.14-point compression in Synthetic Blend Engine Oil is our largest driver, but I'd need to separate pricing actions from input cost inflation and SKU/channel mix to pinpoint the root cause.",
+    "operational": "I don't have visibility yet into whether this is a cost-structure issue isolated to these oils or a portfolio-wide pricing/mix problem, so I need our operations and procurement teams to confirm whether raw material or manufacturing costs shifted materially year-over-year.",
+    "structural": "The 4.49-point overall margin decline and the 7.14-point hit to Synthetic Blend suggests concentration in specific products, but I'd need customer and channel-level data to determine if we've lost pricing power in particular segments or if the compression is uniform across our customer base."
+   },
+   "families": {
+    "commercial": "pricing_corridor",
+    "operational": "pricing_corridor",
+    "structural": "portfolio_exit"
+   },
+   "distinct": 2,
+   "titles": {
+    "commercial": "Implement Tiered Pricing Escalation and Mix Incentive on Synthetic Blend Engine Oil",
+    "operational": "Raw Material Cost & Pricing Rebalancing Audit with Procurement Hedging Review",
+    "structural": "Reposition or De-Emphasize Synthetic Blend from Value Tier to Specialty/Premium Channel"
+   }
+  }
+ ],
+ "caveat": "with_lens answers are SIMULATED (a separate LLM, not a real executive) -- this measures whether varying plausible lens-shaped input changes Stage 1 output, not whether real executives would answer usefully or at all. Baseline runs N times, not once -- temperature=0.0 was found not to be reproducible in practice. See this script's own module docstring for both caveats."
+}
