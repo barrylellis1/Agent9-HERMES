@@ -566,13 +566,18 @@ export const CouncilDebatePage: React.FC = () => {
                 {/* ── Firm header ──────────────────────────────────────── */}
                 <div className={`px-4 py-3 rounded-lg border ${c.border} bg-slate-900/60 flex items-center justify-between`}>
                   <span className={`text-sm font-bold uppercase tracking-wider ${c.accent}`}>{c.label}</span>
+                  {/* Phase 22 Stage A: was a colored, rounded-full badge using
+                      severity-opportunity/severity-warning -- the same tokens
+                      and pill SHAPE this app uses for genuinely checked status
+                      (KPI thresholds, VA verdicts). Conviction is the model's
+                      own uncalibrated self-rating; nothing downstream verifies
+                      it. Both the color and the badge shape implied a real
+                      signal that doesn't exist -- now plain neutral text, no
+                      pill, so it reads at the same weight as an unverified
+                      claim rather than a status indicator. */}
                   {(phase >= 1 || phase === 4) && hyp?.conviction && (
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                      hyp.conviction === 'High' ? 'bg-severity-opportunity/40 text-severity-opportunity' :
-                      hyp.conviction === 'Medium' ? 'bg-severity-warning/40 text-severity-warning' :
-                      'bg-slate-800 text-slate-400'
-                    }`}>
-                      {hyp.conviction} conviction
+                    <span className="text-[10px] font-mono text-slate-500">
+                      self-rated: {hyp.conviction}
                     </span>
                   )}
                 </div>

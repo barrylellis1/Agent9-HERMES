@@ -294,12 +294,15 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
                 </div>
               )}
               {hyp.conviction && (
+                // Phase 22 Stage A: was colored by severity-opportunity/severity-
+                // warning, the same tokens the app uses for genuinely checked
+                // status (KPI thresholds, VA verdicts). This field is the model's
+                // own uncalibrated self-rating -- nothing downstream verifies it
+                // -- so it now reads as plain, neutral text like Framework/
+                // Hypothesis/Proposed above, never implying a real signal.
                 <div className="mt-1.5">
-                  <span className="text-[9px] font-mono font-semibold text-slate-600 uppercase">Conviction: </span>
-                  <span className={`text-[10px] font-mono font-semibold ${
-                    hyp.conviction === 'High' ? 'text-severity-opportunity' :
-                    hyp.conviction === 'Medium' ? 'text-severity-warning' : 'text-slate-400'
-                  }`}>{hyp.conviction}</span>
+                  <span className="text-[9px] font-mono font-semibold text-slate-600 uppercase">Self-rated confidence: </span>
+                  <span className="text-[10px] font-mono font-semibold text-slate-400">{hyp.conviction}</span>
                 </div>
               )}
             </div>
