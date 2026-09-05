@@ -124,6 +124,20 @@ selects the NEW arm of the PM-2 A/B on the synthesis call:
   gated, falls back to judge with a log line.
 - Frontend runs TWO dispatches (`stage1_only` → `synthesis`); the dead `hypothesis`/`cross_review`
   dispatches and the never-read `prior_transcript` are gone; `VITE_DEBATE_MODE` is retired.
+- **`arithmetic_consistency` is no longer a self-report (Phase 22 Stage A, Sep 2026).** The
+  moderator's own grade for this field checks an option against ITS OWN claimed inputs, never the
+  data — `src/analysis/groundedness.py`'s docstring records the live failure this produced
+  (2026-08-06): `pass` on a 26-47pp claim built by summing unweighted segment deltas, against a KPI
+  whose actual enterprise move was -1.67pp. After Stage 1 hypotheses complete, `options_payload`
+  is now re-graded via `score_option()`/`extract_da_facts()` against the real DA magnitudes, and the
+  result — `pass` / `flag` / `insufficient_data` — OVERWRITES the model's self-reported value before
+  the response is returned; the self-report is discarded, not merely cross-checked. Wrapped in its
+  own try/except (never breaks generation on a malformed `impact_estimate`); when the deterministic
+  read can't run at all (no scope, no `recovery_range.high`, DA gave no baseline) the chip is set to
+  `insufficient_data` rather than left showing the model's unverified claim. `VerificationLedger.tsx`
+  (compact executive briefing) needed no change — it already renders whatever this field says.
+  Tests: `tests/unit/test_sf_verification_ledger_override.py` (4), reproducing the documented
+  2026-08-06 failure shape against a real DA-payload extraction path, not synthetic regex bait.
 
 ## Stage J — Enterprise Tradeoff Weights (Aug 2026) 🔴
 Option ranking no longer uses the agent's own constant. `_rank_options` consumes

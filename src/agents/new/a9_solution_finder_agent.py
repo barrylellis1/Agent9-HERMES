@@ -3410,6 +3410,59 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 "criteria_source": criteria_source,
             }
 
+            # --- Deterministic override: moderator_grades.arithmetic_consistency ----
+            # (Phase 22 Stage A) VerificationLedger.tsx renders this as a green
+            # PASS / red FAIL chip in the executive briefing — the one component
+            # that literally claims verification happened. Until this override it
+            # was the moderator's OWN self-report: a separate LLM call checking an
+            # option against its own claimed inputs, never against the data.
+            # groundedness.py's own docstring records the live failure this
+            # produced (2026-08-06): `pass` on an option claiming 26-47pp impact
+            # built by summing unweighted segment deltas, against a KPI whose
+            # actual enterprise move was -1.67pp.
+            #
+            # `score_option`'s g3_arithmetic_plausible checks the SAME claim
+            # against src.analysis.groundedness's DAFacts (extracted from the real
+            # DA result), independent of anything the moderator said. It becomes
+            # the value shown; the model's self-graded pass/flag is discarded, not
+            # merely double-checked — the whole point is that a self-report is not
+            # a check. When the deterministic read can't be computed (no scope, no
+            # recovery_range.high, or DA gave no enterprise/segment baseline) the
+            # chip is set to `insufficient_data`, which is one of the moderator's
+            # own three valid values — never left showing an unverified pass.
+            #
+            # Never allowed to break generation: any exception here is swallowed
+            # and moderator_grades is left exactly as the model produced it, same
+            # discipline as the constraint-union assembly just above.
+            if moderator_grades:
+                try:
+                    from src.analysis.groundedness import extract_da_facts, score_option
+
+                    _da_facts = extract_da_facts(request.deep_analysis_output or {})
+                    for _opt in options_payload:
+                        _oid = str(_opt.get("id") or "")
+                        _grade = moderator_grades.get(_oid)
+                        if not isinstance(_grade, dict):
+                            continue
+                        _g = score_option(_opt, _da_facts, moderator_grade=_grade)
+                        if _g.g3_arithmetic_plausible is None:
+                            _grade["arithmetic_consistency"] = "insufficient_data"
+                            _grade["arithmetic_note"] = None
+                        elif _g.g3_arithmetic_plausible:
+                            _grade["arithmetic_consistency"] = "pass"
+                            _grade["arithmetic_note"] = None
+                        else:
+                            _grade["arithmetic_consistency"] = "flag"
+                            _arith_reasons = [r for r in _g.reasons if "vs" in r or "summing" in r]
+                            _grade["arithmetic_note"] = (
+                                "; ".join(_arith_reasons) if _arith_reasons
+                                else f"claimed impact is {_g.impact_ratio}x the observed move"
+                            )
+                except Exception as e:
+                    self.logger.warning(
+                        f"[SF] Deterministic arithmetic_consistency override failed (non-fatal): {e}"
+                    )
+
             # Build framing_context for Principal-driven transparency (per PRD guardrails)
             framing_context_payload = None
             try:
