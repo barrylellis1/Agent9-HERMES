@@ -139,6 +139,41 @@ selects the NEW arm of the PM-2 A/B on the synthesis call:
   Tests: `tests/unit/test_sf_verification_ledger_override.py` (4), reproducing the documented
   2026-08-06 failure shape against a real DA-payload extraction path, not synthetic regex bait.
 
+## Phase 22 Stage B — Persona-Keyed Refinement (Sep 2026)
+Fixes the architectural root cause behind Stage A: problem refinement ran ONCE,
+persona-invariantly, before any lens/framework existed — the code's own prior comment named
+`ps_s1` "computed ONCE here (persona-invariant text)," closed over identically by all three
+`_run_stage1(p)` calls. Two pieces, interdependent (one produces what the other consumes):
+
+- **New `debate_stage: "lens_probe"`** (a third dispatch, sitting BEFORE `stage1_only` in the
+  sequence) — one framework-anchored clarifying question per persona, generated in parallel via
+  `asyncio.gather` (mirrors `_run_stage1`'s own concurrency pattern), from `p.to_prompt_context()`
+  (the persona's own real `methodology.frameworks`, already-existing anchor data — not invented
+  for the probe) plus the refined problem + the dataset recap already built for Stage 1. Returns
+  early — no Stage 1, no synthesis, no options — with the new response field
+  `lens_probe_questions: Dict[persona_id, str]`. One persona's LLM call failing degrades to no
+  question for that persona only, same non-fatal discipline as the critic pass.
+- **`ps_s1` is now genuinely persona-keyed.** `preferences.lens_refinement: Dict[persona_id, str]`
+  (same shape as `prior_stage1_hypotheses`, populated from the exec's answers to the questions
+  above) is read inside `_run_stage1(p)` itself; a persona with an answer gets
+  `f"{ps_s1}\nLens probe ({p.name}): {answer}"` appended to its OWN `## PROBLEM` section — two
+  personas given identical refinement but different lens answers now receive genuinely different
+  Stage 1 prompts, which was structurally impossible before this stage. No `lens_refinement`
+  supplied → byte-identical to today's behavior (regression-guarded); a persona absent from a
+  partially-populated `lens_refinement` falls back to the shared base text, not a broken prompt.
+- **Skip support deferred to Phase 23**, plain-skip only when built (see DEVELOPMENT_PLAN.md
+  Phase 22 for why skip-with-inferred-assumptions was rejected).
+- Tests: `test_sf_lens_probe_generation.py` (6 — one question per persona, real frameworks reach
+  their own prompt and not a sibling's, genuine `asyncio.gather` concurrency proven by timing not
+  just call count, one persona failing doesn't break the others, the early return never reaches
+  Stage 1/synthesis, and a full round trip: generate questions → feed answers back →
+  differentiated Stage 1 prompts) + `test_sf_lens_probe_persona_keying.py` (3 — differentiation,
+  no-lens-data regression guard, partial-adoption fallback). 1688 unit tests pass.
+- **Not yet built**: Stage C (the parallel 3-column UI an executive actually answers these
+  questions through — `lens_probe` currently has no frontend caller) and Stage D (re-run
+  `frontier_bakeoff_2026-09-04`-style to confirm `classify_lever`'s distinct-family count actually
+  rises with this input, not just that the architecture shipped).
+
 ## Stage J — Enterprise Tradeoff Weights (Aug 2026) 🔴
 Option ranking no longer uses the agent's own constant. `_rank_options` consumes
 `request.evaluation_criteria`, resolved in this order by `_tradeoff_weights_to_criteria()`:

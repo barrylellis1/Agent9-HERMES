@@ -1919,6 +1919,96 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     if _ma_block:
                         dataset_recap_lines.append(_ma_block)
 
+                    # --- Phase 22 Stage B: lens-probe question generation -------------
+                    # Sits BEFORE Stage 1's own (heavier) setup on purpose: this needs
+                    # only the refined problem + the recap just built above, not
+                    # da_compact_s1/bc_compact_s1 (Stage-1-specific JSON blobs assembled
+                    # further down). One question per persona, generated in parallel via
+                    # asyncio.gather — the exact pattern _run_stage1 already uses for its
+                    # own three per-persona calls, just one stage earlier. Independent by
+                    # construction: none reads another persona's question.
+                    #
+                    # Each persona's OWN real methodology.frameworks (already injected by
+                    # to_prompt_context(), the same call Stage 1 makes) is what's asked to
+                    # produce something a generic consultant couldn't — not a fresh
+                    # invention, the same anchor data Stage 1 already has, used one stage
+                    # earlier where it can still shape what gets asked rather than just
+                    # what gets labeled afterward.
+                    #
+                    # Read early — the file's own later _debate_stage extraction (Stage
+                    # 1's skip logic) happens further down and re-reads the same prefs
+                    # dict; this local read is redundant with it, not a second source of
+                    # truth, since prefs does not change in between.
+                    _debate_stage = prefs.get("debate_stage") if isinstance(prefs, dict) else None
+                    if _debate_stage == "lens_probe" and consulting_personas:
+                        _lp_refined_focus = (
+                            refinement_result.get("refined_problem_statement")
+                            if isinstance(refinement_result, dict) else None
+                        ) or ps
+                        _lp_recap = "\n".join(dataset_recap_lines) if dataset_recap_lines else "(no recap available)"
+
+                        async def _generate_lens_probe(p: ConsultingPersona) -> Optional[Dict[str, str]]:
+                            try:
+                                persona_profile = (
+                                    p.to_prompt_context() if hasattr(p, "to_prompt_context") else f"{p.name}"
+                                )
+                                lp_prompt = (
+                                    f"## ROLE\nYou are a {p.name} consultant.\n\n"
+                                    f"## PERSONA\n{persona_profile}\n\n"
+                                    f"## PROBLEM (already refined with the principal)\n{_lp_refined_focus}\n\n"
+                                    f"## KNOWN FACTS\n{_lp_recap}\n\n"
+                                    "## TASK\n"
+                                    "Before forming a hypothesis, ask the principal ONE short, "
+                                    "specific clarifying question that ONLY your Key Frameworks "
+                                    "above would think to ask — not a generic question any "
+                                    "consultant could ask regardless of specialty. One sentence, "
+                                    "no preamble.\n\n"
+                                    '## OUTPUT (JSON only, no markdown):\n{"question": "<your one question>"}'
+                                )
+                                lp_req = A9_LLM_AnalysisRequest(
+                                    request_id=f"{req_id}_lensprobe_{p.id}",
+                                    principal_id=getattr(request, "principal_id", "system"),
+                                    content=lp_prompt, analysis_type="custom", context="",
+                                    task_type=A9TaskType.STAGE1_PERSONA,
+                                    temperature=0.0,
+                                )
+                                if self.orchestrator is not None:
+                                    lp_resp = await self.orchestrator.execute_agent_method(
+                                        "A9_LLM_Service_Agent", "analyze", {"request": lp_req}
+                                    )
+                                else:
+                                    lp_resp = await self.llm_service_agent.analyze(lp_req)  # type: ignore
+                                if getattr(lp_resp, "status", "error") != "success":
+                                    return None
+                                _lp_result = getattr(lp_resp, "analysis", None)
+                                _question = (
+                                    _lp_result.get("question") if isinstance(_lp_result, dict) else None
+                                )
+                                return {"persona_id": p.id, "question": _question} if _question else None
+                            except Exception as e:
+                                # Non-fatal by design: one persona's probe failing must
+                                # never block the other two or break generation — same
+                                # discipline as the critic pass and constraint union.
+                                self.logger.warning(f"[SF] Lens probe generation failed for {p.id}: {e}")
+                                return None
+
+                        _lp_results = await asyncio.gather(
+                            *[_generate_lens_probe(p) for p in consulting_personas]
+                        )
+                        lens_probe_questions = {
+                            r["persona_id"]: r["question"] for r in _lp_results if r
+                        }
+                        return SolutionFinderResponse.success(
+                            request_id=req_id,
+                            options_ranked=[],
+                            lens_probe_questions=lens_probe_questions,
+                            audit_log=[{
+                                "event": "lens_probe_questions_generated",
+                                "count": len(lens_probe_questions),
+                                "personas": list(lens_probe_questions.keys()),
+                            }],
+                        )
+
                     # Add Problem Refinement context from MBB-style chat
                     if refinement_result:
                         if refinement_result.get("external_context"):
@@ -2261,9 +2351,33 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         if refinement_result and refinement_result.get("refined_problem_statement"):
                             ps_s1 = f"{ps}\nRefined focus: {refinement_result['refined_problem_statement']}"
 
+                        # Phase 22 Stage B: the lens-probe answer, keyed by persona. Until
+                        # this, ps_s1 was a single string closed over by every _run_stage1(p)
+                        # call — "computed ONCE here (persona-invariant text)" — so refinement
+                        # was already locked in identically for all three personas before any
+                        # framework/lens existed to shape it. This is the one line that made
+                        # that structurally impossible to fix: ps_s1 itself never varied by p.
+                        # `lens_refinement` mirrors prior_stage1_hypotheses's own shape
+                        # (Dict[persona_id, str]) and is populated by a prior debate_stage=
+                        # "lens_probe" call (see below) whose questions were themselves
+                        # generated per persona from the SAME real methodology.frameworks
+                        # each persona already carries — not invented here.
+                        _lens_refinement = prefs.get("lens_refinement") if isinstance(prefs, dict) else None
+                        if not isinstance(_lens_refinement, dict):
+                            _lens_refinement = {}
+
                         async def _run_stage1(p: ConsultingPersona) -> Optional[Dict]:
                             try:
                                 persona_profile = p.to_prompt_context() if hasattr(p, "to_prompt_context") else f"{p.name}"
+                                # Genuinely per-persona now: two personas given identical
+                                # refinement but different lens-probe answers receive
+                                # different ## PROBLEM sections, which was impossible before
+                                # this stage — ps_s1 above stays the shared base text.
+                                _lens_answer = _lens_refinement.get(p.id)
+                                ps_s1_for_p = (
+                                    f"{ps_s1}\nLens probe ({p.name}): {_lens_answer}"
+                                    if _lens_answer else ps_s1
+                                )
                                 s1_schema = (
                                     '{\n'
                                     f'  "persona_id": "{p.id}",\n'
@@ -2390,7 +2504,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 s1_prompt = (
                                     f"## ROLE\nYou are a {p.name} consultant.\n\n"
                                     f"## PERSONA\n{persona_profile}\n\n"
-                                    f"## PROBLEM\n{ps_s1}\n\n"
+                                    f"## PROBLEM\n{ps_s1_for_p}\n\n"
                                     "## KEY ANALYSIS SIGNALS\n"
                                     f"{_json_s1.dumps(da_compact_s1, indent=2)}\n\n"
                                     "## BUSINESS CONTEXT\n"
