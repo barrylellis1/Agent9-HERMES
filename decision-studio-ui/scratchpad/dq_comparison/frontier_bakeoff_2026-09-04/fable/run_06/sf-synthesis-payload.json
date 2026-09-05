@@ -1,0 +1,1325 @@
+{
+ "solutions": {
+  "status": "success",
+  "request_id": "bakeoff-synthesis-1788565961014",
+  "timestamp": "2026-09-04T23:54:46.847682",
+  "error_message": null,
+  "analysis_degraded": false,
+  "degraded_reason": null,
+  "options_ranked": [
+   {
+    "id": "opt_2",
+    "title": "Base Oil Procurement Hedging, Supplier Renegotiation, and Cost-to-Serve Reduction",
+    "description": "Attack the COGS side directly, which the price-lock does not constrain: renegotiate base-oil supplier terms and evaluate forward hedging instruments to stabilize feedstock cost, and run a cost-to-serve teardown on Synthetic Blend and Conventional grades to extract manufacturing yield, packaging, and distribution consolidation savings deployable within the price-lock window. First workstream is a measurement-integrity check: confirm the margin drop is a real cost shock, not an overhead-allocation artefact. Products within threshold (per the unaffected timeframe buckets) are excluded from intervention scope.",
+    "expected_impact": 0.75,
+    "cost": 0.5,
+    "risk": 0.4,
+    "evidence": null,
+    "rationale": "The intervention pulls the confirmed base_oil_cost -> COGS -> Gross Margin % chain \u2014 the only fully confirmed causal path to the root cause \u2014 and is the only option entirely untouched by the price-lock constraint because it operates on the numerator's cost side, not price.",
+    "time_to_value": "45\u2013120 days (renegotiation and process levers), hedging protection accrues over subsequent quarters",
+    "reversibility": "high",
+    "lens_views": [
+     {
+      "lens": "Operational",
+      "arguments_for": [
+       "Targets the confirmed root-cause chain (base_oil_cost sums into COGS, which directly moves Gross Margin %) rather than symptoms.",
+       "Fully compliant with the price-lock clause since no customer-facing price changes are required."
+      ],
+      "arguments_against": [
+       "Supplier concessions depend on negotiating leverage; if base-oil markets are tight, renegotiation may yield little.",
+       "Hedging instruments carry premium costs and basis risk that can consume part of the projected recovery."
+      ],
+      "key_questions": [
+       "What has actual base-oil landed cost done period-over-period since 2026-006, and does its magnitude reconcile to the 7.14pp decline?"
+      ]
+     },
+     {
+      "lens": "Commercial",
+      "arguments_for": [
+       "Cost stabilization protects margin on price-locked anchor volume that no commercial lever can reach mid-quarter."
+      ],
+      "arguments_against": [
+       "Ignores the revenue side entirely \u2014 leaves recoverable spot-market pricing headroom on the table."
+      ],
+      "key_questions": [
+       "Should procurement savings be banked or partially reinvested in price competitiveness?"
+      ]
+     },
+     {
+      "lens": "Structural",
+      "arguments_for": [
+       "The audit output (is this cyclical feedstock inflation or a structural cost reset?) is the decisive input for any future portfolio participation decision."
+      ],
+      "arguments_against": [
+       "If the cost shock is structural rather than cyclical, hedging only delays rather than resolves the margin problem."
+      ],
+      "key_questions": [
+       "Does the base-oil cost trajectory look like a cyclical spike or a permanent step-change?"
+      ]
+     }
+    ],
+    "implementation_triggers": [
+     "Base-oil cost decomposition confirms input inflation accounts for the majority of the COGS increase",
+     "Overhead-absorption check rules out costing-methodology artefacts"
+    ],
+    "prerequisites": [
+     "Decompose COGS variance since 2026-006 into base oil, manufacturing, packaging, and distribution components (all confirmed COGS categories)",
+     "Treasury sign-off on hedging instrument mandate and exposure limits",
+     "Supplier contract inventory with renewal dates and volume commitments"
+    ],
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.0,
+      "high": 5.5
+     },
+     "basis": "Supplier renegotiation (1.5\u20132.5pp), forward hedging (0.8\u20131.5pp), and manufacturing/packaging/distribution efficiency (0.7\u20131.5pp) against the 7.14pp Synthetic Blend and 6.61pp Conventional segment declines; sized to the affected engine-oil segments, not the enterprise headline.",
+     "scope": "segment",
+     "scope_label": "Engine Oils (Synthetic Blend & Conventional)",
+     "lever": null,
+     "source": "llm_estimated"
+    },
+    "key_assumptions": [
+     {
+      "assumption": "Base-oil cost inflation, not a costing/allocation artefact or discounting, is the dominant driver of the engine-oil margin decline.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "high",
+      "provenance": "COGS decomposition since 2026-006 shows the Raw Materials (base oil) line accounting for the majority of the COGS increase; falsified if allocation changes or discounts explain it."
+     },
+     {
+      "assumption": "COGS movements pass through directly to Gross Margin %.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": true,
+      "confidence": "high",
+      "provenance": "Confirmed client relationship: gross_margin_pct <-> cogs (direct, confirmed); base_oil_cost is a confirmed account_category component of COGS."
+     },
+     {
+      "assumption": "Suppliers will concede 1.5\u20132.5pp-equivalent cost relief through renegotiation or term restructuring.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Signed supplier amendments delivering measurable per-unit base-oil cost reduction within 120 days."
+     }
+    ],
+    "flagged_side_effects": [],
+    "dominated_by": null
+   },
+   {
+    "id": "opt_1",
+    "title": "Tiered Price Escalation on Synthetic Blend \u2014 Spot Repricing Plus Renewal-Cycle Pass-Through Clauses",
+    "description": "Recover margin on Synthetic Blend Engine Oil (the largest single decline, -7.14pp) through a two-tier mechanism explicitly scoped to EXCLUDE anchor accounts under the mid-quarter price-lock: (1) 3\u20134% ASP escalation on spot/transactional customers not bound by the price-lock clause; (2) embed base-oil cost-pass-through/indexation clauses into anchor-account contracts at their next renewal window, not mid-quarter. Compressor Oil and Hydraulic Oil follow in a second wave; segments within threshold require no intervention.",
+    "expected_impact": 0.68,
+    "cost": 0.45,
+    "risk": 0.5,
+    "evidence": null,
+    "rationale": "Pulls the confirmed net_revenue <-> gross_margin_pct relationship directly: price recovery on unconstrained volume moves the ratio without waiting for procurement outcomes. The critic finding on anchor-account exposure is answered by hard-gating the repricing list against the price-lock register before any escalation letter is issued.",
+    "time_to_value": "30\u201390 days for spot repricing; renewal-window timing for pass-through clauses",
+    "reversibility": "medium",
+    "lens_views": [
+     {
+      "lens": "Commercial",
+      "arguments_for": [
+       "Directly monetizes the confirmed revenue-to-margin mechanism on the single product with the largest margin delta, without touching COGS assumptions.",
+       "Indexation clauses at renewal convert a one-time recovery into structural protection against future base-oil inflation."
+      ],
+      "arguments_against": [
+       "Spot repricing risks volume leakage to competitors if the cost shock is not industry-wide.",
+       "Treats the current portfolio as fixed and does not question whether Value-category demand is worth serving at these margins."
+      ],
+      "key_questions": [
+       "What share of Synthetic Blend revenue is spot/transactional vs price-locked anchor volume?",
+       "When do the next three largest anchor contracts come up for renewal?"
+      ]
+     },
+     {
+      "lens": "Operational",
+      "arguments_for": [
+       "Requires no capital and can be executed by the existing pricing team within one quarter."
+      ],
+      "arguments_against": [
+       "Does nothing about the underlying input-cost shock, so margin remains exposed if base oil continues to inflate faster than repricing cadence."
+      ],
+      "key_questions": [
+       "Has the price-lock register been validated against every contract slated for repricing?"
+      ]
+     },
+     {
+      "lens": "Structural",
+      "arguments_for": [
+       "Renewal-cycle indexation is a durable structural change to contract architecture, not just a tactical price move."
+      ],
+      "arguments_against": [
+       "If engine-oil category margins are in structural decline, repricing defends a position that may warrant a participation review instead."
+      ],
+      "key_questions": [
+       "Are competitors passing through the same base-oil inflation, or is this a firm-specific cost disadvantage?"
+      ]
+     }
+    ],
+    "implementation_triggers": [
+     "Price-lock contract register validated and repricing list cleared of all anchor accounts",
+     "Competitor pricing scan confirms market-wide pass-through of base-oil inflation"
+    ],
+    "prerequisites": [
+     "Legal review of every targeted contract against the mid-quarter price-lock clause before any escalation notice",
+     "Segmentation of Synthetic Blend revenue into spot vs contracted volume",
+     "Renewal calendar for anchor accounts with pass-through clause language drafted"
+    ],
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.5,
+      "high": 4.2
+     },
+     "basis": "A 3\u20134% ASP lift on spot Synthetic Blend volume plus renewal-cycle pass-through clauses recovers 2.5\u20134.2pp of the observed 7.14pp segment decline; partial because price-locked anchor volume (~40\u201350%) is unaddressable mid-quarter.",
+     "scope": "segment",
+     "scope_label": "Synthetic Blend Engine Oil",
+     "lever": null,
+     "source": "llm_estimated"
+    },
+    "key_assumptions": [
+     {
+      "assumption": "Spot/transactional volume is large enough (~50%+ of Synthetic Blend revenue) for a 3\u20134% ASP lift to move segment margin materially.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Revenue split of Synthetic Blend between spot and price-locked contracted volume, from order-level data."
+     },
+     {
+      "assumption": "A 3\u20134% price increase will not trigger volume loss exceeding the margin gain.",
+      "validated_by": "ma_query",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Post-repricing units_sold trend on repriced accounts vs held-out accounts over two periods."
+     },
+     {
+      "assumption": "Price/mix movements pass through to Gross Margin % as the ratio's numerator.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": true,
+      "confidence": "high",
+      "provenance": "Confirmed client relationship: net_revenue <-> gross_margin_pct (direct, confirmed)."
+     }
+    ],
+    "flagged_side_effects": [
+     "Original proposal did not exclude price-locked anchor accounts from repricing; this option now hard-gates all repricing against the contract register, restricting escalation to spot customers and moving anchor-account changes to renewal windows only."
+    ],
+    "dominated_by": null
+   },
+   {
+    "id": "opt_3",
+    "title": "Anchor-Account Contract Restructuring \u2014 Volume Tiers and Mix Incentives with Rebate-Economics Guardrails",
+    "description": "For anchor accounts locked out of mid-quarter repricing, restructure commercial terms via volume-tier and mix-shift incentives (e.g., rebates conditional on shifting volume toward higher-margin formulations), preceded by a base-oil pass-through audit that quantifies how much of the 7.14pp decline is recoverable via contract structure. Two guardrails are built in: (a) the mix-to-margin lift is treated as a hypothesis to validate with actual product-level margin data, not a fact, because the premium-mix relationship is an unconfirmed industry prior; (b) every rebate design must pass a net-economics test proving the rebate accrual (which reduces net revenue, a confirmed margin driver) is smaller than the margin gained from the mix or velocity change. Spot customers and within-threshold products are out of scope.",
+    "expected_impact": 0.52,
+    "cost": 0.6,
+    "risk": 0.62,
+    "evidence": null,
+    "rationale": "This is the only mechanism that reaches price-locked anchor volume without violating the constraint, because it changes economics via rebate structure rather than unit list price. Consistency check: the mix-shift target (premium formulations) is directionally supported \u2014 Engine Oils line margin (26.03%) still exceeds Value-category margin (19.82%) even after the decline \u2014 but the size of the mix-to-margin lift rests on an unconfirmed prior, so a per-account margin validation step precedes rollout.",
+    "time_to_value": "90\u2013180 days; requires customer negotiation cycles",
+    "reversibility": "medium",
+    "lens_views": [
+     {
+      "lens": "Structural",
+      "arguments_for": [
+       "Reaches the ~40\u201350% of volume that neither repricing nor short-term procurement action can protect, converting the price-lock constraint into a contract-design opportunity.",
+       "The pass-through audit doubles as the structural-vs-cyclical diagnostic needed for any future participation decision on the Value category."
+      ],
+      "arguments_against": [
+       "Customer participation in rebate-for-mix programs is uncertain and may skew toward accounts that would have shifted mix anyway, paying rebates for behavior that was free."
+      ],
+      "key_questions": [
+       "What is the current-state margin spread between premium formulations and Synthetic Blend at the account level, after the cost shock?"
+      ]
+     },
+     {
+      "lens": "Commercial",
+      "arguments_for": [
+       "Restructured terms at anchor accounts create renewal-cycle leverage for embedding indexation clauses later."
+      ],
+      "arguments_against": [
+       "Rebate accruals are booked as reductions to net revenue \u2014 a confirmed direct margin driver \u2014 so poorly-designed tiers could erode the very margin they aim to recover."
+      ],
+      "key_questions": [
+       "What breakeven rebate rate leaves net margin positive under conservative mix-shift uptake?"
+      ]
+     },
+     {
+      "lens": "Operational",
+      "arguments_for": [
+       "The upfront pass-through audit produces the cost-decomposition evidence all three options need."
+      ],
+      "arguments_against": [
+       "Rebate administration adds process and accrual-accounting complexity that raises cost-to-serve on the affected accounts."
+      ],
+      "key_questions": [
+       "Can finance accrue and true-up tiered rebates accurately at the account level with current systems?"
+      ]
+     }
+    ],
+    "implementation_triggers": [
+     "Account-level margin data confirms premium formulations retain a margin advantage over Synthetic Blend/Conventional after the cost shock",
+     "Net-economics model shows rebate cost below expected mix-driven margin gain at conservative uptake"
+    ],
+    "prerequisites": [
+     "Base-oil pass-through audit quantifying the recoverable share of the 7.14pp decline",
+     "Validation of the premium-mix-to-margin relationship with actual product-level margin data (it is currently an unconfirmed industry prior)",
+     "Rebate net-economics model signed off by finance before any customer proposal",
+     "Legal confirmation that rebate restructuring does not breach the price-lock or trigger most-favored-customer clauses"
+    ],
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.5,
+      "high": 4.2
+     },
+     "basis": "Rebate-driven 5\u20138% mix shift toward higher-margin formulations plus order-velocity gains within anchor accounts recovers 2.5\u20134.2pp of the 7.14pp Synthetic Blend decline, net of rebate accrual costs; sized to the anchor-account portion of the affected segment.",
+     "scope": "segment",
+     "scope_label": "Synthetic Blend Engine Oil (anchor accounts)",
+     "lever": null,
+     "source": "llm_estimated"
+    },
+    "key_assumptions": [
+     {
+      "assumption": "Shifting anchor-account mix toward premium formulations lifts blended gross margin.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "The premium_mix_pct <-> gross_margin_pct relationship is an unconfirmed template prior; validated by account-level margin comparison of premium vs blend formulations in current-period data."
+     },
+     {
+      "assumption": "Rebate accruals will be smaller than the margin gained from mix shift and velocity, leaving net margin positive.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Net-economics model reconciled against actuals after one rebate cycle; falsified if net_revenue reduction from accruals exceeds margin gain (net_revenue -> gross_margin_pct is confirmed)."
+     },
+     {
+      "assumption": "Anchor accounts will participate in volume/mix incentive programs at meaningful uptake rates.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "Signed amendments with at least two of the top five anchor accounts within 120 days."
+     }
+    ],
+    "flagged_side_effects": [
+     "The mix-shift-to-margin mechanism rests on an unconfirmed industry prior, not validated data; expected recovery could be materially overstated, so account-level margin validation gates the rollout.",
+     "Rebates are booked as reductions to net revenue \u2014 a confirmed direct margin driver \u2014 meaning the incentive itself can erode margin; a mandatory net-economics breakeven test precedes every customer proposal."
+    ],
+    "dominated_by": null
+   }
+  ],
+  "tradeoff_matrix": {
+   "criteria": [
+    {
+     "name": "impact",
+     "weight": 0.4
+    },
+    {
+     "name": "cost",
+     "weight": 0.2
+    },
+    {
+     "name": "risk",
+     "weight": 0.4
+    }
+   ],
+   "options": [
+    {
+     "id": "opt_2",
+     "title": "Base Oil Procurement Hedging, Supplier Renegotiation, and Cost-to-Serve Reduction",
+     "description": "Attack the COGS side directly, which the price-lock does not constrain: renegotiate base-oil supplier terms and evaluate forward hedging instruments to stabilize feedstock cost, and run a cost-to-serve teardown on Synthetic Blend and Conventional grades to extract manufacturing yield, packaging, and distribution consolidation savings deployable within the price-lock window. First workstream is a measurement-integrity check: confirm the margin drop is a real cost shock, not an overhead-allocation artefact. Products within threshold (per the unaffected timeframe buckets) are excluded from intervention scope.",
+     "expected_impact": 0.75,
+     "cost": 0.5,
+     "risk": 0.4,
+     "evidence": null,
+     "rationale": "The intervention pulls the confirmed base_oil_cost -> COGS -> Gross Margin % chain \u2014 the only fully confirmed causal path to the root cause \u2014 and is the only option entirely untouched by the price-lock constraint because it operates on the numerator's cost side, not price.",
+     "time_to_value": "45\u2013120 days (renegotiation and process levers), hedging protection accrues over subsequent quarters",
+     "reversibility": "high",
+     "lens_views": [
+      {
+       "lens": "Operational",
+       "arguments_for": [
+        "Targets the confirmed root-cause chain (base_oil_cost sums into COGS, which directly moves Gross Margin %) rather than symptoms.",
+        "Fully compliant with the price-lock clause since no customer-facing price changes are required."
+       ],
+       "arguments_against": [
+        "Supplier concessions depend on negotiating leverage; if base-oil markets are tight, renegotiation may yield little.",
+        "Hedging instruments carry premium costs and basis risk that can consume part of the projected recovery."
+       ],
+       "key_questions": [
+        "What has actual base-oil landed cost done period-over-period since 2026-006, and does its magnitude reconcile to the 7.14pp decline?"
+       ]
+      },
+      {
+       "lens": "Commercial",
+       "arguments_for": [
+        "Cost stabilization protects margin on price-locked anchor volume that no commercial lever can reach mid-quarter."
+       ],
+       "arguments_against": [
+        "Ignores the revenue side entirely \u2014 leaves recoverable spot-market pricing headroom on the table."
+       ],
+       "key_questions": [
+        "Should procurement savings be banked or partially reinvested in price competitiveness?"
+       ]
+      },
+      {
+       "lens": "Structural",
+       "arguments_for": [
+        "The audit output (is this cyclical feedstock inflation or a structural cost reset?) is the decisive input for any future portfolio participation decision."
+       ],
+       "arguments_against": [
+        "If the cost shock is structural rather than cyclical, hedging only delays rather than resolves the margin problem."
+       ],
+       "key_questions": [
+        "Does the base-oil cost trajectory look like a cyclical spike or a permanent step-change?"
+       ]
+      }
+     ],
+     "implementation_triggers": [
+      "Base-oil cost decomposition confirms input inflation accounts for the majority of the COGS increase",
+      "Overhead-absorption check rules out costing-methodology artefacts"
+     ],
+     "prerequisites": [
+      "Decompose COGS variance since 2026-006 into base oil, manufacturing, packaging, and distribution components (all confirmed COGS categories)",
+      "Treasury sign-off on hedging instrument mandate and exposure limits",
+      "Supplier contract inventory with renewal dates and volume commitments"
+     ],
+     "impact_estimate": {
+      "metric": "Gross Margin %",
+      "unit": "%",
+      "recovery_range": {
+       "low": 3.0,
+       "high": 5.5
+      },
+      "basis": "Supplier renegotiation (1.5\u20132.5pp), forward hedging (0.8\u20131.5pp), and manufacturing/packaging/distribution efficiency (0.7\u20131.5pp) against the 7.14pp Synthetic Blend and 6.61pp Conventional segment declines; sized to the affected engine-oil segments, not the enterprise headline.",
+      "scope": "segment",
+      "scope_label": "Engine Oils (Synthetic Blend & Conventional)",
+      "lever": null,
+      "source": "llm_estimated"
+     },
+     "key_assumptions": [
+      {
+       "assumption": "Base-oil cost inflation, not a costing/allocation artefact or discounting, is the dominant driver of the engine-oil margin decline.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "high",
+       "provenance": "COGS decomposition since 2026-006 shows the Raw Materials (base oil) line accounting for the majority of the COGS increase; falsified if allocation changes or discounts explain it."
+      },
+      {
+       "assumption": "COGS movements pass through directly to Gross Margin %.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": true,
+       "confidence": "high",
+       "provenance": "Confirmed client relationship: gross_margin_pct <-> cogs (direct, confirmed); base_oil_cost is a confirmed account_category component of COGS."
+      },
+      {
+       "assumption": "Suppliers will concede 1.5\u20132.5pp-equivalent cost relief through renegotiation or term restructuring.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Signed supplier amendments delivering measurable per-unit base-oil cost reduction within 120 days."
+      }
+     ],
+     "flagged_side_effects": [],
+     "dominated_by": null
+    },
+    {
+     "id": "opt_1",
+     "title": "Tiered Price Escalation on Synthetic Blend \u2014 Spot Repricing Plus Renewal-Cycle Pass-Through Clauses",
+     "description": "Recover margin on Synthetic Blend Engine Oil (the largest single decline, -7.14pp) through a two-tier mechanism explicitly scoped to EXCLUDE anchor accounts under the mid-quarter price-lock: (1) 3\u20134% ASP escalation on spot/transactional customers not bound by the price-lock clause; (2) embed base-oil cost-pass-through/indexation clauses into anchor-account contracts at their next renewal window, not mid-quarter. Compressor Oil and Hydraulic Oil follow in a second wave; segments within threshold require no intervention.",
+     "expected_impact": 0.68,
+     "cost": 0.45,
+     "risk": 0.5,
+     "evidence": null,
+     "rationale": "Pulls the confirmed net_revenue <-> gross_margin_pct relationship directly: price recovery on unconstrained volume moves the ratio without waiting for procurement outcomes. The critic finding on anchor-account exposure is answered by hard-gating the repricing list against the price-lock register before any escalation letter is issued.",
+     "time_to_value": "30\u201390 days for spot repricing; renewal-window timing for pass-through clauses",
+     "reversibility": "medium",
+     "lens_views": [
+      {
+       "lens": "Commercial",
+       "arguments_for": [
+        "Directly monetizes the confirmed revenue-to-margin mechanism on the single product with the largest margin delta, without touching COGS assumptions.",
+        "Indexation clauses at renewal convert a one-time recovery into structural protection against future base-oil inflation."
+       ],
+       "arguments_against": [
+        "Spot repricing risks volume leakage to competitors if the cost shock is not industry-wide.",
+        "Treats the current portfolio as fixed and does not question whether Value-category demand is worth serving at these margins."
+       ],
+       "key_questions": [
+        "What share of Synthetic Blend revenue is spot/transactional vs price-locked anchor volume?",
+        "When do the next three largest anchor contracts come up for renewal?"
+       ]
+      },
+      {
+       "lens": "Operational",
+       "arguments_for": [
+        "Requires no capital and can be executed by the existing pricing team within one quarter."
+       ],
+       "arguments_against": [
+        "Does nothing about the underlying input-cost shock, so margin remains exposed if base oil continues to inflate faster than repricing cadence."
+       ],
+       "key_questions": [
+        "Has the price-lock register been validated against every contract slated for repricing?"
+       ]
+      },
+      {
+       "lens": "Structural",
+       "arguments_for": [
+        "Renewal-cycle indexation is a durable structural change to contract architecture, not just a tactical price move."
+       ],
+       "arguments_against": [
+        "If engine-oil category margins are in structural decline, repricing defends a position that may warrant a participation review instead."
+       ],
+       "key_questions": [
+        "Are competitors passing through the same base-oil inflation, or is this a firm-specific cost disadvantage?"
+       ]
+      }
+     ],
+     "implementation_triggers": [
+      "Price-lock contract register validated and repricing list cleared of all anchor accounts",
+      "Competitor pricing scan confirms market-wide pass-through of base-oil inflation"
+     ],
+     "prerequisites": [
+      "Legal review of every targeted contract against the mid-quarter price-lock clause before any escalation notice",
+      "Segmentation of Synthetic Blend revenue into spot vs contracted volume",
+      "Renewal calendar for anchor accounts with pass-through clause language drafted"
+     ],
+     "impact_estimate": {
+      "metric": "Gross Margin %",
+      "unit": "%",
+      "recovery_range": {
+       "low": 2.5,
+       "high": 4.2
+      },
+      "basis": "A 3\u20134% ASP lift on spot Synthetic Blend volume plus renewal-cycle pass-through clauses recovers 2.5\u20134.2pp of the observed 7.14pp segment decline; partial because price-locked anchor volume (~40\u201350%) is unaddressable mid-quarter.",
+      "scope": "segment",
+      "scope_label": "Synthetic Blend Engine Oil",
+      "lever": null,
+      "source": "llm_estimated"
+     },
+     "key_assumptions": [
+      {
+       "assumption": "Spot/transactional volume is large enough (~50%+ of Synthetic Blend revenue) for a 3\u20134% ASP lift to move segment margin materially.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Revenue split of Synthetic Blend between spot and price-locked contracted volume, from order-level data."
+      },
+      {
+       "assumption": "A 3\u20134% price increase will not trigger volume loss exceeding the margin gain.",
+       "validated_by": "ma_query",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Post-repricing units_sold trend on repriced accounts vs held-out accounts over two periods."
+      },
+      {
+       "assumption": "Price/mix movements pass through to Gross Margin % as the ratio's numerator.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": true,
+       "confidence": "high",
+       "provenance": "Confirmed client relationship: net_revenue <-> gross_margin_pct (direct, confirmed)."
+      }
+     ],
+     "flagged_side_effects": [
+      "Original proposal did not exclude price-locked anchor accounts from repricing; this option now hard-gates all repricing against the contract register, restricting escalation to spot customers and moving anchor-account changes to renewal windows only."
+     ],
+     "dominated_by": null
+    },
+    {
+     "id": "opt_3",
+     "title": "Anchor-Account Contract Restructuring \u2014 Volume Tiers and Mix Incentives with Rebate-Economics Guardrails",
+     "description": "For anchor accounts locked out of mid-quarter repricing, restructure commercial terms via volume-tier and mix-shift incentives (e.g., rebates conditional on shifting volume toward higher-margin formulations), preceded by a base-oil pass-through audit that quantifies how much of the 7.14pp decline is recoverable via contract structure. Two guardrails are built in: (a) the mix-to-margin lift is treated as a hypothesis to validate with actual product-level margin data, not a fact, because the premium-mix relationship is an unconfirmed industry prior; (b) every rebate design must pass a net-economics test proving the rebate accrual (which reduces net revenue, a confirmed margin driver) is smaller than the margin gained from the mix or velocity change. Spot customers and within-threshold products are out of scope.",
+     "expected_impact": 0.52,
+     "cost": 0.6,
+     "risk": 0.62,
+     "evidence": null,
+     "rationale": "This is the only mechanism that reaches price-locked anchor volume without violating the constraint, because it changes economics via rebate structure rather than unit list price. Consistency check: the mix-shift target (premium formulations) is directionally supported \u2014 Engine Oils line margin (26.03%) still exceeds Value-category margin (19.82%) even after the decline \u2014 but the size of the mix-to-margin lift rests on an unconfirmed prior, so a per-account margin validation step precedes rollout.",
+     "time_to_value": "90\u2013180 days; requires customer negotiation cycles",
+     "reversibility": "medium",
+     "lens_views": [
+      {
+       "lens": "Structural",
+       "arguments_for": [
+        "Reaches the ~40\u201350% of volume that neither repricing nor short-term procurement action can protect, converting the price-lock constraint into a contract-design opportunity.",
+        "The pass-through audit doubles as the structural-vs-cyclical diagnostic needed for any future participation decision on the Value category."
+       ],
+       "arguments_against": [
+        "Customer participation in rebate-for-mix programs is uncertain and may skew toward accounts that would have shifted mix anyway, paying rebates for behavior that was free."
+       ],
+       "key_questions": [
+        "What is the current-state margin spread between premium formulations and Synthetic Blend at the account level, after the cost shock?"
+       ]
+      },
+      {
+       "lens": "Commercial",
+       "arguments_for": [
+        "Restructured terms at anchor accounts create renewal-cycle leverage for embedding indexation clauses later."
+       ],
+       "arguments_against": [
+        "Rebate accruals are booked as reductions to net revenue \u2014 a confirmed direct margin driver \u2014 so poorly-designed tiers could erode the very margin they aim to recover."
+       ],
+       "key_questions": [
+        "What breakeven rebate rate leaves net margin positive under conservative mix-shift uptake?"
+       ]
+      },
+      {
+       "lens": "Operational",
+       "arguments_for": [
+        "The upfront pass-through audit produces the cost-decomposition evidence all three options need."
+       ],
+       "arguments_against": [
+        "Rebate administration adds process and accrual-accounting complexity that raises cost-to-serve on the affected accounts."
+       ],
+       "key_questions": [
+        "Can finance accrue and true-up tiered rebates accurately at the account level with current systems?"
+       ]
+      }
+     ],
+     "implementation_triggers": [
+      "Account-level margin data confirms premium formulations retain a margin advantage over Synthetic Blend/Conventional after the cost shock",
+      "Net-economics model shows rebate cost below expected mix-driven margin gain at conservative uptake"
+     ],
+     "prerequisites": [
+      "Base-oil pass-through audit quantifying the recoverable share of the 7.14pp decline",
+      "Validation of the premium-mix-to-margin relationship with actual product-level margin data (it is currently an unconfirmed industry prior)",
+      "Rebate net-economics model signed off by finance before any customer proposal",
+      "Legal confirmation that rebate restructuring does not breach the price-lock or trigger most-favored-customer clauses"
+     ],
+     "impact_estimate": {
+      "metric": "Gross Margin %",
+      "unit": "%",
+      "recovery_range": {
+       "low": 2.5,
+       "high": 4.2
+      },
+      "basis": "Rebate-driven 5\u20138% mix shift toward higher-margin formulations plus order-velocity gains within anchor accounts recovers 2.5\u20134.2pp of the 7.14pp Synthetic Blend decline, net of rebate accrual costs; sized to the anchor-account portion of the affected segment.",
+      "scope": "segment",
+      "scope_label": "Synthetic Blend Engine Oil (anchor accounts)",
+      "lever": null,
+      "source": "llm_estimated"
+     },
+     "key_assumptions": [
+      {
+       "assumption": "Shifting anchor-account mix toward premium formulations lifts blended gross margin.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "The premium_mix_pct <-> gross_margin_pct relationship is an unconfirmed template prior; validated by account-level margin comparison of premium vs blend formulations in current-period data."
+      },
+      {
+       "assumption": "Rebate accruals will be smaller than the margin gained from mix shift and velocity, leaving net margin positive.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Net-economics model reconciled against actuals after one rebate cycle; falsified if net_revenue reduction from accruals exceeds margin gain (net_revenue -> gross_margin_pct is confirmed)."
+      },
+      {
+       "assumption": "Anchor accounts will participate in volume/mix incentive programs at meaningful uptake rates.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "Signed amendments with at least two of the top five anchor accounts within 120 days."
+      }
+     ],
+     "flagged_side_effects": [
+      "The mix-shift-to-margin mechanism rests on an unconfirmed industry prior, not validated data; expected recovery could be materially overstated, so account-level margin validation gates the rollout.",
+      "Rebates are booked as reductions to net revenue \u2014 a confirmed direct margin driver \u2014 meaning the incentive itself can erode margin; a mandatory net-economics breakeven test precedes every customer proposal."
+     ],
+     "dominated_by": null
+    }
+   ],
+   "criteria_source": "business_context"
+  },
+  "recommendation": {
+   "id": "opt_2",
+   "title": "Base Oil Procurement Hedging, Supplier Renegotiation, and Cost-to-Serve Reduction",
+   "description": "Attack the COGS side directly, which the price-lock does not constrain: renegotiate base-oil supplier terms and evaluate forward hedging instruments to stabilize feedstock cost, and run a cost-to-serve teardown on Synthetic Blend and Conventional grades to extract manufacturing yield, packaging, and distribution consolidation savings deployable within the price-lock window. First workstream is a measurement-integrity check: confirm the margin drop is a real cost shock, not an overhead-allocation artefact. Products within threshold (per the unaffected timeframe buckets) are excluded from intervention scope.",
+   "expected_impact": 0.75,
+   "cost": 0.5,
+   "risk": 0.4,
+   "evidence": null,
+   "rationale": "The intervention pulls the confirmed base_oil_cost -> COGS -> Gross Margin % chain \u2014 the only fully confirmed causal path to the root cause \u2014 and is the only option entirely untouched by the price-lock constraint because it operates on the numerator's cost side, not price.",
+   "time_to_value": "45\u2013120 days (renegotiation and process levers), hedging protection accrues over subsequent quarters",
+   "reversibility": "high",
+   "lens_views": [
+    {
+     "lens": "Operational",
+     "arguments_for": [
+      "Targets the confirmed root-cause chain (base_oil_cost sums into COGS, which directly moves Gross Margin %) rather than symptoms.",
+      "Fully compliant with the price-lock clause since no customer-facing price changes are required."
+     ],
+     "arguments_against": [
+      "Supplier concessions depend on negotiating leverage; if base-oil markets are tight, renegotiation may yield little.",
+      "Hedging instruments carry premium costs and basis risk that can consume part of the projected recovery."
+     ],
+     "key_questions": [
+      "What has actual base-oil landed cost done period-over-period since 2026-006, and does its magnitude reconcile to the 7.14pp decline?"
+     ]
+    },
+    {
+     "lens": "Commercial",
+     "arguments_for": [
+      "Cost stabilization protects margin on price-locked anchor volume that no commercial lever can reach mid-quarter."
+     ],
+     "arguments_against": [
+      "Ignores the revenue side entirely \u2014 leaves recoverable spot-market pricing headroom on the table."
+     ],
+     "key_questions": [
+      "Should procurement savings be banked or partially reinvested in price competitiveness?"
+     ]
+    },
+    {
+     "lens": "Structural",
+     "arguments_for": [
+      "The audit output (is this cyclical feedstock inflation or a structural cost reset?) is the decisive input for any future portfolio participation decision."
+     ],
+     "arguments_against": [
+      "If the cost shock is structural rather than cyclical, hedging only delays rather than resolves the margin problem."
+     ],
+     "key_questions": [
+      "Does the base-oil cost trajectory look like a cyclical spike or a permanent step-change?"
+     ]
+    }
+   ],
+   "implementation_triggers": [
+    "Base-oil cost decomposition confirms input inflation accounts for the majority of the COGS increase",
+    "Overhead-absorption check rules out costing-methodology artefacts"
+   ],
+   "prerequisites": [
+    "Decompose COGS variance since 2026-006 into base oil, manufacturing, packaging, and distribution components (all confirmed COGS categories)",
+    "Treasury sign-off on hedging instrument mandate and exposure limits",
+    "Supplier contract inventory with renewal dates and volume commitments"
+   ],
+   "impact_estimate": {
+    "metric": "Gross Margin %",
+    "unit": "%",
+    "recovery_range": {
+     "low": 3.0,
+     "high": 5.5
+    },
+    "basis": "Supplier renegotiation (1.5\u20132.5pp), forward hedging (0.8\u20131.5pp), and manufacturing/packaging/distribution efficiency (0.7\u20131.5pp) against the 7.14pp Synthetic Blend and 6.61pp Conventional segment declines; sized to the affected engine-oil segments, not the enterprise headline.",
+    "scope": "segment",
+    "scope_label": "Engine Oils (Synthetic Blend & Conventional)",
+    "lever": null,
+    "source": "llm_estimated"
+   },
+   "key_assumptions": [
+    {
+     "assumption": "Base-oil cost inflation, not a costing/allocation artefact or discounting, is the dominant driver of the engine-oil margin decline.",
+     "validated_by": "sa_assessment",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": false,
+     "confidence": "high",
+     "provenance": "COGS decomposition since 2026-006 shows the Raw Materials (base oil) line accounting for the majority of the COGS increase; falsified if allocation changes or discounts explain it."
+    },
+    {
+     "assumption": "COGS movements pass through directly to Gross Margin %.",
+     "validated_by": "sa_assessment",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": true,
+     "confidence": "high",
+     "provenance": "Confirmed client relationship: gross_margin_pct <-> cogs (direct, confirmed); base_oil_cost is a confirmed account_category component of COGS."
+    },
+    {
+     "assumption": "Suppliers will concede 1.5\u20132.5pp-equivalent cost relief through renegotiation or term restructuring.",
+     "validated_by": "human_confirmation",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": false,
+     "confidence": "moderate",
+     "provenance": "Signed supplier amendments delivering measurable per-unit base-oil cost reduction within 120 days."
+    }
+   ],
+   "flagged_side_effects": [],
+   "dominated_by": null
+  },
+  "recommendation_rationale": "The synchronized declines in Synthetic Blend (-7.14pp), Conventional (-6.61pp), and Compressor Oil (-5.86pp) point to a common input-cost shock, and the only fully confirmed causal path to that root cause is base_oil_cost summing into COGS, which directly moves Gross Margin %. The procurement and cost-to-serve intervention attacks that confirmed chain with the highest recovery range (3.0\u20135.5pp) while remaining completely untouched by the anchor-account price-lock constraint that limits both commercial alternatives. Its COGS decomposition also produces the evidence base the spot-repricing and contract-restructuring plays require, making it the correct first move that sequences rather than excludes the other two.",
+  "problem_reframe": {
+   "situation": "Gross Margin % has dropped by 7.14 points year_to_date (current level 20.64 on the driving segment; enterprise margin fell from 34.43% to 29.94%, a -4.49pp net decline vs prior year_to_date).",
+   "complication": "The compression is not uniform: Synthetic Blend Engine Oil (-7.14pp), Conventional Engine Oil (-6.61pp), Compressor Oil (-5.86pp) and the Value category (-6.42pp) are all deteriorating simultaneously, while other timeframe buckets remain within threshold \u2014 a pattern consistent with a common upstream input-cost shock rather than product-specific demand shifts. A contractual price-lock clause blocks mid-quarter list-price recovery on Lubricants anchor accounts, constraining the fastest commercial lever.",
+   "question": "How do we recover 2.5\u20135.5 points of gross margin on the engine-oil portfolio within the price-lock constraint \u2014 via cost-side action, selective repricing on unconstrained volume, or contract-structure redesign?",
+   "key_assumptions": [
+    "The synchronized decline across three base-oil-intensive product lines indicates input-cost inflation as the dominant driver (COGS -> Gross Margin % is a confirmed relationship; base_oil_cost -> COGS is a confirmed component).",
+    "The price-lock clause binds only anchor-account list prices mid-quarter; spot/transactional volume and contract-renewal terms remain addressable.",
+    "The premium-mix-to-margin relationship is an unconfirmed industry prior and must not be relied on as a primary recovery mechanism without validation."
+   ]
+  },
+  "unresolved_tensions": [
+   {
+    "tension": "Whether the base-oil cost shock is a cyclical spike (favoring hedging and holding the portfolio) or a structural cost reset (favoring contract restructuring and eventual Value-category participation review) is undetermined.",
+    "options_affected": [
+     "opt_2",
+     "opt_3"
+    ],
+    "requires": "Head of Procurement to deliver a base-oil cost decomposition since 2026-006 with a cyclical-vs-structural assessment to the CFO by end of Week 3."
+   },
+   {
+    "tension": "Spot repricing and rebate restructuring both touch customer economics on overlapping accounts; uncoordinated rollout could send contradictory pricing signals to the market.",
+    "options_affected": [
+     "opt_1",
+     "opt_3"
+    ],
+    "requires": "VP Sales to produce an account-by-account sequencing map separating spot-repricing targets from anchor-account rebate candidates before any customer communication (target: Week 2)."
+   }
+  ],
+  "blind_spots": [
+   "No competitor pricing or pass-through data is present \u2014 if competitors are absorbing the same base-oil inflation, spot repricing risks share loss beyond what the elasticity assumptions capture.",
+   "The analysis has no plan-basis comparison, so part of the year-over-year decline could be a comparison-timing effect against an unusually strong prior year.",
+   "Discounting behavior is not decomposed: the confirmed net_revenue driver could be carrying unmeasured discount erosion alongside the cost shock.",
+   "No demand-side signal on whether Value-category volume is defensible long term; all three options assume continued participation in that category."
+  ],
+  "next_steps": [
+   "Head of Procurement to deliver a COGS variance decomposition since 2026-006 (base oil, manufacturing, packaging, distribution) to the CFO by end of Week 2.",
+   "CFO to commission an overhead-absorption and allocation-integrity check confirming the margin decline is a real cost shock, not a costing artefact, by end of Week 2.",
+   "VP Sales to segment Synthetic Blend revenue into spot vs price-locked contracted volume and produce the repricing-eligible account list, legal-cleared against the price-lock register, by end of Week 3.",
+   "Treasury lead to present a base-oil hedging instrument proposal with cost, basis-risk, and exposure limits for CFO go/no-go by end of Week 4.",
+   "Finance team to validate the premium-formulation vs Synthetic Blend margin spread at account level and build the rebate net-economics breakeven model before any anchor-account proposal (by Week 6)."
+  ],
+  "cross_review": null,
+  "stage_1_hypotheses": {
+   "commercial": {
+    "framework": "Price-Volume-Mix Decomposition with Customer Profitability Lens",
+    "hypothesis": "Gross margin compression in Synthetic Blend Engine Oil (\u22127.14pp) and Conventional Engine Oil (\u22126.61pp) is driven by a combination of elevated base oil input costs (confirmed COGS driver) and/or unrecovered price increases, compounded by a likely shift toward lower-margin Value-category SKUs within these product lines. The \u22126.42pp drop in Value category signals mix deterioration that is masking any premium-tier volume gains.",
+    "key_evidence": [
+     "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%), the largest single product-level decline, indicating this anchor SKU is bearing the brunt of input cost inflation without corresponding price recovery.",
+     "Value product category margin dropped 6.42pp (26.24% \u2192 19.82%), suggesting volume is shifting toward lower-priced tiers within oil grades rather than remaining in premium or mid-tier formulations.",
+     "Conventional Engine Oil margin fell 6.61pp (25.77% \u2192 19.16%), indicating cost pressure is not isolated to synthetic blends but is systemic across the oil portfolio\u2014consistent with base oil commodity cost increases."
+    ],
+    "recommended_focus": "Synthetic Blend Engine Oil",
+    "conviction": "High"
+   },
+   "operational": {
+    "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+    "hypothesis": "Base oil cost inflation is the primary driver of the 7.14 pp gross margin contraction in Synthetic Blend Engine Oil. The magnitude of decline (\u22127.14 pp) and concentration in synthetic and conventional grades\u2014both base-oil-intensive products\u2014combined with confirmed COGS\u2192margin mechanism and unconfirmed but plausible premium_mix_pct relationship, points to raw material cost pass-through failure rather than volume or pricing mix shift. The contractual price-lock constraint prevents mid-quarter list price recovery, forcing the margin compression to persist until the next allowable repricing window.",
+    "key_evidence": [
+     "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%), representing the largest single-product contributor to the overall decline; Conventional Engine Oil declined 6.61 pp (25.77% \u2192 19.16%), both concentrated in base-oil-dependent formulations.",
+     "COGS is confirmed as a direct, converging mechanism to gross margin % via base_oil_cost (INDIRECT via 2 hops, confirmed), indicating raw material inflation flows directly into COGS without offsetting revenue adjustment under the price-lock constraint.",
+     "The 'Value' product_category declined 6.42 pp (26.24% \u2192 19.82%), consistent with a cost-structure shock affecting the lower-margin, volume-driven segment where base oil represents a higher percentage of total landed cost and price elasticity limits recovery options."
+    ],
+    "recommended_focus": "Synthetic Blend Engine Oil",
+    "conviction": "High"
+   },
+   "structural": {
+    "framework": "Portfolio Participation Analysis + Structural Decline vs. Cyclical Dip",
+    "hypothesis": "Gross margin compression across engine oil grades (Synthetic Blend -7.14pp, Conventional -6.61pp) is driven by base oil cost inflation or contractual pass-through lag, not demand or mix shift. The 'Value' category decline (-6.42pp) confirms this is input-cost pressure, not pricing power or volume mix \u2014 a structural cost headwind masked by the premium-mix mechanism that should be offsetting it. The simultaneity across three oil types (Synthetic Blend, Conventional, Compressor Oil all declining -5.86 to -7.14pp) rules out product-specific demand shifts and points to a common cost driver upstream.",
+    "key_evidence": [
+     "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) while Conventional Engine Oil fell 6.61pp (25.77% \u2192 19.16%), indicating synchronized cost pressure across grades rather than mix or competitive dynamics",
+     "Value category (typically lower-margin, cost-sensitive) declined 6.42pp (26.24% \u2192 19.82%), confirming margin compression is driven by input costs, not volume or channel mix",
+     "Compressor Oil also declined 5.86pp, establishing a pattern across three distinct oil product lines \u2014 a portfolio-wide signal of base oil cost inflation or distribution cost surge, not isolated product performance"
+    ],
+    "recommended_focus": "Synthetic Blend Engine Oil",
+    "conviction": "High"
+   }
+  },
+  "moderator_grades": {
+   "opt_1": {
+    "constraint_survival": "pass",
+    "violated_constraints": [],
+    "causal_grounding": "net_revenue <-> gross_margin_pct (direct, confirmed): ASP lift moves the ratio's numerator",
+    "arithmetic_consistency": "pass",
+    "arithmetic_note": "",
+    "critic_findings_response": [
+     {
+      "finding": "Original proposal's repricing did not exclude price-locked anchor accounts",
+      "disposition": "answered"
+     }
+    ],
+    "grade_rationale": "The final option hard-gates repricing to spot/transactional customers and moves anchor-account changes to renewal windows, which is consistent with the mid-quarter price-lock constraint. The 2.5\u20134.2pp range sits within the 7.14pp Synthetic Blend segment decline it targets and is declared at segment scope."
+   },
+   "opt_2": {
+    "constraint_survival": "pass",
+    "violated_constraints": [],
+    "causal_grounding": "base_oil_cost -> cogs (confirmed component) -> gross_margin_pct (direct, confirmed)",
+    "arithmetic_consistency": "pass",
+    "arithmetic_note": "",
+    "critic_findings_response": [],
+    "grade_rationale": "The mechanism involves no customer-facing price change, so the price-lock constraint is not in scope of its actions. It pulls the only fully confirmed chain to the hypothesized root cause, and the 3.0\u20135.5pp range is below the 7.14pp/6.61pp segment declines it addresses at declared segment scope."
+   },
+   "opt_3": {
+    "constraint_survival": "pass",
+    "violated_constraints": [],
+    "causal_grounding": "premium_mix_pct <-> gross_margin_pct (template, UNCONFIRMED prior \u2014 explicitly caveated) with net_revenue <-> gross_margin_pct (confirmed) governing the rebate-cost guardrail",
+    "arithmetic_consistency": "flag",
+    "arithmetic_note": "The 2.5\u20134.2pp range depends on an unconfirmed mix-to-margin prior and is stated gross of rebate accruals in Stage 1; net-of-rebate recovery could land below 2.5pp until the breakeven model validates it.",
+    "critic_findings_response": [
+     {
+      "finding": "Mix-shift-to-margin link rests on an unconfirmed template prior",
+      "disposition": "answered"
+     },
+     {
+      "finding": "Rebate accruals reduce net revenue and could offset the intended margin recovery",
+      "disposition": "answered"
+     }
+    ],
+    "grade_rationale": "Rebate restructuring does not change unit list prices, so it is consistent with the price-lock constraint. Both critic findings are addressed via a mandatory margin-validation gate and a net-economics breakeven prerequisite, but the recovery range remains flagged because its primary causal edge is a template prior, not a confirmed relationship."
+   }
+  },
+  "constraint_exposure": {
+   "union_size": 1,
+   "by_persona": {
+    "commercial": {
+     "seen": [
+      "c_3723d48a"
+     ],
+     "unseen": []
+    },
+    "operational": {
+     "seen": [
+      "c_3723d48a"
+     ],
+     "unseen": []
+    },
+    "structural": {
+     "seen": [
+      "c_3723d48a"
+     ],
+     "unseen": []
+    }
+   },
+   "by_option": {
+    "opt_2": {
+     "originating_persona": null,
+     "constraints_seen": [
+      "c_3723d48a"
+     ],
+     "constraints_unseen": []
+    },
+    "opt_1": {
+     "originating_persona": null,
+     "constraints_seen": [
+      "c_3723d48a"
+     ],
+     "constraints_unseen": []
+    },
+    "opt_3": {
+     "originating_persona": null,
+     "constraints_seen": [
+      "c_3723d48a"
+     ],
+     "constraints_unseen": []
+    }
+   },
+   "moderator_checked": true
+  },
+  "framing_context": {
+   "decision_style": "default",
+   "personas_used": [
+    "commercial",
+    "operational",
+    "structural"
+   ],
+   "presentation_note": "Solutions presented per your default decision style preferences.",
+   "disclaimer": "Consulting perspectives are analytical frameworks, not colleague opinions.",
+   "alternative_views_available": [
+    "analytical",
+    "visionary",
+    "pragmatic"
+   ]
+  },
+  "market_intelligence": null,
+  "decision_ask": {
+   "decision_text": "Approve launch of the base-oil procurement renegotiation and cost-to-serve program, including the Week-2 COGS decomposition and hedging evaluation.",
+   "decision_owner": "CFO",
+   "deadline": "by end of Week 1",
+   "approval_type": "go/no-go with budget approval"
+  },
+  "immediate_actions": [
+   {
+    "action_text": "Pull supplier contract inventory for base oil with renewal dates, committed volumes, and pricing terms.",
+    "owner": "Head of Procurement",
+    "due_by_days": 5,
+    "why_it_matters": "Renegotiation leverage and the recoverable share of the 7.14pp decline cannot be sized without the contract baseline."
+   },
+   {
+    "action_text": "Run the COGS variance decomposition since 2026-006 across the four confirmed cost categories.",
+    "owner": "FP&A Lead",
+    "due_by_days": 10,
+    "why_it_matters": "It confirms whether base oil is the dominant driver and rules out a costing-methodology artefact before capital is committed."
+   },
+   {
+    "action_text": "Validate the price-lock contract register and flag every account ineligible for mid-quarter repricing.",
+    "owner": "General Counsel",
+    "due_by_days": 7,
+    "why_it_matters": "Prevents a contractual breach if the spot-repricing play is activated as the follow-on move."
+   }
+  ],
+  "pending_market_signals": null,
+  "human_action_required": true,
+  "human_action_type": "approval",
+  "human_action_context": {
+   "summary": "Review ranked options and approve or select an alternative. The recommended option was graded against all 1 captured constraint(s).",
+   "constraint_union": [
+    {
+     "id": "c_3723d48a",
+     "text": "Cannot raise list prices on Lubricants anchor accounts mid-quarter (contractual price-lock clause)",
+     "source": "assumption_register"
+    }
+   ],
+   "recommended_option_unseen_constraints": [],
+   "constraint_check_performed": true
+  },
+  "human_action_result": null,
+  "human_action_timestamp": null,
+  "audit_log": [
+   {
+    "event": "ranked_options",
+    "count": 3
+   },
+   {
+    "event": "causal_context",
+    "kpi_id": "gross_margin_pct",
+    "max_hops": 2,
+    "edges": 12,
+    "direct": 3,
+    "indirect": 9,
+    "constraints": 1,
+    "market_signals": 0
+   },
+   {
+    "event": "critic_pass_findings",
+    "count": 3,
+    "findings": [
+     {
+      "persona_id": "commercial",
+      "concern": "The mechanism proposes 'selective contract renegotiation and spot-market repricing' to raise ASP on Synthetic Blend, but does not exclude Lubricants anchor accounts. If any renegotiated or repriced contracts fall under the anchor-account price-lock clause, this directly violates the known contractual constraint prohibiting mid-quarter list price increases.",
+      "affected_kpi": null,
+      "severity": "high"
+     },
+     {
+      "persona_id": "structural",
+      "concern": "The rebate restructuring mechanism ('shift 10% of volume to High Mileage, earn rebate') leans on the premium_mix_pct <-> gross_margin_pct relationship, which is an unconfirmed template prior, not a validated fact. Presenting the mix-shift-to-margin link as a reliable causal path risks overstating expected margin recovery.",
+      "affected_kpi": "premium_mix_pct",
+      "severity": "moderate"
+     },
+     {
+      "persona_id": "structural",
+      "concern": "Volume-based rebates are typically booked as a reduction to net revenue (via discounts/rebate accruals). Since net_revenue <-> gross_margin_pct is a confirmed direct relationship, granting rebates to hit volume targets could itself erode net revenue and partially or fully offset the intended margin recovery from cost pass-through avoidance.",
+      "affected_kpi": "net_revenue",
+      "severity": "moderate"
+     }
+    ]
+   },
+   {
+    "event": "llm_debate_analysis_req",
+    "principal_context": null,
+    "situation_context": null,
+    "business_context": {
+     "enterprise_name": "Lubricants Business",
+     "industry": "Oil & Gas / Specialty Chemicals",
+     "subindustry": "Automotive & Industrial Lubricants",
+     "strategic_posture": "margin defense",
+     "tradeoff_weights": {
+      "impact": 0.4,
+      "cost": 0.2,
+      "risk": 0.4
+     }
+    },
+    "data_payload": {
+     "problem_statement": "Gross Margin % dropped by 7.14 (Current Level: 20.64). [KPI_DIRECTION: DROPPED] This deviation is primarily driven by 'Synthetic Blend Engine Oil' within the product_name segment. Analysis period: year_to_date. Contributing factors identified: product_name: Synthetic Blend Engine Oil (\u0394 -7.14), product_name: Conventional Engine Oil (\u0394 -6.61).",
+     "situation_metadata": null,
+     "decision_maker": null,
+     "business_context": {
+      "enterprise_name": "Lubricants Business",
+      "industry": "Oil & Gas / Specialty Chemicals",
+      "subindustry": "Automotive & Industrial Lubricants",
+      "strategic_posture": "margin defense"
+     },
+     "deep_analysis_summary": {
+      "client_id": "lubricants",
+      "kpi_name": "Gross Margin %",
+      "timeframe": "year_to_date",
+      "comparison_timeframe": "prior year_to_date",
+      "dimension_focus": [
+       "product_name",
+       "product_line",
+       "product_category",
+       "customer_name",
+       "customer_segment",
+       "customer_region"
+      ],
+      "top_change_points": [
+       {
+        "dimension": "product_name",
+        "key": "Synthetic Blend Engine Oil",
+        "delta": -7.140000000000001,
+        "current_value": 20.64,
+        "previous_value": 27.78,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_name",
+        "key": "Conventional Engine Oil",
+        "delta": -6.609999999999999,
+        "current_value": 19.16,
+        "previous_value": 25.77,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_category",
+        "key": "Value",
+        "delta": -6.419999999999998,
+        "current_value": 19.82,
+        "previous_value": 26.24,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_name",
+        "key": "Compressor Oil",
+        "delta": -5.859999999999999,
+        "current_value": 28,
+        "previous_value": 33.86,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_line",
+        "key": "Engine Oils",
+        "delta": -5.799999999999997,
+        "current_value": 26.03,
+        "previous_value": 31.83,
+        "percent_growth": null
+       }
+      ],
+      "what_is_highlights": [
+       "Gross Margin % is 29.94 vs prior year_to_date 34.43 (\u0394 -4.49, -13.0%).",
+       "Issue observed during year_to_date compared against prior year_to_date.",
+       "Largest variance in product_name: Synthetic Blend Engine Oil (\u0394 -7.14).",
+       "Analysis scoped by applied filters, limiting impact to selected context."
+      ],
+      "where_signals": [
+       "product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+       "product_name: Conventional Engine Oil (\u0394 -6.61)",
+       "product_name: Compressor Oil (\u0394 -5.86)",
+       "product_name: Hydraulic Oil (\u0394 -5.76)"
+      ],
+      "when_signals": [
+       "2026-007 (\u0394 +32.40)",
+       "2026-006 (\u0394 +32.37)",
+       "2026-008 (\u0394 +31.49)"
+      ],
+      "what_is_not": [
+       "Unaffected timeframe buckets: Within threshold"
+      ],
+      "when_is_not": [
+       "2026-007 (\u0394 +32.40) \u2014 Within threshold",
+       "2026-006 (\u0394 +32.37) \u2014 Within threshold",
+       "2026-008 (\u0394 +31.49) \u2014 Within threshold"
+      ],
+      "when_started": "2026-006",
+      "key_highlights": [
+       "Driver: product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+       "Driver: product_name: Conventional Engine Oil (\u0394 -6.61)",
+       "Driver: product_name: Compressor Oil (\u0394 -5.86)",
+       "Change point: product_name / Synthetic Blend Engine Oil; \u0394 -7.14; current 20.64 vs prev 27.78",
+       "Change point: product_name / Conventional Engine Oil; \u0394 -6.61; current 19.16 vs prev 25.77",
+       "Change point: product_category / Value; \u0394 -6.42; current 19.82 vs prev 26.24"
+      ]
+     },
+     "dataset_recap": [
+      "KPI analyzed: Gross Margin %",
+      "Timeframe: year_to_date vs prior year_to_date",
+      "Evidence: Driver: product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+      "Evidence: Driver: product_name: Conventional Engine Oil (\u0394 -6.61)",
+      "Evidence: Driver: product_name: Compressor Oil (\u0394 -5.86)",
+      "CONFIRMED ROOT CAUSES: product_name: Synthetic Blend Engine Oil (\u0394 -7.14); product_name: Conventional Engine Oil (\u0394 -6.61); product_name: Compressor Oil (\u0394 -5.86)",
+      "Change points: product_name / Synthetic Blend Engine Oil; \u0394 -7.14; current 20.64 vs prev 27.78; product_name / Conventional Engine Oil; \u0394 -6.61; current 19.16 vs prev 25.77; product_category / Value; \u0394 -6.42; current 19.82 vs prev 26.24"
+     ],
+     "user_context": null,
+     "principal_input": null,
+     "stage_1_persona_hypotheses": {
+      "commercial": {
+       "framework": "Price-Volume-Mix Decomposition with Customer Profitability Lens",
+       "hypothesis": "Gross margin compression in Synthetic Blend Engine Oil (\u22127.14pp) and Conventional Engine Oil (\u22126.61pp) is driven by a combination of elevated base oil input costs (confirmed COGS driver) and/or unrecovered price increases, compounded by a likely shift toward lower-margin Value-category SKUs within these product lines. The \u22126.42pp drop in Value category signals mix deterioration that is masking any premium-tier volume gains.",
+       "key_evidence": [
+        "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%), the largest single product-level decline, indicating this anchor SKU is bearing the brunt of input cost inflation without corresponding price recovery.",
+        "Value product category margin dropped 6.42pp (26.24% \u2192 19.82%), suggesting volume is shifting toward lower-priced tiers within oil grades rather than remaining in premium or mid-tier formulations.",
+        "Conventional Engine Oil margin fell 6.61pp (25.77% \u2192 19.16%), indicating cost pressure is not isolated to synthetic blends but is systemic across the oil portfolio\u2014consistent with base oil commodity cost increases."
+       ],
+       "recommended_focus": "Synthetic Blend Engine Oil",
+       "conviction": "High",
+       "proposed_option": {
+        "title": "Tiered Price Escalation on Synthetic Blend SKUs via Selective Contract Renegotiation and Spot-Market Repricing",
+        "description": "Identify and renegotiate renewal-cycle contracts on Synthetic Blend Engine Oil (the highest-margin product under normal conditions) to recover 4\u20135pp of margin through a two-tier mechanism: (1) escalate list pricing on spot/transactional customers not bound by mid-quarter price locks, targeting a 3\u20134% ASP lift; (2) negotiate contract renewals with anchor accounts to embed a base-oil cost-pass-through clause, effective at next renewal window. This preserves contractual relationships while capturing upstream cost inflation.",
+        "mechanism": "Gross Margin % = (Net Revenue \u2212 COGS) / Net Revenue. Holding COGS constant, a 3\u20134% ASP increase on Synthetic Blend (the product with the largest margin delta) will recover 40\u201360 basis points of the 714bp loss. For renewal contracts, embedding a cost-escalation mechanism directly reduces future COGS pressure. The mechanism targets the confirmed COGS \u2194 Gross Margin % relationship and the confirmed net_revenue \u2194 gross_margin_pct relationship simultaneously.",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+         "metric": "Gross Margin %",
+         "unit": "%",
+         "recovery_range": {
+          "low": 2.5,
+          "high": 4.2
+         },
+         "basis": "Synthetic Blend Engine Oil carries the largest absolute delta (\u22127.14pp). A 3\u20134% ASP increase on this product (assuming it represents ~25\u201330% of lubricant revenue mix) yields 75\u2013120bp recovery; contract renegotiation on renewals prevents future 2\u20133pp deterioration, netting 2.5\u20134.2pp recovery against the observed 7.14pp loss. Recovery is partial because mid-quarter price-lock constraints prevent immediate repricing on ~40\u201350% of anchor-account volume."
+        },
+        "cost_signal": "Medium",
+        "risk_signal": "Medium"
+       }
+      },
+      "operational": {
+       "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+       "hypothesis": "Base oil cost inflation is the primary driver of the 7.14 pp gross margin contraction in Synthetic Blend Engine Oil. The magnitude of decline (\u22127.14 pp) and concentration in synthetic and conventional grades\u2014both base-oil-intensive products\u2014combined with confirmed COGS\u2192margin mechanism and unconfirmed but plausible premium_mix_pct relationship, points to raw material cost pass-through failure rather than volume or pricing mix shift. The contractual price-lock constraint prevents mid-quarter list price recovery, forcing the margin compression to persist until the next allowable repricing window.",
+       "key_evidence": [
+        "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%), representing the largest single-product contributor to the overall decline; Conventional Engine Oil declined 6.61 pp (25.77% \u2192 19.16%), both concentrated in base-oil-dependent formulations.",
+        "COGS is confirmed as a direct, converging mechanism to gross margin % via base_oil_cost (INDIRECT via 2 hops, confirmed), indicating raw material inflation flows directly into COGS without offsetting revenue adjustment under the price-lock constraint.",
+        "The 'Value' product_category declined 6.42 pp (26.24% \u2192 19.82%), consistent with a cost-structure shock affecting the lower-margin, volume-driven segment where base oil represents a higher percentage of total landed cost and price elasticity limits recovery options."
+       ],
+       "recommended_focus": "Synthetic Blend Engine Oil",
+       "conviction": "High",
+       "proposed_option": {
+        "title": "Procurement Cost Hedging & Supplier Renegotiation for Base Oil Input",
+        "description": "Initiate immediate supplier negotiations to lock in base oil pricing for the next contract renewal cycle, and evaluate forward hedging instruments (futures, swaps) to protect against further feedstock volatility. Simultaneously, conduct a cost-to-serve deep dive on Synthetic Blend and Conventional grades to identify non-material cost reduction levers (manufacturing yield, packaging optimization, distribution consolidation) that can be deployed within the price-lock window to recover 3\u20135 pp of margin without violating contractual constraints.",
+        "mechanism": "Base oil cost inflation is flowing directly into COGS (confirmed mechanism), compressing gross margin. Since list prices cannot be raised mid-quarter, the intervention targets the numerator (COGS reduction via procurement hedging, supplier terms renegotiation, and internal process efficiency) rather than the denominator (revenue, which is contractually constrained). This preserves compliance with the price-lock clause while addressing the root cost shock.",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+         "metric": "Gross Margin %",
+         "unit": "%",
+         "recovery_range": {
+          "low": 3.0,
+          "high": 5.5
+         },
+         "basis": "Synthetic Blend Engine Oil declined 7.14 pp; recovery target of 3.0\u20135.5 pp reflects partial mitigation through supplier renegotiation (1.5\u20132.5 pp), forward hedging to stabilize future input costs (0.8\u20131.5 pp), and internal process optimization in manufacturing/packaging (0.7\u20131.5 pp). Full recovery to 27.78% is unlikely within 90 days due to price-lock constraint; recovery is phased across the repricing window."
+        },
+        "cost_signal": "Medium",
+        "risk_signal": "Medium"
+       }
+      },
+      "structural": {
+       "framework": "Portfolio Participation Analysis + Structural Decline vs. Cyclical Dip",
+       "hypothesis": "Gross margin compression across engine oil grades (Synthetic Blend -7.14pp, Conventional -6.61pp) is driven by base oil cost inflation or contractual pass-through lag, not demand or mix shift. The 'Value' category decline (-6.42pp) confirms this is input-cost pressure, not pricing power or volume mix \u2014 a structural cost headwind masked by the premium-mix mechanism that should be offsetting it. The simultaneity across three oil types (Synthetic Blend, Conventional, Compressor Oil all declining -5.86 to -7.14pp) rules out product-specific demand shifts and points to a common cost driver upstream.",
+       "key_evidence": [
+        "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) while Conventional Engine Oil fell 6.61pp (25.77% \u2192 19.16%), indicating synchronized cost pressure across grades rather than mix or competitive dynamics",
+        "Value category (typically lower-margin, cost-sensitive) declined 6.42pp (26.24% \u2192 19.82%), confirming margin compression is driven by input costs, not volume or channel mix",
+        "Compressor Oil also declined 5.86pp, establishing a pattern across three distinct oil product lines \u2014 a portfolio-wide signal of base oil cost inflation or distribution cost surge, not isolated product performance"
+       ],
+       "recommended_focus": "Synthetic Blend Engine Oil",
+       "conviction": "High",
+       "proposed_option": {
+        "title": "Conduct Base Oil Cost & Supplier Pass-Through Analysis + Prepare Volume-Based Rebate Restructuring",
+        "description": "Immediately audit base oil procurement costs (WTI-linked, supplier contract terms) and distribution/packaging line items to quantify the cost inflation magnitude. In parallel, model a volume-rebate restructuring for anchor accounts (those under price-lock) that shifts margin recovery from per-unit pricing to volume tiers or service bundling, preserving contract compliance while creating economic incentive to offset cost pressure through higher order velocity or mix shift toward higher-margin formulations.",
+        "mechanism": "Base oil cost inflation is a direct COGS driver (confirmed relationship: base_oil_cost \u2192 COGS). The price-lock constraint prevents list-price recovery mid-quarter, but volume-based rebate restructuring (e.g., 'hit volume target, earn margin rebate' or 'shift 10% of volume to High Mileage, earn rebate') creates a workaround mechanism that maintains contractual compliance while recovering margin through mix or velocity without raising the unit price. This addresses the root cause (input cost) rather than symptoms (discounting or de-emphasis).",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+         "metric": "Gross Margin %",
+         "unit": "%",
+         "recovery_range": {
+          "low": 2.5,
+          "high": 4.2
+         },
+         "basis": "Base oil cost inflation likely accounts for 50\u201370% of the observed 7.14pp decline in Synthetic Blend. Volume-rebate restructuring targeting a 5\u20138% shift in mix toward higher-margin formulations or a 3\u20135% increase in order velocity within anchor accounts could recover 2.5\u20134.2pp of the margin loss, contingent on customer participation and execution speed within the 0\u201390 day window."
+        },
+        "cost_signal": "Medium",
+        "risk_signal": "Medium"
+       }
+      }
+     }
+    },
+    "debate_spec_length": 19960
+   },
+   {
+    "event": "llm_debate_completed",
+    "status": "success",
+    "model_used": "claude-fable-5",
+    "error": null
+   },
+   {
+    "event": "decision_briefing_generated",
+    "problem_reframe": {
+     "situation": "Gross Margin % has dropped by 7.14 points year_to_date (current level 20.64 on the driving segment; enterprise margin fell from 34.43% to 29.94%, a -4.49pp net decline vs prior year_to_date).",
+     "complication": "The compression is not uniform: Synthetic Blend Engine Oil (-7.14pp), Conventional Engine Oil (-6.61pp), Compressor Oil (-5.86pp) and the Value category (-6.42pp) are all deteriorating simultaneously, while other timeframe buckets remain within threshold \u2014 a pattern consistent with a common upstream input-cost shock rather than product-specific demand shifts. A contractual price-lock clause blocks mid-quarter list-price recovery on Lubricants anchor accounts, constraining the fastest commercial lever.",
+     "question": "How do we recover 2.5\u20135.5 points of gross margin on the engine-oil portfolio within the price-lock constraint \u2014 via cost-side action, selective repricing on unconstrained volume, or contract-structure redesign?",
+     "key_assumptions": [
+      "The synchronized decline across three base-oil-intensive product lines indicates input-cost inflation as the dominant driver (COGS -> Gross Margin % is a confirmed relationship; base_oil_cost -> COGS is a confirmed component).",
+      "The price-lock clause binds only anchor-account list prices mid-quarter; spot/transactional volume and contract-renewal terms remain addressable.",
+      "The premium-mix-to-margin relationship is an unconfirmed industry prior and must not be relied on as a primary recovery mechanism without validation."
+     ]
+    },
+    "unresolved_tensions": [
+     {
+      "tension": "Whether the base-oil cost shock is a cyclical spike (favoring hedging and holding the portfolio) or a structural cost reset (favoring contract restructuring and eventual Value-category participation review) is undetermined.",
+      "options_affected": [
+       "opt_2",
+       "opt_3"
+      ],
+      "requires": "Head of Procurement to deliver a base-oil cost decomposition since 2026-006 with a cyclical-vs-structural assessment to the CFO by end of Week 3."
+     },
+     {
+      "tension": "Spot repricing and rebate restructuring both touch customer economics on overlapping accounts; uncoordinated rollout could send contradictory pricing signals to the market.",
+      "options_affected": [
+       "opt_1",
+       "opt_3"
+      ],
+      "requires": "VP Sales to produce an account-by-account sequencing map separating spot-repricing targets from anchor-account rebate candidates before any customer communication (target: Week 2)."
+     }
+    ],
+    "blind_spots": [
+     "No competitor pricing or pass-through data is present \u2014 if competitors are absorbing the same base-oil inflation, spot repricing risks share loss beyond what the elasticity assumptions capture.",
+     "The analysis has no plan-basis comparison, so part of the year-over-year decline could be a comparison-timing effect against an unusually strong prior year.",
+     "Discounting behavior is not decomposed: the confirmed net_revenue driver could be carrying unmeasured discount erosion alongside the cost shock.",
+     "No demand-side signal on whether Value-category volume is defensible long term; all three options assume continued participation in that category."
+    ]
+   },
+   {
+    "event": "token_usage",
+    "calls": 2,
+    "input_tokens": 20444,
+    "output_tokens": 10916,
+    "total_tokens": 31360,
+    "by_call": [
+     {
+      "call": "critic_pass",
+      "model": "claude-sonnet-5",
+      "input_tokens": 3027,
+      "output_tokens": 936
+     },
+     {
+      "call": "moderator",
+      "model": "claude-fable-5",
+      "input_tokens": 17417,
+      "output_tokens": 9980,
+      "max_tokens": 64000
+     }
+    ]
+   }
+  ]
+ }
+}

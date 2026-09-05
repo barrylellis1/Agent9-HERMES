@@ -1,0 +1,862 @@
+[
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with Customer Profitability Triage",
+   "hypothesis": "Gross margin collapse in Synthetic Blend Engine Oil (-7.14 pp) and Conventional Engine Oil (-6.61 pp) is driven by input cost inflation (base oil and/or manufacturing) outpacing realized selling prices, compounded by potential mix-down within the Value category (-6.42 pp). Revenue price/mix leverage is insufficient to offset COGS pressure; the contractual price-lock on anchor accounts prevents mid-quarter repricing recovery.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%), the largest single product driver, indicating this SKU absorbs the highest absolute cost shock",
+    "Conventional Engine Oil margin fell 6.61 pp (25.77% \u2192 19.16%), confirming the margin pressure is systematic across the oil-grade portfolio, not isolated",
+    "Value category margin fell 6.42 pp (26.24% \u2192 19.82%), suggesting either mix-down within Value tiers or uniform cost pass-through failure across lower-margin segments"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Contract Renewal Repricing & Selective SKU Rationalization for Synthetic Blend Engine Oil",
+    "description": "Identify and prioritize contract renewals (post price-lock window) for Synthetic Blend Engine Oil to recover 2.5\u20134.0 pp of gross margin through indexed pricing tied to base oil cost benchmarks. Simultaneously, rationalize the lowest-margin SKUs within the Synthetic Blend line (e.g., promotional or low-volume formulations) to shift mix toward higher-contribution variants. Execute within 90 days to align with Q-end renewal cycles.",
+    "mechanism": "Repricing at contract renewal unlocks pricing power currently blocked by mid-quarter price-lock clauses, directly addressing the net_revenue \u2192 gross_margin_pct lever. SKU rationalization removes volume from negative-margin or near-breakeven products, raising blended margin without requiring broad price increases. Together, these actions restore the margin architecture by attacking both the revenue side (price recovery) and the cost side (mix optimization).",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.5,
+      "high": 4.0
+     },
+     "basis": "Synthetic Blend margin gap of 7.14 pp from prior period; repricing at renewal can recover 35\u201356% of the loss (2.5\u20134.0 pp) if contracts represent 60\u201370% of volume and price elasticity is moderate. SKU rationalization contributes 0.5\u20131.0 pp via mix uplift; combined mechanism targets 3.0\u20134.5 pp recovery, conservatively estimated at 2.5\u20134.0 pp to account for volume attrition risk."
+    },
+    "cost_signal": "Low",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+   "hypothesis": "Gross margin compression of 7.14 pp in Synthetic Blend Engine Oil is driven by unhedged base oil cost inflation, not volume mix or pricing power loss. The 7.14 pp delta on a product category carrying structurally higher margins (per premium_mix_pct mechanism) suggests input costs have risen faster than list prices, which are contractually locked. Conventional Engine Oil (-6.61 pp) shows parallel compression, confirming commodity cost shock rather than product-specific demand or discount pressure.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%) while Conventional Engine Oil fell 6.61 pp (25.77% \u2192 19.16%), indicating synchronized input-cost pressure across both grades rather than mix-driven or commercial-driven divergence.",
+    "Both affected products are oil-based commodities where base_oil_cost is a direct COGS component (confirmed causal link); the magnitude and direction of margin loss is consistent with unabsorbed feedstock inflation during a price-locked contract period.",
+    "Value category (which includes these engine oils) shows -6.42 pp compression, concentrating the damage in a single product tier, which isolates the problem to supply-side cost absorption rather than broad revenue or volume issues."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Implement Spot-Buy Procurement Hedging and Supplier Contract Renegotiation for Base Oil",
+    "description": "Establish a forward-looking procurement strategy that decouples base oil purchasing from the current price-locked customer contracts by identifying supplier volume commitments that can be renegotiated or by locking in supplier pricing for Q3\u2013Q4 at current market levels. Simultaneously, initiate contract amendment discussions with anchor accounts to introduce a cost-pass-through clause for feedstock inflation beyond a defined threshold (e.g., \u00b15% on Brent crude or base oil indices), effective on the next contract renewal or as an interim surcharge on new orders.",
+    "mechanism": "Base oil cost is a confirmed direct component of COGS. The current 7.14 pp margin loss on Synthetic Blend is a measurement of COGS inflation that cannot be offset by internal process efficiency (manufacturing, packaging, distribution are secondary contributors). By locking supplier costs or securing customer contract amendments, you decouple the locked customer price from rising input costs, allowing margin recovery without violating the mid-quarter price-lock constraint on list prices (which applies to new contract negotiations, not existing contract amendments).",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 6.2
+     },
+     "basis": "If base oil cost inflation accounts for 50\u201375% of the observed 7.14 pp margin decline, procurement hedging + contract amendment can recover 3.5\u20136.2 pp by stabilizing input costs and enabling targeted price recovery on new or renewed orders. Recovery magnitude is proportional to the observed variance and constrained by the need to maintain competitiveness on non-anchor accounts."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis \u00d7 Structural Decline vs. Cyclical Dip",
+   "hypothesis": "Gross margin compression across engine oil grades (Synthetic Blend -7.14pp, Conventional -6.61pp, Compressor -5.86pp) signals a structural cost-input shock (base oil or distribution) rather than a volume/mix or pricing variance. The synchronized, category-wide decline rules out product-level demand shift and points to a shared COGS driver\u2014most likely base oil cost escalation or distribution cost absorption\u2014masking what should be margin-accretive mix (if premium participation is rising). The 'Value' category tier also declined -6.42pp, confirming this is a portfolio-wide cost event, not a segment-specific commercial issue.",
+   "key_evidence": [
+    "Three oil products declined in near-lockstep (Synthetic Blend -7.14pp, Conventional -6.61pp, Compressor -5.86pp), indicating a shared input cost driver rather than independent product dynamics.",
+    "Value category margin fell -6.42pp in parallel, confirming the decline spans multiple product tiers and is not isolated to one SKU or segment.",
+    "Confirmed causal chain: base_oil_cost and distribution_cost are direct COGS components; COGS movements directly move Gross Margin % (revenue constant). No revenue collapse is reported, so cost inflation is the primary lever."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Isolate and Quantify Base Oil Cost Inflation Impact; Model Portfolio Reallocation to Higher-Margin Synthetic Grades",
+    "description": "Immediately decompose YTD COGS by account category (base oil, manufacturing, distribution, packaging) to isolate which input cost driver is responsible for the -7.14pp margin hit on Synthetic Blend. In parallel, model the margin recovery available by shifting sales mix toward full-synthetic formulations (which carry structurally higher gross margin per confirmed template) and away from conventional grades, contingent on no additional list-price moves (contractual lock-in place). This reframes the problem from 'fix the KPI' to 'is this product category still worth the portfolio share it commands?'",
+    "mechanism": "Cost transparency enables a two-path decision: (1) If base oil cost inflation is structural and durable, the current margin-recovery frame (assume COGS normalizes) is wrong\u2014the portfolio may need to de-emphasize low-margin conventional grades and exit or reallocate capital from Value-tier SKUs. (2) If distribution cost is the driver, negotiate carrier contracts or shift to higher-velocity SKUs to absorb the cost per unit. Both paths require seeing the cost shock as a portfolio composition question, not a KPI variance to optimize away.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.8,
+      "high": 5.2
+     },
+     "basis": "If base oil cost is the sole driver and represents ~40\u201360% of the -7.14pp decline on Synthetic Blend, isolating and addressing it could recover 2.8\u20134.3pp. A portfolio reallocation toward higher-margin synthetics (assuming mix shift of 10\u201315% volume from Conventional to Synthetic) could add an incremental 1.0\u20131.8pp, for a combined recovery range of 2.8\u20135.2pp. This assumes no revenue decline and no secondary cost shocks."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "High"
+   }
+  }
+ },
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with Customer Profitability Lens",
+   "hypothesis": "Gross margin compression in Synthetic Blend Engine Oil (\u22127.14pp) and Conventional Engine Oil (\u22126.61pp) is driven by a combination of elevated base oil input costs (COGS driver) and/or aggressive discounting on Value-tier products (\u22126.42pp category delta), masking any premium mix benefit. The 'Value' category decline suggests either forced repricing downward to maintain volume in a cost-inflationary environment, or loss of pricing power on anchor SKUs.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) year-to-date, the largest single product driver, indicating concentrated pressure on the highest-margin formulation",
+    "Value product category declined 6.42pp (26.24% \u2192 19.82%), consistent with volume-preservation discounting on lower-tier SKUs that typically anchor customer contracts",
+    "Three products (Synthetic Blend, Conventional, Compressor Oil) all declined by 5.86\u20137.14pp within the same period, suggesting a common upstream cost shock (base oil, freight, or manufacturing) rather than product-specific demand loss"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Selective Price Recovery on Synthetic Blend via Contract Renewal Cadence & Value-Add Positioning",
+    "description": "Identify Synthetic Blend customers with contract renewals in Q3\u2013Q4 and re-tier pricing around performance/durability claims (extended drain intervals, OEM certifications) rather than commodity repricing. Simultaneously, audit base oil procurement contracts for hedging/forward-buy opportunities to stabilize COGS inflation. This targets the margin gap without violating mid-quarter price-lock constraints on anchor accounts.",
+    "mechanism": "Synthetic Blend carries structurally higher margin; the 7.14pp decline is driven by COGS pressure (base oil cost inflation) and/or discounting to retain volume. Renewal-cycle pricing allows list-price recovery on new terms without breaching existing contracts. Value-add positioning (durability, OEM spec compliance) justifies premium pricing relative to Conventional, recovering mix margin naturally. Forward procurement hedging reduces COGS volatility, lifting margin floor independent of price action.",
+    "time_horizon": "3-12 months",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.5
+     },
+     "basis": "Synthetic Blend renewal pricing (assuming 60\u201370% of customer base renews in next two quarters) can capture 2\u20133pp via list-price adjustment; base oil procurement optimization can recover 1.5\u20132.5pp of COGS pressure. Combined recovery of 3.5\u20135.5pp is proportional to the 7.14pp observed decline and reflects partial recovery within the constraint of existing contract lock-in."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+   "hypothesis": "Base oil cost inflation (unhedged commodity exposure) is the primary driver of the 7.14 pp gross margin decline in Synthetic Blend Engine Oil YTD. The product carries the highest delta (-7.14 pp) and sits at the intersection of elevated raw material sensitivity and constrained pricing power (contractual price-lock on anchor accounts). A 15\u201325% rise in base oil feedstock costs, unabsorbed through either procurement hedging or price recovery, would mechanically produce a margin compression of this magnitude.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%), the largest single-product contributor, while Conventional Engine Oil fell 6.61 pp\u2014both synthetic/blend formulations are base-oil-cost-sensitive and lack pricing flexibility under contractual lock.",
+    "Value product_category (delta -6.42 pp) overlaps heavily with engine oil SKUs; the concentration of margin loss in lower-tier, cost-sensitive segments is consistent with input-cost pass-through failure rather than volume or mix shift.",
+    "Compressor Oil (delta -5.86 pp) shows parallel pressure, suggesting a commodity-wide base oil cost shock affecting the entire lubricant portfolio, not a product-specific demand or operational issue."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Implement Dynamic Procurement Hedging & Selective SKU Cost-Down Engineering",
+    "description": "Establish a 60\u201390 day rolling base oil futures hedge program (2\u20133 month forward contracts) to lock in feedstock costs and stabilize COGS predictability. In parallel, conduct rapid cost-down engineering on Synthetic Blend formulations: evaluate synthetic base stock substitution (PAO vs. Group II mineral), reduce additive package intensity where performance specs permit, and negotiate volume rebates with suppliers given YTD volume concentration. These moves target the unhedged commodity exposure without breaching the contractual price-lock constraint on anchor accounts.",
+    "mechanism": "Hedging reduces the volatility of base oil input costs in COGS, protecting margin from further commodity shocks. Cost-down engineering lowers the absolute COGS per unit on Synthetic Blend SKUs, directly improving gross margin % even if net revenue remains constrained by pricing locks. Together, they address the supply-side cost structure rather than relying on commercial price recovery (which is contractually blocked mid-quarter).",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.8
+     },
+     "basis": "Synthetic Blend margin delta of -7.14 pp assumes unrecovered base oil cost inflation of ~18\u201322% YTD. Hedging 60% of exposure and cost-down engineering of 2\u20133% per unit COGS would recover 50\u201380% of the observed decline (3.5\u20135.8 pp). Recovery is capped at 5.8 pp (81% of -7.14) to reflect implementation lag and partial hedging coverage."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis + Category Lifecycle Positioning",
+   "hypothesis": "Gross margin compression across engine oil portfolio (Synthetic Blend -7.14pp, Conventional -6.61pp) signals structural cost inflation in base oil and/or distribution, not cyclical pricing variance. The simultaneous decline across both premium and value tiers, combined with the Value category decline (-6.42pp), suggests input-cost pass-through resistance rather than mix degradation or demand elasticity. Given contractual price-lock constraints, the margin gap is being absorbed in COGS, not recovered in pricing.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%), the largest single-product delta, indicating the highest-margin SKU is under cost pressure despite typically carrying structural margin protection",
+    "Conventional Engine Oil margin fell 6.61pp (25.77% \u2192 19.16%), tracking within 0.53pp of Synthetic Blend decline, suggesting category-wide cost driver rather than product-specific mix shift",
+    "Value category margin fell 6.42pp (26.24% \u2192 19.82%), nearly identical to both product-level declines, confirming the compression is portfolio-wide and resistant to premium/value segmentation\u2014hallmark of raw material or logistics cost inflation"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Cost-Structure Audit & Selective SKU Reallocation to Mitigate Base Oil Inflation",
+    "description": "Conduct rapid forensic breakdown of COGS components (base oil cost, manufacturing, distribution, packaging) for Synthetic Blend and Conventional oils to isolate which cost line is driving the 6.5\u20137.1pp margin erosion. Simultaneously, identify lower-margin SKUs or customer segments where volume can be redirected to higher-margin formulations (e.g., High Mileage or specialty synthetics) that may have smaller absolute cost inflation exposure, or where contractual flexibility exists to recover pricing. This reframes the problem from 'fix the margin on locked SKUs' to 'rebalance portfolio participation away from cost-inflated categories.'",
+    "mechanism": "By isolating which cost component (base oil procurement, freight, manufacturing overhead) is the primary driver, the team can pursue targeted mitigation: (1) base oil cost \u2192 negotiate longer-term supplier contracts or hedge; (2) distribution cost \u2192 consolidate shipments or shift to lower-cost logistics partners for lower-tier products; (3) manufacturing \u2192 identify efficiency gains or shift production to lower-cost facilities. Simultaneously, reallocation of volume away from Synthetic Blend (where cost inflation is hitting the highest-margin product hardest) to SKUs with contractual pricing flexibility or lower cost-of-goods ratio reduces the blended portfolio margin drag without violating price-lock constraints.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.8,
+      "high": 4.5
+     },
+     "basis": "If cost audit isolates base oil inflation as 40\u201360% of the 6.5\u20137.1pp decline, targeted procurement renegotiation could recover 0.8\u20131.2pp. Portfolio reallocation (shifting 15\u201325% of Synthetic Blend volume to higher-flex SKUs or lower-cost-ratio products) could recover an additional 2.0\u20133.3pp blended margin through mix optimization. Combined recovery: 2.8\u20134.5pp, leaving structural margin gap to be managed through longer-term pricing or category exit decisions."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  }
+ },
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with COGS Waterfall Analysis",
+   "hypothesis": "Gross margin compression of 7.14 percentage points in Synthetic Blend Engine Oil is driven primarily by elevated base oil costs (confirmed COGS component) flowing through to COGS without corresponding price recovery, exacerbated by potential mix shift toward lower-priced SKUs within the Synthetic Blend category. The Value segment's -6.42 pp decline corroborates a volume-driven, lower-tier mix effect masking what should be structurally higher-margin premium formulations.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%) year-to-date, representing the largest single product-level deterioration and accounting for the portfolio's total margin loss",
+    "Conventional Engine Oil declined 6.61 pp (25.77% \u2192 19.16%), indicating the pressure is not isolated to premium tiers; base oil cost inflation is hitting both segments uniformly, suggesting commodity input cost as the common driver",
+    "Value category segment margin declined 6.42 pp (26.24% \u2192 19.82%), indicating revenue is shifting toward lower-priced tier or volume is concentrating in discount-sensitive channels, compounding the COGS pressure rather than offsetting it through mix-up"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Targeted SKU-Level Price Indexation on Synthetic Blend Premium Tiers + Mix Incentive Rebalancing",
+    "description": "Within the contractual price-lock constraint on anchor accounts, implement a tiered price recovery on Synthetic Blend formulations (e.g., High Mileage, Extended Drain variants) targeting non-anchor or renewal-cycle accounts. Simultaneously, restructure distributor/retail incentive programs to shift volume mix away from Value-tier SKUs toward higher-margin Synthetic Blend grades, recovering the 7.14 pp margin loss through dual mechanism: selective price lift on premium SKUs + volume reallocation.",
+    "mechanism": "Base oil cost inflation (confirmed COGS driver) has eroded margin uniformly across products. Price-lock constraints prevent blanket repricing, but selective indexation on Synthetic Blend premium SKUs (which carry structurally higher margins) can recover margin dollars without breaching anchor account terms. Simultaneously, incentive rebalancing redirects volume from Value-tier (lower-margin) SKUs to premium Synthetic Blend, improving blended mix and offsetting commodity cost pressure through volume composition rather than pure price.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.2
+     },
+     "basis": "Synthetic Blend is the largest driver (7.14 pp loss). Selective price indexation targeting 8\u201312% uplift on premium SKUs (assuming 40\u201350% of Synthetic Blend volume qualifies outside anchor lock) recovers ~2.5\u20133.5 pp. Mix rebalancing toward Synthetic Blend from Value tier (6.42 pp decline) can capture 1.0\u20131.7 pp through volume shift, totaling 3.5\u20135.2 pp gross margin % recovery."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+   "hypothesis": "Gross margin compression of 7.14 percentage points in Synthetic Blend Engine Oil is primarily driven by unhedged base oil cost inflation, not volume or mix effects. The 7-point delta mirrors typical synthetic blend formulation cost sensitivity (40\u201350% base oil input cost as % of COGS). Conventional Engine Oil follows with a -6.61 delta, confirming oil-input-cost as the common mechanism. The 'Value' product category delta of -6.42 further corroborates this: lower-tier products have narrower margin buffers and absorb input-cost shocks more visibly.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 points (27.78% \u2192 20.64%) while Conventional Engine Oil fell 6.61 points (25.77% \u2192 19.16%), indicating a shared cost driver rather than product-specific demand or pricing pressure.",
+    "Both oil grades and the 'Value' category segment show synchronized margin erosion (deltas: -7.14, -6.61, -6.42), consistent with a commodity input cost shock rather than localized volume or mix distortion.",
+    "Compressor Oil (delta: -5.86) also affected, extending the signal across all oil-type product_names\u2014pattern incompatible with SKU-level demand loss or discounting, pointing to base oil procurement cost as the common denominator."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Base Oil Cost Hedging & Procurement Consolidation for Synthetic Blends",
+    "description": "Conduct an urgent procurement audit of base oil sourcing for Synthetic Blend formulations, quantify the YTD cost-per-unit inflation vs. prior-year benchmarks, and execute a 90-day forward hedge (futures, supplier contracts, or inventory-timing strategies) to lock in current or forward-curve pricing. Simultaneously, consolidate supplier orders to improve negotiating leverage and reduce fragmented sourcing inefficiency.",
+    "mechanism": "Base oil represents 40\u201350% of COGS in synthetic blend lubricants. A 15\u201320% spike in crude-derived base oil costs (plausible in current commodity environment) directly translates to a 6\u201310 percentage point margin hit if selling prices are locked by contract. Hedging locks input cost, protecting margin until contract renewal or commercial renegotiation windows open post-Q2.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.8
+     },
+     "basis": "Synthetic Blend delta is -7.14 pp; a 50\u201380% recovery via input-cost stabilization (hedging + procurement leverage) yields 3.5\u20135.7 pp uplift. Conservative estimate assumes partial hedge execution and 1\u20132 month lag to full effect. Conventional Oil recovery potential: 3.3\u20134.9 pp (proportional to its -6.61 delta)."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis \u00d7 Structural Decline vs. Cyclical Dip",
+   "hypothesis": "Gross margin compression across engine oil grades (Synthetic Blend -7.14pp, Conventional -6.61pp) signals simultaneous upstream cost pressure (base oil and/or distribution) combined with downward mix shift toward lower-margin conventional products within the Value category, masking any premium-mix benefit. This is NOT a pricing/volume variance recoverable via KPI optimization\u2014it reflects category-level input cost inflation or forced reallocation away from higher-margin synthetic formulations.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) while Conventional fell 6.61pp (25.77% \u2192 19.16%), indicating both grades are under cost pressure, not a simple mix shift",
+    "Value category margin declined 6.42pp (26.24% \u2192 19.82%), showing the compression is systematic across the lower-tier segment, not product-specific",
+    "Compressor Oil also declined 5.86pp, suggesting base oil cost or manufacturing/distribution cost inflation is affecting the entire lubricant portfolio, not just engine oils"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Structural Category Reallocation: De-emphasize Value-Tier Engine Oils, Redirect Volume to Margin-Accretive Formulations or Exit Low-Margin SKUs",
+    "description": "Rather than attempt to recover margin through pricing (contractually blocked) or volume levers (upstream cost inflation will persist), reallocate portfolio emphasis away from Conventional and Synthetic Blend grades in the Value category toward higher-margin synthetic or specialty formulations, or selectively exit low-margin SKUs where base oil cost inflation has eroded structural profitability. This reframes the problem from 'how do we fix margin on these products' to 'do these products belong in our portfolio at current cost structures.'",
+    "mechanism": "By reducing sales mix exposure to Synthetic Blend and Conventional grades (which now carry structurally depressed margins due to base oil cost or distribution cost inflation), the blended portfolio gross margin % recovers through composition, not through fixing individual product margins. This assumes higher-margin alternatives (e.g., Full Synthetic, High Mileage, or specialty formulations) exist in the portfolio and can absorb volume reallocation without cannibalizing revenue.",
+    "time_horizon": "3-12 months",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.8
+     },
+     "basis": "Synthetic Blend and Conventional together account for the largest deltas (-7.14pp and -6.61pp). If reallocation reduces their contribution to blended margin by 50% and redirects that volume to formulations with 5\u20137pp higher margins, portfolio gross margin recovers 3.5\u20135.8pp. Conservative estimate reflects volume absorption constraints and potential revenue headwinds from de-emphasis."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "High"
+   }
+  }
+ },
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with Customer Profitability Triage",
+   "hypothesis": "Gross margin collapse in Synthetic Blend Engine Oil (\u22127.14pp) and Conventional Engine Oil (\u22126.61pp) is driven by COGS inflation in base oil and/or distribution costs, compounded by unfavorable mix shift toward Value-tier products (\u22126.42pp). Revenue price/volume appears insufficient to offset input cost pressure, and contractual price-lock constraints prevent mid-quarter list price recovery on anchor accounts.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) year-to-date, the largest single-product contributor to overall margin erosion.",
+    "Value product category margin declined 6.42pp (26.24% \u2192 19.82%), indicating a systematic shift toward lower-margin tier that amplifies base-cost impact.",
+    "COGS and distribution costs are confirmed direct components of COGS; base oil cost inflation and freight/packaging pressures are the most probable upstream drivers given the breadth of decline across multiple products."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Tiered Contract Renegotiation and Mix Incentive Program for Post-Lockout Renewal Cycles",
+    "description": "Identify anchor accounts with Synthetic Blend and Conventional Engine Oil contracts expiring after the current price-lock window. Simultaneously, implement a margin-recovery mix incentive (rebate or volume bonus) for customers who shift purchase allocation from Value to Premium tier products within the lockout period. This preserves contractual compliance while creating a mechanical margin lift through channel economics and unlocks pricing leverage at renewal.",
+    "mechanism": "The price-lock constraint prevents immediate list-price recovery, but contract renewal cycles and volume-based incentive structures operate outside that constraint. By front-loading mix improvement (Premium SKUs carry ~6\u20138pp higher margin per the premium_mix_pct relationship), you recover 2\u20133pp of the 7.14pp loss before renewal pricing takes effect. At renewal, use the improved mix and customer retention data to justify +3\u20135% price increases on Synthetic Blend and Conventional products, directly addressing the COGS/input-cost driver.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.2,
+      "high": 5.1
+     },
+     "basis": "Mix-driven recovery (0-90 days): +2.0\u20133.0pp from Premium tier shift. Pricing recovery at renewal (phased into Q3\u2013Q4): +1.2\u20132.1pp from 3\u20135% price increase on Synthetic Blend and Conventional SKUs, assuming 60\u201370% of anchor accounts are in or approaching renewal windows. Total addressable recovery is 3.2\u20135.1pp of the 7.14pp loss, with the balance attributable to structural base-oil cost inflation requiring longer-term sourcing or formulation strategy."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+   "hypothesis": "Gross margin compression of 7.14 percentage points in Synthetic Blend Engine Oil is primarily driven by unhedged base oil cost inflation, not volume mix or pricing leakage. The 7.14 pp delta on a product carrying structurally higher margins (vs. Conventional at -6.61 pp) suggests a supply-side cost shock concentrated in premium formulations, which carry higher base oil intensity. Conventional Oil's near-parity decline (-6.61 pp) confirms this is a shared input-cost mechanism, not selective discounting or overhead absorption artefact.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%) YTD, the largest single-product decline, indicating concentrated pressure on premium-tier formulations with higher base oil content",
+    "Conventional Engine Oil declined 6.61 pp (25.77% \u2192 19.16%) in parallel, establishing a shared cost driver across both grades rather than mix-driven or demand-driven margin degradation",
+    "Value category (predominantly conventional/synthetic blend blends) declined 6.42 pp (26.24% \u2192 19.82%), confirming the pressure is distributed across the lubricants portfolio and consistent with upstream input-cost inflation rather than isolated product-level issues"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Implement Base Oil Cost Hedging & Supplier Renegotiation for Premium Lubricant Formulations",
+    "description": "Establish a 60\u201390-day procurement review of base oil supply contracts for Synthetic Blend and Conventional Engine Oil lines, with explicit focus on (1) forward-curve hedging of WTI-linked base oil indices, and (2) supplier margin renegotiation to recover 40\u201360% of the observed cost shock through volume commitments or longer-term fixed-price tranches. This directly addresses the input-cost mechanism without triggering the contractual price-lock constraint on anchor accounts.",
+    "mechanism": "Base oil cost is a direct component of COGS (confirmed causal link). A 7.14 pp margin decline on Synthetic Blend implies base oil cost per unit has risen materially relative to net revenue. Hedging forward exposure and renegotiating supplier terms will either lock in lower future costs (hedging) or redistribute the cost burden via volume/commitment leverage (renegotiation), directly reducing the COGS numerator and restoring gross margin % without requiring list-price changes on locked accounts.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.2
+     },
+     "basis": "Base oil typically represents 35\u201350% of COGS in synthetic blend formulations. A 7.14 pp margin decline implies ~10\u201315% cost inflation on base oil input. Hedging 60\u201370% of forward volume and renegotiating 30\u201340% of current supplier cost can recover 50\u201375% of the observed shock, translating to 3.5\u20135.2 pp margin recovery on Synthetic Blend, with spillover gains on Conventional (+2.5\u20133.8 pp) via shared procurement leverage."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis with Category Lifecycle Positioning",
+   "hypothesis": "Gross margin compression in Synthetic Blend and Conventional Engine Oil is driven by structural cost inflation (base oil and/or distribution costs) outpacing revenue realization, masked by contractual price-lock constraints. The -7.14 pp drop in Synthetic Blend\u2014the portfolio's highest-margin product\u2014signals this is NOT a mix or volume problem, but a cost-side structural squeeze in the Value category segment.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%) despite being the portfolio's traditional margin anchor, indicating upstream cost pressure rather than demand or pricing power loss",
+    "Both oil products (Synthetic Blend \u0394-7.14, Conventional \u0394-6.61) and the Value category (\u0394-6.42) show synchronized, large-magnitude declines, pointing to a common cost driver affecting the entire lubricant tier, not product-specific commercial issues",
+    "Contractual price-lock clause prevents mid-quarter list price recovery, confirming that margin recovery cannot be achieved through the typical pricing lever\u2014intervention must target cost structure or portfolio reallocation"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Cost Reallocation & SKU Rationalization within Value Lubricants Tier",
+    "description": "Conduct an urgent cost-of-goods audit on base oil procurement and distribution spend for the Value category lubricants, specifically Synthetic Blend and Conventional grades. Identify opportunities to consolidate suppliers, optimize packaging, or shift lower-margin SKUs to direct-ship models to recover 4\u20135 pp of margin before Q-end. This avoids the price-lock constraint by operating on the cost side.",
+    "mechanism": "Base oil costs and distribution costs are confirmed direct components of COGS; reducing either directly improves gross margin % without touching revenue or violating pricing contracts. Reallocation within the portfolio (e.g., de-emphasizing ultra-low-margin Conventional in favor of higher-margin Synthetic Blend) also lifts blended margin without price increases.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.2
+     },
+     "basis": "Observed delta of -7.14 pp in Synthetic Blend suggests ~50\u201370% of the drop is cost-driven (base oil/distribution inflation). Targeting procurement efficiency and SKU mix within the Value tier can recover 3.5\u20135.2 pp, bringing Synthetic Blend margin to 24\u201326% range by end of quarter, offsetting ~50% of YTD loss."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  }
+ },
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with Customer Profitability Lens",
+   "hypothesis": "Gross margin compression in Synthetic Blend and Conventional Engine Oil is driven by a combination of elevated base oil input costs (COGS pressure) and unfavorable mix shift toward lower-margin Value category products, masking any premium product volume gains. The 7.14pp and 6.61pp declines in the two largest contributors suggest structural COGS inflation rather than pricing power erosion alone.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%), the largest single product driver, while Value category margin fell 6.42pp (26.24% \u2192 19.82%), indicating simultaneous pressure on both premium and budget tiers\u2014consistent with input cost inflation rather than selective channel or customer mix shift",
+    "Conventional Engine Oil declined 6.61pp (25.77% \u2192 19.16%), showing near-parity with Synthetic Blend degradation, suggesting commodity base oil cost increases are affecting the entire lubricant portfolio uniformly",
+    "Compressor Oil margin declined 5.86pp, confirming the margin compression is portfolio-wide across oil types, not isolated to one SKU or customer segment, pointing to shared COGS driver (base oil procurement or distribution cost)"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Implement Tiered Pricing Escalator on Synthetic Blend Engine Oil Renewals + Negotiate Base Oil Forward Contracts",
+    "description": "Execute a two-lever recovery: (1) layer a 3\u20135% cost-pass-through escalator clause into all Synthetic Blend renewal contracts outside the price-lock window (targeting Q3+ renewals and new customer acquisitions), justified by documented base oil commodity inflation; (2) simultaneously initiate procurement negotiations for 6\u201312 month base oil forward contracts to lock in current or lower input costs, reducing future COGS volatility. This addresses the confirmed COGS\u2192margin mechanism while respecting the mid-quarter price-lock constraint on anchor accounts.",
+    "mechanism": "The direct causal link is gross_margin_pct \u2190 COGS (confirmed). By reducing COGS per unit through procurement hedging and recovering margin via selective price escalation on the highest-impact product (Synthetic Blend, 7.14pp delta), the intervention restores the numerator (revenue) and denominator (COGS) of the margin ratio. Escalator clauses on renewals bypass the contractual price-lock constraint on existing anchor accounts and apply prospectively to new business and contract resets.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.2
+     },
+     "basis": "Synthetic Blend Engine Oil represents the largest single margin driver (\u22127.14pp). A 3\u20135% net revenue uplift via escalator clauses, combined with 1\u20132pp COGS reduction from base oil procurement hedging, yields 2.0\u20133.5pp direct recovery on Synthetic Blend. Applied to the blended portfolio, this translates to 3.5\u20135.2pp gross margin % recovery, partially offsetting the observed 7.14pp decline and addressing the confirmed COGS mechanism."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+   "hypothesis": "Gross margin compression of 7.14pp on Synthetic Blend Engine Oil is driven by unhedged base oil cost inflation passing through COGS faster than selling prices can adjust due to contractual price-lock constraints. The 6.61pp delta on Conventional Engine Oil suggests a portfolio-wide input-cost shock rather than mix or volume effects. Premium product margin degradation while locked into fixed pricing indicates raw material cost (base oil) as the primary mechanism.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) YTD, with Conventional Engine Oil declining 6.61pp (25.77% \u2192 19.16%), indicating synchronized cost pressure across oil grades rather than selective demand or discounting.",
+    "Value category (which anchors lower-priced SKUs) declined 6.42pp (26.24% \u2192 19.82%), consistent with base oil cost pass-through affecting all tiers; premium mix shift alone would not degrade margin uniformly across price bands.",
+    "Principal constraint explicitly blocks mid-quarter price increases on Lubricants anchor accounts, creating a timing mismatch: input costs rising while revenue price points are frozen, forcing margin absorption entirely on the COGS side."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Accelerated Base Oil Procurement Hedging & Supplier Contract Renegotiation",
+    "description": "Implement forward-purchase agreements or commodity futures hedging on base oil inputs for Q3\u2013Q4 to lock in current or lower-cost feedstock, combined with urgent supplier contract renegotiation to shift cost risk away from spot pricing. This addresses the root mechanism: unhedged commodity exposure bleeding margin while price-lock constraints prevent revenue recovery.",
+    "mechanism": "Base oil (confirmed COGS component) is currently exposed to spot-market volatility with no hedging buffer. By locking in forward pricing or negotiating fixed-price supplier contracts, you decouple future COGS from commodity price spikes, creating margin protection independent of selling-price adjustments. This directly counters the input-cost inflation signal without violating price-lock constraints.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "percentage points",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.8
+     },
+     "basis": "Base oil typically represents 45\u201360% of COGS in synthetic blends; a 10\u201315% reduction in base oil cost inflation (via hedging or supplier negotiation) recovers 3.5\u20135.8pp of the 7.14pp margin loss. Recovery is partial because manufacturing and distribution costs (confirmed COGS components) may also carry embedded inflation, but base oil is the primary lever under operational control within the constraint window."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis \u00d7 Structural Decline vs. Cyclical Dip",
+   "hypothesis": "Gross margin compression across engine oil grades (Synthetic Blend -7.14pp, Conventional -6.61pp) is consistent with a structural cost input shock (base oil or distribution) rather than a pricing or volume mix problem. The simultaneous, proportional decline across both premium and value tiers, combined with the contractual price-lock constraint, suggests COGS is rising faster than revenue can absorb. This is a category-level structural squeeze, not a recoverable variance.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) and Conventional fell 6.61pp (25.77% \u2192 19.16%) \u2014 synchronized decline across tiers rules out mix-driven compression and points to input cost or distribution cost pressure hitting all grades equally.",
+    "Value category declined 6.42pp (26.24% \u2192 19.82%), confirming the pressure is structural to the portfolio, not isolated to one product line.",
+    "Compressor Oil also declined 5.86pp, indicating the signal is category-wide in lubricants, not product-specific \u2014 consistent with a common cost driver (base oil pricing, freight surcharge, or manufacturing inefficiency)."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Reposition Synthetic Blend to Premium Tier with Selective Volume Reallocation",
+    "description": "Acknowledge that margin recovery via price is contractually blocked. Instead, shift Synthetic Blend from volume-driven participation to a higher-value-per-unit positioning by reallocating volume to higher-margin SKUs within the synthetic category (e.g., High Mileage formulations) or by reducing promotional intensity on Synthetic Blend itself. This accepts the structural cost input as permanent and reframes the portfolio to optimize around it.",
+    "mechanism": "The margin decline is driven by COGS pressure (base oil cost or distribution cost), not by a pricing or volume opportunity. Price increases are contractually blocked. Rather than attempt to recover the old margin through volume or commercial tactics, reposition the portfolio to reduce Synthetic Blend's absolute contribution to blended margin and shift volume to products with higher structural margin. This is a portfolio reallocation play, not a KPI fix within the current frame.",
+    "time_horizon": "3-12 months",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.5,
+      "high": 4.2
+     },
+     "basis": "Reallocating 30\u201340% of Synthetic Blend volume to higher-margin formulations (High Mileage typically carries 200\u2013300bp margin premium) would recover 2.5\u20134.2pp of blended margin. Full recovery of the 7.14pp decline is not achievable without either price increases (blocked) or a fundamental COGS reduction; partial recovery via mix reallocation is the structural option available."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  }
+ },
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with Customer Profitability Lens",
+   "hypothesis": "Gross margin compression in Synthetic Blend Engine Oil (\u22127.14pp) and Conventional Engine Oil (\u22126.61pp) is driven by a combination of elevated base oil input costs (confirmed COGS driver) and/or unrecovered price increases, compounded by a likely shift toward lower-margin Value-category SKUs within these product lines. The \u22126.42pp drop in Value category signals mix deterioration that is masking any premium-tier volume gains.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%), the largest single product-level decline, indicating this anchor SKU is bearing the brunt of input cost inflation without corresponding price recovery.",
+    "Value product category margin dropped 6.42pp (26.24% \u2192 19.82%), suggesting volume is shifting toward lower-priced tiers within oil grades rather than remaining in premium or mid-tier formulations.",
+    "Conventional Engine Oil margin fell 6.61pp (25.77% \u2192 19.16%), indicating cost pressure is not isolated to synthetic blends but is systemic across the oil portfolio\u2014consistent with base oil commodity cost increases."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Tiered Price Escalation on Synthetic Blend SKUs via Selective Contract Renegotiation and Spot-Market Repricing",
+    "description": "Identify and renegotiate renewal-cycle contracts on Synthetic Blend Engine Oil (the highest-margin product under normal conditions) to recover 4\u20135pp of margin through a two-tier mechanism: (1) escalate list pricing on spot/transactional customers not bound by mid-quarter price locks, targeting a 3\u20134% ASP lift; (2) negotiate contract renewals with anchor accounts to embed a base-oil cost-pass-through clause, effective at next renewal window. This preserves contractual relationships while capturing upstream cost inflation.",
+    "mechanism": "Gross Margin % = (Net Revenue \u2212 COGS) / Net Revenue. Holding COGS constant, a 3\u20134% ASP increase on Synthetic Blend (the product with the largest margin delta) will recover 40\u201360 basis points of the 714bp loss. For renewal contracts, embedding a cost-escalation mechanism directly reduces future COGS pressure. The mechanism targets the confirmed COGS \u2194 Gross Margin % relationship and the confirmed net_revenue \u2194 gross_margin_pct relationship simultaneously.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.5,
+      "high": 4.2
+     },
+     "basis": "Synthetic Blend Engine Oil carries the largest absolute delta (\u22127.14pp). A 3\u20134% ASP increase on this product (assuming it represents ~25\u201330% of lubricant revenue mix) yields 75\u2013120bp recovery; contract renegotiation on renewals prevents future 2\u20133pp deterioration, netting 2.5\u20134.2pp recovery against the observed 7.14pp loss. Recovery is partial because mid-quarter price-lock constraints prevent immediate repricing on ~40\u201350% of anchor-account volume."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+   "hypothesis": "Base oil cost inflation is the primary driver of the 7.14 pp gross margin contraction in Synthetic Blend Engine Oil. The magnitude of decline (\u22127.14 pp) and concentration in synthetic and conventional grades\u2014both base-oil-intensive products\u2014combined with confirmed COGS\u2192margin mechanism and unconfirmed but plausible premium_mix_pct relationship, points to raw material cost pass-through failure rather than volume or pricing mix shift. The contractual price-lock constraint prevents mid-quarter list price recovery, forcing the margin compression to persist until the next allowable repricing window.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%), representing the largest single-product contributor to the overall decline; Conventional Engine Oil declined 6.61 pp (25.77% \u2192 19.16%), both concentrated in base-oil-dependent formulations.",
+    "COGS is confirmed as a direct, converging mechanism to gross margin % via base_oil_cost (INDIRECT via 2 hops, confirmed), indicating raw material inflation flows directly into COGS without offsetting revenue adjustment under the price-lock constraint.",
+    "The 'Value' product_category declined 6.42 pp (26.24% \u2192 19.82%), consistent with a cost-structure shock affecting the lower-margin, volume-driven segment where base oil represents a higher percentage of total landed cost and price elasticity limits recovery options."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Procurement Cost Hedging & Supplier Renegotiation for Base Oil Input",
+    "description": "Initiate immediate supplier negotiations to lock in base oil pricing for the next contract renewal cycle, and evaluate forward hedging instruments (futures, swaps) to protect against further feedstock volatility. Simultaneously, conduct a cost-to-serve deep dive on Synthetic Blend and Conventional grades to identify non-material cost reduction levers (manufacturing yield, packaging optimization, distribution consolidation) that can be deployed within the price-lock window to recover 3\u20135 pp of margin without violating contractual constraints.",
+    "mechanism": "Base oil cost inflation is flowing directly into COGS (confirmed mechanism), compressing gross margin. Since list prices cannot be raised mid-quarter, the intervention targets the numerator (COGS reduction via procurement hedging, supplier terms renegotiation, and internal process efficiency) rather than the denominator (revenue, which is contractually constrained). This preserves compliance with the price-lock clause while addressing the root cost shock.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.0,
+      "high": 5.5
+     },
+     "basis": "Synthetic Blend Engine Oil declined 7.14 pp; recovery target of 3.0\u20135.5 pp reflects partial mitigation through supplier renegotiation (1.5\u20132.5 pp), forward hedging to stabilize future input costs (0.8\u20131.5 pp), and internal process optimization in manufacturing/packaging (0.7\u20131.5 pp). Full recovery to 27.78% is unlikely within 90 days due to price-lock constraint; recovery is phased across the repricing window."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis + Structural Decline vs. Cyclical Dip",
+   "hypothesis": "Gross margin compression across engine oil grades (Synthetic Blend -7.14pp, Conventional -6.61pp) is driven by base oil cost inflation or contractual pass-through lag, not demand or mix shift. The 'Value' category decline (-6.42pp) confirms this is input-cost pressure, not pricing power or volume mix \u2014 a structural cost headwind masked by the premium-mix mechanism that should be offsetting it. The simultaneity across three oil types (Synthetic Blend, Conventional, Compressor Oil all declining -5.86 to -7.14pp) rules out product-specific demand shifts and points to a common cost driver upstream.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) while Conventional Engine Oil fell 6.61pp (25.77% \u2192 19.16%), indicating synchronized cost pressure across grades rather than mix or competitive dynamics",
+    "Value category (typically lower-margin, cost-sensitive) declined 6.42pp (26.24% \u2192 19.82%), confirming margin compression is driven by input costs, not volume or channel mix",
+    "Compressor Oil also declined 5.86pp, establishing a pattern across three distinct oil product lines \u2014 a portfolio-wide signal of base oil cost inflation or distribution cost surge, not isolated product performance"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Conduct Base Oil Cost & Supplier Pass-Through Analysis + Prepare Volume-Based Rebate Restructuring",
+    "description": "Immediately audit base oil procurement costs (WTI-linked, supplier contract terms) and distribution/packaging line items to quantify the cost inflation magnitude. In parallel, model a volume-rebate restructuring for anchor accounts (those under price-lock) that shifts margin recovery from per-unit pricing to volume tiers or service bundling, preserving contract compliance while creating economic incentive to offset cost pressure through higher order velocity or mix shift toward higher-margin formulations.",
+    "mechanism": "Base oil cost inflation is a direct COGS driver (confirmed relationship: base_oil_cost \u2192 COGS). The price-lock constraint prevents list-price recovery mid-quarter, but volume-based rebate restructuring (e.g., 'hit volume target, earn margin rebate' or 'shift 10% of volume to High Mileage, earn rebate') creates a workaround mechanism that maintains contractual compliance while recovering margin through mix or velocity without raising the unit price. This addresses the root cause (input cost) rather than symptoms (discounting or de-emphasis).",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.5,
+      "high": 4.2
+     },
+     "basis": "Base oil cost inflation likely accounts for 50\u201370% of the observed 7.14pp decline in Synthetic Blend. Volume-rebate restructuring targeting a 5\u20138% shift in mix toward higher-margin formulations or a 3\u20135% increase in order velocity within anchor accounts could recover 2.5\u20134.2pp of the margin loss, contingent on customer participation and execution speed within the 0\u201390 day window."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  }
+ },
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with Customer Profitability Lens",
+   "hypothesis": "Gross margin compression of 7.14pp on Synthetic Blend Engine Oil is driven by a combination of elevated base oil input costs (COGS pressure) and unfavorable mix shift toward lower-margin conventional grades, masking any premium-product benefit. The 6.61pp decline in Conventional Engine Oil suggests broad-based raw material cost inflation rather than isolated product-level repricing.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) year-to-date, the largest single product contributor to blended margin erosion",
+    "Conventional Engine Oil declined 6.61pp in parallel (25.77% \u2192 19.16%), indicating systematic COGS pressure across the oil category rather than selective channel or customer discounting",
+    "Value product_category margin dropped 6.42pp (26.24% \u2192 19.82%), consistent with base oil cost inflation affecting the entire portfolio without offsetting price recovery"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Implement Selective Price Indexation on Synthetic Blend SKUs via Contract Renewal Cycle",
+    "description": "Identify and accelerate renewal cycles for anchor accounts holding Synthetic Blend Engine Oil contracts expiring within 90 days. Embed a cost-pass-through clause (base oil index + 2\u20133pp buffer) into renewal terms to recover 40\u201350% of the 7.14pp margin gap without breaching mid-quarter price-lock constraints on existing agreements. Pair with channel-level margin reporting to isolate accounts absorbing disproportionate cost burden.",
+    "mechanism": "By targeting contract renewals rather than mid-quarter repricing, this approach respects the stated price-lock constraint while creating a controlled, forward-looking mechanism to recover margin. The indexation clause directly addresses confirmed COGS pressure (base_oil_cost component) and allows selective application to highest-margin or strategically valuable accounts, decoupling price recovery from blunt portfolio repricing.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.8,
+      "high": 4.2
+     },
+     "basis": "Synthetic Blend Engine Oil represents the largest margin delta (-7.14pp). Assuming 40\u201360% of the margin gap can be recovered through indexation on 50\u201370% of annual renewal volume within 90 days, recovery of 2.8\u20134.2pp is achievable. Full recovery (7.14pp) is not feasible within constraint; this range reflects realistic near-term uplift from contract leverage without portfolio-wide repricing."
+    },
+    "cost_signal": "Low",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+   "hypothesis": "Base oil input costs have risen materially YTD, compressing COGS absorption across synthetic blend and conventional engine oil products. The -7.14pp and -6.61pp margin declines in these two products (which together appear to anchor the portfolio) suggest a commodity-driven cost shock rather than a mix or volume effect. Synthetic Blend Engine Oil's higher structural margin (27.78% prior) makes it more sensitive to absolute cost increases; conventional grades show parallel compression (-6.61pp), indicating a shared input-cost driver, not product-specific pricing or mix dynamics.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin contracted 7.14pp (27.78% \u2192 20.64%) and Conventional Engine Oil contracted 6.61pp (25.77% \u2192 19.16%), showing synchronized compression across both premium and value-tier lubricants\u2014consistent with upstream base oil cost inflation rather than customer mix or pricing pressure",
+    "Value product category declined 6.42pp (26.24% \u2192 19.82%), aligning with the product-level synthetic and conventional declines, indicating the margin shock is broad-based and cost-structure driven, not isolated to premium segments",
+    "No revenue signals are flagged in the where_is_not dimension, and the problem is localized to product_name and product_category (cost structure), not sales_order_count or average_order_value, pointing to COGS expansion rather than pricing or volume contraction"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Procurement Cost Baseline Reset & Hedging Window Activation",
+    "description": "Conduct an immediate cost-of-goods audit isolating base oil, packaging, and manufacturing cost movements YTD for Synthetic Blend and Conventional Engine Oil. Activate forward hedging or alternative supplier contracts for Q2-Q3 base oil procurement to lock in current or lower rates before further escalation. Parallel effort: identify low-cost formulation or batch-size optimization opportunities in manufacturing to absorb ~30\u201350% of the input-cost delta without pricing action (which is contractually locked).",
+    "mechanism": "Direct reduction in COGS per unit through procurement cost stabilization and manufacturing efficiency, restoring the gross margin % numerator without requiring net revenue or price increases (which are constrained by anchor-account price-lock clauses). By fixing base oil cost and optimizing manufacturing absorption, the margin compression reverses at the product level.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.8
+     },
+     "basis": "Synthetic Blend Engine Oil shows a 7.14pp delta; if base oil cost represents ~45\u201365% of COGS in specialty lubricants, a procurement reset + manufacturing efficiency intervention targeting 50\u201380% cost recovery yields 3.5\u20135.8pp margin recovery. Conservative case assumes partial hedging success and modest manufacturing gains; upside case assumes faster supplier contract activation and batch optimization."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis \u00d7 Structural Decline vs. Cyclical Dip",
+   "hypothesis": "Gross margin compression across Synthetic Blend and Conventional Engine Oil is driven by base_oil_cost inflation (COGS mechanism) rather than revenue mix or volume \u2014 a structural input-cost squeeze, not a KPI-recoverable variance. The -7.14 pp drop in Synthetic Blend Engine Oil and -6.61 pp in Conventional, paired with -6.42 pp in the Value category, signals synchronized margin erosion across the portfolio's anchor products, consistent with commodity base oil cost pass-through lag or inability to reprice mid-contract.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%), the largest single product contributor to portfolio decline",
+    "Conventional Engine Oil margin fell 6.61 pp (25.77% \u2192 19.16%), demonstrating synchronized compression across both conventional and synthetic grades \u2014 inconsistent with selective demand or volume mix shift",
+    "Value category margin fell 6.42 pp (26.24% \u2192 19.82%), indicating the compression is structural to the lower-tier, higher-volume segment where base oil cost is the largest COGS component"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Accelerate SKU Rationalization: Exit or De-Emphasize Lowest-Margin SKUs Within Synthetic Blend Line; Redirect Volume to Premium Formulations",
+    "description": "Identify the 20\u201330% of Synthetic Blend SKUs (by revenue) carrying the lowest absolute margin and either discontinue or shift to direct-to-fleet, higher-ASP channels. Reallocate production and sales effort to High Mileage and full-synthetic formulations, which carry structurally higher gross margin and are less exposed to commodity base oil cost swings. This reframes the portfolio from margin recovery (impossible under input-cost pressure) to participation optimization.",
+    "mechanism": "Rather than attempting to recover margin on a structurally compressed product (blocked by mid-quarter price-lock constraint and base oil cost inflation), this mechanism removes low-margin volume from the blended portfolio and substitutes it with higher-margin participation. Synthetic Blend margins will remain under pressure; the intervention shifts the portfolio composition to reduce the weight of that pressure on overall gross margin %. This is a structural reallocation, not a KPI fix.",
+    "time_horizon": "3-12 months",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.1,
+      "high": 4.8
+     },
+     "basis": "Removing 25\u201335% of Synthetic Blend volume (currently at 20.64% margin) and substituting with High Mileage / Premium formulations (estimated 26\u201330% margin) yields blended uplift of 2.1\u20134.8 pp, depending on mix shift velocity and product cost structure. Magnitude is proportional to the observed 7.14 pp drop; recovery is partial because the underlying base oil cost pressure remains, but portfolio composition shields the reported KPI."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  }
+ },
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with Customer Profitability Diagnosis",
+   "hypothesis": "Gross margin collapse in Synthetic Blend Engine Oil (\u22127.14 pp) and Conventional Engine Oil (\u22126.61 pp) is driven by input cost inflation (base oil and distribution) combined with constrained pricing power due to mid-quarter price-lock contractual clauses on anchor accounts. The 'Value' category segment (\u22126.42 pp) signals downward mix shift or aggressive discounting on lower-margin SKUs to defend volume.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%), the largest product-level delta, despite being positioned as premium tier \u2014 inconsistent with mix benefit unless masked by COGS pressure or repricing downward.",
+    "Conventional Engine Oil margin fell 6.61 pp (25.77% \u2192 19.16%), tracking within 0.53 pp of Synthetic Blend decline, suggesting a common COGS or pricing driver across both grades rather than isolated product issue.",
+    "Value product_category segment declined 6.42 pp (26.24% \u2192 19.82%), indicating either volume shift into lower-margin SKUs or promotional/discount activity to maintain sales velocity in a cost-constrained environment."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Staged Mix-Driven Recovery via Selective Channel & Customer Repricing Post-Lock Expiry",
+    "description": "Identify anchor accounts (largest by volume) whose price-lock clauses expire within 90\u2013180 days and prepare tiered repricing schedules (+3\u20135% on Synthetic Blend, +2\u20133% on Conventional) to recover margin erosion. Simultaneously, execute targeted promotional bundling (Synthetic Blend + premium additive packages) on non-anchor channels to shift mix upward without violating contractual constraints on list prices.",
+    "mechanism": "Direct mechanism: repricing post-lock expiry directly increases net revenue on locked-in volume, recovering gross margin % (confirmed causal link: net_revenue \u2194 gross_margin_pct). Indirect mechanism: mix shift via bundling increases proportion of higher-margin SKUs in revenue composition, compounding recovery. Bypasses mid-quarter constraint by timing repricing to contractual renewal windows and using channel/product bundling (not list price) to drive mix on non-locked accounts.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.2,
+      "high": 5.1
+     },
+     "basis": "Repricing on ~60\u201370% of Synthetic Blend volume (post-lock anchor accounts + non-locked channels) at +3\u20134% price realization, combined with 2\u20133 pp mix lift from bundling, recovers 3.2\u20135.1 pp of the 7.14 pp decline. Conservative estimate reflects execution risk and volume elasticity; high-end assumes 80%+ price stickiness and successful mix adoption."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+   "hypothesis": "Gross margin compression of 7.14 percentage points in Synthetic Blend Engine Oil is primarily driven by unhedged base oil cost inflation, not revenue price or volume mix. The confirmed DIRECT relationship between base_oil_cost and COGS, combined with the 7.14pp delta concentrated in premium formulations (which carry higher base oil intensity per unit), suggests raw material cost pass-through lag or incomplete cost absorption into selling prices. The contractual price-lock constraint prevents mid-quarter list price recovery, trapping margin erosion in current period.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) while Conventional fell 6.61pp (25.77% \u2192 19.16%), indicating premium grades\u2014which carry structurally higher base oil content and cost exposure\u2014are absorbing disproportionate cost shock.",
+    "Value product_category margin fell 6.42pp (26.24% \u2192 19.82%), aligned with the oil product declines, suggesting cost-driven compression across the lubricants portfolio rather than volume/mix deterioration or demand-side discounting.",
+    "COGS is confirmed as a DIRECT driver of Gross Margin % (mechanism: ratio is calculated from Net Revenue and COGS), and base_oil_cost is confirmed as a DIRECT component of COGS, establishing a causal chain: base oil inflation \u2192 COGS rise \u2192 margin % decline, with no offsetting revenue adjustment possible under price-lock constraint."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Implement Immediate Base Oil Cost Pass-Through via SKU-Level Surcharge and Contract Amendment",
+    "description": "Establish a temporary material cost adjustment (surcharge or tiered pricing) on Synthetic Blend and Conventional Engine Oil SKUs for non-anchor-account customers, and initiate formal contract renegotiation with anchor accounts to reset base price effective next quarter when price-lock expires. This directly addresses the base oil cost inflation trapped by the mid-quarter price-lock constraint and recovers margin without violating contractual obligations.",
+    "mechanism": "Base oil cost inflation flows directly into COGS; the price-lock prevents list price increases on anchor accounts until next quarter. A surcharge on non-locked customers (if contractually permissible) or a volume-based rebate restructuring recovers margin immediately on flexible contracts. Anchor account renegotiation queues a permanent price adjustment to take effect when the lock expires, preventing margin erosion from repeating. This directly unblocks the COGS \u2192 Gross Margin % causal link.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.5,
+      "high": 5.8
+     },
+     "basis": "Synthetic Blend margin fell 7.14pp due to base oil cost inflation. Partial recovery assumes: (1) surcharge/adjustment captures 50\u201380% of non-anchor volume at a 0.5\u20131.0pp margin lift per SKU, and (2) anchor account renegotiation queues a 1.5\u20132.5pp recovery effective next quarter (amortized into current-period expectation). Conservative estimate recovers 3.5\u20135.8pp of the 7.14pp loss within 90 days, with full recovery by Q next via locked-in price increases."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis with Structural Decline vs. Cyclical Dip Differentiation",
+   "hypothesis": "Gross margin compression across engine oil products (Synthetic Blend -7.14pp, Conventional -6.61pp) signals either commodity base oil cost inflation passed through to COGS without compensating price recovery (cyclical), or a structural shift in customer mix toward lower-margin conventional grades despite premium product availability (participation). The synchronized collapse across both synthetic and conventional grades, coupled with the contractual price-lock constraint, suggests base oil cost is the primary driver, not discounting or mix deterioration alone. However, the 'Value' category margin decline (-6.42pp) indicates portfolio-wide pressure, raising the question of whether this is a temporary commodity cycle or evidence of category-level demand migration.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin collapsed from 27.78% to 20.64% (\u22127.14pp) \u2014 a 25.7% relative decline in the single highest-margin SKU, indicating this is not a volume/mix issue but a per-unit economics failure",
+    "Conventional Engine Oil margin fell nearly in parallel (\u22126.61pp, from 25.77% to 19.16%), suggesting the driver is not SKU-specific but category-wide \u2014 consistent with base oil cost inflation rather than selective competitive pressure",
+    "Value category (which anchors both synthetic and conventional SKUs) declined \u22126.42pp, confirming the margin compression is not isolated to premium tiers but systemic to the product_category, pointing to upstream input cost, not downstream pricing power"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Staged Mix Reallocation: Prioritize High Mileage and Specialty Formulations; De-Emphasize Conventional Grade Within Value Category",
+    "description": "Rather than defend margin on commodity-grade conventional oils (where base oil cost inflation erodes all margin equally), reallocate sales effort and inventory allocation toward higher-margin specialty formulations (High Mileage, Compressor Oil) that command structural margin premiums and are less sensitive to base oil spot pricing. This reframes the portfolio from a commodity-price-taking position to a differentiated-product-led strategy, allowing margin recovery without triggering the price-lock clause (which applies to anchor accounts, not product mix shifts within the portfolio).",
+    "mechanism": "Base oil cost inflation is compressing gross margin uniformly across conventional and synthetic-blend grades because both use the same base oil input. Reallocating volume from low-margin conventional (19.16% current) to higher-margin specialty products (e.g., High Mileage, Compressor Oil at estimated 25\u201328% margins) reduces the blended COGS exposure to commodity base oil while maintaining or growing total revenue. This is a portfolio reallocation play, not a pricing play, and thus avoids the contractual constraint. The mechanism works because specialty formulations carry higher value-add and lower base oil intensity per unit revenue.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.2,
+      "high": 5.1
+     },
+     "basis": "If 30\u201340% of current Conventional Engine Oil volume (19.16% margin) is reallocated to specialty products averaging 26% margin, the blended margin on reallocated volume improves by ~6\u20137pp. Applied to a portfolio currently weighted ~35% toward conventional-grade oils, this yields a 2.1\u20132.5pp uplift to portfolio margin. Combined with modest volume hold on Synthetic Blend (currently 20.64%), a conservative recovery is 3.2\u20135.1pp toward the pre-crisis 27.78% level, representing a 15\u201325% recovery of the observed 7.14pp decline."
+    },
+    "cost_signal": "Low",
+    "risk_signal": "Medium"
+   }
+  }
+ },
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with Customer Profitability Lens",
+   "hypothesis": "Gross margin compression of 7.14 pp in Synthetic Blend Engine Oil is driven by a combination of elevated base oil input costs (COGS driver) and/or aggressive discounting on this premium-positioned product line to defend volume in a competitive period. The 'Value' category segment showing -6.42 pp confirms downward mix pressure, suggesting customers are trading down or suppliers are conceding price to retain shelf space and order frequency.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil declined 7.14 pp (27.78% \u2192 20.64%) YTD\u2014the largest single product margin erosion, despite being positioned as a premium-margin tier",
+    "Conventional Engine Oil fell 6.61 pp (25.77% \u2192 19.16%) in parallel, indicating systematic COGS pressure or coordinated pricing action across the lubricant portfolio, not isolated product issue",
+    "Value product_category segment dropped 6.42 pp (26.24% \u2192 19.82%), signaling mix shift toward lower-margin tiers or volume-driven discounting to offset competitive pressure"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Surgical Rebate Restructuring + Selective Channel Mix Rebalancing",
+    "description": "Reallocate margin recovery away from list-price repricing (blocked by contract lock) toward tiered rebate recapture on Synthetic Blend Engine Oil. Simultaneously audit and reduce promotional depth on lowest-margin 'Value' tier SKUs within this product family, redirecting volume incentives toward higher-margin formulations (High Mileage, Full Synthetic) where willingness-to-pay is defensible. Execute within Q1 renewal/rebate reset windows to avoid mid-quarter friction.",
+    "mechanism": "Rebate restructuring bypasses the price-lock constraint by operating on net revenue post-contract, not on list price. By reducing rebate generosity on volume thresholds already being hit, you recover COGS-to-revenue ratio without touching contractual list terms. Simultaneously, shifting promotional spend from Value-tier discounts to High Mileage premiums restores blended margin mix (premium_mix_pct) while maintaining total order value and customer stickiness.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.8,
+      "high": 4.2
+     },
+     "basis": "Synthetic Blend compression of 7.14 pp is split between estimated COGS/input cost pressure (~3.5\u20134.5 pp) and discounting/rebate leakage (~2.5\u20133.5 pp). Rebate recapture on 40\u201350% of the discounting component yields 1.0\u20131.75 pp direct recovery; mix rebalancing from Value to premium tiers adds 1.8\u20132.5 pp via higher-margin unit contribution. Conservative mid-range: 2.8\u20134.2 pp recovery in YTD blended gross margin %."
+    },
+    "cost_signal": "Low",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Shock Diagnosis",
+   "hypothesis": "Gross margin compression of 7.14 pp in Synthetic Blend Engine Oil is driven by a base oil cost shock (raw material inflation) that has not been offset by list price adjustment due to contractual price-lock constraints on anchor accounts. The -7.14 pp delta in the highest-margin synthetic blend product, paired with -6.61 pp in conventional (lower-margin baseline), indicates a proportionally larger absolute COGS increase hitting the premium product harder in percentage terms, consistent with unhedged commodity exposure in base oil procurement.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%) while Conventional fell 6.61 pp (25.77% \u2192 19.16%), indicating both products absorbed similar absolute COGS increases but the synthetic blend\u2014with structurally higher gross margin\u2014suffered greater percentage point erosion, consistent with base oil cost inflation hitting both SKUs equally in absolute terms.",
+    "Value product category declined 6.42 pp (26.24% \u2192 19.82%), aligning with the synthetic and conventional engine oil declines, suggesting a systemic input cost driver affecting the entire lubricant portfolio rather than product-specific discounting or volume mix shifts.",
+    "Compressor Oil also declined 5.86 pp, confirming the margin compression pattern is not isolated to engine oils but spans all base-oil-dependent products, pointing to a shared procurement or manufacturing cost input rather than customer-level pricing pressure or mix deterioration."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Base Oil Cost Hedging & Procurement Reset with Selective Contract Renegotiation",
+    "description": "Conduct an immediate procurement audit to quantify the base oil cost increase YTD and map expiration dates on non-anchor customer contracts to identify renegotiation windows. Implement a forward-hedging strategy (futures or supplier lock-in) for Q3\u2013Q4 base oil purchases to arrest further margin erosion, and prepare a phased price adjustment roadmap for non-locked accounts to recover 40\u201360% of the margin gap within 90 days.",
+    "mechanism": "The margin fall is a direct COGS driver (confirmed causal relationship). Base oil is a direct component of COGS (confirmed). Unhedged commodity exposure in base oil procurement has inflated COGS without corresponding revenue adjustment due to price-lock constraints on anchor accounts. Hedging forward purchases and negotiating price increases on non-locked contracts directly reduces the COGS component and restores net revenue/COGS ratio balance, addressing the supply-side shock rather than masking it with internal process fixes.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.2,
+      "high": 5.1
+     },
+     "basis": "Synthetic Blend margin fell 7.14 pp; if base oil cost increase accounts for 60\u201370% of the shock (typical for lubricant COGS structure), hedging forward purchases and capturing price increases on 50\u201370% of non-anchor volume would recover 3.2\u20135.1 pp within 90 days. Conventional and Compressor oils would see proportional recovery (6.6 pp and 5.9 pp potential respectively), validating the shared input-cost mechanism."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis + Category Lifecycle Positioning",
+   "hypothesis": "Gross margin compression across engine oil portfolio (Synthetic Blend -7.14pp, Conventional -6.61pp) signals structural cost-input pressure rather than KPI-recoverable pricing variance. The synchronized decline across both premium and value tiers, combined with contractual price-lock constraints, indicates base_oil_cost and/or distribution_cost inflation is eroding blended margin faster than mix or volume can offset. This is a structural reallocation signal, not a fixable variance.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) and Conventional Engine Oil fell 6.61pp (25.77% \u2192 19.16%) \u2014 parallel declines across the grade spectrum point to shared input cost driver, not product-specific commercial issue",
+    "Value category margin compressed 6.42pp (26.24% \u2192 19.82%), indicating the margin loss is category-wide and structural, not isolated to a single SKU or customer segment",
+    "Compressor Oil also declined 5.86pp, confirming the signal spans multiple product lines \u2014 consistent with base oil cost inflation or distribution cost step-change rather than demand-side repricing"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Portfolio Reallocation: Reduce Synthetic Blend Volume Participation; Redirect Mix to Higher-Margin or Lower-Input-Cost Alternatives",
+    "description": "Given contractual price-lock constraints preventing mid-quarter list price recovery, the margin loss cannot be recovered through pricing within this quarter. Instead, reallocate sales effort and inventory allocation away from Synthetic Blend (highest absolute margin loss: -7.14pp) toward product lines with lower base oil cost exposure or higher structural margins (e.g., specialty formulations, high-mileage grades, or value-engineered conventional lines). This reframes the portfolio to defensible margin while cost normalization is monitored.",
+    "mechanism": "Margin compression is driven by input cost inflation (base oil, distribution) that pricing cannot offset under current constraints. Reducing volume participation in high-cost-exposed products (Synthetic Blend, Conventional) and reallocating to lower-input-cost or higher-value alternatives directly lowers the blended COGS-to-revenue ratio without violating price-lock clauses. This trades volume for structural margin recovery.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.5,
+      "high": 4.2
+     },
+     "basis": "Reallocation of 40\u201360% of Synthetic Blend volume to alternatives with 3\u20135pp higher margins (e.g., specialty or engineered formulations) can recover 2.5\u20134.2pp of blended margin without pricing action. Conservative estimate assumes partial volume recovery and mix headwinds; high estimate assumes faster customer acceptance of alternative products."
+    },
+    "cost_signal": "Low",
+    "risk_signal": "Medium"
+   }
+  }
+ },
+ {
+  "commercial": {
+   "framework": "Price-Volume-Mix Decomposition with Customer Profitability Analysis",
+   "hypothesis": "Gross margin compression of 7.14 pp on Synthetic Blend Engine Oil is driven primarily by unrecovered input cost inflation (base oil and/or manufacturing costs) combined with contractual pricing rigidity on anchor accounts. The Value category decline (-6.42 pp) suggests margin pressure is concentrated in lower-tier SKUs where price-lock clauses prevent mid-quarter indexation, while COGS (base oil, manufacturing, distribution) has risen materially YTD without corresponding revenue recovery.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%) YTD, the largest single-product deterioration, signaling product-specific cost or pricing stress rather than portfolio-wide demand shift.",
+    "Conventional Engine Oil declined 6.61 pp (25.77% \u2192 19.16%), and both products sit in the Value category which fell 6.42 pp, indicating concentrated margin loss in price-sensitive, contractually locked tiers.",
+    "Confirmed COGS relationship shows base_oil_cost, manufacturing_cost, and distribution_cost sum directly into COGS; combined inflation across these three line items without pricing pass-through explains the magnitude of observed margin erosion."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Tiered Cost Recovery via Mix Acceleration into Premium Formulations + Selective Contract Renegotiation at Renewal",
+    "description": "Redirect sales incentives and channel promotion toward High Mileage and Full Synthetic variants (which carry structurally higher gross margin per the confirmed premium_mix_pct relationship) while simultaneously preparing contract renegotiation packages for anchor accounts at their next renewal cycle, bundling volume commitments with indexed pricing tied to base oil cost benchmarks. This bypasses the mid-quarter price-lock constraint by deferring pricing action to contractual renewal windows and offsets current margin loss through mix shift.",
+    "mechanism": "Premium formulations carry higher inherent gross margin; shifting volume from Synthetic Blend (now 20.64%) to High Mileage or Full Synthetic will improve blended margin immediately without violating price-lock clauses. Concurrently, preparing renewal-cycle contract language with cost-escalation clauses (indexed to published base oil futures or supplier indices) ensures future COGS inflation is automatically passed through, preventing recurrence of unrecovered input cost pressure.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.8,
+      "high": 4.2
+     },
+     "basis": "A 15\u201320 pp mix shift from Synthetic Blend (20.64% margin) to High Mileage/Full Synthetic (assumed 26\u201328% margin based on premium positioning) recovers 0.85\u20131.4 pp of blended margin in the YTD portfolio. Parallel contract prep work (0\u201390 day horizon) positions 2.0\u20132.8 pp recovery at renewal, achievable via 300\u2013400 bps cost-escalation pass-through on renewed volume. Conservative estimate: 2.8\u20134.2 pp recovery YTD + forward."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "operational": {
+   "framework": "Cost-to-Serve Analysis with Input-Cost Hedging Diagnostics",
+   "hypothesis": "Gross margin compression of 7.14 percentage points in Synthetic Blend Engine Oil is driven primarily by unhedged base oil cost inflation, not revenue price/mix deterioration. The -7.14 delta in the highest-margin synthetic product, coupled with parallel -6.61 delta in conventional oil and -5.86 in compressor oil, indicates a supply-side cost shock concentrated in base oil inputs. The constraint preventing mid-quarter price adjustments masks this cost pass-through, creating a temporary margin valley until contract renewal or procurement hedging takes effect.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 points (27.78% \u2192 20.64%), the largest single-product delta, indicating cost pressure on the highest-margin SKU where base oil is the dominant COGS component.",
+    "Three oil products (Synthetic Blend, Conventional, Compressor) all compressed by -5.86 to -7.14 points in parallel, pointing to a common input cost driver (base oil procurement or feedstock pricing) rather than product-specific operational or demand issues.",
+    "Value product category margin fell -6.42 points, overlapping with oil product SKUs, confirming that margin erosion concentrates in the lubricants segment where base oil cost represents 40\u201360% of COGS."
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Immediate Base Oil Cost Procurement Audit & Hedging Lock-In",
+    "description": "Conduct a 10-day forensic review of base oil supplier invoices, spot-market pricing, and hedging positions for YTD purchases. Identify whether current COGS reflects recent spot-price spikes or contract repricing. Simultaneously, execute forward procurement locks (3\u20136 month futures or fixed-price supplier agreements) at current market levels to prevent further margin bleed and establish a cost floor for Q3\u2013Q4 pricing negotiations.",
+    "mechanism": "If base oil spot prices spiked 8\u201312% YTD, COGS per unit rose proportionally, directly compressing gross margin % (revenue held constant by price-lock clause). Locking in current base oil costs stops the bleed; when the price-lock clause expires or at contract renewal, the now-documented cost baseline enables justified price increases to recover the 7.14-point margin gap without demand risk.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 4.2,
+      "high": 6.8
+     },
+     "basis": "If base oil inflation accounts for 60\u201375% of the observed 7.14-point delta (i.e., 4.3\u20135.4 points), hedging and procurement optimization can recover 4.2\u20136.8 points by Q3, depending on spot-price stabilization and hedging execution speed. Recovery lags full delta because price-lock constraint prevents immediate revenue offset; full 7.14-point recovery requires contract renewal or customer renegotiation."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "Medium"
+   }
+  },
+  "structural": {
+   "framework": "Portfolio Participation Analysis \u00d7 Category Lifecycle Positioning",
+   "hypothesis": "Gross margin compression across conventional and synthetic blend engine oils (\u22127.14 and \u22126.61 points respectively) signals structural input-cost inflation in base oil and/or distribution, not demand-side mix shift or cyclical pricing dip. The 'Value' category margin decline (\u22126.42) confirms cost pressure is portfolio-wide, not product-specific. Premium mix participation may be masking even deeper margin erosion in the underlying cost structure.",
+   "key_evidence": [
+    "Synthetic Blend Engine Oil margin fell 7.14 points (27.78% \u2192 20.64%) while remaining the portfolio's highest-margin product\u2014margin compression despite structural product quality advantage suggests input cost or freight inflation, not competitive discounting alone",
+    "Conventional Engine Oil declined 6.61 points (25.77% \u2192 19.16%) in parallel, indicating systematic cost pressure across the lubricant category rather than product-specific mix or demand shift",
+    "Value category margin dropped 6.42 points (26.24% \u2192 19.82%), showing margin pressure transcends product_name segmentation and points to shared COGS drivers (base oil cost, distribution_cost, manufacturing_cost, packaging_cost)"
+   ],
+   "recommended_focus": "Synthetic Blend Engine Oil",
+   "conviction": "High",
+   "proposed_option": {
+    "title": "Cost-Component Waterfall & Reallocation Decision: Isolate Base Oil vs. Distribution vs. Manufacturing Inflation",
+    "description": "Conduct a 30-day cost-component decomposition of COGS for Synthetic Blend and Conventional Engine Oil to isolate whether margin loss is driven by base oil price escalation, freight/distribution inflation, or manufacturing/packaging cost creep. Use findings to decide between: (a) accepting lower margin in Value/Conventional tier and reallocating portfolio emphasis to higher-resilience SKUs, or (b) negotiating supplier contracts for base oil and freight, or (c) exiting or de-emphasizing the most-pressured SKU within the next quarter.",
+    "mechanism": "The hypothesis rests on COGS movement (confirmed direct relationship), not revenue decline. Decomposing COGS into base_oil_cost, distribution_cost, manufacturing_cost, and packaging_cost (all confirmed INDIRECT drivers via COGS) will identify which cost account is inflating. This isolates whether the margin loss is: (1) structural/durable (commodity input inflation \u2192 portfolio reallocation needed), (2) tactical/contractual (freight spike \u2192 negotiable), or (3) operational (manufacturing inefficiency \u2192 process fix). The constraint against mid-quarter price increases means revenue-side recovery is unavailable; cost isolation is the only frame-respecting lever.",
+    "time_horizon": "0-90 days",
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.5,
+      "high": 4.5
+     },
+     "basis": "Partial recovery assumes cost isolation identifies 35\u201350% of the 7.14-point compression as addressable via supplier negotiation or SKU reallocation (e.g., shifting volume mix toward higher-resilience products or renegotiating base oil contracts). Full recovery (7.14 points) is unlikely within 90 days given commodity dynamics and contractual constraints; realistic recovery targets 2.5\u20134.5 points through tactical cost management and portfolio shift."
+    },
+    "cost_signal": "Medium",
+    "risk_signal": "High"
+   }
+  }
+ }
+]

@@ -1,0 +1,1478 @@
+{
+ "solutions": {
+  "status": "success",
+  "request_id": "bakeoff-synthesis-1788561630529",
+  "timestamp": "2026-09-04T22:42:44.407876",
+  "error_message": null,
+  "analysis_degraded": false,
+  "degraded_reason": null,
+  "options_ranked": [
+   {
+    "id": "opt_1",
+    "title": "Contract-Permitted Rebate Recapture and Promotion Reset",
+    "description": "Restructure discretionary rebates and reduce promotional depth on Synthetic Blend Engine Oil at legally permitted reset windows, without changing locked anchor-account list prices or overriding committed rebates. Replace automatic volume rewards with incremental, contribution-protecting tiers. Apply promotion changes only to verified Synthetic Blend and Value-tier overlap; the supplied category totals do not establish that overlap. Defer incentives toward High Mileage or Full Synthetic until their realized margins exceed Synthetic Blend's 20.64%; no supplied product evidence establishes that superiority. Preserve within-threshold operating practices from 2026-006 through 2026-008 rather than imposing a business-wide reset. No well-performing product segment is identified for intervention or benchmark replication.",
+    "expected_impact": 0.7,
+    "cost": 0.25,
+    "risk": 0.5,
+    "evidence": null,
+    "rationale": "Customer profitability and price-volume-mix methods support intervening in net realization without automatically reaching for list-price increases. However, the supplied evidence does not establish rebate leakage, legal reset rights or the original assumed cost-versus-discount split; therefore the retained recovery range is a gated scenario rather than an evidenced forecast. External product switching is excluded from the quantified segment recovery.",
+    "time_to_value": "Within 30\u201390 days where discretionary programs can change; otherwise at the next permitted renewal or rebate-reset date.",
+    "reversibility": "high",
+    "lens_views": [
+     {
+      "lens": "Commercial Lens",
+      "arguments_for": [
+       "Customer profitability analysis supports replacing automatic rebates with incremental-volume tiers because Synthetic Blend has lost 7.14 margin points while anchor-account list prices are locked."
+      ],
+      "arguments_against": [
+       "Price-volume-mix decomposition cannot attribute the observed decline to rebates from product margin totals alone, so assuming 2.8\u20134.2 points of recoverable leakage overstates the evidence."
+      ],
+      "key_questions": [
+       "Which already-authorized rebate resets can the sales team execute without breaching effective-price protections or sacrificing profitable orders?"
+      ]
+     },
+     {
+      "lens": "Operational & Cost-Structure Lens",
+      "arguments_for": [
+       "The client-confirmed net_revenue-to-gross_margin_pct relationship supports higher net realization as a margin mechanism without requiring manufacturing changes."
+      ],
+      "arguments_against": [
+       "Cost-to-serve analysis warns that reduced promotional volume can leave fixed manufacturing costs spread over fewer units, offsetting rebate recovery."
+      ],
+      "key_questions": [
+       "What shipment and production floors will prevent rebate changes from increasing unit conversion costs?"
+      ]
+     },
+     {
+      "lens": "Structural & Portfolio Lens",
+      "arguments_for": [
+       "Portfolio participation analysis supports withdrawing uneconomic promotional support before making irreversible exits from a product still earning a reported 20.64% gross margin."
+      ],
+      "arguments_against": [
+       "Rebate optimization preserves the existing portfolio and may not resolve enduring participation problems; moreover, High Mileage and Full Synthetic have no supplied margin benchmark."
+      ],
+      "key_questions": [
+       "What realized contribution threshold will stop promotional support if the reset does not make targeted business worth serving?"
+      ]
+     }
+    ],
+    "implementation_triggers": [
+     "Legal counsel confirms that the specific rebate or promotion is discretionary or reaches a permitted reset date.",
+     "Commercial leadership approves a contribution floor and customer-retention guardrail before issuing revised offers.",
+     "Incentives for another formulation activate only after its realized margin exceeds the targeted product's margin and customers accept the offer."
+    ],
+    "prerequisites": [
+     "Preserve all locked list prices and contractually committed rebates; a rebate change is not automatically exempt from contractual pricing protections.",
+     "Use existing account economics to restrict changes to affected Synthetic Blend transactions and verified Value-tier overlap.",
+     "Exclude benefits from external product migration from the Synthetic Blend segment recovery claim.",
+     "Retain successful service and fulfillment practices associated with within-threshold periods rather than applying blanket changes."
+    ],
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.8,
+      "high": 4.2
+     },
+     "basis": "The retained Stage 1 scenario targets 2.8\u20134.2 percentage points of Synthetic Blend Engine Oil's 7.14-point decline through permitted rebate recapture and within-segment promotion changes, implying a conditional segment margin of 23.44\u201324.84%, not an enterprise forecast.",
+     "scope": "segment",
+     "scope_label": "Synthetic Blend Engine Oil",
+     "lever": null,
+     "source": "llm_estimated"
+    },
+    "key_assumptions": [
+     {
+      "assumption": "Synthetic Blend Engine Oil has a 7.14-point historical margin gap.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": true,
+      "confidence": "high",
+      "provenance": "The product change point reports 27.78% previously and 20.64% currently."
+     },
+     {
+      "assumption": "A material share of rebates can be reset within the implementation horizon.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "Executed customer agreements permit the proposed reset dates and revised rebate tiers."
+     },
+     {
+      "assumption": "Customers retain enough profitable purchases after incentives are reduced.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Post-reset orders meet the approved revenue and gross-profit retention floors during the first two order cycles."
+     },
+     {
+      "assumption": "Recoverable net-realization leakage is sufficient to support the retained impact scenario without relying on external product switching.",
+      "validated_by": "ma_query",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "Realized net prices and accrued rebates on eligible Synthetic Blend sales generate at least 2.8 margin points after volume and cost effects."
+     }
+    ],
+    "flagged_side_effects": [],
+    "dominated_by": null
+   },
+   {
+    "id": "opt_2",
+    "title": "Delivered Base-Oil Cost Reset with Selective Supply Protection",
+    "description": "Renegotiate delivered base-oil terms for Synthetic Blend Engine Oil, consolidate eligible purchase commitments and use supplier price locks or approved matched hedges only where they improve the approved delivered-cost outcome. Introduce cost-linked clauses on non-locked accounts or at permitted renewals, not through mid-quarter anchor-account list-price increases. Extend supplier terms to Conventional Engine Oil and Compressor Oil only where they share qualified inputs; their 6.61- and 5.86-point declines justify targeted eligibility, not an enterprise-wide redesign. Preserve within-threshold operating practices from 2026-006 through 2026-008. No unaffected product segment or internal product benchmark is supplied.",
+    "expected_impact": 0.62,
+    "cost": 0.5,
+    "risk": 0.5,
+    "evidence": null,
+    "rationale": "The client confirms that base-oil costs enter COGS and that COGS directly affects Gross Margin %, making delivered purchase-cost reduction a model-supported mechanism. The simultaneous product declines are consistent with, but do not establish, an input-cost shock. Hedge protection limits future exposure and cannot reverse costs already incurred; actual savings must come from contracted delivered economics and permitted commercial terms.",
+    "time_to_value": "Initial benefits within 30\u201390 days as new purchases enter COGS; broader contract and inventory turnover effects over 3\u201312 months.",
+    "reversibility": "medium",
+    "lens_views": [
+     {
+      "lens": "Commercial Lens",
+      "arguments_for": [
+       "Contract-cycle leverage supports cost-linked clauses on non-locked accounts while preserving the explicit mid-quarter list-price protection on anchor accounts."
+      ],
+      "arguments_against": [
+       "Willingness-to-pay segmentation warns that non-anchor customers may reject increases, so supply savings and commercial recovery cannot both be assumed at full value."
+      ],
+      "key_questions": [
+       "Which eligible customers can accept cost-linked renewal terms without reducing their profitable purchases?"
+      ]
+     },
+     {
+      "lens": "Operational & Cost-Structure Lens",
+      "arguments_for": [
+       "The client-confirmed base_oil_cost-to-cogs relationship and COGS margin identity support lowering delivered input costs as a direct operational intervention."
+      ],
+      "arguments_against": [
+       "Procurement and hedging methods distinguish lower purchase cost from volatility protection: locking today's expensive inputs could preserve rather than repair compressed margins."
+      ],
+      "key_questions": [
+       "Do proposed supply contracts reduce delivered cost after freight, premiums, inventory carrying costs and quality requirements?"
+      ]
+     },
+     {
+      "lens": "Structural & Portfolio Lens",
+      "arguments_for": [
+       "Portfolio participation analysis favors improving a shared input platform before exiting several products whose declines may have a common, reversible cause."
+      ],
+      "arguments_against": [
+       "Multi-period purchase commitments can entrench exposure to declining products; no supplied demand evidence establishes that the committed volumes remain attractive."
+      ],
+      "key_questions": [
+       "What minimum purchase flexibility preserves the ability to reallocate the portfolio if engine-oil economics remain weak?"
+      ]
+     }
+    ],
+    "implementation_triggers": [
+     "Qualified supplier offers beat the approved delivered-cost baseline after premiums, freight and inventory effects.",
+     "Treasury approves hedge instruments, exposure limits and purchase-volume matching before any commitment.",
+     "Non-locked contracts reach legally permissible repricing windows.",
+     "New inventory reaches production and cost recognition before recovery is credited to Gross Margin %."
+    ],
+    "prerequisites": [
+     "Preserve anchor-account list-price locks throughout the quarter.",
+     "Require supplier quality qualification and maintain service continuity during allocation changes.",
+     "Limit commitments to defensible purchase volumes and retain contractual flexibility for portfolio changes.",
+     "Treat 60\u201370% base-oil attribution and 50\u201370% non-anchor coverage from Stage 1 as unverified assumptions, not established operating facts."
+    ],
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 3.2,
+      "high": 5.1
+     },
+     "basis": "The retained Stage 1 scenario recovers 3.2\u20135.1 percentage points of Synthetic Blend Engine Oil's 7.14-point decline through lower delivered COGS and permitted non-locked contract changes, implying 23.84\u201325.74% segment margin; supply hedging alone does not establish this recovery.",
+     "scope": "segment",
+     "scope_label": "Synthetic Blend Engine Oil",
+     "lever": null,
+     "source": "llm_estimated"
+    },
+    "key_assumptions": [
+     {
+      "assumption": "Reducing base-oil expense reduces COGS, holding other components constant.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": true,
+      "confidence": "high",
+      "provenance": "The client-confirmed causal context identifies Raw Materials/base oil as an additive component of COGS."
+     },
+     {
+      "assumption": "Current qualified supplier terms contain achievable delivered-cost savings.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Executed supplier offers and subsequent invoices show lower delivered cost for equivalent specifications."
+     },
+     {
+      "assumption": "Purchase commitments and hedge volumes can be matched without material stranded exposure.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Actual purchases remain within approved commitment bands through the first two replenishment cycles."
+     },
+     {
+      "assumption": "Eligible contract changes and inventory turnover are sufficient to realize the retained recovery within the stated horizon.",
+      "validated_by": "ma_query",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "Recognized purchase savings and effective non-locked pricing deliver at least 3.2 Synthetic Blend margin points after inventory lag."
+     }
+    ],
+    "flagged_side_effects": [],
+    "dominated_by": null
+   },
+   {
+    "id": "opt_3",
+    "title": "Revenue-Protected Portfolio Reallocation",
+    "description": "Redirect discretionary sales capacity and replenishment investment from selected Synthetic Blend Engine Oil business only after replacement orders protect revenue and gross-profit dollars. Compressor Oil is a candidate for selling-capacity allocation because its current margin is 28%, above Synthetic Blend's 20.64%, but it is also underperforming by 5.86 points. First stabilize its delivered input and fulfillment economics through qualified supply and service terms; then redirect capacity against booked demand. Compressor Oil is not assumed to be a functional substitute for engine oil. Conventional Engine Oil, at 19.16%, is not a preferred destination. High Mileage, Full Synthetic and specialty formulations remain conditional candidates because their margins are absent. Preserve contracted anchor-account supply and within-threshold operating practices from 2026-006 through 2026-008; no healthy product benchmark is identified.",
+    "expected_impact": 0.4,
+    "cost": 0.25,
+    "risk": 0.5,
+    "evidence": null,
+    "rationale": "Portfolio participation should be judged on attainable margin levels and gross-profit dollars, not decline magnitude alone: Compressor Oil's 28% current margin exceeds Synthetic Blend's 20.64%, whereas Conventional's 19.16% does not. The intervention therefore replaces unconditional volume withdrawal with a replacement-order gate and an explicit destination-stabilization step. The high-severity revenue concern remains an execution exposure until replacement demand is contracted; increasing a ratio by shrinking profitable business is not counted as success.",
+    "time_to_value": "Stage replacement orders within 90 days; phase capacity and inventory reallocation over 3\u201312 months after destination economics and demand gates are met.",
+    "reversibility": "medium",
+    "lens_views": [
+     {
+      "lens": "Commercial Lens",
+      "arguments_for": [
+       "Channel economics supports moving discretionary selling capacity toward a 28% margin opportunity rather than a 20.64% one when booked demand and contribution remain attractive."
+      ],
+      "arguments_against": [
+       "Customer profitability analysis rejects assuming Compressor Oil can replace engine-oil purchases; customers, applications and order economics may differ materially."
+      ],
+      "key_questions": [
+       "Which booked replacement orders preserve revenue and gross-profit dollars before Synthetic Blend replenishment is reduced?"
+      ]
+     },
+     {
+      "lens": "Operational & Cost-Structure Lens",
+      "arguments_for": [
+       "Cost-to-serve and overhead-absorption methods support the explicit requirement to retain profitable production loading and stabilize destination economics before moving capacity."
+      ],
+      "arguments_against": [
+       "Compressor Oil's 5.86-point deterioration indicates that reallocating toward it without repairing its cost exposure could reproduce the same problem."
+      ],
+      "key_questions": [
+       "Which avoidable costs disappear with reduced Synthetic Blend participation, and which fixed costs remain on the retained portfolio?"
+      ]
+     },
+     {
+      "lens": "Structural & Portfolio Lens",
+      "arguments_for": [
+       "Portfolio participation analysis correctly compares current margin levels, excludes lower-margin Conventional Engine Oil and conditions reallocation on replacement economics."
+      ],
+      "arguments_against": [
+       "Category lifecycle analysis cannot classify the decline as structural from one year-to-date comparison; premature withdrawal could sacrifice profitable business during a cyclical cost shock."
+      ],
+      "key_questions": [
+       "What contractual demand and contribution gates justify each reallocation tranche without requiring an unsupported structural-decline thesis?"
+      ]
+     }
+    ],
+    "implementation_triggers": [
+     "Replacement orders are contracted before corresponding Synthetic Blend capacity or replenishment is withdrawn.",
+     "Destination economics are stabilized and exceed the origin margin after incremental selling, fulfillment and transition costs.",
+     "Each tranche preserves approved revenue, gross-profit-dollar and plant-loading floors.",
+     "Legal counsel confirms continued fulfillment of anchor-account supply and list-price obligations."
+    ],
+    "prerequisites": [
+     "Use selling-capacity allocation rather than assumed product substitution where customer applications differ.",
+     "Stabilize Compressor Oil's declining economics before scaling it as a destination.",
+     "Require booked replacement revenue to offset withdrawn revenue and separately protect gross-profit dollars after stranded costs.",
+     "Define the Synthetic Blend-origin revenue cohort before launch; external replacement sales cannot be reported as recovery in the unchanged Synthetic Blend product segment.",
+     "Keep the intervention to a sales-and-inventory reallocation pilot; any plant exit or major capital change requires separate approval and cost scoring."
+    ],
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "%",
+     "recovery_range": {
+      "low": 2.5,
+      "high": 4.2
+     },
+     "basis": "For a revenue-preserved cohort originating in Synthetic Blend Engine Oil, reallocating approximately 34\u201357% of revenue from its 20.64% margin to a stabilized 28% destination would yield approximately 2.5\u20134.2 percentage points against the original 7.14-point gap; this constructed cohort scenario is neither the enterprise KPI nor the remaining Synthetic Blend product's reported margin.",
+     "scope": "segment",
+     "scope_label": "Synthetic Blend Engine Oil-origin revenue cohort",
+     "lever": null,
+     "source": "llm_estimated"
+    },
+    "key_assumptions": [
+     {
+      "assumption": "Compressor Oil currently has a higher reported gross margin than Synthetic Blend Engine Oil, despite also deteriorating.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": true,
+      "confidence": "high",
+      "provenance": "The supplied product change points report Compressor Oil at 28%, down 5.86 points, and Synthetic Blend at 20.64%, down 7.14 points."
+     },
+     {
+      "assumption": "Replacement demand exists at sufficient scale to preserve withdrawn revenue.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "Signed replacement orders cover the revenue scheduled for withdrawal before each allocation tranche."
+     },
+     {
+      "assumption": "The destination margin can remain at least 28% as sales capacity is added.",
+      "validated_by": "ma_query",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "Incremental destination orders retain at least 28% realized gross margin after new supply and fulfillment terms take effect."
+     },
+     {
+      "assumption": "Approximately 34\u201357% revenue reallocation is commercially and operationally feasible for the origin cohort.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "Approved allocation tranches achieve the specified replacement-revenue share without breaching capacity, contract or revenue floors."
+     },
+     {
+      "assumption": "Stranded costs and transition expenses do not consume the apparent margin advantage.",
+      "validated_by": "ma_query",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Realized gross-profit dollars after retained manufacturing costs and transition charges meet the approved pre-reallocation floor."
+     }
+    ],
+    "flagged_side_effects": [
+     "Cutting Synthetic Blend participation before replacement orders are secured can reduce units sold and net revenue, leaving fixed costs behind and weakening both gross-profit dollars and the intended margin recovery."
+    ],
+    "dominated_by": null
+   }
+  ],
+  "tradeoff_matrix": {
+   "criteria": [
+    {
+     "name": "impact",
+     "weight": 0.4
+    },
+    {
+     "name": "cost",
+     "weight": 0.2
+    },
+    {
+     "name": "risk",
+     "weight": 0.4
+    }
+   ],
+   "options": [
+    {
+     "id": "opt_1",
+     "title": "Contract-Permitted Rebate Recapture and Promotion Reset",
+     "description": "Restructure discretionary rebates and reduce promotional depth on Synthetic Blend Engine Oil at legally permitted reset windows, without changing locked anchor-account list prices or overriding committed rebates. Replace automatic volume rewards with incremental, contribution-protecting tiers. Apply promotion changes only to verified Synthetic Blend and Value-tier overlap; the supplied category totals do not establish that overlap. Defer incentives toward High Mileage or Full Synthetic until their realized margins exceed Synthetic Blend's 20.64%; no supplied product evidence establishes that superiority. Preserve within-threshold operating practices from 2026-006 through 2026-008 rather than imposing a business-wide reset. No well-performing product segment is identified for intervention or benchmark replication.",
+     "expected_impact": 0.7,
+     "cost": 0.25,
+     "risk": 0.5,
+     "evidence": null,
+     "rationale": "Customer profitability and price-volume-mix methods support intervening in net realization without automatically reaching for list-price increases. However, the supplied evidence does not establish rebate leakage, legal reset rights or the original assumed cost-versus-discount split; therefore the retained recovery range is a gated scenario rather than an evidenced forecast. External product switching is excluded from the quantified segment recovery.",
+     "time_to_value": "Within 30\u201390 days where discretionary programs can change; otherwise at the next permitted renewal or rebate-reset date.",
+     "reversibility": "high",
+     "lens_views": [
+      {
+       "lens": "Commercial Lens",
+       "arguments_for": [
+        "Customer profitability analysis supports replacing automatic rebates with incremental-volume tiers because Synthetic Blend has lost 7.14 margin points while anchor-account list prices are locked."
+       ],
+       "arguments_against": [
+        "Price-volume-mix decomposition cannot attribute the observed decline to rebates from product margin totals alone, so assuming 2.8\u20134.2 points of recoverable leakage overstates the evidence."
+       ],
+       "key_questions": [
+        "Which already-authorized rebate resets can the sales team execute without breaching effective-price protections or sacrificing profitable orders?"
+       ]
+      },
+      {
+       "lens": "Operational & Cost-Structure Lens",
+       "arguments_for": [
+        "The client-confirmed net_revenue-to-gross_margin_pct relationship supports higher net realization as a margin mechanism without requiring manufacturing changes."
+       ],
+       "arguments_against": [
+        "Cost-to-serve analysis warns that reduced promotional volume can leave fixed manufacturing costs spread over fewer units, offsetting rebate recovery."
+       ],
+       "key_questions": [
+        "What shipment and production floors will prevent rebate changes from increasing unit conversion costs?"
+       ]
+      },
+      {
+       "lens": "Structural & Portfolio Lens",
+       "arguments_for": [
+        "Portfolio participation analysis supports withdrawing uneconomic promotional support before making irreversible exits from a product still earning a reported 20.64% gross margin."
+       ],
+       "arguments_against": [
+        "Rebate optimization preserves the existing portfolio and may not resolve enduring participation problems; moreover, High Mileage and Full Synthetic have no supplied margin benchmark."
+       ],
+       "key_questions": [
+        "What realized contribution threshold will stop promotional support if the reset does not make targeted business worth serving?"
+       ]
+      }
+     ],
+     "implementation_triggers": [
+      "Legal counsel confirms that the specific rebate or promotion is discretionary or reaches a permitted reset date.",
+      "Commercial leadership approves a contribution floor and customer-retention guardrail before issuing revised offers.",
+      "Incentives for another formulation activate only after its realized margin exceeds the targeted product's margin and customers accept the offer."
+     ],
+     "prerequisites": [
+      "Preserve all locked list prices and contractually committed rebates; a rebate change is not automatically exempt from contractual pricing protections.",
+      "Use existing account economics to restrict changes to affected Synthetic Blend transactions and verified Value-tier overlap.",
+      "Exclude benefits from external product migration from the Synthetic Blend segment recovery claim.",
+      "Retain successful service and fulfillment practices associated with within-threshold periods rather than applying blanket changes."
+     ],
+     "impact_estimate": {
+      "metric": "Gross Margin %",
+      "unit": "%",
+      "recovery_range": {
+       "low": 2.8,
+       "high": 4.2
+      },
+      "basis": "The retained Stage 1 scenario targets 2.8\u20134.2 percentage points of Synthetic Blend Engine Oil's 7.14-point decline through permitted rebate recapture and within-segment promotion changes, implying a conditional segment margin of 23.44\u201324.84%, not an enterprise forecast.",
+      "scope": "segment",
+      "scope_label": "Synthetic Blend Engine Oil",
+      "lever": null,
+      "source": "llm_estimated"
+     },
+     "key_assumptions": [
+      {
+       "assumption": "Synthetic Blend Engine Oil has a 7.14-point historical margin gap.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": true,
+       "confidence": "high",
+       "provenance": "The product change point reports 27.78% previously and 20.64% currently."
+      },
+      {
+       "assumption": "A material share of rebates can be reset within the implementation horizon.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "Executed customer agreements permit the proposed reset dates and revised rebate tiers."
+      },
+      {
+       "assumption": "Customers retain enough profitable purchases after incentives are reduced.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Post-reset orders meet the approved revenue and gross-profit retention floors during the first two order cycles."
+      },
+      {
+       "assumption": "Recoverable net-realization leakage is sufficient to support the retained impact scenario without relying on external product switching.",
+       "validated_by": "ma_query",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "Realized net prices and accrued rebates on eligible Synthetic Blend sales generate at least 2.8 margin points after volume and cost effects."
+      }
+     ],
+     "flagged_side_effects": [],
+     "dominated_by": null
+    },
+    {
+     "id": "opt_2",
+     "title": "Delivered Base-Oil Cost Reset with Selective Supply Protection",
+     "description": "Renegotiate delivered base-oil terms for Synthetic Blend Engine Oil, consolidate eligible purchase commitments and use supplier price locks or approved matched hedges only where they improve the approved delivered-cost outcome. Introduce cost-linked clauses on non-locked accounts or at permitted renewals, not through mid-quarter anchor-account list-price increases. Extend supplier terms to Conventional Engine Oil and Compressor Oil only where they share qualified inputs; their 6.61- and 5.86-point declines justify targeted eligibility, not an enterprise-wide redesign. Preserve within-threshold operating practices from 2026-006 through 2026-008. No unaffected product segment or internal product benchmark is supplied.",
+     "expected_impact": 0.62,
+     "cost": 0.5,
+     "risk": 0.5,
+     "evidence": null,
+     "rationale": "The client confirms that base-oil costs enter COGS and that COGS directly affects Gross Margin %, making delivered purchase-cost reduction a model-supported mechanism. The simultaneous product declines are consistent with, but do not establish, an input-cost shock. Hedge protection limits future exposure and cannot reverse costs already incurred; actual savings must come from contracted delivered economics and permitted commercial terms.",
+     "time_to_value": "Initial benefits within 30\u201390 days as new purchases enter COGS; broader contract and inventory turnover effects over 3\u201312 months.",
+     "reversibility": "medium",
+     "lens_views": [
+      {
+       "lens": "Commercial Lens",
+       "arguments_for": [
+        "Contract-cycle leverage supports cost-linked clauses on non-locked accounts while preserving the explicit mid-quarter list-price protection on anchor accounts."
+       ],
+       "arguments_against": [
+        "Willingness-to-pay segmentation warns that non-anchor customers may reject increases, so supply savings and commercial recovery cannot both be assumed at full value."
+       ],
+       "key_questions": [
+        "Which eligible customers can accept cost-linked renewal terms without reducing their profitable purchases?"
+       ]
+      },
+      {
+       "lens": "Operational & Cost-Structure Lens",
+       "arguments_for": [
+        "The client-confirmed base_oil_cost-to-cogs relationship and COGS margin identity support lowering delivered input costs as a direct operational intervention."
+       ],
+       "arguments_against": [
+        "Procurement and hedging methods distinguish lower purchase cost from volatility protection: locking today's expensive inputs could preserve rather than repair compressed margins."
+       ],
+       "key_questions": [
+        "Do proposed supply contracts reduce delivered cost after freight, premiums, inventory carrying costs and quality requirements?"
+       ]
+      },
+      {
+       "lens": "Structural & Portfolio Lens",
+       "arguments_for": [
+        "Portfolio participation analysis favors improving a shared input platform before exiting several products whose declines may have a common, reversible cause."
+       ],
+       "arguments_against": [
+        "Multi-period purchase commitments can entrench exposure to declining products; no supplied demand evidence establishes that the committed volumes remain attractive."
+       ],
+       "key_questions": [
+        "What minimum purchase flexibility preserves the ability to reallocate the portfolio if engine-oil economics remain weak?"
+       ]
+      }
+     ],
+     "implementation_triggers": [
+      "Qualified supplier offers beat the approved delivered-cost baseline after premiums, freight and inventory effects.",
+      "Treasury approves hedge instruments, exposure limits and purchase-volume matching before any commitment.",
+      "Non-locked contracts reach legally permissible repricing windows.",
+      "New inventory reaches production and cost recognition before recovery is credited to Gross Margin %."
+     ],
+     "prerequisites": [
+      "Preserve anchor-account list-price locks throughout the quarter.",
+      "Require supplier quality qualification and maintain service continuity during allocation changes.",
+      "Limit commitments to defensible purchase volumes and retain contractual flexibility for portfolio changes.",
+      "Treat 60\u201370% base-oil attribution and 50\u201370% non-anchor coverage from Stage 1 as unverified assumptions, not established operating facts."
+     ],
+     "impact_estimate": {
+      "metric": "Gross Margin %",
+      "unit": "%",
+      "recovery_range": {
+       "low": 3.2,
+       "high": 5.1
+      },
+      "basis": "The retained Stage 1 scenario recovers 3.2\u20135.1 percentage points of Synthetic Blend Engine Oil's 7.14-point decline through lower delivered COGS and permitted non-locked contract changes, implying 23.84\u201325.74% segment margin; supply hedging alone does not establish this recovery.",
+      "scope": "segment",
+      "scope_label": "Synthetic Blend Engine Oil",
+      "lever": null,
+      "source": "llm_estimated"
+     },
+     "key_assumptions": [
+      {
+       "assumption": "Reducing base-oil expense reduces COGS, holding other components constant.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": true,
+       "confidence": "high",
+       "provenance": "The client-confirmed causal context identifies Raw Materials/base oil as an additive component of COGS."
+      },
+      {
+       "assumption": "Current qualified supplier terms contain achievable delivered-cost savings.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Executed supplier offers and subsequent invoices show lower delivered cost for equivalent specifications."
+      },
+      {
+       "assumption": "Purchase commitments and hedge volumes can be matched without material stranded exposure.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Actual purchases remain within approved commitment bands through the first two replenishment cycles."
+      },
+      {
+       "assumption": "Eligible contract changes and inventory turnover are sufficient to realize the retained recovery within the stated horizon.",
+       "validated_by": "ma_query",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "Recognized purchase savings and effective non-locked pricing deliver at least 3.2 Synthetic Blend margin points after inventory lag."
+      }
+     ],
+     "flagged_side_effects": [],
+     "dominated_by": null
+    },
+    {
+     "id": "opt_3",
+     "title": "Revenue-Protected Portfolio Reallocation",
+     "description": "Redirect discretionary sales capacity and replenishment investment from selected Synthetic Blend Engine Oil business only after replacement orders protect revenue and gross-profit dollars. Compressor Oil is a candidate for selling-capacity allocation because its current margin is 28%, above Synthetic Blend's 20.64%, but it is also underperforming by 5.86 points. First stabilize its delivered input and fulfillment economics through qualified supply and service terms; then redirect capacity against booked demand. Compressor Oil is not assumed to be a functional substitute for engine oil. Conventional Engine Oil, at 19.16%, is not a preferred destination. High Mileage, Full Synthetic and specialty formulations remain conditional candidates because their margins are absent. Preserve contracted anchor-account supply and within-threshold operating practices from 2026-006 through 2026-008; no healthy product benchmark is identified.",
+     "expected_impact": 0.4,
+     "cost": 0.25,
+     "risk": 0.5,
+     "evidence": null,
+     "rationale": "Portfolio participation should be judged on attainable margin levels and gross-profit dollars, not decline magnitude alone: Compressor Oil's 28% current margin exceeds Synthetic Blend's 20.64%, whereas Conventional's 19.16% does not. The intervention therefore replaces unconditional volume withdrawal with a replacement-order gate and an explicit destination-stabilization step. The high-severity revenue concern remains an execution exposure until replacement demand is contracted; increasing a ratio by shrinking profitable business is not counted as success.",
+     "time_to_value": "Stage replacement orders within 90 days; phase capacity and inventory reallocation over 3\u201312 months after destination economics and demand gates are met.",
+     "reversibility": "medium",
+     "lens_views": [
+      {
+       "lens": "Commercial Lens",
+       "arguments_for": [
+        "Channel economics supports moving discretionary selling capacity toward a 28% margin opportunity rather than a 20.64% one when booked demand and contribution remain attractive."
+       ],
+       "arguments_against": [
+        "Customer profitability analysis rejects assuming Compressor Oil can replace engine-oil purchases; customers, applications and order economics may differ materially."
+       ],
+       "key_questions": [
+        "Which booked replacement orders preserve revenue and gross-profit dollars before Synthetic Blend replenishment is reduced?"
+       ]
+      },
+      {
+       "lens": "Operational & Cost-Structure Lens",
+       "arguments_for": [
+        "Cost-to-serve and overhead-absorption methods support the explicit requirement to retain profitable production loading and stabilize destination economics before moving capacity."
+       ],
+       "arguments_against": [
+        "Compressor Oil's 5.86-point deterioration indicates that reallocating toward it without repairing its cost exposure could reproduce the same problem."
+       ],
+       "key_questions": [
+        "Which avoidable costs disappear with reduced Synthetic Blend participation, and which fixed costs remain on the retained portfolio?"
+       ]
+      },
+      {
+       "lens": "Structural & Portfolio Lens",
+       "arguments_for": [
+        "Portfolio participation analysis correctly compares current margin levels, excludes lower-margin Conventional Engine Oil and conditions reallocation on replacement economics."
+       ],
+       "arguments_against": [
+        "Category lifecycle analysis cannot classify the decline as structural from one year-to-date comparison; premature withdrawal could sacrifice profitable business during a cyclical cost shock."
+       ],
+       "key_questions": [
+        "What contractual demand and contribution gates justify each reallocation tranche without requiring an unsupported structural-decline thesis?"
+       ]
+      }
+     ],
+     "implementation_triggers": [
+      "Replacement orders are contracted before corresponding Synthetic Blend capacity or replenishment is withdrawn.",
+      "Destination economics are stabilized and exceed the origin margin after incremental selling, fulfillment and transition costs.",
+      "Each tranche preserves approved revenue, gross-profit-dollar and plant-loading floors.",
+      "Legal counsel confirms continued fulfillment of anchor-account supply and list-price obligations."
+     ],
+     "prerequisites": [
+      "Use selling-capacity allocation rather than assumed product substitution where customer applications differ.",
+      "Stabilize Compressor Oil's declining economics before scaling it as a destination.",
+      "Require booked replacement revenue to offset withdrawn revenue and separately protect gross-profit dollars after stranded costs.",
+      "Define the Synthetic Blend-origin revenue cohort before launch; external replacement sales cannot be reported as recovery in the unchanged Synthetic Blend product segment.",
+      "Keep the intervention to a sales-and-inventory reallocation pilot; any plant exit or major capital change requires separate approval and cost scoring."
+     ],
+     "impact_estimate": {
+      "metric": "Gross Margin %",
+      "unit": "%",
+      "recovery_range": {
+       "low": 2.5,
+       "high": 4.2
+      },
+      "basis": "For a revenue-preserved cohort originating in Synthetic Blend Engine Oil, reallocating approximately 34\u201357% of revenue from its 20.64% margin to a stabilized 28% destination would yield approximately 2.5\u20134.2 percentage points against the original 7.14-point gap; this constructed cohort scenario is neither the enterprise KPI nor the remaining Synthetic Blend product's reported margin.",
+      "scope": "segment",
+      "scope_label": "Synthetic Blend Engine Oil-origin revenue cohort",
+      "lever": null,
+      "source": "llm_estimated"
+     },
+     "key_assumptions": [
+      {
+       "assumption": "Compressor Oil currently has a higher reported gross margin than Synthetic Blend Engine Oil, despite also deteriorating.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": true,
+       "confidence": "high",
+       "provenance": "The supplied product change points report Compressor Oil at 28%, down 5.86 points, and Synthetic Blend at 20.64%, down 7.14 points."
+      },
+      {
+       "assumption": "Replacement demand exists at sufficient scale to preserve withdrawn revenue.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "Signed replacement orders cover the revenue scheduled for withdrawal before each allocation tranche."
+      },
+      {
+       "assumption": "The destination margin can remain at least 28% as sales capacity is added.",
+       "validated_by": "ma_query",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "Incremental destination orders retain at least 28% realized gross margin after new supply and fulfillment terms take effect."
+      },
+      {
+       "assumption": "Approximately 34\u201357% revenue reallocation is commercially and operationally feasible for the origin cohort.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "Approved allocation tranches achieve the specified replacement-revenue share without breaching capacity, contract or revenue floors."
+      },
+      {
+       "assumption": "Stranded costs and transition expenses do not consume the apparent margin advantage.",
+       "validated_by": "ma_query",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Realized gross-profit dollars after retained manufacturing costs and transition charges meet the approved pre-reallocation floor."
+      }
+     ],
+     "flagged_side_effects": [
+      "Cutting Synthetic Blend participation before replacement orders are secured can reduce units sold and net revenue, leaving fixed costs behind and weakening both gross-profit dollars and the intended margin recovery."
+     ],
+     "dominated_by": null
+    }
+   ],
+   "criteria_source": "business_context"
+  },
+  "recommendation": {
+   "id": "opt_1",
+   "title": "Contract-Permitted Rebate Recapture and Promotion Reset",
+   "description": "Restructure discretionary rebates and reduce promotional depth on Synthetic Blend Engine Oil at legally permitted reset windows, without changing locked anchor-account list prices or overriding committed rebates. Replace automatic volume rewards with incremental, contribution-protecting tiers. Apply promotion changes only to verified Synthetic Blend and Value-tier overlap; the supplied category totals do not establish that overlap. Defer incentives toward High Mileage or Full Synthetic until their realized margins exceed Synthetic Blend's 20.64%; no supplied product evidence establishes that superiority. Preserve within-threshold operating practices from 2026-006 through 2026-008 rather than imposing a business-wide reset. No well-performing product segment is identified for intervention or benchmark replication.",
+   "expected_impact": 0.7,
+   "cost": 0.25,
+   "risk": 0.5,
+   "evidence": null,
+   "rationale": "Customer profitability and price-volume-mix methods support intervening in net realization without automatically reaching for list-price increases. However, the supplied evidence does not establish rebate leakage, legal reset rights or the original assumed cost-versus-discount split; therefore the retained recovery range is a gated scenario rather than an evidenced forecast. External product switching is excluded from the quantified segment recovery.",
+   "time_to_value": "Within 30\u201390 days where discretionary programs can change; otherwise at the next permitted renewal or rebate-reset date.",
+   "reversibility": "high",
+   "lens_views": [
+    {
+     "lens": "Commercial Lens",
+     "arguments_for": [
+      "Customer profitability analysis supports replacing automatic rebates with incremental-volume tiers because Synthetic Blend has lost 7.14 margin points while anchor-account list prices are locked."
+     ],
+     "arguments_against": [
+      "Price-volume-mix decomposition cannot attribute the observed decline to rebates from product margin totals alone, so assuming 2.8\u20134.2 points of recoverable leakage overstates the evidence."
+     ],
+     "key_questions": [
+      "Which already-authorized rebate resets can the sales team execute without breaching effective-price protections or sacrificing profitable orders?"
+     ]
+    },
+    {
+     "lens": "Operational & Cost-Structure Lens",
+     "arguments_for": [
+      "The client-confirmed net_revenue-to-gross_margin_pct relationship supports higher net realization as a margin mechanism without requiring manufacturing changes."
+     ],
+     "arguments_against": [
+      "Cost-to-serve analysis warns that reduced promotional volume can leave fixed manufacturing costs spread over fewer units, offsetting rebate recovery."
+     ],
+     "key_questions": [
+      "What shipment and production floors will prevent rebate changes from increasing unit conversion costs?"
+     ]
+    },
+    {
+     "lens": "Structural & Portfolio Lens",
+     "arguments_for": [
+      "Portfolio participation analysis supports withdrawing uneconomic promotional support before making irreversible exits from a product still earning a reported 20.64% gross margin."
+     ],
+     "arguments_against": [
+      "Rebate optimization preserves the existing portfolio and may not resolve enduring participation problems; moreover, High Mileage and Full Synthetic have no supplied margin benchmark."
+     ],
+     "key_questions": [
+      "What realized contribution threshold will stop promotional support if the reset does not make targeted business worth serving?"
+     ]
+    }
+   ],
+   "implementation_triggers": [
+    "Legal counsel confirms that the specific rebate or promotion is discretionary or reaches a permitted reset date.",
+    "Commercial leadership approves a contribution floor and customer-retention guardrail before issuing revised offers.",
+    "Incentives for another formulation activate only after its realized margin exceeds the targeted product's margin and customers accept the offer."
+   ],
+   "prerequisites": [
+    "Preserve all locked list prices and contractually committed rebates; a rebate change is not automatically exempt from contractual pricing protections.",
+    "Use existing account economics to restrict changes to affected Synthetic Blend transactions and verified Value-tier overlap.",
+    "Exclude benefits from external product migration from the Synthetic Blend segment recovery claim.",
+    "Retain successful service and fulfillment practices associated with within-threshold periods rather than applying blanket changes."
+   ],
+   "impact_estimate": {
+    "metric": "Gross Margin %",
+    "unit": "%",
+    "recovery_range": {
+     "low": 2.8,
+     "high": 4.2
+    },
+    "basis": "The retained Stage 1 scenario targets 2.8\u20134.2 percentage points of Synthetic Blend Engine Oil's 7.14-point decline through permitted rebate recapture and within-segment promotion changes, implying a conditional segment margin of 23.44\u201324.84%, not an enterprise forecast.",
+    "scope": "segment",
+    "scope_label": "Synthetic Blend Engine Oil",
+    "lever": null,
+    "source": "llm_estimated"
+   },
+   "key_assumptions": [
+    {
+     "assumption": "Synthetic Blend Engine Oil has a 7.14-point historical margin gap.",
+     "validated_by": "sa_assessment",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": true,
+     "confidence": "high",
+     "provenance": "The product change point reports 27.78% previously and 20.64% currently."
+    },
+    {
+     "assumption": "A material share of rebates can be reset within the implementation horizon.",
+     "validated_by": "human_confirmation",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": false,
+     "confidence": "low",
+     "provenance": "Executed customer agreements permit the proposed reset dates and revised rebate tiers."
+    },
+    {
+     "assumption": "Customers retain enough profitable purchases after incentives are reduced.",
+     "validated_by": "human_confirmation",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": false,
+     "confidence": "moderate",
+     "provenance": "Post-reset orders meet the approved revenue and gross-profit retention floors during the first two order cycles."
+    },
+    {
+     "assumption": "Recoverable net-realization leakage is sufficient to support the retained impact scenario without relying on external product switching.",
+     "validated_by": "ma_query",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": false,
+     "confidence": "low",
+     "provenance": "Realized net prices and accrued rebates on eligible Synthetic Blend sales generate at least 2.8 margin points after volume and cost effects."
+    }
+   ],
+   "flagged_side_effects": [],
+   "dominated_by": null
+  },
+  "recommendation_rationale": "The alternatives remain separate, as requested: rebate recapture addresses net realization, procurement changes address delivered COGS, and revenue-protected reallocation addresses participation. Synthetic Blend's 7.14-point decline establishes intervention scope, but neither the causal split nor the commercial execution capacity establishes a defensible single winner.",
+  "problem_reframe": {
+   "situation": "Gross Margin % declined year to date. The problem statement reports a 7.14-percentage-point decline to 20.64%, matching Synthetic Blend Engine Oil's movement from 27.78%. The aggregate highlight separately reports 29.94% versus 34.43%, a 4.49-point decline. These scopes must not be conflated.",
+   "complication": "Synthetic Blend Engine Oil, Conventional Engine Oil and Compressor Oil deteriorated by 7.14, 6.61 and 5.86 points, respectively, while timeframe buckets 2026-006, 2026-007 and 2026-008 show positive changes and are classified as within threshold. No outperforming product benchmark or where_is_not product list is supplied. Anchor-account list prices cannot increase mid-quarter, and the segment declines identify where pressure occurred without establishing whether input costs, discounting or structural demand caused it.",
+   "question": "Which independently actionable intervention should defend Gross Margin % in the affected engine-oil business while preserving locked contracts, revenue and successful operating practices?",
+   "key_assumptions": [
+    {
+     "assumption": "The 7.14-point movement describes Synthetic Blend Engine Oil rather than a reliably established enterprise decline.",
+     "validated_by": "sa_assessment",
+     "grounded": true,
+     "confidence": "high",
+     "provenance": "The Synthetic Blend Engine Oil change point reports 20.64% versus 27.78%; the aggregate highlight instead reports 29.94% versus 34.43%."
+    },
+    {
+     "assumption": "The parallel product declines may share a commercial or cost driver, but do not establish one.",
+     "validated_by": "human_confirmation",
+     "grounded": false,
+     "confidence": "moderate",
+     "provenance": "Executed supplier changes or rebate resets should produce identifiable realized margin gains in the targeted products; absent gains would weaken the shared-driver hypothesis."
+    },
+    {
+     "assumption": "Practices used in within-threshold periods can be retained without assuming that those periods identify a superior product portfolio.",
+     "validated_by": "human_confirmation",
+     "grounded": false,
+     "confidence": "moderate",
+     "provenance": "Operating owners confirm which service and fulfillment practices from periods 2026-006 through 2026-008 remain compatible with each intervention before rollout."
+    }
+   ]
+  },
+  "unresolved_tensions": [
+   {
+    "tension": "Rebate changes may alter protected effective prices even when list prices remain unchanged.",
+    "options_affected": [
+     "opt_1",
+     "opt_2"
+    ],
+    "requires": "General Counsel approves account-specific permitted commercial terms and effective dates before customer offers are issued, by the end of Week 1."
+   },
+   {
+    "tension": "Longer supplier commitments can conflict with reducing engine-oil participation.",
+    "options_affected": [
+     "opt_2",
+     "opt_3"
+    ],
+    "requires": "Chief Procurement Officer includes volume-flexibility clauses and commitment ceilings in supplier offers before signature, by the end of Week 2."
+   },
+   {
+    "tension": "A higher margin percentage can conceal lost revenue, stranded costs and lower gross-profit dollars.",
+    "options_affected": [
+     "opt_1",
+     "opt_3"
+    ],
+    "requires": "CFO approves revenue, gross-profit-dollar and plant-loading floors before any rebate reset or portfolio withdrawal, by the end of Week 2."
+   },
+   {
+    "tension": "The retained impact ranges are conditional scenarios and overlap in their use of Synthetic Blend's historical gap.",
+    "options_affected": [
+     "opt_1",
+     "opt_2",
+     "opt_3"
+    ],
+    "requires": "Financial Controller issues a non-additive benefit-crediting schedule with separate product and replacement-cohort scopes before execution, by the end of Week 1."
+   }
+  ],
+  "blind_spots": [
+   "There is no separate SITUATION METRICS block; KPI name, unit and magnitudes are taken from the supplied Gross Margin % records.",
+   "The problem statement and aggregate highlight use different KPI levels: 20.64% versus 29.94%. Segment ranges are not enterprise recovery estimates.",
+   "Stage 1 asserts cost inflation, discount leakage, premium superiority and structural pressure more strongly than the supplied evidence supports. Product declines alone do not establish those causes.",
+   "No where_is_not product list, internal benchmark, confirmed cross-basis problem segments or basis-specific segment list is supplied. Positive timeframe buckets are not evidence of an outperforming product.",
+   "The required signal mappings conflict with the requirement that every cost and risk score differ: the supplied signals require costs of 0.25, 0.5 and 0.25, and risks of 0.5 for all three. The explicit signal mappings are preserved.",
+   "Expected-impact scores are relative council assessments, not probabilities or additional percentage-point estimates.",
+   "The retained recovery anchors exceed the precision supported by the evidence. Their achievement depends on execution gates, exposure coverage and timing; they cannot retroactively restore year-to-date results.",
+   "The portfolio range describes a constructed origin-and-replacement cohort, not an existing reported product segment. Its accounting boundary must remain explicit.",
+   "The validated_by field identifies the intended validation route for assumptions; it does not assert that ungrounded assumptions have already been validated.",
+   "No principal-specific budget, service-level or workforce veto is supplied beyond the anchor-account mid-quarter list-price lock."
+  ],
+  "next_steps": [
+   "Assign General Counsel to issue a signed schedule of permitted rebate, promotion and non-anchor renewal actions by the end of Week 1.",
+   "Direct the VP Sales to prepare contract-compliant Synthetic Blend rebate tiers with contribution and customer-retention floors by the end of Week 2.",
+   "Instruct the Chief Procurement Officer to secure executable qualified-supplier offers with delivered-cost ceilings and volume flexibility by the end of Week 2.",
+   "Require the Treasurer to approve hedge limits and purchase-matching rules before any forward supply or derivative commitment.",
+   "Task the Portfolio Director with securing replacement-order commitments and a destination-stabilization plan before any Synthetic Blend allocation reduction.",
+   "Direct the COO to preserve service practices from within-threshold periods and issue production-loading guardrails before the first operational change.",
+   "Require the CFO to approve separate recovery scopes and non-additive benefit-crediting rules by the end of Week 1."
+  ],
+  "cross_review": null,
+  "stage_1_hypotheses": {
+   "commercial": {
+    "framework": "Price-Volume-Mix Decomposition with Customer Profitability Lens",
+    "hypothesis": "Gross margin compression of 7.14 pp in Synthetic Blend Engine Oil is driven by a combination of elevated base oil input costs (COGS driver) and/or aggressive discounting on this premium-positioned product line to defend volume in a competitive period. The 'Value' category segment showing -6.42 pp confirms downward mix pressure, suggesting customers are trading down or suppliers are conceding price to retain shelf space and order frequency.",
+    "key_evidence": [
+     "Synthetic Blend Engine Oil declined 7.14 pp (27.78% \u2192 20.64%) YTD\u2014the largest single product margin erosion, despite being positioned as a premium-margin tier",
+     "Conventional Engine Oil fell 6.61 pp (25.77% \u2192 19.16%) in parallel, indicating systematic COGS pressure or coordinated pricing action across the lubricant portfolio, not isolated product issue",
+     "Value product_category segment dropped 6.42 pp (26.24% \u2192 19.82%), signaling mix shift toward lower-margin tiers or volume-driven discounting to offset competitive pressure"
+    ],
+    "recommended_focus": "Synthetic Blend Engine Oil",
+    "conviction": "High"
+   },
+   "operational": {
+    "framework": "Cost-to-Serve Analysis with Input-Cost Shock Diagnosis",
+    "hypothesis": "Gross margin compression of 7.14 pp in Synthetic Blend Engine Oil is driven by a base oil cost shock (raw material inflation) that has not been offset by list price adjustment due to contractual price-lock constraints on anchor accounts. The -7.14 pp delta in the highest-margin synthetic blend product, paired with -6.61 pp in conventional (lower-margin baseline), indicates a proportionally larger absolute COGS increase hitting the premium product harder in percentage terms, consistent with unhedged commodity exposure in base oil procurement.",
+    "key_evidence": [
+     "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%) while Conventional fell 6.61 pp (25.77% \u2192 19.16%), indicating both products absorbed similar absolute COGS increases but the synthetic blend\u2014with structurally higher gross margin\u2014suffered greater percentage point erosion, consistent with base oil cost inflation hitting both SKUs equally in absolute terms.",
+     "Value product category declined 6.42 pp (26.24% \u2192 19.82%), aligning with the synthetic and conventional engine oil declines, suggesting a systemic input cost driver affecting the entire lubricant portfolio rather than product-specific discounting or volume mix shifts.",
+     "Compressor Oil also declined 5.86 pp, confirming the margin compression pattern is not isolated to engine oils but spans all base-oil-dependent products, pointing to a shared procurement or manufacturing cost input rather than customer-level pricing pressure or mix deterioration."
+    ],
+    "recommended_focus": "Synthetic Blend Engine Oil",
+    "conviction": "High"
+   },
+   "structural": {
+    "framework": "Portfolio Participation Analysis + Category Lifecycle Positioning",
+    "hypothesis": "Gross margin compression across engine oil portfolio (Synthetic Blend -7.14pp, Conventional -6.61pp) signals structural cost-input pressure rather than KPI-recoverable pricing variance. The synchronized decline across both premium and value tiers, combined with contractual price-lock constraints, indicates base_oil_cost and/or distribution_cost inflation is eroding blended margin faster than mix or volume can offset. This is a structural reallocation signal, not a fixable variance.",
+    "key_evidence": [
+     "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) and Conventional Engine Oil fell 6.61pp (25.77% \u2192 19.16%) \u2014 parallel declines across the grade spectrum point to shared input cost driver, not product-specific commercial issue",
+     "Value category margin compressed 6.42pp (26.24% \u2192 19.82%), indicating the margin loss is category-wide and structural, not isolated to a single SKU or customer segment",
+     "Compressor Oil also declined 5.86pp, confirming the signal spans multiple product lines \u2014 consistent with base oil cost inflation or distribution cost step-change rather than demand-side repricing"
+    ],
+    "recommended_focus": "Synthetic Blend Engine Oil",
+    "conviction": "High"
+   }
+  },
+  "moderator_grades": {
+   "opt_1": {
+    "constraint_survival": "pass",
+    "violated_constraints": [],
+    "causal_grounding": "Confirmed net_revenue -> gross_margin_pct: permitted rebate recapture increases net realization, subject to customer-volume and COGS responses.",
+    "arithmetic_consistency": "insufficient_data",
+    "critic_findings_response": [],
+    "grade_rationale": "The mechanism explicitly preserves mid-quarter anchor-account list prices and adds legal authorization for rebate changes. The 2.8\u20134.2-point range is below Synthetic Blend's 7.14-point gap and implies 23.44\u201324.84%, but recoverable rebates and eligible revenue coverage are absent, so mechanism-level arithmetic cannot be verified."
+   },
+   "opt_2": {
+    "constraint_survival": "pass",
+    "violated_constraints": [],
+    "causal_grounding": "Confirmed base_oil_cost -> cogs -> gross_margin_pct component chain, plus confirmed net_revenue -> gross_margin_pct for permitted non-locked contract changes; historical base-oil inflation remains unestablished.",
+    "arithmetic_consistency": "insufficient_data",
+    "critic_findings_response": [],
+    "grade_rationale": "The option excludes mid-quarter anchor-account list-price increases and uses permitted non-locked renewals. Its 3.2\u20135.1-point segment range remains below 7.14 points, but the claimed cost attribution, eligible account coverage and inventory recognition timing are unavailable; 5.1 points must not be described as recovery of the aggregate 4.49-point decline."
+   },
+   "opt_3": {
+    "constraint_survival": "pass",
+    "violated_constraints": [],
+    "causal_grounding": "Confirmed units_sold -> net_revenue and net_revenue -> gross_margin_pct, together with cogs -> gross_margin_pct; portfolio benefit uses observed product margin levels rather than the unconfirmed premium-mix prior.",
+    "arithmetic_consistency": "insufficient_data",
+    "critic_findings_response": [
+     {
+      "finding": "Withdrawing Synthetic Blend volume can reduce revenue and leave costs behind unless replacement business offsets the loss.",
+      "disposition": "answered"
+     }
+    ],
+    "grade_rationale": "The option preserves locked list prices and contracted supply, and answers the withdrawal finding through booked replacement-order, revenue, gross-profit and plant-loading gates. Stage 1's 40\u201360% reallocation at a 3\u20135-point spread yields only 1.2\u20133 points; the revised scenario instead uses the observed 7.36-point Compressor-versus-Synthetic spread and approximately 34\u201357% revenue replacement to support 2.5\u20134.2 points conditionally, but demand feasibility and the constructed cohort's reporting boundary remain unverified."
+   }
+  },
+  "constraint_exposure": {
+   "union_size": 1,
+   "by_persona": {
+    "commercial": {
+     "seen": [
+      "c_3723d48a"
+     ],
+     "unseen": []
+    },
+    "operational": {
+     "seen": [
+      "c_3723d48a"
+     ],
+     "unseen": []
+    },
+    "structural": {
+     "seen": [
+      "c_3723d48a"
+     ],
+     "unseen": []
+    }
+   },
+   "by_option": {
+    "opt_1": {
+     "originating_persona": null,
+     "constraints_seen": [
+      "c_3723d48a"
+     ],
+     "constraints_unseen": []
+    },
+    "opt_2": {
+     "originating_persona": null,
+     "constraints_seen": [
+      "c_3723d48a"
+     ],
+     "constraints_unseen": []
+    },
+    "opt_3": {
+     "originating_persona": null,
+     "constraints_seen": [
+      "c_3723d48a"
+     ],
+     "constraints_unseen": []
+    }
+   },
+   "moderator_checked": true
+  },
+  "framing_context": {
+   "decision_style": "default",
+   "personas_used": [
+    "commercial",
+    "operational",
+    "structural"
+   ],
+   "presentation_note": "Solutions presented per your default decision style preferences.",
+   "disclaimer": "Consulting perspectives are analytical frameworks, not colleague opinions.",
+   "alternative_views_available": [
+    "analytical",
+    "visionary",
+    "pragmatic"
+   ]
+  },
+  "market_intelligence": null,
+  "decision_ask": {
+   "decision_text": "Select one intervention for gated execution, preserving anchor-account price locks and minimum revenue and gross-profit requirements.",
+   "decision_owner": "Chief Executive Officer",
+   "deadline": "By the end of Week 2",
+   "approval_type": "Intervention selection and go/no-go"
+  },
+  "immediate_actions": [
+   {
+    "action_text": "Issue an account-specific authorization schedule for rebate resets, promotions and non-locked contract changes.",
+    "owner": "General Counsel",
+    "due_by_days": 7,
+    "why_it_matters": "Commercial changes must preserve contractual list-price locks and any related effective-price protections."
+   },
+   {
+    "action_text": "Request executable delivered-cost offers with qualified specifications and flexible purchase commitments.",
+    "owner": "Chief Procurement Officer",
+    "due_by_days": 10,
+    "why_it_matters": "Actual purchase economics, rather than hedging alone, determine whether the supply intervention can recover margin."
+   },
+   {
+    "action_text": "Secure replacement-order commitments before authorizing any withdrawal of Synthetic Blend sales or inventory capacity.",
+    "owner": "Portfolio Director",
+    "due_by_days": 14,
+    "why_it_matters": "The portfolio intervention must offset lost revenue rather than improve the margin ratio through unprotected contraction."
+   }
+  ],
+  "pending_market_signals": null,
+  "human_action_required": true,
+  "human_action_type": "approval",
+  "human_action_context": {
+   "summary": "Review ranked options and approve or select an alternative. The recommended option was graded against all 1 captured constraint(s).",
+   "constraint_union": [
+    {
+     "id": "c_3723d48a",
+     "text": "Cannot raise list prices on Lubricants anchor accounts mid-quarter (contractual price-lock clause)",
+     "source": "assumption_register"
+    }
+   ],
+   "recommended_option_unseen_constraints": [],
+   "constraint_check_performed": true
+  },
+  "human_action_result": null,
+  "human_action_timestamp": null,
+  "audit_log": [
+   {
+    "event": "ranked_options",
+    "count": 3
+   },
+   {
+    "event": "causal_context",
+    "kpi_id": "gross_margin_pct",
+    "max_hops": 2,
+    "edges": 12,
+    "direct": 3,
+    "indirect": 9,
+    "constraints": 1,
+    "market_signals": 0
+   },
+   {
+    "event": "critic_pass_findings",
+    "count": 1,
+    "findings": [
+     {
+      "persona_id": "structural",
+      "concern": "Reducing Synthetic Blend volume participation can reduce units_sold. The confirmed causal context states that, with price and mix held constant, lower units_sold reduces net_revenue; net_revenue directly affects gross_margin_pct. Unless redirected volume is demonstrated to offset the lost units and revenue, the proposed volume reduction could work against revenue and potentially weaken the margin outcome.",
+      "affected_kpi": "net_revenue",
+      "severity": "high"
+     }
+    ]
+   },
+   {
+    "event": "llm_debate_analysis_req",
+    "principal_context": null,
+    "situation_context": null,
+    "business_context": {
+     "enterprise_name": "Lubricants Business",
+     "industry": "Oil & Gas / Specialty Chemicals",
+     "subindustry": "Automotive & Industrial Lubricants",
+     "strategic_posture": "margin defense",
+     "tradeoff_weights": {
+      "impact": 0.4,
+      "cost": 0.2,
+      "risk": 0.4
+     }
+    },
+    "data_payload": {
+     "problem_statement": "Gross Margin % dropped by 7.14 (Current Level: 20.64). [KPI_DIRECTION: DROPPED] This deviation is primarily driven by 'Synthetic Blend Engine Oil' within the product_name segment. Analysis period: year_to_date. Contributing factors identified: product_name: Synthetic Blend Engine Oil (\u0394 -7.14), product_name: Conventional Engine Oil (\u0394 -6.61).",
+     "situation_metadata": null,
+     "decision_maker": null,
+     "business_context": {
+      "enterprise_name": "Lubricants Business",
+      "industry": "Oil & Gas / Specialty Chemicals",
+      "subindustry": "Automotive & Industrial Lubricants",
+      "strategic_posture": "margin defense"
+     },
+     "deep_analysis_summary": {
+      "client_id": "lubricants",
+      "kpi_name": "Gross Margin %",
+      "timeframe": "year_to_date",
+      "comparison_timeframe": "prior year_to_date",
+      "dimension_focus": [
+       "product_name",
+       "product_line",
+       "product_category",
+       "customer_name",
+       "customer_segment",
+       "customer_region"
+      ],
+      "top_change_points": [
+       {
+        "dimension": "product_name",
+        "key": "Synthetic Blend Engine Oil",
+        "delta": -7.140000000000001,
+        "current_value": 20.64,
+        "previous_value": 27.78,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_name",
+        "key": "Conventional Engine Oil",
+        "delta": -6.609999999999999,
+        "current_value": 19.16,
+        "previous_value": 25.77,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_category",
+        "key": "Value",
+        "delta": -6.419999999999998,
+        "current_value": 19.82,
+        "previous_value": 26.24,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_name",
+        "key": "Compressor Oil",
+        "delta": -5.859999999999999,
+        "current_value": 28,
+        "previous_value": 33.86,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_line",
+        "key": "Engine Oils",
+        "delta": -5.799999999999997,
+        "current_value": 26.03,
+        "previous_value": 31.83,
+        "percent_growth": null
+       }
+      ],
+      "what_is_highlights": [
+       "Gross Margin % is 29.94 vs prior year_to_date 34.43 (\u0394 -4.49, -13.0%).",
+       "Issue observed during year_to_date compared against prior year_to_date.",
+       "Largest variance in product_name: Synthetic Blend Engine Oil (\u0394 -7.14).",
+       "Analysis scoped by applied filters, limiting impact to selected context."
+      ],
+      "where_signals": [
+       "product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+       "product_name: Conventional Engine Oil (\u0394 -6.61)",
+       "product_name: Compressor Oil (\u0394 -5.86)",
+       "product_name: Hydraulic Oil (\u0394 -5.76)"
+      ],
+      "when_signals": [
+       "2026-007 (\u0394 +32.40)",
+       "2026-006 (\u0394 +32.37)",
+       "2026-008 (\u0394 +31.49)"
+      ],
+      "what_is_not": [
+       "Unaffected timeframe buckets: Within threshold"
+      ],
+      "when_is_not": [
+       "2026-007 (\u0394 +32.40) \u2014 Within threshold",
+       "2026-006 (\u0394 +32.37) \u2014 Within threshold",
+       "2026-008 (\u0394 +31.49) \u2014 Within threshold"
+      ],
+      "when_started": "2026-006",
+      "key_highlights": [
+       "Driver: product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+       "Driver: product_name: Conventional Engine Oil (\u0394 -6.61)",
+       "Driver: product_name: Compressor Oil (\u0394 -5.86)",
+       "Change point: product_name / Synthetic Blend Engine Oil; \u0394 -7.14; current 20.64 vs prev 27.78",
+       "Change point: product_name / Conventional Engine Oil; \u0394 -6.61; current 19.16 vs prev 25.77",
+       "Change point: product_category / Value; \u0394 -6.42; current 19.82 vs prev 26.24"
+      ]
+     },
+     "dataset_recap": [
+      "KPI analyzed: Gross Margin %",
+      "Timeframe: year_to_date vs prior year_to_date",
+      "Evidence: Driver: product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+      "Evidence: Driver: product_name: Conventional Engine Oil (\u0394 -6.61)",
+      "Evidence: Driver: product_name: Compressor Oil (\u0394 -5.86)",
+      "CONFIRMED ROOT CAUSES: product_name: Synthetic Blend Engine Oil (\u0394 -7.14); product_name: Conventional Engine Oil (\u0394 -6.61); product_name: Compressor Oil (\u0394 -5.86)",
+      "Change points: product_name / Synthetic Blend Engine Oil; \u0394 -7.14; current 20.64 vs prev 27.78; product_name / Conventional Engine Oil; \u0394 -6.61; current 19.16 vs prev 25.77; product_category / Value; \u0394 -6.42; current 19.82 vs prev 26.24"
+     ],
+     "user_context": null,
+     "principal_input": null,
+     "stage_1_persona_hypotheses": {
+      "commercial": {
+       "framework": "Price-Volume-Mix Decomposition with Customer Profitability Lens",
+       "hypothesis": "Gross margin compression of 7.14 pp in Synthetic Blend Engine Oil is driven by a combination of elevated base oil input costs (COGS driver) and/or aggressive discounting on this premium-positioned product line to defend volume in a competitive period. The 'Value' category segment showing -6.42 pp confirms downward mix pressure, suggesting customers are trading down or suppliers are conceding price to retain shelf space and order frequency.",
+       "key_evidence": [
+        "Synthetic Blend Engine Oil declined 7.14 pp (27.78% \u2192 20.64%) YTD\u2014the largest single product margin erosion, despite being positioned as a premium-margin tier",
+        "Conventional Engine Oil fell 6.61 pp (25.77% \u2192 19.16%) in parallel, indicating systematic COGS pressure or coordinated pricing action across the lubricant portfolio, not isolated product issue",
+        "Value product_category segment dropped 6.42 pp (26.24% \u2192 19.82%), signaling mix shift toward lower-margin tiers or volume-driven discounting to offset competitive pressure"
+       ],
+       "recommended_focus": "Synthetic Blend Engine Oil",
+       "conviction": "High",
+       "proposed_option": {
+        "title": "Surgical Rebate Restructuring + Selective Channel Mix Rebalancing",
+        "description": "Reallocate margin recovery away from list-price repricing (blocked by contract lock) toward tiered rebate recapture on Synthetic Blend Engine Oil. Simultaneously audit and reduce promotional depth on lowest-margin 'Value' tier SKUs within this product family, redirecting volume incentives toward higher-margin formulations (High Mileage, Full Synthetic) where willingness-to-pay is defensible. Execute within Q1 renewal/rebate reset windows to avoid mid-quarter friction.",
+        "mechanism": "Rebate restructuring bypasses the price-lock constraint by operating on net revenue post-contract, not on list price. By reducing rebate generosity on volume thresholds already being hit, you recover COGS-to-revenue ratio without touching contractual list terms. Simultaneously, shifting promotional spend from Value-tier discounts to High Mileage premiums restores blended margin mix (premium_mix_pct) while maintaining total order value and customer stickiness.",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+         "metric": "Gross Margin %",
+         "unit": "%",
+         "recovery_range": {
+          "low": 2.8,
+          "high": 4.2
+         },
+         "basis": "Synthetic Blend compression of 7.14 pp is split between estimated COGS/input cost pressure (~3.5\u20134.5 pp) and discounting/rebate leakage (~2.5\u20133.5 pp). Rebate recapture on 40\u201350% of the discounting component yields 1.0\u20131.75 pp direct recovery; mix rebalancing from Value to premium tiers adds 1.8\u20132.5 pp via higher-margin unit contribution. Conservative mid-range: 2.8\u20134.2 pp recovery in YTD blended gross margin %."
+        },
+        "cost_signal": "Low",
+        "risk_signal": "Medium"
+       }
+      },
+      "operational": {
+       "framework": "Cost-to-Serve Analysis with Input-Cost Shock Diagnosis",
+       "hypothesis": "Gross margin compression of 7.14 pp in Synthetic Blend Engine Oil is driven by a base oil cost shock (raw material inflation) that has not been offset by list price adjustment due to contractual price-lock constraints on anchor accounts. The -7.14 pp delta in the highest-margin synthetic blend product, paired with -6.61 pp in conventional (lower-margin baseline), indicates a proportionally larger absolute COGS increase hitting the premium product harder in percentage terms, consistent with unhedged commodity exposure in base oil procurement.",
+       "key_evidence": [
+        "Synthetic Blend Engine Oil margin fell 7.14 pp (27.78% \u2192 20.64%) while Conventional fell 6.61 pp (25.77% \u2192 19.16%), indicating both products absorbed similar absolute COGS increases but the synthetic blend\u2014with structurally higher gross margin\u2014suffered greater percentage point erosion, consistent with base oil cost inflation hitting both SKUs equally in absolute terms.",
+        "Value product category declined 6.42 pp (26.24% \u2192 19.82%), aligning with the synthetic and conventional engine oil declines, suggesting a systemic input cost driver affecting the entire lubricant portfolio rather than product-specific discounting or volume mix shifts.",
+        "Compressor Oil also declined 5.86 pp, confirming the margin compression pattern is not isolated to engine oils but spans all base-oil-dependent products, pointing to a shared procurement or manufacturing cost input rather than customer-level pricing pressure or mix deterioration."
+       ],
+       "recommended_focus": "Synthetic Blend Engine Oil",
+       "conviction": "High",
+       "proposed_option": {
+        "title": "Base Oil Cost Hedging & Procurement Reset with Selective Contract Renegotiation",
+        "description": "Conduct an immediate procurement audit to quantify the base oil cost increase YTD and map expiration dates on non-anchor customer contracts to identify renegotiation windows. Implement a forward-hedging strategy (futures or supplier lock-in) for Q3\u2013Q4 base oil purchases to arrest further margin erosion, and prepare a phased price adjustment roadmap for non-locked accounts to recover 40\u201360% of the margin gap within 90 days.",
+        "mechanism": "The margin fall is a direct COGS driver (confirmed causal relationship). Base oil is a direct component of COGS (confirmed). Unhedged commodity exposure in base oil procurement has inflated COGS without corresponding revenue adjustment due to price-lock constraints on anchor accounts. Hedging forward purchases and negotiating price increases on non-locked contracts directly reduces the COGS component and restores net revenue/COGS ratio balance, addressing the supply-side shock rather than masking it with internal process fixes.",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+         "metric": "Gross Margin %",
+         "unit": "%",
+         "recovery_range": {
+          "low": 3.2,
+          "high": 5.1
+         },
+         "basis": "Synthetic Blend margin fell 7.14 pp; if base oil cost increase accounts for 60\u201370% of the shock (typical for lubricant COGS structure), hedging forward purchases and capturing price increases on 50\u201370% of non-anchor volume would recover 3.2\u20135.1 pp within 90 days. Conventional and Compressor oils would see proportional recovery (6.6 pp and 5.9 pp potential respectively), validating the shared input-cost mechanism."
+        },
+        "cost_signal": "Medium",
+        "risk_signal": "Medium"
+       }
+      },
+      "structural": {
+       "framework": "Portfolio Participation Analysis + Category Lifecycle Positioning",
+       "hypothesis": "Gross margin compression across engine oil portfolio (Synthetic Blend -7.14pp, Conventional -6.61pp) signals structural cost-input pressure rather than KPI-recoverable pricing variance. The synchronized decline across both premium and value tiers, combined with contractual price-lock constraints, indicates base_oil_cost and/or distribution_cost inflation is eroding blended margin faster than mix or volume can offset. This is a structural reallocation signal, not a fixable variance.",
+       "key_evidence": [
+        "Synthetic Blend Engine Oil margin fell 7.14pp (27.78% \u2192 20.64%) and Conventional Engine Oil fell 6.61pp (25.77% \u2192 19.16%) \u2014 parallel declines across the grade spectrum point to shared input cost driver, not product-specific commercial issue",
+        "Value category margin compressed 6.42pp (26.24% \u2192 19.82%), indicating the margin loss is category-wide and structural, not isolated to a single SKU or customer segment",
+        "Compressor Oil also declined 5.86pp, confirming the signal spans multiple product lines \u2014 consistent with base oil cost inflation or distribution cost step-change rather than demand-side repricing"
+       ],
+       "recommended_focus": "Synthetic Blend Engine Oil",
+       "conviction": "High",
+       "proposed_option": {
+        "title": "Portfolio Reallocation: Reduce Synthetic Blend Volume Participation; Redirect Mix to Higher-Margin or Lower-Input-Cost Alternatives",
+        "description": "Given contractual price-lock constraints preventing mid-quarter list price recovery, the margin loss cannot be recovered through pricing within this quarter. Instead, reallocate sales effort and inventory allocation away from Synthetic Blend (highest absolute margin loss: -7.14pp) toward product lines with lower base oil cost exposure or higher structural margins (e.g., specialty formulations, high-mileage grades, or value-engineered conventional lines). This reframes the portfolio to defensible margin while cost normalization is monitored.",
+        "mechanism": "Margin compression is driven by input cost inflation (base oil, distribution) that pricing cannot offset under current constraints. Reducing volume participation in high-cost-exposed products (Synthetic Blend, Conventional) and reallocating to lower-input-cost or higher-value alternatives directly lowers the blended COGS-to-revenue ratio without violating price-lock clauses. This trades volume for structural margin recovery.",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+         "metric": "Gross Margin %",
+         "unit": "%",
+         "recovery_range": {
+          "low": 2.5,
+          "high": 4.2
+         },
+         "basis": "Reallocation of 40\u201360% of Synthetic Blend volume to alternatives with 3\u20135pp higher margins (e.g., specialty or engineered formulations) can recover 2.5\u20134.2pp of blended margin without pricing action. Conservative estimate assumes partial volume recovery and mix headwinds; high estimate assumes faster customer acceptance of alternative products."
+        },
+        "cost_signal": "Low",
+        "risk_signal": "Medium"
+       }
+      }
+     }
+    },
+    "debate_spec_length": 19960
+   },
+   {
+    "event": "llm_debate_completed",
+    "status": "success",
+    "model_used": "gpt-6-astra",
+    "error": null
+   },
+   {
+    "event": "decision_briefing_generated",
+    "problem_reframe": {
+     "situation": "Gross Margin % declined year to date. The problem statement reports a 7.14-percentage-point decline to 20.64%, matching Synthetic Blend Engine Oil's movement from 27.78%. The aggregate highlight separately reports 29.94% versus 34.43%, a 4.49-point decline. These scopes must not be conflated.",
+     "complication": "Synthetic Blend Engine Oil, Conventional Engine Oil and Compressor Oil deteriorated by 7.14, 6.61 and 5.86 points, respectively, while timeframe buckets 2026-006, 2026-007 and 2026-008 show positive changes and are classified as within threshold. No outperforming product benchmark or where_is_not product list is supplied. Anchor-account list prices cannot increase mid-quarter, and the segment declines identify where pressure occurred without establishing whether input costs, discounting or structural demand caused it.",
+     "question": "Which independently actionable intervention should defend Gross Margin % in the affected engine-oil business while preserving locked contracts, revenue and successful operating practices?",
+     "key_assumptions": [
+      {
+       "assumption": "The 7.14-point movement describes Synthetic Blend Engine Oil rather than a reliably established enterprise decline.",
+       "validated_by": "sa_assessment",
+       "grounded": true,
+       "confidence": "high",
+       "provenance": "The Synthetic Blend Engine Oil change point reports 20.64% versus 27.78%; the aggregate highlight instead reports 29.94% versus 34.43%."
+      },
+      {
+       "assumption": "The parallel product declines may share a commercial or cost driver, but do not establish one.",
+       "validated_by": "human_confirmation",
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Executed supplier changes or rebate resets should produce identifiable realized margin gains in the targeted products; absent gains would weaken the shared-driver hypothesis."
+      },
+      {
+       "assumption": "Practices used in within-threshold periods can be retained without assuming that those periods identify a superior product portfolio.",
+       "validated_by": "human_confirmation",
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Operating owners confirm which service and fulfillment practices from periods 2026-006 through 2026-008 remain compatible with each intervention before rollout."
+      }
+     ]
+    },
+    "unresolved_tensions": [
+     {
+      "tension": "Rebate changes may alter protected effective prices even when list prices remain unchanged.",
+      "options_affected": [
+       "opt_1",
+       "opt_2"
+      ],
+      "requires": "General Counsel approves account-specific permitted commercial terms and effective dates before customer offers are issued, by the end of Week 1."
+     },
+     {
+      "tension": "Longer supplier commitments can conflict with reducing engine-oil participation.",
+      "options_affected": [
+       "opt_2",
+       "opt_3"
+      ],
+      "requires": "Chief Procurement Officer includes volume-flexibility clauses and commitment ceilings in supplier offers before signature, by the end of Week 2."
+     },
+     {
+      "tension": "A higher margin percentage can conceal lost revenue, stranded costs and lower gross-profit dollars.",
+      "options_affected": [
+       "opt_1",
+       "opt_3"
+      ],
+      "requires": "CFO approves revenue, gross-profit-dollar and plant-loading floors before any rebate reset or portfolio withdrawal, by the end of Week 2."
+     },
+     {
+      "tension": "The retained impact ranges are conditional scenarios and overlap in their use of Synthetic Blend's historical gap.",
+      "options_affected": [
+       "opt_1",
+       "opt_2",
+       "opt_3"
+      ],
+      "requires": "Financial Controller issues a non-additive benefit-crediting schedule with separate product and replacement-cohort scopes before execution, by the end of Week 1."
+     }
+    ],
+    "blind_spots": [
+     "There is no separate SITUATION METRICS block; KPI name, unit and magnitudes are taken from the supplied Gross Margin % records.",
+     "The problem statement and aggregate highlight use different KPI levels: 20.64% versus 29.94%. Segment ranges are not enterprise recovery estimates.",
+     "Stage 1 asserts cost inflation, discount leakage, premium superiority and structural pressure more strongly than the supplied evidence supports. Product declines alone do not establish those causes.",
+     "No where_is_not product list, internal benchmark, confirmed cross-basis problem segments or basis-specific segment list is supplied. Positive timeframe buckets are not evidence of an outperforming product.",
+     "The required signal mappings conflict with the requirement that every cost and risk score differ: the supplied signals require costs of 0.25, 0.5 and 0.25, and risks of 0.5 for all three. The explicit signal mappings are preserved.",
+     "Expected-impact scores are relative council assessments, not probabilities or additional percentage-point estimates.",
+     "The retained recovery anchors exceed the precision supported by the evidence. Their achievement depends on execution gates, exposure coverage and timing; they cannot retroactively restore year-to-date results.",
+     "The portfolio range describes a constructed origin-and-replacement cohort, not an existing reported product segment. Its accounting boundary must remain explicit.",
+     "The validated_by field identifies the intended validation route for assumptions; it does not assert that ungrounded assumptions have already been validated.",
+     "No principal-specific budget, service-level or workforce veto is supplied beyond the anchor-account mid-quarter list-price lock."
+    ]
+   },
+   {
+    "event": "narrative_claim_mismatch",
+    "count": 1,
+    "findings": [
+     {
+      "kind": "non_additive_summation",
+      "field": "problem_reframe.situation",
+      "claimed": 29.94,
+      "expected": null,
+      "detail": "'gross_margin_pct' is declared additive_across_dimensions=false -- this sentence states a combined/total figure across segments, which is not a valid way to derive this KPI's enterprise value regardless of whether the arithmetic itself is self-consistent",
+      "excerpt": "The aggregate highlight separately reports 29.94% versus 34.43%, a 4.49-point decline."
+     }
+    ]
+   },
+   {
+    "event": "token_usage",
+    "calls": 2,
+    "input_tokens": 11916,
+    "output_tokens": 7882,
+    "total_tokens": 19798,
+    "by_call": [
+     {
+      "call": "critic_pass",
+      "model": "gpt-5.6-terra",
+      "input_tokens": 1714,
+      "output_tokens": 620
+     },
+     {
+      "call": "moderator",
+      "model": "gpt-6-astra",
+      "input_tokens": 10202,
+      "output_tokens": 7262,
+      "max_tokens": 64000
+     }
+    ]
+   }
+  ]
+ }
+}

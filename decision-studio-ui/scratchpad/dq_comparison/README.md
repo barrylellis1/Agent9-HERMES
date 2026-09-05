@@ -10,6 +10,23 @@ Referenced as the held-out validation corpus in
 | `mbb_run` | 2026-08-19 | (pre-Phase-19, no framing gate) | n/a | yes | see `cat3-summary.json` |
 | `gross_margin_reframe_run` | 2026-08-22 | Gross Margin % / lubricants (CFO, owner) | **reframed** → COGS (1 hop, accounting identity) | **no** | 5/5 (L5 not-checked) |
 | `ecommerce_confirm_run` | 2026-08-22 | E-Commerce Revenue / bicycle (CEO, non-owner, mixed-mode) | **confirmed** (0 alternatives offered) | **no** | 4/5, capped by L1 |
+| `frontier_bakeoff_2026-09-04/` | 2026-09-04 | Gross Margin % / lubricants (lens council) | n/a (replay of `lens_run`'s DA payload) | **yes** (per run) | 10 matched pairs per arm — see its own README |
+
+## What `frontier_bakeoff_2026-09-04` adds
+
+The first **paired model comparison** in this corpus, and the first entry produced by
+`scripts/run_dq_bakeoff.py` rather than a Playwright capture off a live UI session.
+20 runs (10 per arm) replaying `lens_run`'s DA payload through today's SF with the
+lens council, comparing `claude-fable-5` against `gpt-6-astra` on the synthesis call.
+
+Headline: astra 94.7% vs fable 86.7% DQ, but **sign test p=0.375 — not significant**,
+with 5 of 10 pairs tied. Both models pass 96.7%/98.9% of option-level groundedness
+checks, so the scorer is near saturation on frontier models and finer endpoints tie
+*more*, not less. The durable finding is cost: astra 37% cheaper on identical list
+pricing, consistent across all 10 pairs.
+
+That directory's README also lists five traps that each produced runs looking
+completely normal — read it before running another bake-off.
 
 ## What the two 2026-08-22 runs add
 
