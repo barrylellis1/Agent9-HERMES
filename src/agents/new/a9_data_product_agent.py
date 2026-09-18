@@ -4306,8 +4306,26 @@ class A9_Data_Product_Agent(DataProductProtocol):
             pass
         return None
 
-    def _resolve_time_spec(self, data_product_id: Optional[str]) -> dict:
-        """Return the primary TimeDimensionSpec as a plain dict for TimeFilter calls.
+    @staticmethod
+    def _td_key(value: Any) -> str:
+        """Normalize a time-dimension label/basis for matching ('Order Date' == 'order_date')."""
+        return "".join(ch for ch in str(value or "").lower() if ch.isalnum())
+
+    def _resolve_time_spec(self, data_product_id: Optional[str], kpi_definition: Any = None) -> dict:
+        """Return the TimeDimensionSpec this KPI is measured on, as a plain dict.
+
+        Phase 25 step 2 — a KPI may now select WHICH of its data product's
+        declared time dimensions it is measured on, via
+        ``metadata['time_dimension']`` matching an entry's ``label`` or
+        ``comparison_basis``. Without that, the product's primary entry wins,
+        which is the pre-existing behaviour and remains the default.
+
+        This closes a gap the lubricants seed already flagged in a comment:
+        ``order_fulfillment_rate`` and ``order_cancellation_rate`` are
+        delivery-keyed measures being filtered by the product's revenue-
+        recognition primary, because only the primary was ever consulted. The
+        seed called that "known, tracked, not silently accepted" -- this is the
+        mechanism it was waiting for.
 
         Falls back to a generic date spec so callers never receive None.
         """
@@ -4319,9 +4337,34 @@ class A9_Data_Product_Agent(DataProductProtocol):
             dp = dp_provider.get(data_product_id) if dp_provider else None
             if dp:
                 tds = getattr(dp, "time_dimensions", None) or []
-                primary = next((t for t in tds if getattr(t, "primary", False)), tds[0] if tds else None)
-                if primary:
-                    return primary.model_dump() if hasattr(primary, "model_dump") else dict(primary)
+                chosen = None
+
+                meta = getattr(kpi_definition, "metadata", None)
+                wanted = (meta or {}).get("time_dimension") if isinstance(meta, dict) else None
+                if wanted:
+                    want = self._td_key(wanted)
+                    chosen = next(
+                        (t for t in tds
+                         if self._td_key(getattr(t, "label", "")) == want
+                         or self._td_key(getattr(t, "comparison_basis", "")) == want),
+                        None,
+                    )
+                    if chosen is None:
+                        # Named but absent: a seed/registry mismatch, not a
+                        # preference. Say so rather than silently using the
+                        # primary, which is a DIFFERENT basis and would make
+                        # this KPI quietly non-comparable.
+                        self.logger.warning(
+                            "KPI '%s' requests time_dimension '%s', which data product '%s' does "
+                            "not declare (has: %s) -- falling back to the primary dimension.",
+                            getattr(kpi_definition, "id", "?"), wanted, data_product_id,
+                            [getattr(t, "label", "") or getattr(t, "comparison_basis", "") for t in tds],
+                        )
+
+                if chosen is None:
+                    chosen = next((t for t in tds if getattr(t, "primary", False)), tds[0] if tds else None)
+                if chosen:
+                    return chosen.model_dump() if hasattr(chosen, "model_dump") else dict(chosen)
         except Exception:
             pass
         self.logger.warning(
@@ -4331,6 +4374,22 @@ class A9_Data_Product_Agent(DataProductProtocol):
             data_product_id,
         )
         return _DEFAULT
+
+    def resolve_comparison_basis(self, data_product_id: Optional[str], kpi_definition: Any = None) -> str:
+        """The real-world event a KPI's numbers are recognized on.
+
+        Phase 25 step 2. Returns the resolved dimension's ``comparison_basis``,
+        or ``""`` when the product declares none.
+
+        Step 3 is the consumer: two KPIs whose bases differ are not safely
+        comparable even when their canonical period keys match exactly, so a
+        causal edge between them must not be affirmed on the strength of
+        aligned labels alone. **An empty string is UNKNOWN, never a match** --
+        treating undeclared as compatible would quietly re-admit the bug this
+        field exists to catch.
+        """
+        spec = self._resolve_time_spec(data_product_id, kpi_definition)
+        return str(spec.get("comparison_basis") or "")
 
     async def execute_sql(self, sql_query: Union[str, 'SQLExecutionRequest'], parameters: Optional[Dict[str, Any]] = None, principal_context=None, data_product_id: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -5237,7 +5296,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             if explicit_date_col:
                 spec = {"type": "date", "column": explicit_date_col}
             else:
-                spec = self._resolve_time_spec(dp_id)
+                spec = self._resolve_time_spec(dp_id, kpi_definition)
             period_expr = TimeFilter.period_key_expr(spec, "bigquery")
 
             # Columns carrying a recency filter in the KPI's stored SQL, which

@@ -97,6 +97,12 @@ DATA_PRODUCT = {
             "display_expr": "CONCAT(CAST(fiscal_year AS STRING), '-', fiscal_period)",
             "sort_expr": "fiscal_year * 100 + CAST(fiscal_period AS INT64)",
             "label": "Fiscal Period",
+            # Phase 25 step 2 — Finance recognizes on the posting period, and
+            # the Sales product's primary is deliberately the SAME basis so the
+            # two reconcile. Its order_date / delivery_date entries are NOT:
+            # 90.2% of sales line items deliver in a different fiscal month
+            # than the one their revenue is recognized in.
+            "comparison_basis": "revenue_recognition",
             "granularity": "month",
             "primary": True,
         },
@@ -237,6 +243,7 @@ SALES_DATA_PRODUCT: Dict[str, Any] = {
             "display_expr": "CONCAT(CAST(fiscal_year AS STRING), '-', fiscal_period)",
             "sort_expr": "fiscal_year * 100 + CAST(fiscal_period AS INT64)",
             "label": "Fiscal Period (Revenue Recognition)",
+            "comparison_basis": "revenue_recognition",
             "granularity": "month",
             "primary": True,
         },
@@ -244,6 +251,7 @@ SALES_DATA_PRODUCT: Dict[str, Any] = {
             "type": "date",
             "column": "order_date",
             "label": "Order Date",
+            "comparison_basis": "order_placement",
             "granularity": "month",
             "primary": False,
         },
@@ -251,6 +259,7 @@ SALES_DATA_PRODUCT: Dict[str, Any] = {
             "type": "date",
             "column": "delivery_date",
             "label": "Delivery Date",
+            "comparison_basis": "delivery",
             "granularity": "month",
             "primary": False,
         },
@@ -983,7 +992,15 @@ KPIS: List[Dict[str, Any]] = [
         "tags": ["sales", "fulfillment", "operations", "lubricants"],
         "owner_role": "COO",
         "stakeholder_roles": ["Sales Manager"],
-        "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "true"},
+        "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "true",
+                     # Phase 25 step 2 -- a delivery-status measure belongs on the
+                     # delivery basis, not Finance's recognition period. Verified
+                     # live 2026-09-18: 0 rows have a NULL delivery_date, so keying
+                     # here drops nothing. That is a property of THIS dataset --
+                     # real order data usually has no delivery_date on undelivered
+                     # lines, which would bias this rate toward 100%. Re-check before
+                     # copying this pattern to another client.
+                     "time_dimension": "delivery"},
     },
     {
         "id": "order_cancellation_rate",
@@ -1004,7 +1021,16 @@ KPIS: List[Dict[str, Any]] = [
         "tags": ["sales", "cancellations", "operations", "lubricants"],
         "owner_role": "COO",
         "stakeholder_roles": ["Sales Manager"],
-        "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false"},
+        "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false",
+                     # Phase 25 step 2 -- DELIBERATELY order_placement, not delivery,
+                     # diverging from the time_dimensions comment above that names BOTH
+                     # of these as delivery-keyed. A cancellation is an event on the
+                     # ORDER: "of orders placed in month M, what share were cancelled"
+                     # is answerable; "of orders DELIVERED in M, what share were
+                     # cancelled" is near a contradiction. The cancelled rows carry a
+                     # delivery_date here only because the generator fills one
+                     # unconditionally (verified live: 0 NULLs across all statuses).
+                     "time_dimension": "order_placement"},
     },
 ]
 

@@ -98,7 +98,7 @@ def _bq_kpi_def(sql_query, dp_id="nonexistent_dp_for_regex_fallback_test", metad
 def agent_with_fiscal_spec(data_product_agent):
     """DPA whose data product declares a fiscal_year_period time dimension and
     no date column at all -- the shape of dp_lubricants_sales."""
-    data_product_agent._resolve_time_spec = lambda dp_id: {
+    data_product_agent._resolve_time_spec = lambda dp_id, kpi_definition=None: {
         "type": "fiscal_year_period",
         "year_column": "fiscal_year",
         "period_column": "fiscal_period",
@@ -220,7 +220,7 @@ class TestGenerateMonthlySeriesSql:
 
     def test_unusable_time_spec_fails_gracefully(self, data_product_agent, monkeypatch):
         agent = data_product_agent
-        monkeypatch.setattr(agent, "_resolve_time_spec", lambda dp_id: {"type": "date", "column": ""})
+        monkeypatch.setattr(agent, "_resolve_time_spec", lambda dp_id, kpi_definition=None: {"type": "date", "column": ""})
         kpi = _bq_kpi_def("SELECT SUM(amount) AS value FROM `proj.dataset.financials`")
         result = agent.generate_monthly_series_sql(kpi)
         assert result["success"] is False

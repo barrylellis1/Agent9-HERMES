@@ -76,6 +76,21 @@ class TimeDimensionSpec(BaseModel):
     display_expr: str = Field("", description="SQL expression for SELECT / GROUP BY. Overrides column when set (e.g. \"CONCAT(CAST(fiscal_year AS VARCHAR), '-', fiscal_period)\").")
     sort_expr: str = Field("", description="SQL expression for ORDER BY to ensure chronological ordering. Defaults to display_expr or column if empty.")
     label: str = Field("", description="Display label for this dimension; defaults to display_expr or column if empty")
+    comparison_basis: str = Field(
+        "",
+        description=(
+            "Phase 25 step 2 — the real-world event this dimension recognizes activity on. "
+            "Two KPIs may only be compared, or a causal edge between them affirmed, when their "
+            "resolved bases agree: a canonical YYYY-MM key makes '2026-05' the same STRING on "
+            "both sides, but not necessarily the same ACTIVITY. Lubricants is the worked example — "
+            "90.2% of sales line items deliver in a different fiscal month than the one their "
+            "revenue is recognized in, so a revenue_recognition series and a delivery series "
+            "genuinely disagree about what happened in a given month. "
+            "Convention: 'revenue_recognition' | 'order_placement' | 'delivery' | 'invoice' | "
+            "'transaction'. Empty means undeclared — callers must treat that as unknown, never as "
+            "a match."
+        ),
+    )
     granularity: str = Field("month", description="Time granularity: year | quarter | month | week | day")
     primary: bool = Field(True, description="If True, this is the preferred time dimension for SA/DA temporal analysis")
 

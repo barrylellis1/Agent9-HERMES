@@ -311,3 +311,51 @@ product keys off fiscal columns not `transaction_date`; padding normalized to 2 
 fiscal specs agree on key shape; grain reported (`fiscal_year` → `year`, a mismatch callers must
 refuse); unusable spec fails gracefully. Existing custom-`date_column` test re-pinned to the new
 expression, same guarantee.
+
+## Phase 25 step 2 — Declared comparison basis + per-KPI time dimension (2026-09-18)
+
+Step 1's canonical key makes `"2026-05"` the same STRING on every data product. It does not make it
+the same ACTIVITY. Verified live: on `LubricantsSalesStarView`, **55,584 of 61,654 rows (90.2%)** fall
+in a different month under the delivery basis than under revenue recognition — the seed's long-standing
+90.2% claim, confirmed against the data rather than inherited from a comment.
+
+**`comparison_basis` on `TimeDimensionSpec`** (not on `DataProduct`): a product declares *several*
+time dimensions with *different* bases — the sales product declares exactly three — so a
+product-level field would collapse the distinction it exists to express. Convention:
+`revenue_recognition` | `order_placement` | `delivery` | `invoice` | `transaction`. No migration —
+`time_dimensions` is a JSONB column.
+
+**`_resolve_time_spec(data_product_id, kpi_definition=None)`** now honours
+`kpi.metadata['time_dimension']`, matching a declared entry by `label` or `comparison_basis`
+(case- and separator-insensitive, so `"Delivery Date"` and `"delivery_date"` select the same entry).
+A named-but-absent dimension **warns and falls back to primary** rather than silently landing the KPI
+on a different basis while appearing to honour the request. Backward compatible: the existing
+one-argument call site is untouched. No migration — `KPI.metadata` is `Dict[str, str]`.
+
+**`resolve_comparison_basis(data_product_id, kpi_definition=None)`** is the read side step 3 consumes.
+`""` means UNKNOWN and must never be treated as a match — treating undeclared as compatible would
+re-admit the bug the field exists to catch.
+
+**Deliberate divergence from the seed's own comment.** It named BOTH `order_fulfillment_rate` and
+`order_cancellation_rate` as delivery-keyed. Fulfillment is now `delivery`; **cancellation is
+`order_placement`** — a cancellation is an event on the ORDER, so "of orders placed in month M, what
+share were cancelled" is answerable while "of orders *delivered* in M, what share were cancelled" is
+near a contradiction. The cancelled rows carry a `delivery_date` here only because the generator fills
+one unconditionally (verified live: 0 NULLs across all statuses). On real order data, undelivered
+lines usually have no delivery date, which would bias a fulfilment rate toward 100% — re-check before
+copying this pattern to another client.
+
+Resolved bases after this change (verified against the real seed): `net_revenue`, `cogs`,
+`sales_order_count`, `units_sold`, `average_order_value` → `revenue_recognition`;
+`order_fulfillment_rate` → `delivery`; `order_cancellation_rate` → `order_placement`. The four KPIs in
+the Causal Neighbourhood panel therefore share one basis, so step 3 will be able to *confirm* those
+edges rather than assume them.
+
+**Registry sync owed**: `scripts/clients/lubricants.py` changed, so production needs
+`python scripts/onboard_client.py --client lubricants --env production` after this lands (dry-run
+first), per CLAUDE.md's Registry Data Sync Protocol.
+
+Tests: `tests/unit/test_time_dimension_comparison_basis.py` (10) — primary when no override; override
+by label; override by basis; case/separator-insensitive matching; unknown dimension warns AND falls
+back; one-arg backward compatibility; basis read-back declared/overridden/undeclared; and that one
+product yields three different bases for the same rows.

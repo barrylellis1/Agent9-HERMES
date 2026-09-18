@@ -128,8 +128,8 @@ tree is what makes `git status` unreadable on restart.
 | **12C** — Business objectives registry | **OPEN** | `business_objectives` absent |
 | **12D** — Objective health score | **OPEN** | needs 12C |
 | **12E** — Principal templates | **OPEN** | *(earlier "present" reading was wrong — those `status='template'` hits are **KPI** templates from 12A)* |
-| **25 step 2** — declared `comparison_basis` | **OPEN** | needs step 1; `_resolve_time_spec` reads only the PRIMARY time dimension, no per-KPI override |
-| **25 step 3** — guard causal affirmation | **DECIDE** | needs step 2, **and an open product question**: does a basis mismatch block affirmation outright or downgrade to a flagged edge? Changes what the theory layer may count |
+| **25 step 2** — declared `comparison_basis` | **SHIPPED** (2026-09-18) | `comparison_basis` on `TimeDimensionSpec` + per-KPI `metadata['time_dimension']` override; `resolve_comparison_basis()` is step 3's read side. No migration (JSONB + `Dict[str,str]`). 10 new tests, 1702 passing. **Seed changed → needs `onboard_client.py --client lubricants --env production`** |
+| **25 step 3** — guard causal affirmation | **DECIDE** | step 2 done; blocked only on **an open product question**: does a basis mismatch block affirmation outright or downgrade to a flagged edge? Changes what the theory layer may count |
 
 **11K–11N is a four-phase chain behind one absent seed file.** That's the single highest-leverage
 unblock in the backlog: build Meridian and four phases become available.
