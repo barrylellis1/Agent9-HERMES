@@ -292,10 +292,19 @@ still feed the KPI-tile sparklines. Same reasoning as the Phase 20 entry above �
 path. They are now a *third* copy of a rule that has one owner; tracked in DEVELOPMENT_PLAN.md
 Phase 25, not forgotten.
 
-**Owed**: live BigQuery verification of the emitted key on both products. `.env`'s
-`GOOGLE_APPLICATION_CREDENTIALS` points at a file that does not exist on this machine, so the
-zero-padding finding is proven from the generator source (`f"{m:03d}"`) and unit tests, not from a
-live query. Run it before trusting the chart.
+**Verified against live BigQuery 2026-09-18.** `fiscal_period` is `'001'..'012'` on BOTH products,
+confirming the 3-digit storage. `period_key_expr` emits identical `YYYY-MM` keys for each
+(`2026-08..2026-12` overlap exactly), and the generated series SQL for `sales_order_count` returns
+**9 rows where it previously returned none**. The raw `display_expr` was observed emitting
+`"2026-012"` — the disjoint-axis failure this key exists to prevent, confirmed rather than predicted.
+Also confirmed: `transaction_date` is stored as a STRING, so the old `LEFT(col, 7)` worked by virtue
+of that; `FORMAT_DATE('%Y-%m', CAST(col AS DATE))` is correct for it and for DATE/TIMESTAMP columns.
+
+The credentials were never missing. `.env`'s `GOOGLE_APPLICATION_CREDENTIALS` omits the `OneDrive`
+path segment — Documents is OneDrive-redirected on this machine, so the key resolves under
+`OneDrive/Documents/Agent9/API Keys/`. **`.env` is deliberately NOT modified**: it is
+environment-specific configuration that CLAUDE.md puts behind explicit permission. Anything reading
+that variable straight from `.env` will still fail to find the key until the path is corrected.
 
 Tests: `tests/unit/test_data_product_agent_kpi_methods.py::TestGenerateMonthlySeriesSql` — fiscal
 product keys off fiscal columns not `transaction_date`; padding normalized to 2 digits; date and
