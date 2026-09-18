@@ -645,13 +645,38 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       ...(() => {
         const views: any[] = Array.isArray(opt?.lens_views) ? opt.lens_views
           : Array.isArray(opt?.perspectives) ? opt.perspectives : []
+        // Round-robin across EVERY lens, so each council member contributes its
+        // first argument before any one lens contributes a second.
+        //
+        // This read `views[0]` only until 2026-09-17, which silently dropped
+        // lenses 2 and 3 entirely: the briefing rendered ONE lens's arguments
+        // under an "Arguments For / Against" heading that reads as the whole
+        // council's position. Only `key_questions` (below) survived for the
+        // other lenses, so the council looked present while two thirds of its
+        // reasoning was gone. `decision_quality.py` reads the raw payload and
+        // was never affected — this was a briefing-surface loss only, which is
+        // why it survived: the scorer saw what the reader could not.
+        //
+        // Breadth before depth is the point. A cap that truncated depth-first
+        // would reintroduce the same bug whenever lens 1 was verbose.
+        const attributed = (key: string, cap: number) => {
+          const lists: string[][] = views.map((v: any) => Array.isArray(v?.[key]) ? v[key] : [])
+          const depth = lists.length ? Math.max(...lists.map((l) => l.length)) : 0
+          const rows: { point: string; detail: string }[] = []
+          for (let d = 0; d < depth && rows.length < cap; d++) {
+            for (let i = 0; i < lists.length && rows.length < cap; i++) {
+              const point = lists[i][d]
+              if (point) rows.push({ point, detail: views[i]?.lens || '' })
+            }
+          }
+          return rows
+        }
         return {
-          prosDetailed: Array.isArray(views[0]?.arguments_for)
-            ? views[0].arguments_for.slice(0, 3).map((p: string) => ({ point: p, detail: '' }))
-            : [],
-          consDetailed: Array.isArray(views[0]?.arguments_against)
-            ? views[0].arguments_against.slice(0, 3).map((c: string) => ({ point: c, detail: '' }))
-            : [],
+          // `detail` carries the lens that made the argument. It was always ''
+          // before this change and no consumer rendered it; the three briefing
+          // surfaces now show it as an attribution label.
+          prosDetailed: attributed('arguments_for', 6),
+          consDetailed: attributed('arguments_against', 6),
           lens_views: views.slice(0, 3).map((p: any) => ({
             role: p?.lens || 'Lens', view: (p?.key_questions || []).join(' '),
           })),

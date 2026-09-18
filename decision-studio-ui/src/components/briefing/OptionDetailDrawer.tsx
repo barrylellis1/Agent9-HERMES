@@ -170,7 +170,14 @@ export function OptionDetailDrawer({ option, optionLabel, onClose }: OptionDetai
                       {option.prosDetailed.map((p: any, i: number) => (
                         <li key={i} className="flex items-start gap-1.5 text-xs text-slate-400">
                           <ChevronRight className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-600" />
-                          <span>{p.point?.replace(/[:]+$/, '')}</span>
+                          <span>
+                            {p.point?.replace(/[:]+$/, '')}
+                            {p.detail && (
+                              <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                                {p.detail}
+                              </span>
+                            )}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -185,7 +192,14 @@ export function OptionDetailDrawer({ option, optionLabel, onClose }: OptionDetai
                       {option.consDetailed.map((c: any, i: number) => (
                         <li key={i} className="flex items-start gap-1.5 text-xs text-slate-400">
                           <ChevronRight className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-600" />
-                          <span>{c.point?.replace(/[:]+$/, '')}</span>
+                          <span>
+                            {c.point?.replace(/[:]+$/, '')}
+                            {c.detail && (
+                              <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                                {c.detail}
+                              </span>
+                            )}
+                          </span>
                         </li>
                       ))}
                     </ul>

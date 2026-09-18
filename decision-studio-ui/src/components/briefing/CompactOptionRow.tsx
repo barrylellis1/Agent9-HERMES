@@ -153,7 +153,14 @@ export function CompactOptionRow({ option, letter, dominatorLetter, maxRange, on
                 {option.prosDetailed?.map((pro: any, j: number) => (
                   <li key={j} className="text-xs text-slate-400 flex items-start gap-1.5 print:text-slate-700">
                     <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
-                    <span>{pro.point?.replace(/[:]+$/, '')}</span>
+                    <span>
+                      {pro.point?.replace(/[:]+$/, '')}
+                      {pro.detail && (
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-500 print:text-slate-500">
+                          {pro.detail}
+                        </span>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -166,7 +173,14 @@ export function CompactOptionRow({ option, letter, dominatorLetter, maxRange, on
                 {option.consDetailed?.map((con: any, j: number) => (
                   <li key={j} className="text-xs text-slate-400 flex items-start gap-1.5 print:text-slate-700">
                     <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
-                    <span>{con.point?.replace(/[:]+$/, '')}</span>
+                    <span>
+                      {con.point?.replace(/[:]+$/, '')}
+                      {con.detail && (
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-500 print:text-slate-500">
+                          {con.detail}
+                        </span>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>

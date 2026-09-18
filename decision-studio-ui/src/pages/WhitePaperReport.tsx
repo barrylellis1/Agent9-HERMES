@@ -274,7 +274,14 @@ export function WhitePaperReport() {
                           <p className="font-semibold text-severity-opportunity mb-1">Strengths</p>
                           <ul className="list-disc list-inside text-slate-600 space-y-0.5">
                             {opt.prosDetailed.map((p: any, j: number) => (
-                              <li key={j}>{p.point}</li>
+                              <li key={j}>
+                                {p.point}
+                                {p.detail && (
+                                  <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
+                                    {p.detail}
+                                  </span>
+                                )}
+                              </li>
                             ))}
                           </ul>
                         </div>
@@ -284,7 +291,14 @@ export function WhitePaperReport() {
                           <p className="font-semibold text-severity-critical mb-1">Considerations</p>
                           <ul className="list-disc list-inside text-slate-600 space-y-0.5">
                             {opt.consDetailed.map((c: any, j: number) => (
-                              <li key={j}>{c.point}</li>
+                              <li key={j}>
+                                {c.point}
+                                {c.detail && (
+                                  <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
+                                    {c.detail}
+                                  </span>
+                                )}
+                              </li>
                             ))}
                           </ul>
                         </div>
