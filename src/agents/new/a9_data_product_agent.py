@@ -5215,9 +5215,46 @@ class A9_Data_Product_Agent(DataProductProtocol):
             if source_system != 'bigquery':
                 return {"success": False, "sql": "", "kpi_name": kpi_name, "message": f"Monthly series generation not yet implemented for source_system={source_system!r}"}
 
+            # Phase 25 step 1 — resolve the period key from the data product's
+            # TimeDimensionSpec instead of guessing a date column.
+            #
+            # This previously read `metadata.date_column` with a hardcoded
+            # "transaction_date" fallback. `date_column` is set on NO lubricants
+            # KPI, so every KPI took the fallback: net_revenue worked BY ACCIDENT
+            # (its financials view happens to have that column) while every
+            # sales-backed KPI generated SQL against a column that does not
+            # exist on LubricantsSalesStarView, failed at execution, and lost
+            # its trend line silently. Phase 10F built TimeDimensionSpec for
+            # exactly this and converted the three dimensional builders; this
+            # method was added three months later and drove around it.
+            #
+            # Precedence: an explicit per-KPI `metadata.date_column` still wins
+            # (it is a deliberate override and is covered by existing tests),
+            # then the data product's declared spec, then the old guess.
             metadata = getattr(kpi_definition, "metadata", None)
-            date_col = (metadata or {}).get("date_column", "transaction_date") if isinstance(metadata, dict) else "transaction_date"
-            sql = self._build_bq_monthly_series_sql(raw_sql, date_col=date_col, num_months=num_months)
+            explicit_date_col = (metadata or {}).get("date_column") if isinstance(metadata, dict) else None
+
+            if explicit_date_col:
+                spec = {"type": "date", "column": explicit_date_col}
+            else:
+                spec = self._resolve_time_spec(dp_id)
+            period_expr = TimeFilter.period_key_expr(spec, "bigquery")
+
+            # Columns carrying a recency filter in the KPI's stored SQL, which
+            # the subquery's LIMIT supersedes. Two for a fiscal spec, one for a
+            # date spec.
+            if (spec.get("type") or "date").lower() == "date":
+                strip_cols = [spec.get("column") or "transaction_date"]
+            else:
+                strip_cols = [
+                    spec.get("year_column") or "fiscal_year",
+                    spec.get("period_column") or "fiscal_period",
+                ]
+
+            if not period_expr:
+                return {"success": False, "sql": "", "kpi_name": kpi_name, "message": "No usable time dimension for this KPI's data product"}
+
+            sql = self._build_bq_monthly_series_sql(raw_sql, period_expr=period_expr, num_months=num_months, strip_cols=strip_cols)
             if not sql:
                 return {"success": False, "sql": "", "kpi_name": kpi_name, "message": "Could not parse base SQL for monthly series"}
             return {"success": True, "sql": sql, "kpi_name": kpi_name, "data_product_id": dp_id, "source_system": "bigquery"}
@@ -5225,7 +5262,13 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.warning(f"generate_monthly_series_sql failed for '{kpi_name}': {e}")
             return {"success": False, "sql": "", "kpi_name": kpi_name, "message": str(e), "error": str(e)}
 
-    def _build_bq_monthly_series_sql(self, base_sql: str, date_col: str = "transaction_date", num_months: int = 9) -> str:
+    def _build_bq_monthly_series_sql(
+        self,
+        base_sql: str,
+        period_expr: str = "FORMAT_DATE('%Y-%m', CAST(transaction_date AS DATE))",
+        num_months: int = 9,
+        strip_cols: Optional[List[str]] = None,
+    ) -> str:
         """Generate SQL returning the most recent N monthly aggregates for a
         KPI. Same technique as A9_Situation_Awareness_Agent's identically-named
         (module-private) method — that duplicate is pre-existing, separately
@@ -5259,18 +5302,23 @@ class A9_Data_Product_Agent(DataProductProtocol):
         where_match = _re.search(r'\bWHERE\b(.*)', rest, _re.IGNORECASE | _re.DOTALL)
         where_clause = ("WHERE" + where_match.group(1)) if where_match else rest
 
-        bare_date_col = date_col.strip('"')
+        # Phase 25 step 1: the caller now supplies a canonical period EXPRESSION
+        # (TimeFilter.period_key_expr), not a bare date column, so the columns
+        # whose recency filters get stripped are passed separately -- a
+        # fiscal_year_period product has two of them and no date column at all.
+        cols_to_strip = [c for c in (strip_cols or ["transaction_date"]) if c]
 
         if where_clause.upper().startswith("WHERE"):
-            existing_conditions = where_clause[5:].strip()
-            date_col_pattern = rf'"?{_re.escape(bare_date_col)}"?'
-            cleaned = _re.sub(
-                rf'(?:\bAND\s+)?{date_col_pattern}\s+'
-                rf'(?:BETWEEN\s+[\'"\d\-T]+\s+AND\s+[\'"\d\-T]+|[<>]=?\s*[\'"\d\-T]+)',
-                '',
-                existing_conditions,
-                flags=_re.IGNORECASE,
-            ).strip().lstrip(',').strip()
+            cleaned = where_clause[5:].strip()
+            for _col in cols_to_strip:
+                date_col_pattern = rf'"?{_re.escape(_col.strip(chr(34)))}"?'
+                cleaned = _re.sub(
+                    rf'(?:\bAND\s+)?{date_col_pattern}\s+'
+                    rf'(?:BETWEEN\s+[\'"\d\-T]+\s+AND\s+[\'"\d\-T]+|[<>]=?\s*[\'"\d\-T]+)',
+                    '',
+                    cleaned,
+                    flags=_re.IGNORECASE,
+                ).strip().lstrip(',').strip()
             cleaned = _re.sub(r'^AND\s+', '', cleaned, flags=_re.IGNORECASE).strip()
             non_date_where = f"WHERE {cleaned}" if cleaned else ""
         else:
@@ -5278,7 +5326,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
         return (
             f"SELECT period, value FROM ("
-            f"SELECT LEFT({bare_date_col}, 7) AS period, "
+            f"SELECT {period_expr} AS period, "
             f"{agg_expr} AS value "
             f"FROM {table_ref} "
             f"{non_date_where} "

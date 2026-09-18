@@ -115,6 +115,12 @@ export function CausalNeighbourhoodEvidence({ prompt, kpiName }: { prompt: Frami
             Relative trend — % change from each series' own starting point
           </p>
           <CausalTrendChart periods={chartData.periods} series={chartData.series} height={200} />
+          {chartData.omitted.length > 0 && (
+            <p className="mt-2 text-[10px] text-slate-500">
+              Trend unavailable for {chartData.omitted.join(', ')} — no monthly series returned for
+              this measure. Its “this period” figure above is unaffected.
+            </p>
+          )}
         </div>
       )}
 

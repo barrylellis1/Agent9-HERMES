@@ -107,7 +107,7 @@ tree is what makes `git status` unreadable on restart.
 
 | Phase | Status | Verified by |
 |---|---|---|
-| **25 step 1** — canonical `period_key` | **OPEN** | no `period_key`/`canonical_period` anywhere; `TimeFilter` emits WHERE clauses only. **Fixes the causal-chart defect below; prerequisite for steps 2–3** |
+| **25 step 1** — canonical `period_key` | **SHIPPED** (2026-09-18) | `TimeFilter.period_key_expr`/`period_key_grain`; DPA resolves via `_resolve_time_spec`; 4 new tests, 1692 passing. **Live BigQuery verification still owed** — creds file in `.env` is absent. SA's 3 hand-rolled copies deliberately untouched (live sparkline path) |
 | **18** — Council de-branding + Lens Council UI | **OPEN** | MBB names present in 14 files |
 | **11I-D** — PIB alert-type differentiation | **PARTIAL** | 11I-A/B/C shipped; D remaining |
 | **11H** — DA seasonal decomposition | **PARTIAL** | effect size + outlier shipped; decomposition absent |
@@ -158,7 +158,7 @@ These came from driving the app, not from tests — the suite is green and these
 
 | Defect | Note |
 |---|---|
-| **Causal Neighbourhood chart plots only the primary KPI** (2026-09-17) | All three causal neighbours show scalar `% this period` but no trend line. Not a chart bug — `generate_monthly_series_sql` guesses `transaction_date`, which the sales view doesn't have, so the fetch fails non-fatally and the series is dropped. Net Revenue renders **by accident** (its view happens to have that column). **Owned by Phase 25 step 1** — do not patch the seed. |
+| **Causal Neighbourhood chart plots only the primary KPI** (2026-09-17) | ✅ **Fixed 2026-09-18 via Phase 25 step 1.** `generate_monthly_series_sql` guessed `transaction_date`, which the sales view doesn't have; Net Revenue rendered **by accident**. Now resolves the data product's declared `TimeDimensionSpec` and emits a canonical `YYYY-MM` key. A dropped series now says so in the UI instead of vanishing. **Unverified against live BigQuery** — creds absent; the fix is proven by unit tests and generator source, not a live query. |
 | **Per-lens arguments dropped from the briefing** (2026-09-17) | ✅ **Fixed 2026-09-17.** `briefingUtils.ts` read `views[0]` only, so 1 of 3 lenses' `arguments_for`/`arguments_against` reached the page under a heading that reads as the council's consensus — verified against a captured payload: 3 of 3 lenses now, was 1 of 3. `decision_quality.py` reads the raw payload and was never affected, which is why it survived: the scorer saw what the reader could not. |
 | **SA severity calibration** — 14 of 15 KPIs flagged CRITICAL | Red carries no information. The "N KPIs within normal range" collapse never engages. Related: **the number shown on the tile is not the number that triggered the alert.** Threshold calibration + a tile data contract, not a UI fix. |
 | **DA prose is polarity-unaware** | Rendered "Raw Materials Cost is **over-performing**" for a cost *up* 22.3%, flagged CRITICAL. Narrative contradicts the badge on the same screen. |

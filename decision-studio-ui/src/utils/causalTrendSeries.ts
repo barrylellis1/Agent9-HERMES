@@ -20,12 +20,17 @@ import type { TrendSeries } from '../components/visualizations/CausalTrendChart'
 export function buildCausalTrendChart(
   primary: { kpiId: string; label: string; snapshot: NeighbourSnapshot | null | undefined },
   secondaries: Array<{ kpiId: string; label: string; snapshot: NeighbourSnapshot | null | undefined }>,
-): { periods: string[]; series: TrendSeries[] } | null {
+): { periods: string[]; series: TrendSeries[]; omitted: string[] } | null {
   const all = [
     { kpiId: primary.kpiId, label: primary.label, isPrimary: true, monthly: primary.snapshot?.monthly_values },
     ...secondaries.map(s => ({ kpiId: s.kpiId, label: s.label, isPrimary: false, monthly: s.snapshot?.monthly_values })),
   ];
   const withData = all.filter(a => a.monthly && a.monthly.length >= 2);
+  // Phase 25 step 1: report what was dropped instead of just omitting it. A
+  // missing line and a flat line are indistinguishable to a reader, which is
+  // how a failing fetch survived to a live screenshot -- the trend fetch is
+  // non-fatal by design (correctly), but silence at the UI is not.
+  const omitted: string[] = all.filter(a => !(a.monthly && a.monthly.length >= 2)).map(a => a.label);
   if (withData.length === 0) return null;
 
   const periodSet = new Set<string>();
@@ -44,7 +49,12 @@ export function buildCausalTrendChart(
     });
     series.push({ kpiId: a.kpiId, label: a.label, isPrimary: a.isPrimary, indexedValues });
   }
+  // A series with data but no usable baseline (all-zero or all-null first
+  // point) is dropped in the loop above; count it as omitted too.
+  for (const a of withData) {
+    if (!series.some(s2 => s2.kpiId === a.kpiId)) omitted.push(a.label);
+  }
 
   if (!series.some(s => s.isPrimary)) return null; // no chart without a reference line
-  return series.length > 0 ? { periods, series } : null;
+  return series.length > 0 ? { periods, series, omitted } : null;
 }

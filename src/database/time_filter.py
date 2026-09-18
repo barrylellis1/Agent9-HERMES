@@ -381,6 +381,83 @@ class TimeFilter:
         col = spec.get("column") or "transaction_date"
         return cls._date_previous(col, tf, today, dialect)
 
+    # ── canonical period key (Phase 25 step 1) ──────────────────────────────
+
+    @classmethod
+    def period_key_grain(cls, spec: dict) -> str:
+        """Grain of the key `period_key_expr` produces: 'month' or 'year'.
+
+        Two series may only be compared when their grains match. Callers that
+        join or plot series from DIFFERENT data products must check this --
+        comparing a 'year' key against a 'month' key silently produces
+        non-overlapping axes, not an error.
+        """
+        return "year" if (spec.get("type") or "date").lower() == "fiscal_year" else "month"
+
+    @classmethod
+    def period_key_expr(cls, spec: dict, dialect: str = "bigquery") -> Optional[str]:
+        """SQL expression yielding the CANONICAL period key: ``YYYY-MM``.
+
+        Phase 25 step 1. Every data product -- finance keyed on fiscal period,
+        operations keyed on a transaction date -- must emit the SAME string for
+        the same period, or series from different products cannot be aligned,
+        and a causal edge between their KPIs cannot be affirmed.
+
+        Why this is NOT the spec's own ``display_expr``: the lubricants sales
+        product declares
+        ``CONCAT(CAST(fiscal_year AS STRING), '-', fiscal_period)``, and its
+        ``fiscal_period`` is a **3-digit zero-padded string** (both generators
+        use ``f"{m:03d}"``). That yields ``"2026-005"``, while the date path's
+        ``FORMAT_DATE('%Y-%m', ...)`` yields ``"2026-05"``. Reusing display_expr
+        would produce two disjoint axes with no error anywhere -- the exact
+        silent failure this method exists to prevent. The INT cast below
+        normalizes ``"005"``, ``"5"`` and ``5`` to the same key.
+
+        `display_expr`/`sort_expr` remain the right thing for human-facing
+        labels and ORDER BY; this is the machine-comparable join key.
+
+        Returns None when the spec carries nothing usable, so callers degrade
+        to "no trend for this KPI" rather than a wrong one.
+        """
+        spec_type = (spec.get("type") or "date").lower()
+        d = (dialect or "bigquery").lower()
+
+        if spec_type == "fiscal_year":
+            year_col = spec.get("year_column") or "fiscal_year"
+            if d == "bigquery":
+                return f"CAST({year_col} AS STRING)"
+            if d in ("sqlserver", "sql_server", "mssql"):
+                return f"CAST({year_col} AS VARCHAR(4))"
+            return f"CAST({year_col} AS VARCHAR)"
+
+        if spec_type == "fiscal_year_period":
+            year_col = spec.get("year_column") or "fiscal_year"
+            period_col = spec.get("period_column") or "fiscal_period"
+            if d == "bigquery":
+                p = f"LPAD(CAST(CAST({period_col} AS INT64) AS STRING), 2, '0')"
+                return f"CONCAT(CAST({year_col} AS STRING), '-', {p})"
+            if d == "snowflake":
+                p = f"LPAD(TO_VARCHAR(CAST({period_col} AS INTEGER)), 2, '0')"
+                return f"TO_VARCHAR({year_col}) || '-' || {p}"
+            if d in ("sqlserver", "sql_server", "mssql"):
+                p = f"RIGHT('0' + CAST(CAST({period_col} AS INT) AS VARCHAR(2)), 2)"
+                return f"CAST({year_col} AS VARCHAR(4)) + '-' + {p}"
+            p = f"LPAD(CAST(CAST({period_col} AS INTEGER) AS VARCHAR), 2, '0')"
+            return f"CAST({year_col} AS VARCHAR) || '-' || {p}"
+
+        col = spec.get("column")
+        if not col:
+            return None
+        if d == "bigquery":
+            return f"FORMAT_DATE('%Y-%m', CAST({col} AS DATE))"
+        if d == "snowflake":
+            return f"TO_CHAR(CAST({col} AS DATE), 'YYYY-MM')"
+        if d in ("sqlserver", "sql_server", "mssql"):
+            return f"FORMAT(CAST({col} AS DATE), 'yyyy-MM')"
+        if d == "duckdb":
+            return f"STRFTIME(CAST({col} AS DATE), '%Y-%m')"
+        return f"TO_CHAR(CAST({col} AS DATE), 'YYYY-MM')"
+
     @classmethod
     def date_range(
         cls, spec: dict, timeframe, previous: bool = False

@@ -255,3 +255,50 @@ unit suite — both affected test files outside `tests/unit/` were updated:
 `tests/test_duckdb_views.py` deleted (tested only `create_view_from_contract`),
 `tests/integration/test_cogs_validation.py`'s `prepare_environment` call replaced with a
 skip-if-view-missing check).
+
+## Phase 25 step 1 — Canonical period key (2026-09-18)
+
+`generate_monthly_series_sql` read `kpi_definition.metadata.date_column` with a hardcoded
+`"transaction_date"` fallback. `date_column` is set on **no** lubricants KPI, so every KPI took the
+fallback. `net_revenue` worked **by accident** — its financials view happens to have a column by that
+name. Every sales-backed KPI (`dp_lubricants_sales` → `LubricantsSalesStarView`, which has
+`order_date`/`delivery_date` and no `transaction_date`) generated SQL against a non-existent column,
+failed at execution, was swallowed by DA's non-fatal `_fetch_neighbour_monthly_trend`, and lost its
+trend line with no error surfaced. Found by a live screenshot of the Causal Neighbourhood panel, not
+by a test — the suite was green throughout.
+
+Phase 10F built `TimeDimensionSpec` for exactly this and converted the three *dimensional* builders
+("no hardcoded `transaction_date` fallback", above). `_build_bq_monthly_series_sql` was added in
+Phase 20 three months later and reintroduced the guess.
+
+**The fix**: new `TimeFilter.period_key_expr(spec, dialect)` + `TimeFilter.period_key_grain(spec)`
+produce ONE canonical `YYYY-MM` key for every spec type and dialect.
+`generate_monthly_series_sql` now resolves it with precedence **explicit `metadata.date_column`
+(per-KPI override, still honoured) → `_resolve_time_spec(dp_id)` → fail**, and returns
+`{"success": False}` when no usable time dimension resolves rather than emitting a wrong query.
+`_build_bq_monthly_series_sql` takes `period_expr` + `strip_cols` instead of `date_col` (a fiscal
+spec has two filter columns and no date column at all).
+
+**Why NOT the spec's own `display_expr`**: the sales product declares
+`CONCAT(CAST(fiscal_year AS STRING), '-', fiscal_period)` and both lubricants generators write
+`fiscal_period` as `f"{m:03d}"` — a **3-digit** string. That yields `"2026-005"` against the date
+path's `"2026-05"`: two disjoint axes, no error anywhere. `period_key_expr` casts to INT and re-pads
+to 2, normalizing `"005"`, `"5"` and `5` alike. `display_expr`/`sort_expr` remain correct for human
+labels and ORDER BY; the canonical key is the machine-comparable join key.
+
+**Deliberately NOT in this pass**: `A9_Situation_Awareness_Agent`'s `_bq_monthly_series_sql` /
+`_ss_monthly_series_sql` / `_sf_monthly_series_sql` still hand-roll their own period expressions and
+still feed the KPI-tile sparklines. Same reasoning as the Phase 20 entry above — live, demo-relied-upon
+path. They are now a *third* copy of a rule that has one owner; tracked in DEVELOPMENT_PLAN.md
+Phase 25, not forgotten.
+
+**Owed**: live BigQuery verification of the emitted key on both products. `.env`'s
+`GOOGLE_APPLICATION_CREDENTIALS` points at a file that does not exist on this machine, so the
+zero-padding finding is proven from the generator source (`f"{m:03d}"`) and unit tests, not from a
+live query. Run it before trusting the chart.
+
+Tests: `tests/unit/test_data_product_agent_kpi_methods.py::TestGenerateMonthlySeriesSql` — fiscal
+product keys off fiscal columns not `transaction_date`; padding normalized to 2 digits; date and
+fiscal specs agree on key shape; grain reported (`fiscal_year` → `year`, a mismatch callers must
+refuse); unusable spec fails gracefully. Existing custom-`date_column` test re-pinned to the new
+expression, same guarantee.

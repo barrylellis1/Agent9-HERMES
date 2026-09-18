@@ -94,6 +94,19 @@ def _bq_kpi_def(sql_query, dp_id="nonexistent_dp_for_regex_fallback_test", metad
     return SimpleNamespace(id="cogs", name="cogs", sql_query=sql_query, calculation=None, data_product_id=dp_id, metadata=metadata or {})
 
 
+@pytest.fixture
+def agent_with_fiscal_spec(data_product_agent):
+    """DPA whose data product declares a fiscal_year_period time dimension and
+    no date column at all -- the shape of dp_lubricants_sales."""
+    data_product_agent._resolve_time_spec = lambda dp_id: {
+        "type": "fiscal_year_period",
+        "year_column": "fiscal_year",
+        "period_column": "fiscal_period",
+        "period_column_type": "string",
+    }
+    return data_product_agent
+
+
 class TestGenerateMonthlySeriesSql:
     def test_bigquery_kpi_generates_sql(self, data_product_agent):
         agent = data_product_agent
@@ -148,7 +161,70 @@ class TestGenerateMonthlySeriesSql:
         )
         result = agent.generate_monthly_series_sql(kpi)
         assert result["success"] is True
-        assert "LEFT(fiscal_date, 7)" in result["sql"]
+        # Phase 25 step 1 changed the EXPRESSION (LEFT(col,7) ->
+        # FORMAT_DATE('%Y-%m', ...)) but not the guarantee this test exists to
+        # pin: an explicit per-KPI date_column still wins over the data
+        # product's declared spec.
+        assert "fiscal_date" in result["sql"]
+        assert "FORMAT_DATE('%Y-%m'" in result["sql"]
+        assert "transaction_date" not in result["sql"]
+
+    # ── Phase 25 step 1 — canonical period key ──────────────────────────────
+
+    def test_fiscal_year_period_product_uses_normalized_key_not_display_expr(self, agent_with_fiscal_spec):
+        """The bug this phase exists for.
+
+        A sales-style product keyed on fiscal_year + fiscal_period has NO date
+        column. Before this change the builder emitted SQL against a
+        hardcoded `transaction_date`, which does not exist on that view: the
+        query failed, the fetch swallowed it, and the trend line vanished with
+        no error. It must now key off the declared fiscal columns.
+        """
+        agent = agent_with_fiscal_spec
+        kpi = _bq_kpi_def("SELECT COUNT(DISTINCT sales_order_id) AS value FROM `proj.dataset.sales`")
+        result = agent.generate_monthly_series_sql(kpi)
+        assert result["success"] is True
+        assert "transaction_date" not in result["sql"]
+        assert "fiscal_year" in result["sql"] and "fiscal_period" in result["sql"]
+
+    def test_fiscal_period_padding_is_normalized_to_two_digits(self, agent_with_fiscal_spec):
+        """Both lubricants generators write fiscal_period as f"{m:03d}" -- a
+        3-digit string. The product's own `display_expr` would therefore yield
+        "2026-005" while the date path yields "2026-05", producing two disjoint
+        axes and no error anywhere. The key must CAST to INT and re-pad to 2.
+        """
+        agent = agent_with_fiscal_spec
+        kpi = _bq_kpi_def("SELECT SUM(net_amount) AS value FROM `proj.dataset.sales`")
+        sql = agent.generate_monthly_series_sql(kpi)["sql"]
+        assert "AS INT64" in sql, "period must be cast to INT to normalize '005' -> 5"
+        assert "LPAD(" in sql and ", 2, '0')" in sql, "period must be re-padded to 2 digits"
+
+    def test_date_and_fiscal_products_agree_on_key_shape(self, data_product_agent, agent_with_fiscal_spec):
+        """Cross-product alignment is the whole point: a date-keyed product and
+        a fiscal-keyed one must emit the same YYYY-MM shape, or a causal edge
+        between their KPIs cannot be affirmed.
+        """
+        from src.database.time_filter import TimeFilter
+
+        date_key = TimeFilter.period_key_expr({"type": "date", "column": "transaction_date"}, "bigquery")
+        fiscal_key = TimeFilter.period_key_expr(
+            {"type": "fiscal_year_period", "year_column": "fiscal_year", "period_column": "fiscal_period"},
+            "bigquery",
+        )
+        assert date_key and fiscal_key and date_key != fiscal_key
+        assert TimeFilter.period_key_grain({"type": "date"}) == "month"
+        assert TimeFilter.period_key_grain({"type": "fiscal_year_period"}) == "month"
+        # fiscal_year products are annual -- comparing one against a monthly
+        # series is a grain mismatch a caller must refuse, not silently plot.
+        assert TimeFilter.period_key_grain({"type": "fiscal_year"}) == "year"
+
+    def test_unusable_time_spec_fails_gracefully(self, data_product_agent, monkeypatch):
+        agent = data_product_agent
+        monkeypatch.setattr(agent, "_resolve_time_spec", lambda dp_id: {"type": "date", "column": ""})
+        kpi = _bq_kpi_def("SELECT SUM(amount) AS value FROM `proj.dataset.financials`")
+        result = agent.generate_monthly_series_sql(kpi)
+        assert result["success"] is False
+        assert "time dimension" in result["message"].lower()
 
     def test_non_date_where_conditions_preserved(self, data_product_agent):
         agent = data_product_agent
