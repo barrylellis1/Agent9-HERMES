@@ -25,15 +25,34 @@ PRD_DIR = REPO_ROOT / "docs" / "prd" / "agents"
 AGENTS_DIR = REPO_ROOT / "src" / "agents" / "new"
 PLAN_FILE = REPO_ROOT / "DEVELOPMENT_PLAN.md"
 
+# The planning corpus was split by status on 2026-09-17: DEVELOPMENT_PLAN.md
+# shrank from 5,734 lines to an index of OPEN work, and shipped phases moved
+# verbatim to DEVELOPMENT_HISTORY.md with open-phase detail in
+# DEVELOPMENT_BACKLOG.md. A PRD referencing a SHIPPED phase (Phase 10C, 11B,
+# 12A, ...) is still referencing something real, so all three files are the
+# phase corpus now -- reading only the index would fail 31 valid references.
+PLAN_FILES = [
+    PLAN_FILE,
+    REPO_ROOT / "docs" / "DEVELOPMENT_HISTORY.md",
+    REPO_ROOT / "docs" / "DEVELOPMENT_BACKLOG.md",
+]
+
 
 def load_development_plan() -> str:
-    """Load DEVELOPMENT_PLAN.md content."""
-    if not PLAN_FILE.exists():
-        return ""
-    try:
-        return PLAN_FILE.read_text(encoding="utf-8")
-    except Exception:
-        return ""
+    """Load the planning corpus (plan index + history + backlog) as one string.
+
+    Only used to harvest valid phase identifiers, so concatenation is fine --
+    no caller depends on these being separable.
+    """
+    parts: List[str] = []
+    for path in PLAN_FILES:
+        if not path.exists():
+            continue
+        try:
+            parts.append(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+    return "\n".join(parts)
 
 
 def extract_phases_from_plan(plan_content: str) -> Set[str]:
@@ -244,10 +263,10 @@ def main() -> int:
     # Load development plan
     plan_content = load_development_plan()
     if not plan_content:
-        print("[PRD] WARNING: Could not load DEVELOPMENT_PLAN.md", file=sys.stderr)
+        print("[PRD] WARNING: Could not load any planning file (plan/history/backlog)", file=sys.stderr)
 
     valid_phases = extract_phases_from_plan(plan_content)
-    print(f"[PRD] Found {len(valid_phases)} valid phases in DEVELOPMENT_PLAN")
+    print(f"[PRD] Found {len(valid_phases)} valid phases across plan + history + backlog")
 
     # Check phase references
     phase_violations = check_prd_phase_references(PRD_DIR, valid_phases)
