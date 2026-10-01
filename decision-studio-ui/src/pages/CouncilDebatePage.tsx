@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Loader2, CheckCircle2, Database } from 'lucide-react';
 import { runSolutionFinder, storePendingDecisionSnapshot } from '../api/client';
+import type { LensProbeFinding } from '../api/types';
 import { BrandLogo } from '../components/BrandLogo';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
 
@@ -59,6 +60,23 @@ const getFirmColor = (id: string) =>
     border: 'border-slate-700',
     badge: 'bg-slate-800 text-slate-300',
   };
+
+/** Render a warehouse cell for display.
+ *
+ * Numbers get thousands separators and at most 2 decimals -- a raw
+ * 39359562.240000054 in an executive-facing table reads as a bug, not a figure.
+ * Everything else is passed through as-is rather than coerced, so an unexpected
+ * shape is visible instead of silently becoming "[object Object]".
+ */
+const formatCell = (v: unknown): string => {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    return Math.abs(v) >= 1000
+      ? v.toLocaleString(undefined, { maximumFractionDigits: 0 })
+      : v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  return String(v);
+};
 
 // ─── Stage progress bar ────────────────────────────────────────────────────────
 
@@ -139,6 +157,10 @@ export const CouncilDebatePage: React.FC = () => {
   const [lensProbeState, setLensProbeState] = useState<'idle' | 'loading' | 'awaiting_answers' | 'done'>('idle');
   const [lensProbeQuestions, setLensProbeQuestions] = useState<Record<string, string> | null>(null);
   const [lensProbeAnswers, setLensProbeAnswers] = useState<Record<string, string>>({});
+  // Answered data queries, keyed by persona id. Shown rather than asked, and
+  // echoed back on the stage1 call so the hypothesis actually sees the evidence
+  // — the probe and Stage 1 are separate requests.
+  const [lensProbeFindings, setLensProbeFindings] = useState<Record<string, LensProbeFinding> | null>(null);
 
   const [phase, setPhase] = useState<number>(0);
   const [stageOneHypotheses, setStageOneHypotheses] = useState<Record<string, any> | null>(null);
@@ -272,6 +294,11 @@ export const CouncilDebatePage: React.FC = () => {
         principalContext || {}, situation.situation_id, runClientId
       );
       const questions = probeResult.result?.solutions?.lens_probe_questions || null;
+      // Phase 22 addendum (2026-10-01): data questions the lens asked AND had
+      // answered server-side. These are SHOWN, never asked — a CFO should not
+      // be handed a query they could have run.
+      const findings = probeResult.result?.solutions?.lens_probe_findings || null;
+      if (findings && Object.keys(findings).length > 0) setLensProbeFindings(findings);
 
       // Non-fatal by design, same posture as every other optional signal in
       // this flow: no questions (backend degraded, network hiccup, disabled
@@ -293,6 +320,14 @@ export const CouncilDebatePage: React.FC = () => {
   };
 
   const submitLensProbeAnswers = () => {
+    setLensProbeState('done');
+    runDebate(lensProbeAnswers);
+  };
+
+  /** Proceed without answering. The backend records each unanswered question as
+   *  an ungrounded assumption rather than guessing at it, so skipping is a
+   *  supported outcome — not a degraded one. */
+  const skipLensProbeAnswers = () => {
     setLensProbeState('done');
     runDebate(lensProbeAnswers);
   };
@@ -401,6 +436,19 @@ export const CouncilDebatePage: React.FC = () => {
         {
           ...preferencesBase, debate_stage: 'stage1_only',
           ...(lensAnswers && Object.keys(lensAnswers).length > 0 ? { lens_refinement: lensAnswers } : {}),
+          // Phase 22 addendum (2026-10-01). The probe and Stage 1 are separate
+          // requests, so everything the probe learned has to travel with this
+          // call or it is lost before any hypothesis sees it:
+          //   lens_findings       — measured rows the warehouse returned
+          //   lens_open_questions — what was ASKED. A key present here but
+          //                         absent from lens_refinement is an
+          //                         unanswered question, which the backend
+          //                         records as an ungrounded assumption rather
+          //                         than silently dropping the line of enquiry.
+          ...(lensProbeFindings && Object.keys(lensProbeFindings).length > 0
+            ? { lens_findings: lensProbeFindings } : {}),
+          ...(lensProbeQuestions && Object.keys(lensProbeQuestions).length > 0
+            ? { lens_open_questions: lensProbeQuestions } : {}),
         },
         principalContext || {}, situation.situation_id,
         runClientId
@@ -618,7 +666,13 @@ export const CouncilDebatePage: React.FC = () => {
     const lensFirms: string[] = debateConfig?.selectedPersonas?.length
       ? debateConfig.selectedPersonas
       : ['mckinsey', 'bcg', 'bain'];
-    const allAnswered = lensFirms.every(f => (lensProbeAnswers[f] || '').trim().length > 0);
+    // Gate only on lenses that actually ASKED a person something. A lens that
+    // answered its own question from the warehouse must not hold up the debate
+    // waiting for input it never requested — the old `every(...)` required all
+    // three, which is why a data-answered council could never continue.
+    const askedFirms = lensFirms.filter(f => Boolean(lensProbeQuestions?.[f]));
+    const allAnswered = askedFirms.every(f => (lensProbeAnswers[f] || '').trim().length > 0);
+    const answeredFromData = lensFirms.filter(f => Boolean(lensProbeFindings?.[f])).length;
 
     return (
       <div className="min-h-screen bg-background text-foreground font-sans">
@@ -637,29 +691,79 @@ export const CouncilDebatePage: React.FC = () => {
 
         <div className="p-8 max-w-7xl mx-auto">
           <p className="text-sm text-slate-400 mb-6 max-w-2xl">
-            Each perspective below reasons from a different real analytical framework.
-            One quick question each, before they form their hypotheses — answering
-            shapes what each one actually investigates, not just how it's labeled.
+            Each perspective reasons from a different real analytical framework. Where one
+            could answer its own question from your data, it did — those results are shown
+            below. Anything still asked is something only you can answer; it shapes what
+            that lens investigates, and you can skip it.
           </p>
 
           <div className="grid grid-cols-3 gap-6">
             {lensFirms.map(firmId => {
               const c = getFirmColor(firmId);
               const question = lensProbeQuestions?.[firmId];
+              const finding = lensProbeFindings?.[firmId];
               return (
                 <div key={firmId} className={`rounded-xl border ${c.border} bg-slate-900 overflow-hidden flex flex-col`}>
                   <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/40">
                     <span className={`text-sm font-bold uppercase tracking-wider ${c.accent}`}>{c.label}</span>
                   </div>
                   <div className="p-4 flex flex-col gap-3 flex-1">
-                    {!question ? (
+                    {finding ? (
+                      /* Answered itself. Shown, not asked. */
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <Database className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                            Answered from data
+                          </span>
+                        </div>
+                        {finding.why && (
+                          <p className="text-xs text-slate-400 leading-relaxed italic">{finding.why}</p>
+                        )}
+                        {finding.rows && finding.rows.length > 0 ? (
+                          <div className="overflow-x-auto rounded-lg border border-slate-800">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-slate-950/60">
+                                  {Object.keys(finding.rows[0]).map(h => (
+                                    <th key={h} className="px-2 py-1.5 text-left font-medium text-slate-400 whitespace-nowrap">
+                                      {h}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {finding.rows.slice(0, 8).map((r, i) => (
+                                  <tr key={i} className="border-t border-slate-800">
+                                    {Object.keys(finding.rows![0]).map(h => (
+                                      <td key={h} className="px-2 py-1.5 text-slate-200 whitespace-nowrap">
+                                        {formatCell(r[h])}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          /* Not dressed up as a result: an empty query is absence of
+                             evidence, not evidence of absence. */
+                          <p className="text-xs text-slate-500">
+                            The query returned no rows.
+                          </p>
+                        )}
+                        <p className="mt-auto text-[11px] text-slate-500">
+                          Nothing needed from you — this lens ran its own query.
+                        </p>
+                      </>
+                    ) : !question ? (
                       <FirmThinking label={c.label} accent={c.accent} stageLabel="preparing its question" />
                     ) : (
                       <>
                         <p className="text-sm text-slate-200 leading-relaxed">{question}</p>
                         <textarea
                           className="mt-auto w-full min-h-[80px] text-sm bg-slate-950 border border-slate-800 rounded-lg p-3 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-600 resize-none"
-                          placeholder="Your answer…"
+                          placeholder="Your answer… (optional)"
                           value={lensProbeAnswers[firmId] || ''}
                           onChange={e => setLensProbeAnswers(prev => ({ ...prev, [firmId]: e.target.value }))}
                         />
@@ -672,14 +776,31 @@ export const CouncilDebatePage: React.FC = () => {
           </div>
 
           {lensProbeState === 'awaiting_answers' && (
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={submitLensProbeAnswers}
-                disabled={!allAnswered}
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white transition-colors"
-              >
-                Continue to Debate
-              </button>
+            <div className="flex items-center justify-between mt-6">
+              <p className="text-xs text-slate-500">
+                {answeredFromData > 0 && (
+                  <>{answeredFromData} of {lensFirms.length} answered from your data. </>
+                )}
+                {askedFirms.length === 0
+                  ? 'Nothing needed from you.'
+                  : 'Unanswered questions are recorded as stated assumptions, not guesses.'}
+              </p>
+              <div className="flex items-center gap-3">
+                {askedFirms.length > 0 && !allAnswered && (
+                  <button
+                    onClick={skipLensProbeAnswers}
+                    className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white transition-colors"
+                  >
+                    Skip and continue
+                  </button>
+                )}
+                <button
+                  onClick={submitLensProbeAnswers}
+                  className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                >
+                  Continue to Debate
+                </button>
+              </div>
             </div>
           )}
         </div>

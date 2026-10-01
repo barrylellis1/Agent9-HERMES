@@ -327,6 +327,22 @@ export interface CrossReview {
   }
 }
 
+/** An answered lens data_query (Phase 22 addendum, 2026-10-01).
+ *
+ * `sql` is retained deliberately: a SQL result and a principal's typed
+ * assertion are not equally reliable, and the UI must be able to show which it
+ * is rather than present both as undifferentiated "evidence".
+ */
+export interface LensProbeFinding {
+  kpi?: string;
+  dimension?: string | null;
+  timeframe?: string | null;
+  /** Why this lens wanted it — its own framework's reason. */
+  why?: string;
+  rows?: Record<string, unknown>[];
+  sql?: string;
+}
+
 export interface SolutionResponse {
   options_ranked: SolutionOption[];
   recommendation?: Recommendation;
@@ -352,7 +368,19 @@ export interface SolutionResponse {
   // response leaves this undefined. Answers go back as
   // preferences.lens_refinement (keyed the same way) on the stage1_only call
   // that follows. See CouncilDebatePage.tsx's lens-probe screen.
+  // As of the 2026-10-01 triage addendum this holds ONLY what a PERSON must
+  // answer. Anything the warehouse could answer is resolved server-side before
+  // hypotheses form and arrives in lens_probe_findings instead.
   lens_probe_questions?: Record<string, string>;
+  // Phase 22 addendum (2026-10-01): data questions a lens asked AND had
+  // answered, keyed by persona id. These are shown, not asked — a CFO should
+  // never be handed a query they could have run.
+  //
+  // Echoed back as preferences.lens_findings on the stage1_only call, the same
+  // way answers go back as lens_refinement: the probe and Stage 1 are separate
+  // requests, so anything the probe learned has to travel with the second call
+  // or the hypothesis never sees it.
+  lens_probe_findings?: Record<string, LensProbeFinding>;
   // Phase 15 / Phase 13 Cat 2 — not yet rendered (Stage G, gated behind schema
   // compliance testing); typed here so API responses round-trip cleanly.
   decision_ask?: DecisionAsk;
