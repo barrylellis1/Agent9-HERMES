@@ -305,7 +305,25 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     # carries. Answers come back as preferences.lens_refinement on the
     # subsequent stage1_only call and make ps_s1 genuinely persona-specific
     # instead of the single shared string it was before this stage.
+    # As of the 2026-10-01 triage addendum this holds ONLY what a PERSON must
+    # answer. Anything the warehouse could answer is resolved before hypotheses
+    # form and lands in lens_probe_findings instead.
     lens_probe_questions: Optional[Dict[str, str]] = None
+    # Phase 22 addendum (2026-10-01): data questions a lens asked AND had
+    # answered, keyed by persona id. Each entry carries {kpi, dimension,
+    # timeframe, why, rows, sql}.
+    #
+    # Why this exists: driving production showed every probe question was a data
+    # request no CFO could answer from the chair ("month-by-month
+    # volume-weighted cost-per-unit..."). The prompt constrained only for
+    # framework-distinctiveness, and maximising that pushes toward precise
+    # warehouse queries. The lens now triages -- data_query vs human_question --
+    # and only the latter reaches the principal.
+    #
+    # `sql` is retained deliberately: a SQL result and a typed human assertion
+    # are not equally reliable, and anything consuming this must be able to show
+    # which it is rather than flatten both into "evidence".
+    lens_probe_findings: Optional[Dict[str, Any]] = None
     # Phase 15 Stage H: theory-guided moderator verdicts, keyed by option id.
     # Mutually exclusive with cross_review in practice: the moderator arm emits
     # grades (constraint_survival / causal_grounding / arithmetic_consistency /

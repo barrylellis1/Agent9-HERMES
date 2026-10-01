@@ -704,3 +704,70 @@ range, cost, AND risk, strictly better on at least one), comparing only within t
 docstring warns about). Sets a new `SolutionOption.dominated_by` field in place after ranking, in
 both `recommend_actions` and `evaluate_options`. Tests: `tests/unit/test_option_dominance.py` (10),
 including the exact live-observed case.
+
+## Phase 22 addendum — lens-probe triage (Oct 2026)
+
+**The defect.** Driving production showed every lens-probe question was a *data request a CFO cannot
+answer from the chair* — e.g. *"month-by-month volume-weighted cost-per-unit for each of the three
+flagged products"*. The Stage B prompt constrained only for framework-distinctiveness (*"a question
+that ONLY your Key Frameworks would think to ask"*) and never for **human-answerability**. Maximising
+framework-distinctiveness pushes toward precise warehouse queries, because that is where frameworks
+are most specific. The prompt worked exactly as written; what was written optimised for the wrong
+thing.
+
+This also implicates Stage D's NEGATIVE result: its simulated executive hedged (*"I don't have
+visibility..."*), which was the correct response to an unanswerable question, and v3 prescribed
+postures that **regenerate on any hedge** — suppressing the honest answer rather than repairing the
+question. Phase 22's DECIDE should not be settled on that evidence.
+
+**The change.** A lens now triages and declares who can answer:
+
+| `kind` | Resolved by | Lands in |
+|---|---|---|
+| `data_query` | the warehouse, here, before hypotheses form | `lens_probe_findings` |
+| `human_question` | the principal | `lens_probe_questions` |
+
+Deciding which bucket a question falls in is the judgement with real value, and it is made by the
+thing that knows what it is asking.
+
+`_describe_queryable(client_id, logger)` (module-level) gives the lens the vocabulary it may ask in —
+this is what makes agent-to-data querying tractable where general NL-to-SQL is not: the asker already
+holds the registry, so it asks in the schema's own names rather than guessing. **Strictly
+tenant-scoped**: offering another client's KPIs by name would invite a lens to request them, the
+read-side leak `get_kpi_definition` was fixed for on the same day. Every lookup in this path passes
+`client_id`.
+
+**Validated before building** (probe written, run, deleted). A lens emitted clean executable JSON
+using only registered vocabulary; `get_kpi_definition` → `generate_sql_for_kpi` → `execute_sql`
+returned real rows. And the answer **materially changed the hypothesis**: control (no data) blamed mix
+shift and proposed steering customers toward Full Synthetic; treatment (same lens, query answered)
+found Engine Oils COGS **+12.3% YoY** against 0.8–9.7% elsewhere and proposed repricing at contract
+renewal. Different diagnosis, different lever — and the control was wrong in a *checkable* way, since
+Full Synthetic sits inside the line carrying the inflation.
+
+**Contracts and degradation**
+
+- `lens_probe_questions` keeps its `Dict[persona_id, str]` shape and now holds **only** what a person
+  must answer. `lens_probe_findings` is additive — `{kpi, dimension, timeframe, why, rows, sql}` —
+  so the existing screen keeps working while the UI adopts it.
+- An absent `kind` falls through to the human branch (pre-triage responses stay valid).
+- A query that cannot be answered **degrades to a question** rather than vanishing, and the audit log
+  records `degraded_to_question` separately from `asked_of_principal`. Conflating them would hide
+  warehouse failures as product behaviour.
+- `sql` is retained on every finding: a SQL result and a typed human assertion are not equally
+  reliable, and anything consuming this must be able to show which it is.
+- Non-fatal throughout — one lens's query failing never affects the other two, same discipline as the
+  critic pass.
+
+**Not done here**: the UI still renders three question boxes and will simply show fewer of them;
+`lens_probe_findings` is unrendered. Open design questions recorded in the backlog — what happens when
+a human question goes unanswered (recommendation: proceed, and mark the hypothesis as resting on an
+ungrounded assumption, which `key_assumptions` already models), and how to disclose **evidence
+asymmetry** so a lens that got luckier about what was queryable does not read as more authoritative.
+
+Tests: `tests/unit/test_sf_lens_probe_triage.py` (8) — data queries answered and never shown to the
+principal; human questions still reach them; a mixed council splits correctly; an unanswerable query
+degrades visibly rather than silently; every KPI lookup carries `client_id`; absent `kind` stays
+backward compatible; and `_describe_queryable` never lists another tenant's KPIs and degrades toward
+the human when empty. The pre-existing lens-probe tests mock `analysis={"question": ...}` with no
+`kind`, so they take the human branch and prove nothing about this path.

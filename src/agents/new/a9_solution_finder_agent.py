@@ -680,6 +680,58 @@ def _parse_decision_ask(raw: Any) -> Optional[DecisionAsk]:
         return None
 
 
+def _describe_queryable(client_id: str, logger_: logging.Logger) -> str:
+    """The warehouse vocabulary a lens may ask in, scoped to one tenant.
+
+    Phase 22 addendum (2026-10-01). A lens can only emit a resolvable data_query
+    if it is told what actually exists, in the system's own names — that is what
+    makes agent-to-data querying tractable where general NL-to-SQL is not: the
+    asker already holds the registry, so it asks in the schema's vocabulary
+    rather than guessing at it.
+
+    STRICTLY tenant-scoped. Listing another client's KPIs here would invite a
+    lens to ask for them by name, which is the read-side leak `get_kpi_definition`
+    was fixed for on the same day.
+
+    Returns a plain description, never raises — an empty vocabulary degrades the
+    lens to asking a person, which is the safe direction.
+    """
+    try:
+        from src.registry.factory import RegistryFactory
+        factory = RegistryFactory()
+        kpi_provider = factory.get_provider("kpi")
+        kpis = [
+            k for k in (kpi_provider.get_all() if kpi_provider else [])
+            if getattr(k, "client_id", None) == client_id
+        ]
+        names = sorted({str(getattr(k, "name", "")).strip() for k in kpis if getattr(k, "name", None)})
+        if not names:
+            return "(no KPIs registered for this client — ask a person instead)"
+
+        dims: List[str] = []
+        dp_provider = factory.get_provider("data_product")
+        if dp_provider:
+            dp_ids = {getattr(k, "data_product_id", None) for k in kpis}
+            for dp in (dp_provider.get_all() or []):
+                if getattr(dp, "client_id", None) != client_id or getattr(dp, "id", None) not in dp_ids:
+                    continue
+                for d in (getattr(dp, "dimension_semantics", None) or []):
+                    label = d.get("name") if isinstance(d, dict) else getattr(d, "name", None)
+                    if label:
+                        dims.append(str(label))
+
+        parts = [f"KPIs: {', '.join(names)}"]
+        if dims:
+            parts.append(f"Dimensions: {', '.join(sorted(set(dims)))}")
+        parts.append(
+            "Timeframes: year_to_date, last_quarter, current_month, last_month, previous_period"
+        )
+        return "\n".join(parts)
+    except Exception as e:
+        logger_.warning(f"[SF] Could not describe queryable vocabulary for {client_id!r}: {e}")
+        return "(warehouse vocabulary unavailable — ask a person instead)"
+
+
 def _lookup_kpi_scoped(kpi_ref: Optional[str], client_id: Optional[str], logger_: logging.Logger) -> Optional[Any]:
     """Resolve a KPI by id OR display name with strict tenant isolation.
 
@@ -1947,23 +1999,133 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         ) or ps
                         _lp_recap = "\n".join(dataset_recap_lines) if dataset_recap_lines else "(no recap available)"
 
+                        # Tenant key for every registry read below. Same derivation the
+                        # causal-grounding block uses further down; never omit it --
+                        # `get_kpi_definition` without a client_id resolved another
+                        # tenant's KPI in production (fix 2026-10-01, see that method).
+                        _lp_client_id = (
+                            (da_summary.get("client_id") if da_summary else None)
+                            or getattr(request, "client_id", None)
+                        )
+                        _lp_dpa = None
+                        _lp_queryable = "(warehouse unavailable this run — ask a person instead)"
+                        try:
+                            if self.orchestrator is not None:
+                                _lp_dpa = await self.orchestrator.get_agent("A9_Data_Product_Agent")
+                            if _lp_dpa is not None and _lp_client_id:
+                                _lp_queryable = _describe_queryable(_lp_client_id, self.logger)
+                        except Exception as _e:
+                            self.logger.warning(f"[SF] Lens probe: warehouse vocabulary unavailable: {_e}")
+
+                        async def _answer_lens_query(p, spec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                            """Resolve a lens's data_query through DPA and return the rows.
+
+                            Returns None when it cannot be answered, so the caller can
+                            degrade it to a question rather than drop it. Non-fatal
+                            throughout: one lens's query failing must not affect the others.
+                            """
+                            if _lp_dpa is None or not _lp_client_id:
+                                return None
+                            _kpi_ref = str(spec.get("kpi") or "").strip()
+                            if not _kpi_ref:
+                                return None
+                            try:
+                                kpi_def = await _lp_dpa.get_kpi_definition(_kpi_ref, client_id=_lp_client_id)
+                                if kpi_def is None:
+                                    self.logger.info(
+                                        "[SF] Lens probe: KPI %r not found for client %r — degrading to a question",
+                                        _kpi_ref, _lp_client_id,
+                                    )
+                                    return None
+                                _dim = str(spec.get("dimension") or "").strip()
+                                gen = await _lp_dpa.generate_sql_for_kpi(
+                                    kpi_def,
+                                    timeframe=spec.get("timeframe"),
+                                    filters={},
+                                    breakdown=bool(_dim),
+                                    override_group_by=[_dim] if _dim else None,
+                                )
+                                if not gen.get("success"):
+                                    self.logger.info(
+                                        "[SF] Lens probe: SQL generation failed for %r: %s",
+                                        _kpi_ref, gen.get("message"),
+                                    )
+                                    return None
+                                res = await _lp_dpa.execute_sql(
+                                    gen["sql"], data_product_id=getattr(kpi_def, "data_product_id", None)
+                                )
+                                rows = (res or {}).get("rows") or []
+                                if not rows:
+                                    return None
+                                return {
+                                    "persona_id": p.id,
+                                    "kpi": _kpi_ref,
+                                    "dimension": _dim or None,
+                                    "timeframe": spec.get("timeframe"),
+                                    "why": spec.get("why"),
+                                    "rows": rows[:25],
+                                    # The query is retained so a reader can check the
+                                    # claim rather than take it on trust -- a SQL result
+                                    # and a typed human assertion are not equally
+                                    # reliable, and the briefing must be able to say which
+                                    # is which.
+                                    "sql": gen["sql"],
+                                }
+                            except Exception as _e:
+                                self.logger.warning(f"[SF] Lens probe query failed for {p.id} (non-fatal): {_e}")
+                                return None
+
                         async def _generate_lens_probe(p: ConsultingPersona) -> Optional[Dict[str, str]]:
                             try:
                                 persona_profile = (
                                     p.to_prompt_context() if hasattr(p, "to_prompt_context") else f"{p.name}"
                                 )
+                                # Phase 22 addendum (2026-10-01) — TRIAGE, not just a
+                                # question. Found by driving production: every probe
+                                # question was a data request a CFO cannot answer from
+                                # the chair ("month-by-month volume-weighted cost-per-unit
+                                # for each of the three flagged products"). The old prompt
+                                # constrained ONLY for framework-distinctiveness, and
+                                # maximising that pushes toward precise warehouse queries,
+                                # because that is where frameworks are most specific.
+                                #
+                                # Stage D's simulated executive hedged for exactly this
+                                # reason; v3 prescribed postures that regenerate on any
+                                # hedge, suppressing the honest answer rather than fixing
+                                # the question.
+                                #
+                                # So the lens now decides which KIND of thing it needs and
+                                # says so. A data_query is answered here, before hypotheses
+                                # form. Only a human_question reaches the principal -- and
+                                # deciding which bucket it falls in is the judgement with
+                                # real value, made by the thing that knows what it is asking.
                                 lp_prompt = (
                                     f"## ROLE\nYou are a {p.name} consultant.\n\n"
                                     f"## PERSONA\n{persona_profile}\n\n"
                                     f"## PROBLEM (already refined with the principal)\n{_lp_refined_focus}\n\n"
                                     f"## KNOWN FACTS\n{_lp_recap}\n\n"
+                                    f"## WHAT THE WAREHOUSE CAN ANSWER\n{_lp_queryable}\n\n"
                                     "## TASK\n"
-                                    "Before forming a hypothesis, ask the principal ONE short, "
-                                    "specific clarifying question that ONLY your Key Frameworks "
-                                    "above would think to ask — not a generic question any "
-                                    "consultant could ask regardless of specialty. One sentence, "
-                                    "no preamble.\n\n"
-                                    '## OUTPUT (JSON only, no markdown):\n{"question": "<your one question>"}'
+                                    "Before forming a hypothesis, decide the ONE thing you most "
+                                    "need to know that ONLY your Key Frameworks above would think "
+                                    "to ask — not something any consultant would ask regardless of "
+                                    "specialty.\n\n"
+                                    "Then decide WHO can answer it:\n"
+                                    '  - "data_query"     — the warehouse can answer it. Measures, '
+                                    "breakdowns, trends, comparisons. PREFER THIS: do not ask a "
+                                    "person for something you can look up.\n"
+                                    '  - "human_question" — only a person can answer it. Intent, '
+                                    "constraints, judgement, decisions already taken, methodology "
+                                    "changes, anything not recorded in the data.\n\n"
+                                    "## OUTPUT (JSON only, no markdown)\n"
+                                    "For data_query:\n"
+                                    '{"kind":"data_query","kpi":"<one listed KPI>",'
+                                    '"dimension":"<one listed dimension, or empty>",'
+                                    '"timeframe":"<one listed timeframe>","comparison":true,'
+                                    '"why":"<what this tells you that you cannot infer>"}\n'
+                                    "For human_question:\n"
+                                    '{"kind":"human_question","question":"<one sentence>",'
+                                    '"why":"<why only a person can answer this>"}'
                                 )
                                 lp_req = A9_LLM_AnalysisRequest(
                                     request_id=f"{req_id}_lensprobe_{p.id}",
@@ -1981,9 +2143,24 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 if getattr(lp_resp, "status", "error") != "success":
                                     return None
                                 _lp_result = getattr(lp_resp, "analysis", None)
-                                _question = (
-                                    _lp_result.get("question") if isinstance(_lp_result, dict) else None
-                                )
+                                if not isinstance(_lp_result, dict):
+                                    return None
+                                _kind = str(_lp_result.get("kind") or "").strip().lower()
+
+                                if _kind == "data_query":
+                                    finding = await _answer_lens_query(p, _lp_result)
+                                    if finding:
+                                        return {"persona_id": p.id, "finding": finding}
+                                    # A query we could not answer degrades to the question
+                                    # it represents -- never silently disappears. The
+                                    # principal can still answer it, or not.
+                                    _fallback = _lp_result.get("why") or _lp_result.get("question")
+                                    return (
+                                        {"persona_id": p.id, "question": str(_fallback), "degraded": True}
+                                        if _fallback else None
+                                    )
+
+                                _question = _lp_result.get("question")
                                 return {"persona_id": p.id, "question": _question} if _question else None
                             except Exception as e:
                                 # Non-fatal by design: one persona's probe failing must
@@ -1995,17 +2172,37 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         _lp_results = await asyncio.gather(
                             *[_generate_lens_probe(p) for p in consulting_personas]
                         )
+                        # Shape kept deliberately backward compatible:
+                        # lens_probe_questions stays Dict[persona_id, str] and now holds
+                        # ONLY what a person must answer. lens_probe_findings is additive,
+                        # so the existing screen keeps working while the UI adopts it.
                         lens_probe_questions = {
-                            r["persona_id"]: r["question"] for r in _lp_results if r
+                            r["persona_id"]: r["question"] for r in _lp_results if r and r.get("question")
                         }
+                        lens_probe_findings = {
+                            r["persona_id"]: r["finding"] for r in _lp_results if r and r.get("finding")
+                        }
+                        _degraded = [r["persona_id"] for r in _lp_results if r and r.get("degraded")]
+                        self.logger.info(
+                            "[SF] Lens probe triage: %d answered from data, %d need a person"
+                            "%s",
+                            len(lens_probe_findings), len(lens_probe_questions),
+                            f", {len(_degraded)} degraded from an unanswerable query" if _degraded else "",
+                        )
                         return SolutionFinderResponse.success(
                             request_id=req_id,
                             options_ranked=[],
                             lens_probe_questions=lens_probe_questions,
+                            lens_probe_findings=lens_probe_findings,
                             audit_log=[{
-                                "event": "lens_probe_questions_generated",
-                                "count": len(lens_probe_questions),
-                                "personas": list(lens_probe_questions.keys()),
+                                "event": "lens_probe_triage",
+                                "answered_from_data": sorted(lens_probe_findings.keys()),
+                                "asked_of_principal": sorted(lens_probe_questions.keys()),
+                                # Named explicitly: a query we could not answer becoming a
+                                # question is a DEGRADATION, not a lens's judgement that a
+                                # person was needed. Conflating them would hide warehouse
+                                # failures as product behaviour.
+                                "degraded_to_question": sorted(_degraded),
                             }],
                         )
 
