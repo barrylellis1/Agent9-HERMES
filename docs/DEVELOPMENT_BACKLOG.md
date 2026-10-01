@@ -1927,6 +1927,75 @@ real answer) — see this phase's rejected-design note above.
 
 ---
 
+---
+
+### Phase 22 addendum: the lens probe asks data questions (found live, 2026-10-01)
+
+**This changes how Stage D's NEGATIVE result should be read. Do not settle Phase 22's DECIDE on it.**
+
+Found by driving production: all three lens-probe questions were **data requests a CFO cannot answer
+from the chair** — e.g. *"month-by-month trend in volume-weighted cost-per-unit for each of the three
+flagged products"*.
+
+**Cause.** The probe prompt (`a9_solution_finder_agent.py` ~1960) constrains only for
+framework-distinctiveness — *"a question that ONLY your Key Frameworks would think to ask"* — with no
+constraint that a **human** can answer it. Maximising framework-distinctiveness pushes toward precise
+data queries, because that is where frameworks are most specific. The prompt works as written; what
+is written optimises for the wrong thing.
+
+**Why this implicates Stage D.** Stage D's own notes record that v1's simulated executive *"hedged
+('I don't have visibility...')"*, and the fix was to prescribe postures that **regenerate on any
+hedge**. The hedging was the correct response to an unanswerable question. v3 suppressed the honest
+answer rather than repairing the question, so the measurement may have tested whether a model can be
+compelled to confabulate. A null differentiation result from that setup says little either way.
+
+**Measured 2026-10-01** — the three verbatim production questions through
+`A9_NLP_Interface_Agent.parse_business_query`, with two well-formed controls to prove the harness
+(probe written, run, deleted):
+
+| | KPI resolved | groupings | time_filter |
+|---|---|---|---|
+| Controls (2/2) | Gross Margin / Net Revenue | `['product line']`, topn captured | `last_quarter` |
+| COMMERCIAL | Gross Margin | **`[]`** | `current` |
+| OPERATIONAL | Cost of Goods Sold | **`[]`** | `year_to_date` |
+| STRUCTURAL | Gross Margin | **`[]`** | `None` |
+
+"3 of 3 resolved" is a **misleading headline**. They resolve a KPI *name* and silently drop the
+analytical structure. COMMERCIAL asked for the ratio *by SKU/channel* and `channel` IS a registered
+lubricants dimension — not captured. `unmapped_terms: []` and `HITL: False` on all three, so the
+parser never signals that it discarded most of the question. Silent under-resolution is worse than
+failure: a clean failure would route to a human.
+
+Cause is compoundness — *"...and does the timing align... or does it show..."*. The parser takes the
+first recognised thing and drops the rest. Not fixable by a better parser, and shouldn't be: *"has
+this ratio compressed uniformly or are certain SKUs absorbing it"* is a small investigation, not one
+query.
+
+**Two fixes, sequential not alternative:**
+
+- [ ] **(a) Ask what only a human knows** — add the missing prompt constraint (intent, constraints,
+  judgment, context absent from the warehouse). ~1 hour; makes the current screen honest immediately.
+  Note the OPERATIONAL question already contains one, buried at the end: *"suggesting a
+  costing-allocation or inventory-valuation methodology shift?"* is unanswerable by SQL. The front
+  half isn't.
+- [ ] **(b) Let the lens emit a structured query spec, not prose** — measure / dimension / grain /
+  comparison, one per thing it wants to know. The lens already holds the registry in its prompt, so
+  asking for JSON removes the parsing step rather than making it smarter. This yields the triage for
+  free: a lens emits **either** a query spec (→ data) **or** a question (→ human), and that choice
+  *is* the routing decision, made by the thing that knows what it is asking.
+
+Even with (b), some questions still belong to the human, so (a) is still needed to decide which is
+which. **The triage is the primitive with real value**, and neither (a) nor (b) currently does it.
+
+Consequence for direction: the deterministic NLP parser is **not on the critical path** — a
+structured-spec asker skips it. The valuable existing substrate is DGA (business→technical) → DPA
+(SQL). This is also the missing mechanism under **Phase 24 Stage B** ("bounded parallel
+investigations with separate initial outputs before synthesis"), which is not buildable without
+agent-to-data querying.
+
+**Unverified:** whether structured-spec emission survives contact with real lens output, and whether
+"the system answers its own questions" helps or hurts a decision-*assurance* trust story.
+
 ### Phase 24: Adaptive Investigation and Governed Theory Accretion (proposal, 2026-09-09)
 
 **Status:** Proposed, unscheduled. Records the founder exploration; no implementation or production

@@ -64,6 +64,13 @@ Pick these before writing code. Each is a fork, not a task.
 
 ### 1. Phase 22 — DECIDE
 
+> **Re-read this before deciding (2026-10-01).** Live testing found the lens probe asks **data
+> questions a CFO cannot answer** — the prompt constrains only for framework-distinctiveness, never
+> for human-answerability. Stage D's simulated executive hedged for that reason, and v3 prescribed
+> postures that regenerate on any hedge, suppressing the honest answer rather than fixing the
+> question. **Stage D's NEGATIVE result does not settle this.** See the Phase 22 addendum in the
+> backlog.
+
 Stages A–C shipped (`CouncilDebatePage.tsx` carries the lens-probe screen). Stage D's validation
 came back **negative**, and the phase's own text says the real test *"can only come from real
 executives answering real questions through Stage C's shipped UI, not from a simulated
