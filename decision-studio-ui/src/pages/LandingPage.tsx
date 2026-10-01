@@ -267,8 +267,8 @@ export function LandingPage() {
 
             <motion.p variants={fadeUp} className="text-slate-300 leading-relaxed mb-4 max-w-3xl">
               Daniel Kahneman identified two cognitive modes. System 2 is slow, deliberate,
-              and rigorous — the kind of structured analysis a McKinsey engagement delivers
-              in twelve weeks. System 1 is fast, pattern-matching, and instinctual — the
+              and rigorous — the kind of structured analysis a twelve-week consulting
+              engagement delivers. System 1 is fast, pattern-matching, and instinctual — the
               response that activates when there's no time, no budget, or no structured
               framework available.
             </motion.p>
@@ -629,19 +629,17 @@ export function LandingPage() {
             It exists because I saw the same pattern at every company: smart people making
             expensive decisions without structured analysis or any way to prove they worked.
           </motion.p>
-          <motion.div variants={fadeUp} className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-500">
-            {[
-              'ExxonMobil', 'Shell', 'Valvoline', 'Hess',
-              'BCG', 'PwC',
-              'Roche', 'McKesson', 'Teleflex',
-              'Whirlpool', 'Panasonic', 'Commercial Metals',
-              'Pilgrim\'s Pride', 'Cadence Design Systems',
-            ].map((name) => (
-              <span key={name} className="whitespace-nowrap">{name}</span>
-            ))}
-          </motion.div>
-          <motion.p variants={fadeUp} className="text-slate-600 text-xs mt-6">
-            Past client engagements in data, analytics, and enterprise systems.
+          {/* Named-company row removed 2026-10-01 (owner decision, Phase 18).
+              It listed fourteen companies under a credibility heading with only a
+              small, low-contrast caption below to say they were past engagements.
+              The names carried the visual weight and the qualifier did not, so it
+              read as a customer logo wall — an association claim the product
+              cannot make. The prose above states the same credibility directly.
+              Hess additionally appeared here, which conflicts with its standing
+              status as a connectivity proof rather than an industry case study. */}
+          <motion.p variants={fadeUp} className="text-slate-500 text-sm">
+            Three decades of enterprise data and analytics work across energy,
+            pharmaceutical distribution, and industrial manufacturing.
           </motion.p>
         </motion.div>
       </section>

@@ -635,8 +635,8 @@ export function HowItWorks() {
                   rather than a guess. Results are then framed using{' '}
                   <span className="text-white font-medium">SCQA narrative structure</span>
                   {' '}(Situation — what's the context; Complication — what changed; Question —
-                  what should we do; Answer — the recommended path), which is the standard
-                  McKinsey uses for executive communication because it leads with impact rather
+                  what should we do; Answer — the recommended path), the long-standing
+                  convention for executive communication because it leads with impact rather
                   than background.
                   <br /><br />
                   The numerical analysis is <span className="text-white font-medium">deterministic</span>.
@@ -689,10 +689,11 @@ export function HowItWorks() {
               whatItDoes="Generates recommendations from three independent analytical perspectives — then synthesizes them with the disagreements left visible, not smoothed over."
               methodology={
                 <span>
-                  <span className="text-white font-medium">MBB-inspired multi-persona architecture</span>
-                  {' '}— three parallel AI calls, each using a different strategic framework modeled
-                  on McKinsey, BCG, and Bain analytical traditions (growth orientation, portfolio
-                  logic, operational rigor). These run in parallel, then a fourth synthesis call
+                  <span className="text-white font-medium">Multi-lens analytical architecture</span>
+                  {' '}— three parallel AI calls, each reasoning from a different analytical
+                  territory: commercial (pricing, mix, channel economics), operational (cost
+                  structure, cost-to-serve), and structural (portfolio participation). These run
+                  in parallel, then a fourth synthesis call
                   reads all three outputs and produces a unified briefing that explicitly calls out
                   consensus, dissent, and the trade-offs involved in choosing between approaches.
                   <br /><br />
