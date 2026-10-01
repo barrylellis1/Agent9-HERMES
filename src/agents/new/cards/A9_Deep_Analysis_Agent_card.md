@@ -965,3 +965,56 @@ The two entries above describe the registry-*first* state. Closed out the same p
 **One data product's registry fields are still empty** (`dp_lubricants_sales`, the 5 Sales KPIs) — checked before deleting anything: none of the 8 YAML files' `metadata.id` ever matched it either, so `_contract_path_for_kpi` always returned `""` for it and `_dims_from_contract` already yielded `[]` before this change. Deleting the fallback changes nothing for this data product — same empty result, same reason (nothing declared anywhere), not a new regression. Backfilling it is a separate, pre-existing gap, not part of this cleanup.
 
 Verified: 1478 unit tests pass (1484 before this pass, net −6 — several tests that pinned "falls back to YAML scan" behaviour were rewritten to feed `_dims_from_registry`/`_hierarchies_from_registry` directly via mock instead of writing a temp YAML fixture and patching the now-deleted `_contract_path_for_kpi`; a few YAML-only fallback tests had no registry-only equivalent worth keeping and were removed rather than contorted).
+
+## Phase 18 step 2 — firm names out of prompts and the screen (Oct 2026)
+
+Two separate exposures, both in this agent:
+
+**`STYLE_GUIDANCE` is injected into live prompt text** (`INTERVIEW STYLE: {...}`). It carried
+`"McKinsey-style:"`, `"BCG-style:"`, `"Bain-style:"`. **This is not a rename — the words reaching the
+model changed.** Only the firm label was dropped; every analytical instruction survives verbatim,
+because all of it already sat after the colon.
+
+**`PARTNER_RULES[*][*]["name"]` is user-facing** — `DeepFocusView` renders it as
+*"AI Recommends — &lt;name&gt; · &lt;name&gt;"*, so real consultancies' legal names appeared on screen inside
+a recommendation the product generated. Each slot is now named for the analytical territory it
+selects for (`"Transactions & Integration"` rather than `"EY-Parthenon"`), which is also more useful
+to a reader. **Keywords and role mappings are unchanged, so selection behaviour is identical.**
+
+### Why, and what the evidence actually says
+
+Owner decision 2026-10-01: *decision assurance sells on verifiability, not borrowed authority.* A
+brand that persuades an executive is borrowed credibility, which is the exposure itself — and it sits
+badly against an architecture built on `GROUNDED`/`INFERRED` labels, retained SQL, and a density gate
+that cannot be seeded.
+
+The measured case is narrower than "lenses are better", and worth stating accurately:
+
+- `persona_council_experiments.md` phase 0: MBB roster **0 of 3**, "famous four" **0 of 4**, 20-method
+  councils **4 of 60 (~7%)**. Roster composition barely moves correctness either way.
+- The branded roster's observed behaviour was convergence — **0 of 27** real-run options ever left the
+  price/cost/mix cluster, including 6 explicitly invited to.
+- Against that, a `name only` method arm still landed 1 of 20, which is the only real evidence that a
+  name does compression work a description cannot. It points at **thinkers, not firms**.
+
+### Scope and what is NOT done
+
+Dict **keys** (`"mckinsey"`, `"bcg"`, …) are unchanged and still firm-derived. They are registry
+lookup identifiers — `persona_id` flows into `selectedPersonas` and keys into
+`consulting_personas_registry.yaml` — so renaming them is a data migration touching the registry,
+`FIRM_COLORS` and `COUNCIL_PRESET_PERSONAS` (**step 4**). They are not displayed, but they DO travel
+in the API payload, so this is a reduction in exposure, not its elimination.
+
+**Behavioural verification is OWED.** Unit tests pin the strings; they cannot tell you whether the
+de-branded prompt produces equally good analysis. That needs a live A/B on the same situation. Until
+it runs, the quality impact of this change is unmeasured.
+
+Why strings rather than another output guardrail: containment has already failed here twice. The
+backlog records **`"Bain" leaked`** to a rendered briefing after firm names were verified absent, and
+`src/analysis/option_id_leak.py` exists because `opt_1` reached executive prose. A name that is never
+in the string cannot leak.
+
+Tests: `tests/unit/test_no_firm_names_in_prompts.py` (10) — no firm name in prompt text or displayed
+roster; the guidance was not hollowed out by the rename (length, language and focus instructions
+retained); the three styles stay distinct; every roster slot keeps a non-empty label; and the
+selection keys are unchanged so routing cannot drift.

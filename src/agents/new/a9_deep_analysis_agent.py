@@ -242,12 +242,35 @@ def _first_numeric_value(exec_result: Optional[Dict[str, Any]]) -> Optional[floa
         return None
 
 
+# Phase 18 (Oct 2026) — firm names removed from live prompt text.
+#
+# These strings are INJECTED INTO PROMPTS (see `INTERVIEW STYLE:` below), so
+# this is not a rename: the words reaching the model changed. What was dropped
+# is only the firm label; every analytical instruction is preserved verbatim,
+# because all of it already sat after the colon. "McKinsey-style:
+# hypothesis-driven, MECE decomposition, statistical confidence" carries its
+# entire content in the second clause.
+#
+# The firm name may have been doing some compression work — a brand token can
+# evoke a denser latent cluster than a description of it. The evidence for that
+# is thin and points at thinkers rather than firms: in
+# `persona_council_experiments.md`'s phase 0, a "name only" method arm still
+# landed 1 of 20, while the MBB roster and the "famous four" roster each scored
+# 0. Set against that, the measured behaviour of the branded roster was
+# convergence — 0 of 27 real-run options ever left the price/cost/mix cluster,
+# including 6 explicitly invited to.
+#
+# Decision (owner, 2026-10-01): decision assurance sells on verifiability, not
+# on borrowed authority. A brand that persuades an executive is borrowed
+# credibility, which is the exposure itself — and it sits badly against an
+# architecture built on GROUNDED/INFERRED labels, retained SQL and a density
+# gate that cannot be seeded.
 STYLE_GUIDANCE = {
-    "analytical": """McKinsey-style: hypothesis-driven, MECE decomposition, statistical confidence.
+    "analytical": """Hypothesis-driven: MECE decomposition, statistical confidence.
 Use precise, quantitative language. Focus on falsification criteria.""",
-    "visionary": """BCG-style: strategic framing, portfolio positioning, competitive dynamics.
+    "visionary": """Strategic framing: portfolio positioning, competitive dynamics.
 Use narrative, forward-looking language. Focus on long-term value creation.""",
-    "pragmatic": """Bain-style: action-oriented, quick wins, ownership, timelines.
+    "pragmatic": """Action-oriented: quick wins, ownership, timelines.
 Use direct language. Focus on implementation feasibility and 90-day impact.""",
 }
 
@@ -5119,56 +5142,66 @@ OUTPUT REQUIREMENTS:
         self.logger.info(f"_recommend_diverse_council called with principal_ctx: {principal_ctx}")
         
         # Partner selection rules by category
+        # Phase 18 (Oct 2026) — firm names removed. `name` is USER-FACING: it
+        # renders in DeepFocusView as "AI Recommends — <name> · <name>", so these
+        # strings were putting real consultancies' legal names on screen inside a
+        # recommendation the product generated.
+        #
+        # Keys, keywords and role mappings are UNCHANGED, so selection behaviour
+        # is identical; only the displayed label differs. Each name now states the
+        # analytical territory it actually selects for, which is also more useful
+        # to a reader than a firm name was: "Transactions & Integration" says what
+        # the slot does, "EY-Parthenon" does not.
         PARTNER_RULES = {
             "mbb": {
                 "mckinsey": {
-                    "name": "McKinsey & Company",
+                    "name": "Structured Problem-Solving",
                     "keywords": ["strategy", "transformation", "portfolio", "cost", "restructuring", "operating model"],
                     "roles": ["CEO", "CFO"],
                 },
                 "bcg": {
-                    "name": "Boston Consulting Group",
+                    "name": "Portfolio & Unit Economics",
                     "keywords": ["growth", "innovation", "digital", "market", "competitive", "portfolio"],
                     "roles": ["CEO", "CMO", "CTO"],
                 },
                 "bain": {
-                    "name": "Bain & Company",
+                    "name": "Execution & Results",
                     "keywords": ["results", "implementation", "customer", "nps", "pe", "operational", "quick wins"],
                     "roles": ["COO", "CEO"],
                 },
             },
             "big4": {
                 "deloitte": {
-                    "name": "Deloitte Consulting",
+                    "name": "Operational Transformation",
                     "keywords": ["technology", "operations", "erp", "cloud", "process", "automation"],
                     "roles": ["CTO", "COO"],
                 },
                 "ey_parthenon": {
-                    "name": "EY-Parthenon",
+                    "name": "Transactions & Integration",
                     "keywords": ["transaction", "ma", "synergy", "deal", "integration", "divestiture"],
                     "roles": ["CFO", "CEO"],
                 },
                 "kpmg": {
-                    "name": "KPMG Advisory",
+                    "name": "Risk & Controls",
                     "keywords": ["risk", "compliance", "governance", "regulatory", "esg", "audit", "controls"],
                     "roles": ["CFO", "Finance Manager"],
                 },
                 "pwc_strategy": {
-                    "name": "PwC Strategy&",
+                    "name": "Capability-Driven Strategy",
                     "keywords": ["capabilities", "operating model", "cost", "fit", "efficiency"],
                     "roles": ["COO", "CFO"],
                 },
             },
             "technology": {
                 "accenture": {
-                    "name": "Accenture",
+                    "name": "Technology-Enabled Delivery",
                     "keywords": ["scale", "ai", "cloud", "digital", "automation", "platform", "data"],
                     "roles": ["CTO", "COO"],
                 },
             },
             "risk": {
                 "kpmg": {
-                    "name": "KPMG Advisory",
+                    "name": "Risk & Controls",
                     "keywords": ["risk", "compliance", "governance", "controls", "regulatory"],
                     "roles": ["CFO", "Finance Manager"],
                 },
