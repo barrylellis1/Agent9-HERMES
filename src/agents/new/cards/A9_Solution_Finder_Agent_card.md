@@ -771,3 +771,41 @@ degrades visibly rather than silently; every KPI lookup carries `client_id`; abs
 backward compatible; and `_describe_queryable` never lists another tenant's KPIs and degrades toward
 the human when empty. The pre-existing lens-probe tests mock `analysis={"question": ...}` with no
 `kind`, so they take the human branch and prove nothing about this path.
+
+
+### Addendum follow-through — findings reach the hypothesis (Oct 2026)
+
+The triage above produced `lens_probe_findings`, but the probe and Stage 1 are **separate requests**,
+so anything the probe learned has to travel with the second call. It didn't: a lens's own answered
+data query was returned to the caller and then **dropped** before Stage 1, which makes the feature
+data *retrieval* rather than differentiation — the hypothesis never saw the evidence.
+
+Three probe outcomes now all reach the asking persona's `## PROBLEM` section:
+
+| Outcome | Carried as | Preference key |
+|---|---|---|
+| Warehouse answered | measured rows, labelled `MEASURED RESULT` | `lens_findings` |
+| Principal answered | the answer verbatim | `lens_refinement` (unchanged) |
+| Nobody answered | `UNANSWERED` + an instruction to record it in `key_assumptions` with `grounded=false`, `validated_by="human_confirmation"` | `lens_open_questions` |
+
+The third row is the **owner's decision (2026-10-01)**: an unknowable or slow-to-research question
+must not block the analysis. Proceed — but the hypothesis has to know it is resting on something
+unverified, or "nobody answered" and "confirmed true" become indistinguishable downstream.
+
+`_format_lens_finding` labels rows as measured and attributes them to the query that produced them,
+rather than blending them into undifferentiated context: a SQL result and a principal's typed
+assertion are not equally reliable. Empty results are rendered as *"absence of evidence, not evidence
+of absence"*; truncation is disclosed rather than silent.
+
+**A finding goes only to the lens that asked for it.** Broadcasting one lens's query result to all
+three would manufacture exactly the agreement the council exists to avoid.
+
+The lens block uses **single newlines** so it stays inside that persona's `## PROBLEM` section. A
+blank line ends the section and reframes the finding as separate commentary — caught by
+`test_sf_lens_probe_persona_keying`'s section regex, which is why that test exists.
+
+**Still one round.** `lens_probe` → answers → `stage1_only` → hypotheses. A lens asks exactly one
+thing. Iterative follow-up (a finding prompting the next query) is Phase 24 Stage B and is unbuilt;
+it needs a round cap, a budget, and a guard against a lens compounding its own framing.
+
+Tests: `tests/unit/test_sf_lens_findings_reach_stage1.py` (8).

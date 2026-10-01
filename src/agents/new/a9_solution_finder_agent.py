@@ -680,6 +680,39 @@ def _parse_decision_ask(raw: Any) -> Optional[DecisionAsk]:
         return None
 
 
+def _format_lens_finding(persona_name: str, finding: Dict[str, Any], max_rows: int = 12) -> str:
+    """Render an answered lens data_query for the Stage 1 prompt.
+
+    Phase 22 addendum (2026-10-01). This is the point of the triage: a lens that
+    asked the warehouse something gets the ANSWER back before it forms a
+    hypothesis, so its reasoning rests on measured rows rather than on a hedge.
+
+    Labelled as measured and attributed to the query that produced it, because a
+    SQL result and a principal's typed assertion are not equally reliable and the
+    model must not flatten them into one undifferentiated "context" blob.
+    """
+    if not isinstance(finding, dict):
+        return ""
+    rows = finding.get("rows") or []
+    head = [f"Lens probe ({persona_name}) — you asked the warehouse and it answered."]
+    if finding.get("why"):
+        head.append(f"You asked because: {finding['why']}")
+    scope = ", ".join(
+        str(v) for v in (finding.get("kpi"), finding.get("dimension"), finding.get("timeframe")) if v
+    )
+    if scope:
+        head.append(f"Query: {scope}")
+    if rows:
+        head.append("MEASURED RESULT (not an estimate — these are queried rows):")
+        for r in rows[:max_rows]:
+            head.append(f"  {r}")
+        if len(rows) > max_rows:
+            head.append(f"  … {len(rows) - max_rows} further rows omitted")
+    else:
+        head.append("The query returned no rows — treat this as absence of evidence, not evidence of absence.")
+    return "\n".join(head)
+
+
 def _describe_queryable(client_id: str, logger_: logging.Logger) -> str:
     """The warehouse vocabulary a lens may ask in, scoped to one tenant.
 
@@ -2562,6 +2595,19 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         _lens_refinement = prefs.get("lens_refinement") if isinstance(prefs, dict) else None
                         if not isinstance(_lens_refinement, dict):
                             _lens_refinement = {}
+                        # Echoed back by the caller from the lens_probe response, the same
+                        # way lens_refinement is. The probe and Stage 1 are separate
+                        # requests, so anything the probe learned has to travel with the
+                        # second call or it is lost.
+                        _lens_findings = prefs.get("lens_findings") if isinstance(prefs, dict) else None
+                        if not isinstance(_lens_findings, dict):
+                            _lens_findings = {}
+                        # Questions the probe put to the principal. Present here means
+                        # "was asked"; absent from _lens_refinement means "went
+                        # unanswered" -- which is a legitimate outcome, not an error.
+                        _lens_open_questions = prefs.get("lens_open_questions") if isinstance(prefs, dict) else None
+                        if not isinstance(_lens_open_questions, dict):
+                            _lens_open_questions = {}
 
                         async def _run_stage1(p: ConsultingPersona) -> Optional[Dict]:
                             try:
@@ -2570,10 +2616,44 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 # refinement but different lens-probe answers receive
                                 # different ## PROBLEM sections, which was impossible before
                                 # this stage — ps_s1 above stays the shared base text.
+                                # Phase 22 addendum (2026-10-01) — three possible outcomes
+                                # of this lens's probe, and ALL THREE must reach the
+                                # hypothesis. Carrying only the human answer (as this did
+                                # until now) meant a lens's own answered data query was
+                                # returned to the UI and then DROPPED before Stage 1 --
+                                # which makes it a data-retrieval feature, not a
+                                # differentiation mechanism.
                                 _lens_answer = _lens_refinement.get(p.id)
+                                _lens_finding = _lens_findings.get(p.id)
+                                _lens_open_q = _lens_open_questions.get(p.id)
+
+                                _lens_block: List[str] = []
+                                if _lens_finding:
+                                    _lens_block.append(_format_lens_finding(p.name, _lens_finding))
+                                if _lens_answer:
+                                    _lens_block.append(f"Lens probe ({p.name}) — the principal answered: {_lens_answer}")
+                                elif _lens_open_q:
+                                    # Owner decision 2026-10-01: an unknowable or
+                                    # slow-to-research question must not block the
+                                    # analysis. Proceed, but the hypothesis has to KNOW it
+                                    # is resting on something unverified, and say so in
+                                    # key_assumptions -- otherwise "nobody answered" and
+                                    # "confirmed true" become indistinguishable downstream.
+                                    _lens_block.append(
+                                        f"Lens probe ({p.name}) — UNANSWERED: \"{_lens_open_q}\"\n"
+                                        "The principal did not answer this. Do NOT assume an answer and do NOT "
+                                        "drop the line of reasoning it was meant to resolve. Proceed on your "
+                                        "best reading, and record what you had to take on faith as an entry in "
+                                        "key_assumptions with grounded=false and "
+                                        "validated_by=\"human_confirmation\"."
+                                    )
+                                # Single newlines deliberately: this is problem context for
+                                # THIS persona and must stay inside its "## PROBLEM"
+                                # section. A blank line would end that section and reframe
+                                # the finding as separate commentary -- caught by
+                                # test_sf_lens_probe_persona_keying's section regex.
                                 ps_s1_for_p = (
-                                    f"{ps_s1}\nLens probe ({p.name}): {_lens_answer}"
-                                    if _lens_answer else ps_s1
+                                    ps_s1 + "\n" + "\n".join(_lens_block) if _lens_block else ps_s1
                                 )
                                 s1_schema = (
                                     '{\n'
