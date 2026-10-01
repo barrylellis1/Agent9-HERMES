@@ -359,3 +359,53 @@ Tests: `tests/unit/test_time_dimension_comparison_basis.py` (10) — primary whe
 by label; override by basis; case/separator-insensitive matching; unknown dimension warns AND falls
 back; one-arg backward compatibility; basis read-back declared/overridden/undeclared; and that one
 product yields three different bases for the same rows.
+
+## Tenant scoping on `get_kpi_definition` (2026-10-01)
+
+`get_kpi_definition(kpi_name)` called `provider.get(kpi_name)` with **no tenant scope**. Three clients
+register a KPI named "Cost of Goods Sold":
+
+| client | id | data_product_id | backend |
+|---|---|---|---|
+| apex_lubricants | `cogs` | `dp_lubricants_snowflake` | Snowflake |
+| bicycle | `cost_of_goods_sold` | `fi_star_schema` | **DuckDB** |
+| lubricants | `cogs` | `dp_lubricants_financials` | **BigQuery** |
+
+A lubricants lookup resolved the **bicycle** definition. `generate_sql_for_kpi` then behaved
+*correctly* on that record — Tier-1 `_resolve_source_system` returned DuckDB, the DuckDB builder
+emitted an unqualified `FROM LubricantsStarSchemaView`, and execution returned 0 rows. Nothing
+errored, because every component did the right thing with the wrong input. Found while probing
+whether a lens could emit an executable query spec; the spec and the SQL generation were both fine.
+
+`DatabaseRegistryProvider.get` already **takes and documents** `client_id` for precisely this hazard
+("found live via a DELETE that resolved to the wrong client's row"). This method simply never passed
+it through.
+
+**Distinct from Infra B3's RLS**, which structurally cannot see this: the lookup never resolves a
+tenant at all, so there is no scoped query for a policy to constrain. Read-side twin of the write-side
+gap in CLAUDE.md rule 7.
+
+**Signature** is now
+`get_kpi_definition(kpi_name, *, client_id=None, include_mapping=False)`:
+
+- `client_id` given → every step scoped, plus a final strict-match guard that discards a
+  cross-tenant record even if a provider ignored the parameter (defence in depth).
+- `client_id` omitted + exactly one global match → returned (single-tenant installs, genuinely shared
+  records keep working).
+- `client_id` omitted + **two or more tenants match** → returns `None` and logs an ERROR naming the
+  colliding clients. Picking arbitrarily IS the defect, so it fails closed rather than guessing.
+
+**Callers resolving a specific tenant's KPI MUST pass `client_id`.** The two existing call sites
+(`tests/integration/test_nlp_interface_agent.py`) now pass `client_id="bicycle"`, matching that
+fixture's DuckDB/`fi_star_schema` backing.
+
+Tests: `tests/unit/test_get_kpi_definition_tenant_scoping.py` (6) — scoped lookup returns the right
+tenant; each of the three tenants gets its own; a tenant without the KPI gets `None` rather than a
+fallback; ambiguous-without-client_id fails closed AND logs; unambiguous-without-client_id still
+resolves; and a deliberately leaky provider's cross-tenant record is still discarded. The test double
+mirrors the real provider's **id-only** matching — a double that also matched names would hide which
+code path the guard runs in.
+
+**Not fixed here**: `tests/integration/test_nlp_interface_agent.py` has 3 pre-existing failures from
+`Data Governance Agent not initialized` in the integration fixture (`_wire_governance_dependencies`
+not called). Unrelated, unchanged by this work, and verified identical before and after.

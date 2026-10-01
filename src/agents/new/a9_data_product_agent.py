@@ -5395,11 +5395,37 @@ class A9_Data_Product_Agent(DataProductProtocol):
             f") ORDER BY period ASC"
         )
 
-    async def get_kpi_definition(self, kpi_name: str, *, include_mapping: bool = False) -> Optional[Any]:
+    async def get_kpi_definition(
+        self, kpi_name: str, *, client_id: Optional[str] = None, include_mapping: bool = False
+    ) -> Optional[Any]:
         """Retrieve a KPI definition using orchestrator-provisioned providers.
 
         This helper keeps KPI access centralized inside the Data Product Agent so the tests (and other
         agents) can ask for the definition without manually touching RegistryFactory.
+
+        **`client_id` is the tenant key and callers resolving a specific tenant's KPI MUST pass it.**
+        Found live 2026-10-01: this method called `provider.get(kpi_name)` with no tenant scope, and
+        three clients register a KPI named "Cost of Goods Sold" —
+
+            apex_lubricants / cogs                → dp_lubricants_snowflake
+            bicycle         / cost_of_goods_sold  → fi_star_schema          (DuckDB)
+            lubricants      / cogs                → dp_lubricants_financials (BigQuery)
+
+        A lubricants lookup resolved the **bicycle** definition, so `generate_sql_for_kpi` correctly
+        routed to that KPI's DuckDB `source_system`, emitted an unqualified `FROM
+        LubricantsStarSchemaView`, and returned 0 rows. The pipeline behaved correctly on the wrong
+        record. `DatabaseRegistryProvider.get` already takes and documents `client_id` for exactly
+        this ("found live via a DELETE that resolved to the wrong client's row") — this method simply
+        never passed it.
+
+        Distinct from Infra B3's DB-level RLS, which structurally cannot see this: the lookup never
+        resolves a tenant at all, so there is no scoped query for a policy to constrain. Same class as
+        the write-side gap in CLAUDE.md's rule 7.
+
+        Without `client_id`, an **unambiguous** global match is still returned (single-tenant
+        installs, genuinely shared records). An **ambiguous** one — two or more tenants matching the
+        same name — returns None and logs an error rather than picking arbitrarily, because the
+        arbitrary pick IS the bug.
         """
         if not isinstance(kpi_name, str) or not kpi_name.strip():
             return None
@@ -5420,22 +5446,55 @@ class A9_Data_Product_Agent(DataProductProtocol):
             except Exception:
                 pass
 
-        # Try to retrieve by name (case variants) and id
-        candidate = provider.get(kpi_name)
+        # Try to retrieve by name (case variants) and id -- scoped to the tenant
+        # when one was given. `provider.get` scopes every step including its
+        # bare-id fallback scan; see its docstring.
+        def _scoped_get(key: str):
+            try:
+                return provider.get(key, client_id=client_id) if client_id else provider.get(key)
+            except TypeError:
+                # Provider predates the client_id parameter.
+                return provider.get(key)
+
+        candidate = _scoped_get(kpi_name)
         if not candidate:
-            candidate = provider.get(kpi_name.lower()) if hasattr(provider, "get") else None
+            candidate = _scoped_get(kpi_name.lower())
         if not candidate:
             try:
                 all_kpis = provider.get_all()
                 if isinstance(all_kpis, list):
                     lname = kpi_name.lower()
-                    for k in all_kpis:
-                        nm = getattr(k, "name", None)
-                        if isinstance(nm, str) and nm.lower() == lname:
-                            candidate = k
-                            break
+                    matches = [
+                        k for k in all_kpis
+                        if isinstance(getattr(k, "name", None), str)
+                        and k.name.lower() == lname
+                        and (not client_id or getattr(k, "client_id", None) == client_id)
+                    ]
+                    if len(matches) == 1:
+                        candidate = matches[0]
+                    elif len(matches) > 1:
+                        # Ambiguous across tenants and no client_id to disambiguate.
+                        # Returning any one of them is the defect this guard exists
+                        # for -- fail closed and name the collision.
+                        self.logger.error(
+                            "get_kpi_definition('%s') is ambiguous across %d tenants (%s) and no "
+                            "client_id was supplied -- returning None rather than picking one. "
+                            "Pass client_id to resolve a specific tenant's KPI.",
+                            kpi_name, len(matches),
+                            sorted({str(getattr(k, "client_id", None)) for k in matches}),
+                        )
+                        candidate = None
             except Exception:
                 candidate = None
+
+        # Strict match: never hand back another tenant's record.
+        if candidate is not None and client_id and getattr(candidate, "client_id", None) != client_id:
+            self.logger.error(
+                "get_kpi_definition('%s') resolved a record owned by client '%s' while scoped to "
+                "'%s' -- discarding.",
+                kpi_name, getattr(candidate, "client_id", None), client_id,
+            )
+            return None
 
         if not candidate or not include_mapping:
             return candidate

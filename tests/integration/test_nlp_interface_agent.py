@@ -100,8 +100,11 @@ async def test_nlp_to_dpa_sql_generation(orchestrator):
     assert mapping_resp.mappings, f"No mappings returned for KPI {kpi_name}"
     kpi_metadata = mapping_resp.mappings[0]
 
-    # Use Data Product Agent helper to retrieve the KPI definition through its registry access
-    kpi_def = await dpa.get_kpi_definition(kpi_metadata.kpi_name)
+    # Use Data Product Agent helper to retrieve the KPI definition through its registry access.
+    # client_id is REQUIRED: 'Gross Revenue' exists for both bicycle and lubricants, and an
+    # unscoped lookup silently resolved an arbitrary tenant's KPI (fixed 2026-10-01). This
+    # fixture is DuckDB/fi_star_schema backed, which is bicycle's.
+    kpi_def = await dpa.get_kpi_definition(kpi_metadata.kpi_name, client_id="bicycle")
     assert kpi_def is not None, f"KPI definition not found for {kpi_name}"
 
     # Let DPA generate SQL; do not execute
@@ -230,7 +233,8 @@ async def test_nlp_to_dpa_sql_generation_with_topn(orchestrator):
 
     # Resolve KPI definition using Data Product Agent orchestration helpers
     kpi_name = res.matched_views[0].kpi_name
-    kpi_def = await dpa.get_kpi_definition(kpi_name)
+    # Scoped -- see the note on the other get_kpi_definition call in this file.
+    kpi_def = await dpa.get_kpi_definition(kpi_name, client_id="bicycle")
     assert kpi_def is not None
 
     # Generate SQL with TopN forwarded to DPA
