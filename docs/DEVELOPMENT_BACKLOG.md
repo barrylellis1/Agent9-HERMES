@@ -3284,7 +3284,7 @@ different fiscal month than revenue recognition. It would silently disagree with
 |---|---|---|
 | **L1 — Filter alignment** | "YTD" resolves correctly per data product regardless of physical time storage | ✅ **EXISTS.** `TimeFilter`, three spec types (`date`, `fiscal_year_period`, `fiscal_year`), dialect-aware, `fiscal_year_start_month` for non-Jan FYs, `period_column_type` CAST for VARCHAR periods. 83 unit tests. |
 | **L2 — Label alignment** | Two KPIs on different data products emit the **same period key** for the same real-world period, so their series can be joined | ❌ **MISSING.** No `canonical_period` / `period_key` / `normalize_period` anywhere. `TimeFilter`'s entire public API (`current_condition`, `previous_condition`, `date_range`, `previous_period_name`, `append_condition`) generates WHERE clauses only — nothing emits a SELECT/GROUP BY period label. Every call site hand-rolls one: `LEFT(transaction_date, 7)` in the series builder, raw `display_expr` aliased `_td_period` in the dimensional builders. |
-| **L3 — Semantic alignment** | "2026-05" denotes the **same physical activity** on both sides of a causal edge | ❌ **MISSING.** `kpi_relationships` carries `kpi_id`, `related_kpi_id`, `relationship_type`, `causal_direction`, `conflict_direction` — **no time basis, no lag, no same-period assertion.** A causal edge is a bare KPI pair. |
+| **L3 — Semantic alignment** | "2026-05" denotes the **same physical activity** on both sides of a causal edge | ❌ **MISSING** (time basis). `kpi_relationships` carries no `comparison_basis` and no same-period assertion. **CORRECTION 2026-09-30:** an earlier version of this row also claimed "no lag" — that was wrong. `lag_periods` exists on `KPIRelationship` (`src/registry/models/kpi_relationship.py:36`) and the provider reads it. See the deferred lag item at the end of this phase. |
 
 #### Why L3 is the dangerous one
 
@@ -3312,6 +3312,41 @@ absent one: it defeats the gate that was specifically designed to be un-gameable
 **Step 3 — guard causal affirmation (product decision, not a refactor)**
 - [ ] When two KPIs' `comparison_basis` differ, refuse to affirm the edge or mark it basis-mismatched rather than counting it toward the density gate
 - [ ] Decide: does a basis mismatch block affirmation outright, or downgrade it to a flagged edge? This changes what the theory layer is allowed to count — settle deliberately
+
+#### Deferred: causal lag is declared but never computed with (raised 2026-09-30)
+
+**Status: DEFERRED by the owner, deliberately.** Latent, not live — `0 of 13` lubricants edges declare
+a lag and the two that set it use `lag_periods: 0`. Recorded so it is findable when it stops being
+latent, not scheduled.
+
+**The distinction that matters** — these are different problems and must not be conflated:
+
+| | Basis mismatch (step 3) | Causal lag (this item) |
+|---|---|---|
+| What is wrong | Month M holds **different transactions** on each side | Same transactions, effect **propagates over time** |
+| Nature | Measurement artifact | Real phenomenon |
+| Right response | Refuse to compare | **Model it** — shift the attribution window |
+
+A guard that demanded contemporaneous alignment would reject genuinely lagged causation, which is
+most real causation. Step 3's basis check is about *which rows*, not *which month*, and stays correct
+as specified.
+
+**The gap**: `lag_periods` is declared but never computed with. Its only consumers render it as prose
+— `a9_solution_finder_agent.py:1044` (`"lag: ~N months"` into a prompt) and
+`a9_deep_analysis_agent.py:3594` (pass-through). **VA has no reference to lag at all**, so the
+confirmation path that stamps `intervention_tested` compares contemporaneous windows regardless of any
+declared lag. Two failure directions: a real lagged effect is under-detected (never confirmed), or a
+spurious contemporaneous correlation is confirmed while the cited mechanism was lagged.
+
+**Trigger to revisit — watch for this**: the first non-zero `lag_periods` on an internal
+`kpi_relationships` edge. The anchor scenario is already shaped like one (base oil → COGS, where
+`ports` models `lag_periods: 1` with an inventory-buffer note) — if that mechanism ever moves from
+`ports` onto a KPI-to-KPI edge, this becomes live immediately.
+
+**If taken up**, step 3's rule becomes: bases differ → block; bases agree and lag is null/0 → confirm;
+bases agree and `lag_periods > 0` → confirm **only if attribution honoured the lag**, else flag
+`lag_unverified`. That third branch is unsatisfiable today — VA cannot honour a lag it never reads —
+so it would require teaching DiD attribution to shift its window by `lag_periods`.
 
 #### Scope note
 
