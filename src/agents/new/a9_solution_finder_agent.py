@@ -710,6 +710,31 @@ def _format_lens_finding(persona_name: str, finding: Dict[str, Any], max_rows: i
             head.append(f"  … {len(rows) - max_rows} further rows omitted")
     else:
         head.append("The query returned no rows — treat this as absence of evidence, not evidence of absence.")
+
+    # Follow-up rounds, rendered in order and labelled as such. A lens that
+    # asked again having seen its first answer did a different thing from one
+    # that asked once, and the hypothesis should be able to tell -- flattening
+    # them into one undifferentiated block would hide the chain of enquiry.
+    for i, fu in enumerate(finding.get("follow_ups") or [], start=1):
+        if not isinstance(fu, dict):
+            continue
+        head.append(f"\nFollow-up {i} — you asked again after seeing the above.")
+        if fu.get("why"):
+            head.append(f"You asked because: {fu['why']}")
+        fu_scope = ", ".join(
+            str(v) for v in (fu.get("kpi"), fu.get("dimension"), fu.get("timeframe")) if v
+        )
+        if fu_scope:
+            head.append(f"Query: {fu_scope}")
+        fu_rows = fu.get("rows") or []
+        if fu_rows:
+            head.append("MEASURED RESULT:")
+            for r in fu_rows[:max_rows]:
+                head.append(f"  {r}")
+            if len(fu_rows) > max_rows:
+                head.append(f"  … {len(fu_rows) - max_rows} further rows omitted")
+        else:
+            head.append("No rows — absence of evidence, not evidence of absence.")
     return "\n".join(head)
 
 
@@ -2050,6 +2075,91 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         except Exception as _e:
                             self.logger.warning(f"[SF] Lens probe: warehouse vocabulary unavailable: {_e}")
 
+                        _lp_max_followups = int(getattr(self.config, "lens_probe_max_followups", 1) or 0)
+
+                        async def _run_lens_followups(p, persona_profile: str,
+                                                      first: Dict[str, Any]) -> List[Dict[str, Any]]:
+                            """Let a lens ask again, having seen its own first answer.
+
+                            This is where a lookup becomes an investigation: the valuable
+                            question is usually the one the FIRST answer makes askable --
+                            "3 of 5 compressed, 2 held; what is different about the 2?" --
+                            and it cannot be asked up front.
+
+                            Bounded by `lens_probe_max_followups`, a hard integer cap. The
+                            model is NOT asked to judge its own stopping point: that is the
+                            decision it is least able to make well, and the failure is
+                            expensive (three lenses x N rounds against a debate already
+                            measured at ~5.5 minutes).
+
+                            The prompt demands a follow-up that could CHANGE the
+                            conclusion, and explicitly offers "done" as the right answer.
+                            Without that, a lens with a framework will keep asking
+                            questions its framework favours and arrive at round 3 more
+                            confident than the evidence warrants -- the convergence problem
+                            inverted into over-commitment.
+                            """
+                            out: List[Dict[str, Any]] = []
+                            prev = first
+                            for _round in range(_lp_max_followups):
+                                try:
+                                    fu_prompt = (
+                                        f"## ROLE\nYou are a {p.name} consultant.\n\n"
+                                        f"## PERSONA\n{persona_profile}\n\n"
+                                        f"## PROBLEM\n{_lp_refined_focus}\n\n"
+                                        f"## WHAT YOU ALREADY ASKED AND LEARNED\n"
+                                        f"{_format_lens_finding(p.name, prev)}\n\n"
+                                        f"## WHAT THE WAREHOUSE CAN ANSWER\n{_lp_queryable}\n\n"
+                                        "## TASK\n"
+                                        "Given what you just learned, is there ONE more query that "
+                                        "would CHANGE your conclusion — not merely add detail or "
+                                        "confirm what you already believe?\n\n"
+                                        "Most of the time the honest answer is no. Say so: a lens "
+                                        "that keeps querying its own framework ends up more "
+                                        "confident, not more correct.\n\n"
+                                        "## OUTPUT (JSON only, no markdown)\n"
+                                        'Done: {"kind":"done","why":"<what you now believe>"}\n'
+                                        'One more: {"kind":"data_query","kpi":"<one listed KPI>",'
+                                        '"dimension":"<one listed dimension, or empty>",'
+                                        '"timeframe":"<one listed timeframe>","comparison":true,'
+                                        '"why":"<what this could change about your conclusion>"}'
+                                    )
+                                    fu_req = A9_LLM_AnalysisRequest(
+                                        request_id=f"{req_id}_lensfollowup{_round}_{p.id}",
+                                        principal_id=getattr(request, "principal_id", "system"),
+                                        content=fu_prompt, analysis_type="custom", context="",
+                                        task_type=A9TaskType.STAGE1_PERSONA, temperature=0.0,
+                                    )
+                                    if self.orchestrator is not None:
+                                        fu_resp = await self.orchestrator.execute_agent_method(
+                                            "A9_LLM_Service_Agent", "analyze", {"request": fu_req}
+                                        )
+                                    else:
+                                        fu_resp = await self.llm_service_agent.analyze(fu_req)  # type: ignore
+                                    if getattr(fu_resp, "status", "error") != "success":
+                                        break
+                                    fu = getattr(fu_resp, "analysis", None)
+                                    if not isinstance(fu, dict):
+                                        break
+                                    if str(fu.get("kind") or "").strip().lower() != "data_query":
+                                        break  # "done" -- the expected outcome
+                                    nxt = await _answer_lens_query(p, fu)
+                                    if not nxt:
+                                        break
+                                    out.append(nxt)
+                                    prev = nxt
+                                except Exception as e:
+                                    self.logger.warning(
+                                        f"[SF] Lens follow-up round {_round} failed for {p.id} (non-fatal): {e}"
+                                    )
+                                    break
+                            if out:
+                                self.logger.info(
+                                    "[SF] Lens %s ran %d follow-up quer%s (cap %d)",
+                                    p.id, len(out), "y" if len(out) == 1 else "ies", _lp_max_followups,
+                                )
+                            return out
+
                         async def _answer_lens_query(p, spec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                             """Resolve a lens's data_query through DPA and return the rows.
 
@@ -2183,6 +2293,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 if _kind == "data_query":
                                     finding = await _answer_lens_query(p, _lp_result)
                                     if finding:
+                                        finding["follow_ups"] = await _run_lens_followups(
+                                            p, persona_profile, finding
+                                        )
                                         return {"persona_id": p.id, "finding": finding}
                                     # A query we could not answer degrades to the question
                                     # it represents -- never silently disappears. The

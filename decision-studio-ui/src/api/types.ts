@@ -341,6 +341,12 @@ export interface LensProbeFinding {
   why?: string;
   rows?: Record<string, unknown>[];
   sql?: string;
+  /** Additional queries this lens ran after seeing the first answer.
+   *  Bounded server-side by `lens_probe_max_followups` (default 1). Kept
+   *  separate rather than concatenated: a lens that asked again did a
+   *  different thing from one that asked once, and the reader should see
+   *  the chain of enquiry rather than one flat block of rows. */
+  follow_ups?: LensProbeFinding[];
 }
 
 export interface SolutionResponse {

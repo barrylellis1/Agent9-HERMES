@@ -461,6 +461,23 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
     enable_llm_debate: bool = Field(
         False, description="Enable LLM-driven expert persona debate and consensus synthesis"
     )
+    lens_probe_max_followups: int = Field(
+        1,
+        description=(
+            "How many ADDITIONAL data queries one lens may run after seeing its first "
+            "result (Phase 22 addendum, Oct 2026). 0 disables follow-up entirely and "
+            "restores single-shot behaviour.\n\n"
+            "Deliberately a hard integer cap rather than 'stop at diminishing returns': "
+            "judging its own stopping point is exactly the decision an LLM should not "
+            "make unsupervised, and an unbounded loop is three lenses x N rounds x "
+            "(LLM + SQL + LLM) against a debate already measured at ~5.5 minutes.\n\n"
+            "Default 1 because the valuable follow-up is the one the first answer makes "
+            "askable -- 'which 2 of the 5 held, and what is different about them' -- "
+            "while round 5 is a lens five steps deep in its own framing on 4% of the "
+            "variance. Raise only with evidence that later rounds change conclusions "
+            "rather than elaborate them."
+        ),
+    )
     causal_max_hops: int = Field(
         2,
         description=(

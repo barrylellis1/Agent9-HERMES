@@ -809,3 +809,32 @@ thing. Iterative follow-up (a finding prompting the next query) is Phase 24 Stag
 it needs a round cap, a budget, and a guard against a lens compounding its own framing.
 
 Tests: `tests/unit/test_sf_lens_findings_reach_stage1.py` (8).
+
+
+### Bounded follow-up rounds (Oct 2026)
+
+A lens may now ask **again**, having seen its own first answer. This is where a lookup becomes an
+investigation: the valuable question is usually the one the first result makes askable — *"3 of 5
+compressed, 2 held; what is different about the 2?"* — and it cannot be asked up front.
+
+Governed by `lens_probe_max_followups` (default **1**, `0` disables). It is a **hard integer cap, not
+a model judgement**. Judging its own stopping point is the decision an LLM is least able to make well,
+and the failure is expensive: three lenses x N rounds x (LLM + SQL + LLM) against a debate already
+measured at ~5.5 minutes.
+
+The risk being managed is the **inverse of the convergence problem Phase 22 started from**. A lens
+with a framework asks questions its framework favours; iterate and it compounds, arriving *more
+confident rather than more correct*. So the follow-up prompt demands a query that could **change** the
+conclusion, not merely add detail, and offers `"done"` as the expected answer — *"a lens that keeps
+querying its own framework ends up more confident, not more correct."*
+
+Follow-ups are kept as an ordered `follow_ups` list on the finding rather than concatenated into its
+rows, and `_format_lens_finding` labels each round. A lens that asked twice did a different thing from
+one that asked once, and the hypothesis should be able to tell. Non-fatal: a failed follow-up leaves
+the first finding intact.
+
+Tests: `tests/unit/test_sf_lens_followups.py` (8) — a lens can ask again; `done` is honoured and not
+retried; **the cap binds even when the lens never stops**; `0` spends nothing; a failed follow-up
+keeps round 1; and the renderer labels rounds rather than flattening them.
+
+UI renders each round as "Then asked again" beneath the first result.

@@ -752,8 +752,47 @@ export const CouncilDebatePage: React.FC = () => {
                             The query returned no rows.
                           </p>
                         )}
+                        {(finding.follow_ups || []).map((fu, fi) => (
+                          <div key={fi} className="border-t border-slate-800 pt-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                              Then asked again
+                            </p>
+                            {fu.why && (
+                              <p className="mt-1 text-xs text-slate-400 leading-relaxed italic">{fu.why}</p>
+                            )}
+                            {fu.rows && fu.rows.length > 0 ? (
+                              <div className="mt-2 overflow-x-auto rounded-lg border border-slate-800">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="bg-slate-950/60">
+                                      {Object.keys(fu.rows[0]).map(h => (
+                                        <th key={h} className="px-2 py-1.5 text-left font-medium text-slate-400 whitespace-nowrap">
+                                          {h}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {fu.rows.slice(0, 6).map((r, i) => (
+                                      <tr key={i} className="border-t border-slate-800">
+                                        {Object.keys(fu.rows![0]).map(h => (
+                                          <td key={h} className="px-2 py-1.5 text-slate-200 whitespace-nowrap">
+                                            {formatCell(r[h])}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <p className="mt-1 text-xs text-slate-500">The query returned no rows.</p>
+                            )}
+                          </div>
+                        ))}
                         <p className="mt-auto text-[11px] text-slate-500">
-                          Nothing needed from you — this lens ran its own query.
+                          Nothing needed from you — this lens ran its own quer
+                          {(finding.follow_ups || []).length > 0 ? 'ies' : 'y'}.
                         </p>
                       </>
                     ) : !question ? (
