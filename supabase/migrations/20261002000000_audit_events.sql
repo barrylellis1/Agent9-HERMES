@@ -20,11 +20,15 @@
 -- lose exactly the distinction src/analysis's True/False/None convention exists
 -- to preserve.
 --
--- Retention (design note section 4, resolved 2026-10-02) is tiered by outcome,
--- not by event_type: 'pass' rows get a 90-day scheduled sweep after being
--- rolled into an aggregate (the sweep job is a follow-up migration, not this
--- one — this migration only creates the table the sweep will read); 'fail' /
--- 'abstain' rows get Infra C1's 2-year SOC 2 horizon with no scheduled delete.
+-- Retention (design note section 4, resolved 2026-10-02, revised same day after
+-- wiring a second signal) is tiered by outcome, not by event_type: 'pass' AND
+-- 'abstain' rows get a 90-day scheduled sweep after being rolled into an
+-- aggregate (the sweep job is a follow-up migration, not this one — this
+-- migration only creates the table the sweep will read). Only 'fail' rows get
+-- Infra C1's 2-year SOC 2 horizon with no scheduled delete — 'abstain' was
+-- moved out of that bucket once SA's confidence-floor signal showed abstain
+-- can be the COMMON case for a borderline KPI, not a rare incident the way a
+-- ROLLUP-CHECK overshoot is.
 
 CREATE TABLE IF NOT EXISTS audit_events (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),

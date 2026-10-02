@@ -255,24 +255,43 @@ class SituationDetectionResponse(BaseResponse):
 
 ## Phase 9A Behaviour Changes
 
-### Monitoring Profile Support
-When `use_monitoring_profiles=True` (default), `detect_situations` reads each KPI's
-`monitoring_profile` from the KPI registry and uses:
-- `comparison_period` instead of the global `timeframe` parameter
-- `volatility_band` to filter noise — breach must exceed band to qualify
-- `min_breach_duration` — consecutive-period check before escalation
-- `confidence_floor` — gate for DA escalation; below floor → `status="monitoring"`
+**Card correction (2026-10-02) — this section describes `run_enterprise_assessment.py`'s
+`EnterpriseAssessmentEngine._assess_kpi`, not this agent.** Verified by grep while wiring the
+stage-wise reliability panel (`docs/architecture/audit_event_system_design.md`): `confidence_floor`,
+`monitoring_profile`, `assessment_mode`, and `escalate_to_da` do not appear anywhere in
+`a9_situation_awareness_agent.py`. `detect_situations` itself has no monitoring-profile gating,
+no `assessment_mode` parameter, and never sets a `"monitoring"` or `"below_threshold"` status —
+those are `KPIAssessmentStatus` values the assessment script derives *after* calling
+`detect_situations`, by reading `monitoring_profile` off the KPI registry record itself and
+comparing SA's returned `confidence`/`severity` against the script's own floors. This matches
+root `CLAUDE.md`'s own "What's NOT Built Yet" note — "SA runtime use pending Phase 9B" — which this
+section's prose contradicted by describing the gate as already live inside SA. The section below is
+kept as a description of the *assessment engine's* behavior, with the call sites corrected; treat
+it as documentation of `run_enterprise_assessment.py`, not of this agent, until Phase 9B actually
+moves this logic into `detect_situations`.
 
-### Assessment Engine Integration
-When `assessment_mode=True`, processes one KPI per call. `SituationDetectionResponse`
-includes `escalate_to_da: bool` for direct routing to DA by the assessment engine.
+### Monitoring Profile Support (actually: `run_enterprise_assessment.py::_assess_kpi`)
+`EnterpriseAssessmentEngine._assess_kpi` reads each KPI's `monitoring_profile` from the KPI
+registry record it was handed (not from a `detect_situations` parameter) and, after calling
+`detect_situations`, applies:
+- `volatility_band` — read but not yet used to filter noise in the current implementation
+- `confidence_floor` — gate on SA's returned `confidence`; below floor → `KPIAssessmentStatus.MONITORING`
 
-### Situation Status Values (Updated)
+`comparison_period` and `min_breach_duration` are `MonitoringProfile` registry fields (`src/registry/models/kpi.py`) not yet read by this method — Phase 9B scope, not Phase 9A as previously stated here.
+
+### Assessment Engine Integration (actually: `run_enterprise_assessment.py`)
+`EnterpriseAssessmentEngine.run()` processes one KPI per `_assess_kpi` call. `KPIAssessment`
+(`src/agents/models/assessment_models.py`) carries `escalated_to_da: bool` — currently always
+`False` by explicit design ("DA is HITL — principal decides from Decision Studio UI"), so despite
+the field's name this is not live automatic routing to DA.
+
+### KPIAssessment Status Values (in the assessment script, not SituationDetectionResponse)
 | Status | Meaning |
 |--------|---------|
-| `"detected"` | Confidence ≥ floor; escalated to DA |
-| `"monitoring"` | Confidence < floor; visible in UI, not escalated |
-| `"below_threshold"` | Severity < severity_floor; not shown by default |
+| `DETECTED` | Confidence ≥ floor and severity ≥ floor; also emits a `reliability.detection_confidence` `pass` audit event (2026-10-02) |
+| `MONITORING` | Confidence < floor; also emits the same event_type with `outcome="abstain"` — inconclusive, not a defect, per the audit-event design note's retention table |
+| `BELOW_THRESHOLD` | Severity < `severity_floor`, or no matching situation returned at all; no reliability event — this is a severity gate, deliberately not conflated with the confidence signal |
+| `ERROR` | `detect_situations` raised; also emits `outcome="fail"` — rare by construction, unlike `MONITORING`'s abstain |
 
 `"problem"` and `"opportunity"` card_type values are **deprecated** (Phase 9G removal). SA is a sensor only.
 

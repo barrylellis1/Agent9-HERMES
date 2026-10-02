@@ -122,13 +122,14 @@ same rule applies everywhere the column is populated:
 | `outcome` | Raw retention | Why |
 |---|---|---|
 | `pass` | 90 days, then rolled up | The overwhelming majority of rows. Long-term value is a rate, not the row — a daily/weekly aggregate (`pass_count`/`fail_count`/`abstain_count` per `event_type` per `client_id`, kept indefinitely) answers every "is this getting better" question the operator panel asks, at a fraction of the storage. |
-| `fail` / `abstain` | 2 years minimum (matches Infra C1's SOC 2 horizon), no scheduled auto-delete | Rare by construction, and each one is an incident record — a caught ROLLUP-CHECK overshoot, a slice declared INVALID, a coverage gap. Deleting evidence of a caught defect on a timer undercuts the reason this table exists: this design note's own §5 write-ups exist because similar evidence was dug up after the fact. These rows are also the candidate raw material for VA/theory-layer evidence (`theory_layer_design.md`'s causal-edge confirmation accretes "over real use, never by seeding") — don't foreclose that by expiring them against a clock unrelated to when a verdict might reference them. |
+| `abstain` | 90 days, then rolled up — **same as `pass`**, not `fail` | **Revised 2026-10-02**, after wiring the second signal. The original draft grouped `abstain` with `fail` on the assumption both are rare; SA's confidence-floor gate falsified that for this signal — a KPI sitting under `confidence_floor` (`MONITORING` status) can be the *common* case for a borderline KPI, not an anomaly. `abstain` means "inconclusive," which is routine noise for most signals, same as `pass`. A signal whose `abstain` case genuinely is a rare, valuable incident (none identified yet) can override this per-`event_type` in the rollup job's config — the default is not. |
+| `fail` | 2 years minimum (matches Infra C1's SOC 2 horizon), no scheduled auto-delete | Rare by construction, and each one is an incident record — a caught ROLLUP-CHECK overshoot, a slice declared INVALID, a coverage gap, an SA detection error. Deleting evidence of a caught defect on a timer undercuts the reason this table exists: this design note's own §5 write-ups exist because similar evidence was dug up after the fact. These rows are also the candidate raw material for VA/theory-layer evidence (`theory_layer_design.md`'s causal-edge confirmation accretes "over real use, never by seeding") — don't foreclose that by expiring them against a clock unrelated to when a verdict might reference them. |
 | `NULL` (no verdict — SF's narrative/debug events) | Unaffected by this table; follows `severity` only, per whatever the pilot scope (§4) already sets | Out of scope for this resolution — these aren't checks, they have no pass/fail/abstain to tier by. |
 
-Mechanically: a Supabase scheduled job deletes `outcome = 'pass'` rows older than 90 days after
-writing their counts into the aggregate table; it never touches `fail`/`abstain`/`NULL` rows.
+Mechanically: a Supabase scheduled job deletes `outcome IN ('pass', 'abstain')` rows older than 90
+days after writing their counts into the aggregate table; it never touches `fail`/`NULL` rows.
 Infra C's own 2-year SOC 2 retention (`DEVELOPMENT_BACKLOG.md` §C1) is untouched by this — it
-governs the access/action family, which has no `pass` volume problem to begin with.
+governs the access/action family, which has no `pass`/`abstain` volume problem to begin with.
 
 Volume at pilot scale (a handful of clients, tens to ~100 KPIs each, roughly one assessment run a
 day) is hundreds to low thousands of rows/day — not a real storage cost yet. This split exists so

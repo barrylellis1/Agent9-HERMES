@@ -40,6 +40,7 @@ from src.agents.models.situation_awareness_models import (
     SituationSeverity,
     TimeFrame,
 )
+from src.services.audit_service import AuditService
 
 logging.basicConfig(
     level=logging.INFO,
@@ -431,6 +432,23 @@ class EnterpriseAssessmentEngine:
                 confidence = _DEFAULT_CONFIDENCE.get(raw_severity, 0.5) if raw_severity else 0.5
 
             if confidence < confidence_floor:
+                # Stage-wise reliability panel (2026-10-02 scope extension to
+                # docs/architecture/audit_event_system_design.md). outcome='abstain',
+                # not 'fail': sitting under confidence_floor means "inconclusive",
+                # not "a defect was found" — this is the common case for a
+                # borderline KPI, which is exactly why the design note's retention
+                # tier for 'abstain' was revised the same day this was wired (see
+                # that note's retention table).
+                await AuditService.log(
+                    client_id=getattr(kpi, "client_id", None) or self.config.client_id,
+                    event_type="reliability.detection_confidence",
+                    severity="info",
+                    outcome="abstain",
+                    source_agent="EnterpriseAssessmentEngine",
+                    resource_type="kpi",
+                    resource_id=kpi_id,
+                    payload={"confidence": confidence, "confidence_floor": confidence_floor, "severity_score": severity_score},
+                )
                 return KPIAssessment(
                     id=str(uuid.uuid4()),
                     run_id=run_id,
@@ -442,6 +460,16 @@ class EnterpriseAssessmentEngine:
                     escalated_to_da=False,
                 )
 
+            await AuditService.log(
+                client_id=getattr(kpi, "client_id", None) or self.config.client_id,
+                event_type="reliability.detection_confidence",
+                severity="info",
+                outcome="pass",
+                source_agent="EnterpriseAssessmentEngine",
+                resource_type="kpi",
+                resource_id=kpi_id,
+                payload={"confidence": confidence, "confidence_floor": confidence_floor, "severity_score": severity_score},
+            )
             return KPIAssessment(
                 id=str(uuid.uuid4()),
                 run_id=run_id,
@@ -456,6 +484,20 @@ class EnterpriseAssessmentEngine:
         except Exception as e:
             logger.error(
                 f"[{run_id}] SA detection failed for KPI {kpi_id}: {e}", exc_info=True
+            )
+            # fail, not abstain: an exception here means detection itself broke,
+            # not that the signal was merely inconclusive. Rare by construction
+            # (unlike the confidence-floor abstain above), so it keeps the
+            # long-retention tier.
+            await AuditService.log(
+                client_id=getattr(kpi, "client_id", None) or self.config.client_id,
+                event_type="reliability.detection_confidence",
+                severity="error",
+                outcome="fail",
+                source_agent="EnterpriseAssessmentEngine",
+                resource_type="kpi",
+                resource_id=kpi_id,
+                payload={"error": str(e)},
             )
             return KPIAssessment(
                 id=str(uuid.uuid4()),
