@@ -77,7 +77,10 @@ CREATE TABLE audit_events (
     id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     client_id    text NOT NULL,
     event_type   text NOT NULL,          -- 'heuristic_stub_fallback', 'llm_debate_completed', ...
-    severity     text NOT NULL,          -- 'info' | 'warning' | 'error'
+    severity     text NOT NULL,          -- 'info' | 'warning' | 'error' -- how urgent to a human reader
+    outcome      text,                   -- 'pass' | 'fail' | 'abstain' -- what the check concluded
+                                          -- (nullable: not every event_type is a check with a verdict;
+                                          -- SF's narrative/debug events have no outcome, only severity)
     source_agent text NOT NULL,          -- 'A9_Solution_Finder_Agent'
     request_id   text,                   -- correlates to the workflow run
     payload      jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -85,13 +88,52 @@ CREATE TABLE audit_events (
 );
 ```
 
+`severity` and `outcome` are independent axes, not synonyms -- a `fail` can be low-severity (DA's
+`[ROLLUP-CHECK]` overshoot logs as `warning`, non-fatal by design: "a bad decomposition must not
+take down a good analysis") and an `abstain` can be entirely routine (a slice-validity check with
+no data yet to assess). Collapsing them into one column loses exactly the distinction the
+`src/analysis` True/False/None convention exists to preserve. `outcome` is the column the
+**stage-wise reliability panel** (`DEVELOPMENT_BACKLOG.md` -> *Audit event system*, 2026-10-02
+extension) writes to for its five signals -- SA detection confidence, DA's `[ROLLUP-CHECK]`,
+`check_tree_reconciles`, `check_slice_validity`, and KPI coverage. That panel's `event_type`
+values live in their own namespace, separate from this section's pilot (SF) and from Infra C's
+access/action trail (`auth.login`, `solution.approved`, ...) -- three families, one table, one write
+path, distinguished by `event_type` prefix.
+
+**Schema note, not yet reconciled:** Infra C's own draft (`DEVELOPMENT_BACKLOG.md` section C1) names
+an `outcome text -- success/failure` column for the same table, written independently of this note.
+The two drafts should converge before the migration is written -- this note's `pass`/`fail`/`abstain`
+vocabulary is the one load-bearing for retention (below) and should be treated as the canonical one;
+`success`/`failure` folds into it (`success` maps to `pass`, `failure` maps to `fail`, no `abstain`
+case in the access/action family).
+
 **RLS is mandatory** — this table carries `client_id`, so per root `CLAUDE.md` it sits outside the
 tenant boundary unless the migration also includes the `GRANT` / `ENABLE ROW LEVEL SECURITY` /
 `CREATE POLICY client_isolation` trio, and the table is added to `_RLS_TABLES` in
 `scripts/verify_prod_registry.py`. Reference migration:
 `supabase/migrations/20260713_rls_client_isolation.sql`.
 
-**Retention** is an open question (§6) — an events table with no expiry policy grows without bound.
+### Retention — resolved, tiered by `outcome`
+
+An events table with no expiry policy grows without bound, and the two families on it want
+different answers. Raw retention is set **by `outcome`, not by `event_type` or family** — the
+same rule applies everywhere the column is populated:
+
+| `outcome` | Raw retention | Why |
+|---|---|---|
+| `pass` | 90 days, then rolled up | The overwhelming majority of rows. Long-term value is a rate, not the row — a daily/weekly aggregate (`pass_count`/`fail_count`/`abstain_count` per `event_type` per `client_id`, kept indefinitely) answers every "is this getting better" question the operator panel asks, at a fraction of the storage. |
+| `fail` / `abstain` | 2 years minimum (matches Infra C1's SOC 2 horizon), no scheduled auto-delete | Rare by construction, and each one is an incident record — a caught ROLLUP-CHECK overshoot, a slice declared INVALID, a coverage gap. Deleting evidence of a caught defect on a timer undercuts the reason this table exists: this design note's own §5 write-ups exist because similar evidence was dug up after the fact. These rows are also the candidate raw material for VA/theory-layer evidence (`theory_layer_design.md`'s causal-edge confirmation accretes "over real use, never by seeding") — don't foreclose that by expiring them against a clock unrelated to when a verdict might reference them. |
+| `NULL` (no verdict — SF's narrative/debug events) | Unaffected by this table; follows `severity` only, per whatever the pilot scope (§4) already sets | Out of scope for this resolution — these aren't checks, they have no pass/fail/abstain to tier by. |
+
+Mechanically: a Supabase scheduled job deletes `outcome = 'pass'` rows older than 90 days after
+writing their counts into the aggregate table; it never touches `fail`/`abstain`/`NULL` rows.
+Infra C's own 2-year SOC 2 retention (`DEVELOPMENT_BACKLOG.md` §C1) is untouched by this — it
+governs the access/action family, which has no `pass` volume problem to begin with.
+
+Volume at pilot scale (a handful of clients, tens to ~100 KPIs each, roughly one assessment run a
+day) is hundreds to low thousands of rows/day — not a real storage cost yet. This split exists so
+the aggregate path is already in place before volume becomes one, at the "commercial scale"
+Infra C's own framing names as its trigger.
 
 ### Write path
 
@@ -133,11 +175,15 @@ different questions and merging them would make both harder to scan.
 
 ## 6. Open questions
 
-1. **Retention policy.** 90 days? Per-severity (errors longer than info)? Needed before the
-   migration, since it affects partitioning.
-2. **Does this replace or feed Sentry?** Infra C names Sentry for availability monitoring. Two
-   overlapping systems is a real cost; this table is application-semantic (what the agents decided),
-   Sentry is operational (what crashed). Probably complementary, but state it deliberately.
+1. ~~**Retention policy.**~~ **Resolved 2026-10-02** — tiered by `outcome`, not by severity or
+   family: see §4. `pass` rows live 90 days then roll into a permanent aggregate; `fail`/`abstain`
+   rows get Infra C1's 2-year SOC 2 horizon with no scheduled deletion, since they are both rare and
+   the candidate raw material for VA/theory-layer evidence.
+2. ~~**Does this replace or feed Sentry?**~~ **Resolved 2026-10-02** — complementary, not
+   overlapping. Sentry answers "what crashed" (infrastructure failure: an exception, a 500) on
+   inputs that are otherwise structurally fine. This table answers "what did the agent conclude"
+   (analytical-correctness failure: a slice declared INVALID, a rollup that overshoots) on inputs
+   that never raise anything. Neither replaces the other; both stay.
 3. **Should `A9_SharedLogger` be built as part of this?** Both `CLAUDE.md` files name it as the
    logging target and it does not exist. A write path to `audit_events` is a natural place to
    finally introduce it — or a deliberate reason to keep them separate (structured business events
