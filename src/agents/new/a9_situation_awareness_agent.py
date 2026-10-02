@@ -49,8 +49,28 @@ from src.llm_services.model_routing import TaskType as A9TaskType
 
 # Data quality filtering utility
 from src.agents.utils.data_quality_filter import DataQualityFilter
+from src.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
+
+
+def _kpi_coverage_outcome(registered: int, evaluated: int) -> Optional[str]:
+    """Decide the `reliability.kpi_coverage` outcome from a detect_situations call's
+    registered/evaluated counts. Pure, no agent instance needed -- kept as a plain
+    module function so it is directly testable without constructing the agent.
+
+    None (skip emitting entirely) when registered == 0: a brand-new client with
+    nothing registered yet is not a defect to report on. Otherwise `fail` only
+    for the Brookshire Brothers shape -- every registered KPI dropped at once --
+    and `pass` for any nonzero evaluated count. See the call site in
+    detect_situations for the known false-positive caveat (a principal whose
+    business_processes genuinely share no overlap with anything registered also
+    evaluates to zero, correctly, and also trips `fail` here).
+    """
+    if registered <= 0:
+        return None
+    return "fail" if evaluated == 0 else "pass"
+
 
 class A9_Situation_Awareness_Agent:
     """
@@ -410,13 +430,66 @@ class A9_Situation_Awareness_Agent:
                         _principal_id, _exc,
                     )
 
+            _coverage: Dict[str, int] = {}
             relevant_kpis = self._get_relevant_kpis(
                 request.principal_context,
                 request.business_processes,
                 client_id=client_id,
                 accountable_kpi_ids=accountable_kpi_ids,
                 assigned_anywhere_kpi_ids=assigned_anywhere_kpi_ids,
+                coverage_out=_coverage,
             )
+
+            # Stage-wise reliability panel (2026-10-02 scope extension to
+            # docs/architecture/audit_event_system_design.md). Fifth and final
+            # pilot signal, after DA's [ROLLUP-CHECK], SA's own
+            # detection-confidence gate, DGA's slice-validity check, and the
+            # theory-layer exhibit's tree-reconciliation check -- and the only
+            # one that did not already compute anything.
+            #
+            # Deliberately narrow: this does NOT flag every principal whose
+            # relevant set is smaller than the client's full registry -- that
+            # is normal, correct business-process scoping (a Finance-only
+            # principal is SUPPOSED to see fewer KPIs than an HR+Finance
+            # client has registered), and a general ratio check would cry
+            # wolf on every legitimately scoped view. It flags the Brookshire
+            # Brothers pattern instead: registered > 0 but evaluated == 0,
+            # every KPI dropped at once.
+            #
+            # KNOWN FALSE-POSITIVE SOURCE, disclosed rather than hidden: a
+            # principal whose own business_processes genuinely share no
+            # overlap with anything registered for this client (e.g. an
+            # HR-only principal at a client that has only Finance KPIs
+            # registered) will ALSO evaluate to zero, correctly, and will
+            # ALSO trip this as `fail`. This is advisory telemetry, same
+            # posture as `not_sliceable_by` and the ROLLUP-CHECK warning --
+            # nothing downstream gates on it -- and the fail-open fix below
+            # (the ACTUAL Brookshire bug) means a genuinely registered-but-
+            # unclassified KPI no longer silently drops, which is why a real
+            # total-mismatch today is rare enough to be worth flagging loudly
+            # rather than suppressed on an unproven prior that it's normal.
+            # registered == 0 (nothing registered for this client yet)
+            # abstains rather than failing -- that can be a legitimate,
+            # brand-new client, not a defect.
+            _outcome = (
+                _kpi_coverage_outcome(_coverage.get("registered", 0), _coverage.get("evaluated", 0))
+                if client_id else None
+            )
+            if _outcome:
+                await AuditService.log(
+                    client_id=client_id,
+                    event_type="reliability.kpi_coverage",
+                    severity="error" if _outcome == "fail" else "info",
+                    outcome=_outcome,
+                    source_agent="A9_Situation_Awareness_Agent",
+                    resource_type="client",
+                    resource_id=client_id,
+                    payload={
+                        "registered": _coverage.get("registered", 0),
+                        "evaluated": _coverage.get("evaluated", 0),
+                        "principal_id": getattr(request.principal_context, "principal_id", None),
+                    },
+                )
 
             if not relevant_kpis:
                 self.logger.warning("No relevant KPIs found for principal context and business processes")
@@ -1966,20 +2039,37 @@ class A9_Situation_Awareness_Agent:
         client_id: Optional[str] = None,
         accountable_kpi_ids: Optional[Set[str]] = None,
         assigned_anywhere_kpi_ids: Optional[Set[str]] = None,
+        coverage_out: Optional[Dict[str, int]] = None,
     ) -> Dict[str, KPIDefinition]:
         """Get KPIs relevant to the principal's business processes.
-        
+
         This method now also applies *principal-specific KPI preferences* based on
         line (top_line/bottom_line) and altitude (strategic/operational), using
         metadata on both the principal profile and the KPIDefinition metadata.
-        
+
         Args:
             principal_context: Principal context with business processes
             business_processes: Optional list of business processes to filter by
-            
+
         Returns:
             Dictionary of relevant KPI definitions, ordered by principal
             preferences when metadata is available.
+
+        `coverage_out`: optional caller-supplied dict, populated in place with
+        `{"registered": N, "evaluated": M}` before return -- registered = how
+        many KPIs this client has in the registry at all (`registry_items`,
+        before any filter); evaluated = how many survived every filter
+        (`ordered_kpis`, the final return). This method stays synchronous
+        (three call sites, one of them a hot path) so it cannot itself write
+        to the stage-wise reliability panel (`AuditService.log` is async);
+        this side-channel lets an async caller do that write after calling in,
+        without this method needing to know AuditService exists at all. Kept
+        optional and additive so no existing caller's signature or return
+        shape changes. Added 2026-10-02 -- the fifth reliability signal, and
+        the only one that did not already compute anything: the 2026-07-25
+        Brookshire Brothers incident (5 correctly-configured KPIs silently
+        producing zero situations, from the fail-open gates below) would have
+        been caught by `registered=5, evaluated=0` the moment it first ran.
         """
 
         # Collect KPIs that match the requested business processes
@@ -2141,6 +2231,9 @@ class A9_Situation_Awareness_Agent:
             f"Found {len(ordered_kpis)} KPIs relevant to {len(processes)} business processes "
             f"for principal_id={getattr(principal_context, 'principal_id', None)}"
         )
+        if coverage_out is not None:
+            coverage_out["registered"] = len(registry_items)
+            coverage_out["evaluated"] = len(ordered_kpis)
         return ordered_kpis
 
     def _apply_principal_kpi_preferences(

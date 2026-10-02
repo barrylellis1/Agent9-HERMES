@@ -88,6 +88,7 @@ class NLQueryResponse(BaseResponse):
 - A9_Data_Governance_Agent: For business term mapping and contract-driven KPI enrichment metadata
 - A9_NLP_Interface_Agent: For advanced natural language processing (future)
 - A9_LLM_Service_Agent: For SQL generation from natural language queries
+- `AuditService` (`src/services/audit_service.py`, 2026-10-02) — plain static service, not an agent, not registry-instantiated. `detect_situations` writes a `reliability.kpi_coverage` event per call (see Phase 9A correction section above). Never raises; a missing pool or failed write degrades silently.
 
 ## LLM Configuration (Anthropic — via A9_LLM_Service_Agent)
 | Use | Task Type | Model | Rationale |
@@ -294,6 +295,13 @@ the field's name this is not live automatic routing to DA.
 | `ERROR` | `detect_situations` raised; also emits `outcome="fail"` — rare by construction, unlike `MONITORING`'s abstain |
 
 `"problem"` and `"opportunity"` card_type values are **deprecated** (Phase 9G removal). SA is a sensor only.
+
+### Reliability panel signal (2026-10-02 — fifth and final pilot, after DA's `[ROLLUP-CHECK]`, SA's own detection-confidence gate above, DGA's slice-validity check, and the theory-layer exhibit's tree-reconciliation check)
+`detect_situations` now emits one `reliability.kpi_coverage` audit event per call via `AuditService` (`src/services/audit_service.py`) — the only one of the five signals that did not already compute anything. `_get_relevant_kpis()` gained an optional `coverage_out: Dict[str, int]` parameter, populated in place with `{"registered": N, "evaluated": M}` before it returns (`registered` = every KPI this client has at all, before any filter; `evaluated` = how many survived every filter). The method stays synchronous (three call sites) and has no idea `AuditService` exists; `detect_situations` reads the dict after the call and does the actual `await AuditService.log(...)`.
+
+`_kpi_coverage_outcome(registered, evaluated)` (module-level function, same file) is the decision: `registered == 0` → skip entirely (nothing registered yet is not a defect); `registered > 0 and evaluated == 0` → `fail`; any other nonzero `evaluated` → `pass`. This is deliberately narrow — it does **not** flag every principal whose relevant set is smaller than the client's full registry (normal business-process scoping), only the Brookshire Brothers shape: every registered KPI dropped at once. **Known, disclosed false positive:** a principal whose own `business_processes` genuinely share no overlap with anything registered for this client also evaluates to zero, correctly, and also reads as `fail` — advisory telemetry, same non-gating posture as `not_sliceable_by` and the ROLLUP-CHECK warning, not a hard assertion that every `fail` is a bug.
+
+Tests: `tests/unit/test_sa_kpi_coverage_reliability_event.py`, including a fixture reproducing the Brookshire Brothers shape (non-empty, non-overlapping `business_processes` on both sides) against today's already-fixed fail-open logic, to prove the signal fires on a genuine zero-overlap case and not only on the empty-list shortcut the original bug exploited.
 
 ## Phase 10B Improvements (Apr 2026)
 
