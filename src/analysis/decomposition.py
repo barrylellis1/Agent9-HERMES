@@ -416,3 +416,51 @@ def check_tree_reconciles(
         f"via {operation}, but the parent's own current value is {parent_value:g} "
         f"(off by {abs(computed - parent_value):g}) -- either the tree or the KPI definition is wrong."
     )
+
+
+def tree_reconciliation_is_computable(
+    parent_kpi_id: str,
+    edges: List[KPIDecompositionEdge],
+    current_values: Dict[str, float],
+) -> bool:
+    """Was `check_tree_reconciles` actually able to check anything?
+
+    `check_tree_reconciles`'s own `None` return is overloaded between two
+    different facts: "the tree reconciles" and "there was nothing to check"
+    (no declared children, a missing value, an unknown operation) -- its own
+    docstring calls this out ("missing data is a documented no-op, never a
+    silent pass or a silent fail"). A caller that wants to tell those two
+    apart -- e.g. to avoid counting a not-checked case as a pass in an
+    aggregate -- needs this function alongside it.
+
+    Added 2026-10-02 for the stage-wise reliability panel
+    (`docs/architecture/audit_event_system_design.md`): the theory-layer
+    exhibit's `reliability.tree_reconciliation` event needs to emit `abstain`
+    rather than `pass` when nothing was actually computable, and extending
+    `check_tree_reconciles`'s own return contract was ruled out of scope --
+    two other test files assert against its current `Optional[str]` shape.
+
+    Deliberately mirrors `check_tree_reconciles`'s own early-return
+    conditions rather than calling it twice with a sentinel -- keep the two
+    in sync if either changes. A violation (the operations-mismatch and
+    wrong-ratio-edge-count cases) counts as "computable": those ARE a real
+    finding, not a non-check, even though they return early too.
+    """
+    if not edges:
+        return False
+    if current_values.get(parent_kpi_id) is None:
+        return False
+    operations = {e.operation for e in edges}
+    if len(operations) > 1:
+        return True  # inconsistent operations IS a violation, not a non-check
+    operation = operations.pop()
+    if operation in ("linear", "product"):
+        return all(current_values.get(e.child_kpi_id) is not None for e in edges)
+    if operation == "ratio":
+        if len(edges) != 1:
+            return True  # wrong edge count is also a violation, not a non-check
+        edge = edges[0]
+        child_value = current_values.get(edge.child_kpi_id)
+        weight_value = current_values.get(edge.weight_kpi_id) if edge.weight_kpi_id else None
+        return child_value is not None and bool(weight_value)
+    return False  # unknown operation -- not computable

@@ -15,6 +15,7 @@ from src.registry.models.data_product import DataProduct
 from src.registry.models.kpi import KPI
 from src.registry.models.principal import PrincipalProfile
 from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider, BusinessTerm
+from src.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -1144,13 +1145,41 @@ async def get_theory_layer(
         reconciliation = None
         bridge = None
         if values:
-            from src.analysis.decomposition import check_tree_reconciles, variance_bridge
+            from src.analysis.decomposition import (
+                check_tree_reconciles,
+                tree_reconciliation_is_computable,
+                variance_bridge,
+            )
             direct = [e for e in decomp if e.parent_kpi_id == kpi_id]
             violation = check_tree_reconciles(
                 kpi_id, direct, values,
                 parent_unit_class=getattr(primary, "unit_class", None) if primary else None,
             )
             reconciliation = {"ok": violation is None, "detail": violation}
+
+            # Stage-wise reliability panel (2026-10-02 scope extension to
+            # docs/architecture/audit_event_system_design.md). Fourth pilot
+            # signal, after DA's [ROLLUP-CHECK], SA's detection-confidence
+            # gate, and DGA's slice-validity check. tree_reconciliation_is_computable
+            # tells "reconciled" (pass) apart from "nothing was computable"
+            # (abstain) -- check_tree_reconciles' own None return is
+            # overloaded between those two, see that function's docstring.
+            if violation is not None:
+                _outcome = "fail"
+            elif tree_reconciliation_is_computable(kpi_id, direct, values):
+                _outcome = "pass"
+            else:
+                _outcome = "abstain"
+            await AuditService.log(
+                client_id=client_id,
+                event_type="reliability.tree_reconciliation",
+                severity="warning" if _outcome == "fail" else "info",
+                outcome=_outcome,
+                source_agent="theory_layer_exhibit",
+                resource_type="kpi",
+                resource_id=kpi_id,
+                payload={"direct_children": len(direct), "detail": violation},
+            )
 
             # The variance bridge — the Spine's actual chart per §4. Computed
             # generically from the recorded decomposition operations, not from

@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import pytest
 
-from src.analysis.decomposition import check_tree_reconciles, evaluate_tree, roll_up_scope
+from src.analysis.decomposition import (
+    check_tree_reconciles,
+    evaluate_tree,
+    roll_up_scope,
+    tree_reconciliation_is_computable,
+)
 from src.registry.models.kpi_decomposition import KPIDecompositionEdge
 
 
@@ -488,3 +493,83 @@ class TestProductOperation:
         assert result is not None
         assert result["effect_low"] > 0
         assert result["effect_high"] > result["effect_low"]
+
+
+class TestTreeReconciliationIsComputable:
+    """check_tree_reconciles' own None return is overloaded between "reconciles"
+    and "nothing was computable" -- this function exists to tell them apart,
+    for the stage-wise reliability panel's abstain-vs-pass distinction
+    (docs/architecture/audit_event_system_design.md, 2026-10-02)."""
+
+    def _gross_profit_edges(self):
+        return [
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="net_revenue",
+                                  client_id="lubricants", operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="gross_profit", child_kpi_id="cogs",
+                                  client_id="lubricants", operation="linear", sign=-1),
+        ]
+
+    def test_no_edges_is_not_computable(self):
+        assert tree_reconciliation_is_computable("gross_profit", [], {"gross_profit": 100.0}) is False
+
+    def test_missing_parent_value_is_not_computable(self):
+        current = {"net_revenue": 393.8, "cogs": 293.8}  # gross_profit itself absent
+        assert tree_reconciliation_is_computable("gross_profit", self._gross_profit_edges(), current) is False
+
+    def test_missing_child_value_is_not_computable(self):
+        current = {"gross_profit": 100.0, "net_revenue": 393.8}  # cogs absent
+        assert tree_reconciliation_is_computable("gross_profit", self._gross_profit_edges(), current) is False
+
+    def test_full_linear_values_is_computable_and_agrees_with_check(self):
+        current = {"gross_profit": 100.0, "net_revenue": 393.8, "cogs": 293.8}
+        assert tree_reconciliation_is_computable("gross_profit", self._gross_profit_edges(), current) is True
+        assert check_tree_reconciles("gross_profit", self._gross_profit_edges(), current) is None  # genuinely reconciles
+
+    def test_inconsistent_operations_counts_as_computable_a_real_violation(self):
+        edges = [
+            KPIDecompositionEdge(parent_kpi_id="p", child_kpi_id="a", client_id="c",
+                                  operation="linear", sign=1),
+            KPIDecompositionEdge(parent_kpi_id="p", child_kpi_id="b", client_id="c",
+                                  operation="ratio", weight_kpi_id="d"),
+        ]
+        current = {"p": 10.0, "a": 5.0, "b": 5.0, "d": 1.0}
+        assert tree_reconciliation_is_computable("p", edges, current) is True
+        assert check_tree_reconciles("p", edges, current) is not None  # the matching real violation
+
+    def test_wrong_ratio_edge_count_counts_as_computable_a_real_violation(self):
+        edge = KPIDecompositionEdge(parent_kpi_id="gross_margin_pct", child_kpi_id="gross_profit",
+                                     client_id="lubricants", operation="ratio", weight_kpi_id="net_revenue")
+        edges = [edge, edge]
+        current = {"gross_margin_pct": 25.4, "gross_profit": 100.0, "net_revenue": 393.8}
+        assert tree_reconciliation_is_computable("gross_margin_pct", edges, current) is True
+        assert check_tree_reconciles("gross_margin_pct", edges, current, parent_unit_class="ratio") is not None
+
+    def test_missing_ratio_weight_is_not_computable(self):
+        edges = [
+            KPIDecompositionEdge(parent_kpi_id="gross_margin_pct", child_kpi_id="gross_profit",
+                                  client_id="lubricants", operation="ratio", weight_kpi_id="net_revenue"),
+        ]
+        current = {"gross_margin_pct": 25.4, "gross_profit": 100.0}  # net_revenue absent
+        assert tree_reconciliation_is_computable("gross_margin_pct", edges, current) is False
+
+    def test_zero_ratio_weight_is_not_computable_matching_check_tree_reconciles(self):
+        # check_tree_reconciles treats weight=0.0 as falsy -> a no-op (division-by-zero
+        # guard); this function must agree, or the two would disagree on outcome.
+        edges = [
+            KPIDecompositionEdge(parent_kpi_id="gross_margin_pct", child_kpi_id="gross_profit",
+                                  client_id="lubricants", operation="ratio", weight_kpi_id="net_revenue"),
+        ]
+        current = {"gross_margin_pct": 25.4, "gross_profit": 100.0, "net_revenue": 0.0}
+        assert tree_reconciliation_is_computable("gross_margin_pct", edges, current) is False
+        assert check_tree_reconciles("gross_margin_pct", edges, current, parent_unit_class="ratio") is None
+
+    def test_unknown_operation_is_not_computable(self):
+        edges = [
+            KPIDecompositionEdge(parent_kpi_id="p", child_kpi_id="a", client_id="c",
+                                  operation="linear", sign=1),
+        ]
+        # Simulate an operation value this module's Literal type wouldn't normally
+        # allow in, by monkeypatching the attribute post-construction.
+        object.__setattr__(edges[0], "operation", "unknown_op")
+        current = {"p": 10.0, "a": 5.0}
+        assert tree_reconciliation_is_computable("p", edges, current) is False
