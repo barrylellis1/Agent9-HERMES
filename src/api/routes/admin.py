@@ -200,3 +200,30 @@ async def get_audit_events(
         request_id=request_id, since=since, until=until, limit=limit,
     )
     return {"status": "ok", "data": {"events": [e.model_dump() for e in events], "count": len(events)}}
+
+
+@router.post(
+    "/audit-events/sweep",
+    summary="Run the audit_events retention sweep",
+    description=(
+        "docs/architecture/audit_event_system_design.md, section 4 retention table. "
+        "Rolls up and deletes 'pass'/'abstain' rows older than cutoff_days (default "
+        "90) into audit_events_daily_rollup; 'fail' and NULL-outcome rows are never "
+        "touched. Manually triggered only — there is no pg_cron extension enabled on "
+        "this Supabase project and no other scheduled-job mechanism anywhere in this "
+        "codebase, so nothing calls this automatically yet. Safe to call repeatedly: "
+        "the underlying SQL function accumulates its rollup counts rather than "
+        "overwriting them, so a retried or overlapping call cannot lose or "
+        "double-count a day already partly swept. Requires the X-Admin-Key header."
+    ),
+)
+async def sweep_audit_events(
+    _: None = Depends(_require_admin_key),
+    cutoff_days: int = Query(90, description="Sweep pass/abstain rows older than this many days"),
+):
+    if not AuditService.pool_available():
+        return {"status": "degraded", "data": {"detail": "No database pool available — sweep skipped."}}
+    result = await AuditService.run_retention_sweep(cutoff_days=cutoff_days)
+    if result is None:
+        return {"status": "error", "data": {"detail": "Sweep failed — see server logs."}}
+    return {"status": "ok", "data": result}

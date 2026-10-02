@@ -245,3 +245,55 @@ def test_pool_available_false_when_no_pool(monkeypatch):
 def test_pool_available_true_when_pool_present(monkeypatch):
     monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: _FakePool(AsyncMock())))
     assert AuditService.pool_available() is True
+
+
+# ---------------------------------------------------------------------------
+# run_retention_sweep() -- manual trigger for the pass/abstain rollup-and-delete
+# (migration 20261002010000_audit_events_retention_sweep.sql)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_sweep_returns_none_without_raising_when_pool_unavailable(monkeypatch):
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: None))
+    result = await AuditService.run_retention_sweep()
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_sweep_calls_the_sql_function_with_cutoff_and_returns_counts(monkeypatch):
+    conn = AsyncMock()
+    conn.fetchrow = AsyncMock(return_value={"rolled_up_groups": 3, "rows_deleted": 42})
+    pool = _FakePool(conn)
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: pool))
+
+    result = await AuditService.run_retention_sweep(cutoff_days=60)
+
+    assert result == {"rolled_up_groups": 3, "rows_deleted": 42}
+    conn.fetchrow.assert_awaited_once()
+    sql, params = conn.fetchrow.call_args[0][0], conn.fetchrow.call_args[0][1:]
+    assert "sweep_audit_events_retention" in sql
+    assert params == (60,)
+
+
+@pytest.mark.asyncio
+async def test_sweep_defaults_to_90_days(monkeypatch):
+    conn = AsyncMock()
+    conn.fetchrow = AsyncMock(return_value={"rolled_up_groups": 0, "rows_deleted": 0})
+    pool = _FakePool(conn)
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: pool))
+
+    await AuditService.run_retention_sweep()
+
+    params = conn.fetchrow.call_args[0][1:]
+    assert params == (90,)
+
+
+@pytest.mark.asyncio
+async def test_sweep_returns_none_without_raising_when_it_fails(monkeypatch):
+    conn = AsyncMock()
+    conn.fetchrow = AsyncMock(side_effect=RuntimeError("connection reset"))
+    pool = _FakePool(conn)
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: pool))
+
+    result = await AuditService.run_retention_sweep()
+    assert result is None

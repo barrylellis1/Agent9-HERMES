@@ -126,9 +126,26 @@ same rule applies everywhere the column is populated:
 | `fail` | 2 years minimum (matches Infra C1's SOC 2 horizon), no scheduled auto-delete | Rare by construction, and each one is an incident record — a caught ROLLUP-CHECK overshoot, a slice declared INVALID, a coverage gap, an SA detection error. Deleting evidence of a caught defect on a timer undercuts the reason this table exists: this design note's own §5 write-ups exist because similar evidence was dug up after the fact. These rows are also the candidate raw material for VA/theory-layer evidence (`theory_layer_design.md`'s causal-edge confirmation accretes "over real use, never by seeding") — don't foreclose that by expiring them against a clock unrelated to when a verdict might reference them. |
 | `NULL` (no verdict — SF's narrative/debug events) | Unaffected by this table; follows `severity` only, per whatever the pilot scope (§4) already sets | Out of scope for this resolution — these aren't checks, they have no pass/fail/abstain to tier by. |
 
-Mechanically: a Supabase scheduled job deletes `outcome IN ('pass', 'abstain')` rows older than 90
-days after writing their counts into the aggregate table; it never touches `fail`/`NULL` rows.
-Infra C's own 2-year SOC 2 retention (`DEVELOPMENT_BACKLOG.md` §C1) is untouched by this — it
+**Mechanically — 🏁 BUILT (2026-10-02):** `sweep_audit_events_retention(cutoff_days)`, a Postgres
+function (`supabase/migrations/20261002010000_audit_events_retention_sweep.sql`), rolls up
+`outcome IN ('pass', 'abstain')` rows older than the cutoff into `audit_events_daily_rollup`
+(`client_id`, `event_type`, `day`, `pass_count`, `abstain_count` — no `fail_count` column, since
+`fail` rows are never deleted and stay directly queryable from `audit_events` itself) and deletes
+exactly those rows in the same call; `fail`/`NULL` rows are never touched. Safe to re-run: the
+upsert accumulates onto an existing rollup row rather than overwriting it. `AuditService.run_retention_sweep()`
+wraps it; `POST /api/v1/admin/audit-events/sweep` (`X-Admin-Key`-gated, optional `cutoff_days`) is
+today's only way to invoke it.
+
+**What "a Supabase scheduled job" assumed, and doesn't have yet.** This project has no `pg_cron`
+extension enabled and no other scheduled-job mechanism anywhere in the codebase — no Railway cron,
+no app-level scheduler. The sweep above is real and tested, but nothing calls it automatically. Three
+live options, not decided here: enable `pg_cron` and schedule `SELECT sweep_audit_events_retention();`
+directly in Postgres; a Railway cron job hitting the admin endpoint; or an external scheduler (e.g. a
+GitHub Actions workflow) doing the same. Whichever is chosen, it is an infrastructure decision with
+its own failure-mode question (who notices if the scheduled call silently stops firing) and deserves
+its own look rather than inheriting a mechanism this note never actually verified existed.
+
+Infra C's own 2-year SOC 2 retention (`DEVELOPMENT_BACKLOG.md` §C1) is untouched by any of this — it
 governs the access/action family, which has no `pass`/`abstain` volume problem to begin with.
 
 Volume at pilot scale (a handful of clients, tens to ~100 KPIs each, roughly one assessment run a

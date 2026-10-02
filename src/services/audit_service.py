@@ -231,3 +231,40 @@ class AuditService:
                 # One malformed row must not drop the rest of the page.
                 logger.warning("AuditService.query: skipping unparseable row: %s", e)
         return events
+
+    @staticmethod
+    async def run_retention_sweep(cutoff_days: int = 90) -> Optional[Dict[str, int]]:
+        """Run the retention sweep (migration `20261002010000_audit_events_retention_sweep.sql`):
+        roll up and delete `pass`/`abstain` rows older than `cutoff_days`, leaving
+        `fail` and `NULL`-outcome rows untouched.
+
+        Manually triggered today via `POST /api/v1/admin/audit-events/sweep` --
+        there is no automatic schedule yet. No `pg_cron` extension is enabled
+        on this Supabase project and no other scheduled-job mechanism exists
+        anywhere in this codebase; wiring this to run unattended (`pg_cron`, a
+        Railway cron job, or an external scheduler hitting the admin endpoint)
+        is a deliberate infrastructure decision this method does not make.
+
+        Returns `{"rolled_up_groups": N, "rows_deleted": M}`, or `None` on no
+        pool or a failure -- never raises, same discipline as `log()`/`query()`.
+        Safe to call repeatedly: the underlying SQL function's upsert
+        accumulates rather than overwrites, so a retried or overlapping call
+        cannot lose or double-count a day already partly swept.
+        """
+        pool = AuditService._pool()
+        if pool is None:
+            logger.warning("AuditService.run_retention_sweep: no database pool available -- sweep skipped")
+            return None
+        try:
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM sweep_audit_events_retention($1)", cutoff_days,
+                )
+            if row is None:
+                return None
+            result = {"rolled_up_groups": row["rolled_up_groups"], "rows_deleted": row["rows_deleted"]}
+            logger.info("AuditService.run_retention_sweep: %s", result)
+            return result
+        except Exception as e:
+            logger.warning("AuditService.run_retention_sweep: sweep failed: %s", e)
+            return None

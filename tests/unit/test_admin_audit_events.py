@@ -128,3 +128,80 @@ def test_query_params_are_forwarded_to_audit_service(monkeypatch):
     assert kwargs["event_type"] == "reliability.slice_validity"
     assert kwargs["outcome"] == "fail"
     assert kwargs["limit"] == 50
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/admin/audit-events/sweep
+# ---------------------------------------------------------------------------
+
+def test_sweep_503_when_env_var_not_set(monkeypatch):
+    monkeypatch.delenv("ADMIN_API_KEY", raising=False)
+    client = TestClient(_app(), raise_server_exceptions=False)
+    resp = client.post("/api/v1/admin/audit-events/sweep", headers={"X-Admin-Key": "anything"})
+    assert resp.status_code == 503
+
+
+def test_sweep_403_when_wrong_key(monkeypatch):
+    monkeypatch.setenv("ADMIN_API_KEY", "secret123")
+    client = TestClient(_app(), raise_server_exceptions=False)
+    resp = client.post("/api/v1/admin/audit-events/sweep", headers={"X-Admin-Key": "wrong"})
+    assert resp.status_code == 403
+
+
+def test_sweep_200_with_correct_key_returns_counts(monkeypatch):
+    monkeypatch.setenv("ADMIN_API_KEY", "secret123")
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.run_retention_sweep",
+               new=AsyncMock(return_value={"rolled_up_groups": 3, "rows_deleted": 42})) as spy:
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.post("/api/v1/admin/audit-events/sweep", headers={"X-Admin-Key": "secret123"})
+
+    assert resp.status_code == 200
+    body = json.loads(resp.content)
+    assert body["status"] == "ok"
+    assert body["data"] == {"rolled_up_groups": 3, "rows_deleted": 42}
+    spy.assert_awaited_once_with(cutoff_days=90)
+
+
+def test_sweep_forwards_custom_cutoff_days(monkeypatch):
+    monkeypatch.setenv("ADMIN_API_KEY", "secret123")
+    spy = AsyncMock(return_value={"rolled_up_groups": 0, "rows_deleted": 0})
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.run_retention_sweep", new=spy):
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.post(
+            "/api/v1/admin/audit-events/sweep",
+            headers={"X-Admin-Key": "secret123"},
+            params={"cutoff_days": 30},
+        )
+
+    assert resp.status_code == 200
+    spy.assert_awaited_once_with(cutoff_days=30)
+
+
+def test_sweep_degraded_when_no_pool(monkeypatch):
+    monkeypatch.setenv("ADMIN_API_KEY", "secret123")
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=False), \
+         patch("src.api.routes.admin.AuditService.run_retention_sweep", new=AsyncMock()) as spy:
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.post("/api/v1/admin/audit-events/sweep", headers={"X-Admin-Key": "secret123"})
+
+    assert resp.status_code == 200
+    body = json.loads(resp.content)
+    assert body["status"] == "degraded"
+    spy.assert_not_called()
+
+
+def test_sweep_reports_error_status_when_sweep_returns_none(monkeypatch):
+    """run_retention_sweep() returning None means the pool was present but the
+    sweep itself failed (bad SQL, connection drop mid-call) -- distinct from
+    the no-pool 'degraded' case above."""
+    monkeypatch.setenv("ADMIN_API_KEY", "secret123")
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.run_retention_sweep", new=AsyncMock(return_value=None)):
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.post("/api/v1/admin/audit-events/sweep", headers={"X-Admin-Key": "secret123"})
+
+    assert resp.status_code == 200
+    body = json.loads(resp.content)
+    assert body["status"] == "error"
