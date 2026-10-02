@@ -64,6 +64,7 @@ from src.analysis.slice_validity import (
     extract_components,
     profile as _slice_validity_profile,
 )
+from src.services.audit_service import AuditService
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -1004,6 +1005,42 @@ class A9_Data_Governance_Agent:
                 )
         except Exception as exc:
             return _error(f"Slice-validity profiling failed: {exc}", components_used=components)
+
+        # Stage-wise reliability panel (2026-10-02 scope extension to
+        # docs/architecture/audit_event_system_design.md). Third pilot signal,
+        # after DA's [ROLLUP-CHECK] and SA's detection-confidence gate.
+        # This method is human-triggered (onboarding Day 6, Settings ->
+        # Maintenance), not a per-run hot path, so emitting on every verdict —
+        # including "ok" passes — is cheap here in a way it would not be on
+        # SA/DA's scheduled paths. verdict maps onto outcome by what it
+        # actually asserts, not by collapsing the four-way signal into a
+        # binary: "ok" is a clean pass; "INVALID" is a confirmed denial
+        # (fail — `_invalid_by_dim` below is built from exactly these);
+        # "degraded" is a real but non-denying grey zone, and "unknown" means
+        # there was nothing to assess at all (richest count was zero) — both
+        # of those are inconclusive, not a defect, so both map to abstain
+        # rather than to fail.
+        _VERDICT_OUTCOME = {"ok": "pass", "degraded": "abstain", "INVALID": "fail", "unknown": "abstain"}
+        for _check_type, _verdicts in (("completeness", completeness_verdicts), ("cross_component", cross_component_verdicts)):
+            for v in _verdicts:
+                await AuditService.log(
+                    client_id=client_id,
+                    event_type="reliability.slice_validity",
+                    severity="warning" if v.verdict == "INVALID" else "info",
+                    outcome=_VERDICT_OUTCOME.get(v.verdict, "abstain"),
+                    source_agent="A9_Data_Governance_Agent",
+                    resource_type="dimension",
+                    resource_id=f"{kpi_id}:{v.dimension}",
+                    payload={
+                        "check_type": _check_type, "coverage": v.coverage, "counts": v.counts, "verdict": v.verdict,
+                        # Mirrors NotSliceableByEntry's default below -- this call site has no
+                        # way to see a later source='declared' override, so this is always
+                        # 'pipeline_gap' here, never the differentiated classification a human
+                        # override would produce. Carried anyway so a reader of audit_events
+                        # doesn't have to re-join to the KPI record for the common case.
+                        **({"reason_class": "pipeline_gap"} if v.verdict == "INVALID" else {}),
+                    },
+                )
 
         completeness_results = [
             SliceValidityDimensionResult(dimension=v.dimension, counts=v.counts, coverage=v.coverage, verdict=v.verdict)

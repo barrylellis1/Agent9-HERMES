@@ -24,6 +24,7 @@ Not yet added to this table despite being a real, callable method (pre-existing 
 ## Dependencies
 - RegistryFactory + providers: KPI, Business Glossary, Data Product, Business Process
 - `data_product_agent` — `A9_Data_Product_Agent` reference, wired post-bootstrap by `runtime._wire_governance_dependencies()` (reverse direction from the DGA-into-DPA/DA/SA wiring below). Required only by `check_slice_validity`, for multi-backend SQL execution via `execute_sql()`.
+- `AuditService` (`src/services/audit_service.py`, 2026-10-02) — plain static service, not an agent, not registry-instantiated. `check_slice_validity` writes `reliability.slice_validity` events per dimension/check-type verdict. Never raises; a missing pool or failed write degrades silently, the check's own result is unaffected.
 
 ## Contract Path Resolution
 Uses `_contract_path()` method to resolve contract files:
@@ -176,6 +177,13 @@ On ambiguity (e.g., "Margin" could be gross_margin or net_margin), `human_action
 - Non-fatal throughout, matching this agent's established convention (`get_view_name_for_kpi` returns `"unknown"` rather than raising): DPA not wired, KPI not found or cross-tenant, no dimensions, unresolvable view, and write-back failure all return `status="error"` with a message, never an exception.
 - Tenant-safe by construction, not by assumption: passes `client_id` to `provider.get()` (falling back to a bare call only on `TypeError`, for the plain in-memory `KPIProvider`, which doesn't accept the kwarg) and enforces `client_id` STRICT MATCH itself regardless, so the check is safe whichever concrete provider class is live. **Not a theoretical concern** — found live 2026-08-15: two real clients (`lubricants`, `brookshire_brothers`) share the KPI id `gross_margin_pct`, and the original bare-lookup version returned the wrong tenant's record.
 - Regression coverage: `tests/unit/test_dga_slice_validity.py` (wiring, tenant isolation, persistence, the Tier-1-routing regression), `tests/unit/test_slice_validity_dialects.py` (one assertion per `source_system`), `tests/unit/test_slice_validity.py` (unchanged — `assess()`'s own logic, now imported from `src/analysis/slice_validity.py`).
+
+### Reliability panel signal (2026-10-02 — third pilot, after DA's `[ROLLUP-CHECK]` and SA's detection-confidence gate)
+`check_slice_validity()` now emits one `reliability.slice_validity` audit event (`AuditService`, `src/services/audit_service.py`) per `(dimension, check_type)` verdict, for both `completeness` and `cross_component`. Unlike the SA/DA signals, this one is cheap to emit on every verdict including clean passes — this method is **human-triggered** (onboarding Day 6, Settings → Maintenance → Slice Validity), never run on a schedule, so volume is bounded by how often a person opens that panel, not by assessment frequency.
+
+`DimensionVerdict.verdict` is four-valued (`"ok" | "degraded" | "INVALID" | "unknown"`), not binary, and the event's `outcome` maps each honestly rather than collapsing to pass/fail: `ok` → `pass`; `INVALID` → `fail` (the denial case — exactly what populates `not_sliceable_by`); `degraded` and `unknown` both → `abstain` — a grey-zone coverage ratio and "nothing to assess" are both inconclusive, neither is a confirmed defect, and treating them as `fail` would overstate what was found. The `fail` payload carries `reason_class` — currently always `"pipeline_gap"`, mirroring `NotSliceableByEntry`'s own default at this call site; a later `source="declared"` override (see above — not yet exposed in any UI) happens downstream of this event and is not reflected in it.
+
+Tests: `tests/unit/test_dga_slice_validity_reliability_events.py`.
 
 ## Slice validity — completeness check + auto-derived components (Aug 2026)
 - **The gap:** the original `check_slice_validity()` ran exactly one check — cross-component coverage — which structurally cannot apply to a single-component KPI (a plain `SUM(amount)` like `net_revenue`, 26 of 42 KPIs across the three seeded clients). A user pushed back on this directly: a single-component KPI can still be wrong when sliced — some rows might have no value for the dimension at all, silently dropping out of "revenue by customer" rather than corrupting one customer's number, and nothing checked for that at all.
