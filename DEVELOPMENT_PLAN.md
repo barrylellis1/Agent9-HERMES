@@ -120,7 +120,7 @@ tree is what makes `git status` unreadable on restart.
 | **11H** — DA seasonal decomposition | **PARTIAL** | effect size + outlier shipped; decomposition absent |
 | **13** — Cat 4 role-adaptive collapse depth | **PARTIAL** | Cat 3 built 2026-08-16; one UI item left |
 | **12B** — RACI accountability | **PARTIAL** | fields in `agent_config_models.py`, SA, `routes/registry.py`; **no migration** |
-| **Infra C** — SOC 2 controls | **PARTIAL** | `audit_event` in SF agent + `src/analysis/*`; no migration, no sign-in audit |
+| **Infra C** — SOC 2 controls | **PARTIAL** | `audit_event` in SF agent + `src/analysis/*`; no migration, no sign-in audit. Shares its sink with the **stage-wise reliability panel** (backlog → Audit event system): same table and write path, separate event family — C1 is an access/action trail for a CISO, the panel is analytical-correctness telemetry |
 
 ### Blocked on a prerequisite
 
