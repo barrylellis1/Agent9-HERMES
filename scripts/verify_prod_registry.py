@@ -172,6 +172,7 @@ _RLS_TABLES = [
     "business_contexts",
     "assumptions",
     "sf_pending_decisions",
+    "audit_events",
 ]
 
 

@@ -43,6 +43,7 @@ from src.agents.models.deep_analysis_models import (
 from src.agents.models.data_governance_models import KPIDataProductMappingRequest
 from src.agents.utils.data_quality_filter import DataQualityFilter, filter_anomalies
 from src.database.time_filter import TimeFilter
+from src.services.audit_service import AuditService
 
 
 logger = logging.getLogger(__name__)
@@ -2600,11 +2601,33 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 _sum_c = sum(_contribs)
                 # Members shown are top-N, so the sum is a subset of the whole and can
                 # only be checked for OVERSHOOT — exceeding the total it decomposes.
-                if abs(_sum_c) > abs(_tot.delta) * 1.15 + 0.01:
+                _overshoots = abs(_sum_c) > abs(_tot.delta) * 1.15 + 0.01
+                if _overshoots:
                     self.logger.warning(
                         f"[ROLLUP-CHECK] {_dim}: contributions sum to {_sum_c:.3f} but the "
                         f"warehouse total moved {_tot.delta:.3f} — decomposition overshoots "
                         f"the quantity it decomposes"
+                    )
+                # Stage-wise reliability panel (2026-10-02 scope extension to
+                # docs/architecture/audit_event_system_design.md). `fail` only —
+                # a clean rollup is the overwhelming common case and is not
+                # persisted per-run here; see that doc's retention design for why
+                # `pass` volume is handled by sampling/aggregation, not per-event
+                # writes, once this signal has a second call site to generalize from.
+                if _overshoots and getattr(plan, "client_id", None):
+                    await AuditService.log(
+                        client_id=plan.client_id,
+                        event_type="reliability.rollup_check",
+                        severity="warning",
+                        outcome="fail",
+                        source_agent="A9_Deep_Analysis_Agent",
+                        resource_type="kpi",
+                        resource_id=plan.kpi_name,
+                        payload={
+                            "dimension": _dim,
+                            "contributions_sum": _sum_c,
+                            "warehouse_delta": _tot.delta,
+                        },
                     )
 
             self.logger.info(

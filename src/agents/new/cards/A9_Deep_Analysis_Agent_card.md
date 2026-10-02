@@ -165,6 +165,9 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
 - `A9_Data_Product_Agent` (deterministic grouped/timeframe comparisons, joins `time_dim`)
 - `A9_Data_Governance_Agent` (glossary/KPI context)
 - `A9_LLM_Service_Agent` (optional narrative summarization via orchestrator)
+- `AuditService` (`src/services/audit_service.py`, 2026-10-02) — plain static service, not an
+  agent, not registry-instantiated. Writes the `reliability.rollup_check` fail event on ROLLUP-CHECK
+  overshoot. Never raises; a missing pool or failed write degrades to the existing log line only.
 
 ## LLM Configuration (Anthropic — via A9_LLM_Service_Agent)
 | Task Type | Model | Rationale |
@@ -457,6 +460,8 @@ A ratio's members cannot be added, and the total cannot be recovered from them a
 **`delta` now has one meaning, always: the segment's own change.** It previously carried a revenue-weighted contribution when a KPI declared ratio-bridge metadata and a raw change otherwise — one field, two meanings ~8x apart, selected by whether someone remembered two SQL strings. Because `change_points` feed Solution Finder, that let a config flag silently change what the MBB personas reasoned about. The weighted contribution moved to its own field, `ChangePoint.contribution_pp` (and `contribution_pp` on the where-entry), populated only where the bridge is configured. `None` means *not computed* — never zero, which would read as "contributed nothing".
 
 **The bridge is now a decomposition, not a fallback.** It answers a different question from ROLLUP ("how much of the move came from this segment") and is not a backup for it. Where both run they **cross-check**: the sum of weighted contributions should land on the warehouse total. `[ROLLUP-CHECK]` logs a warning when the decomposition *overshoots* the quantity it decomposes (only overshoot is checkable — members are top-N, so their sum is a subset). Logged, not raised: the total is authoritative and correct on its own, and a bad decomposition must not take down a good analysis.
+
+**ROLLUP-CHECK is now also an audit event (2026-10-02 — pilot signal for the stage-wise reliability panel, `docs/architecture/audit_event_system_design.md`).** On overshoot, in addition to the existing `logger.warning`, `execute_deep_analysis` calls `AuditService.log(event_type="reliability.rollup_check", severity="warning", outcome="fail", source_agent="A9_Deep_Analysis_Agent", resource_type="kpi", resource_id=plan.kpi_name, payload={dimension, contributions_sum, warehouse_delta})` (`src/services/audit_service.py`), guarded on `plan.client_id` being present. `AuditService.log` never raises — a failed audit write cannot take down the analysis, same discipline as the warning log it rides alongside. Only the `fail` case is persisted per-run here; a clean rollup is the common case and is deliberately not written yet — see the design note's retention section for why `pass` volume waits for a second signal to generalize the aggregation pattern from (`DEVELOPMENT_BACKLOG.md` → *Audit event system*, 2026-10-02 scope extension, names the remaining four: SA detection confidence, `check_tree_reconciles`, `check_slice_validity`, KPI coverage — none of those are wired yet).
 
 **Live verification (2026-08-09) found the first cut inert, and then a second bug.**
 
