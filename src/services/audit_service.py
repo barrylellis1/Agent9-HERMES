@@ -25,14 +25,18 @@ this codebase.
 """
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any, Dict, Literal, Optional
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
 
 import asyncpg
 
 from src.registry.models.audit_event import AuditEvent
 
 logger = logging.getLogger(__name__)
+
+_MAX_QUERY_LIMIT = 500  # hard ceiling regardless of what a caller asks for
 
 
 class AuditService:
@@ -90,7 +94,6 @@ class AuditService:
             return False
 
         try:
-            import json
             async with pool.acquire() as conn:
                 await conn.execute(
                     """
@@ -113,3 +116,100 @@ class AuditService:
                 event_type, client_id, e,
             )
             return False
+
+    @staticmethod
+    async def query(
+        client_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        severity: Optional[str] = None,
+        outcome: Optional[str] = None,
+        request_id: Optional[str] = None,
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
+        limit: int = 100,
+    ) -> List[AuditEvent]:
+        """Read back audit events for the admin diagnostics endpoint
+        (`GET /api/v1/admin/audit-events`, design note section 4 "Read path").
+
+        Every filter is optional and ANDed together; omitting all of them
+        returns the most recent events across every client -- appropriate
+        for an endpoint already gated by `X-Admin-Key`, not for a tenant-
+        facing surface (there is no `tenant_scope()` here deliberately: an
+        admin diagnostics read spans clients by design).
+
+        `limit` is clamped to `_MAX_QUERY_LIMIT` regardless of what is asked
+        for, so a careless caller cannot pull the whole table. Returns an
+        empty list on no pool or a query failure -- never raises, same
+        discipline as `log()` -- a broken diagnostics read must not take the
+        diagnostics endpoint down with a 500; it reports what it found
+        (nothing) and the caller sees the gap in the response, not a crash.
+        """
+        pool = AuditService._pool()
+        if pool is None:
+            logger.warning("AuditService.query: no database pool available -- returning empty result")
+            return []
+
+        conditions: List[str] = []
+        params: List[Any] = []
+
+        def _add(column: str, value: Any) -> None:
+            if value is None:
+                return
+            params.append(value)
+            conditions.append(f"{column} = ${len(params)}")
+
+        _add("client_id", client_id)
+        _add("event_type", event_type)
+        _add("severity", severity)
+        _add("outcome", outcome)
+        _add("request_id", request_id)
+        if since is not None:
+            params.append(since)
+            conditions.append(f"created_at >= ${len(params)}")
+        if until is not None:
+            params.append(until)
+            conditions.append(f"created_at <= ${len(params)}")
+
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        safe_limit = max(1, min(int(limit), _MAX_QUERY_LIMIT))
+        params.append(safe_limit)
+
+        sql = f"""
+            SELECT id, client_id, event_type, severity, outcome, source_agent,
+                   request_id, resource_type, resource_id, payload, created_at
+            FROM audit_events
+            {where_clause}
+            ORDER BY created_at DESC
+            LIMIT ${len(params)}
+        """
+
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(sql, *params)
+        except Exception as e:
+            logger.warning("AuditService.query: read failed, returning empty result: %s", e)
+            return []
+
+        events: List[AuditEvent] = []
+        for row in rows:
+            try:
+                payload = row["payload"]
+                if isinstance(payload, str):
+                    payload = json.loads(payload)
+                events.append(AuditEvent(
+                    id=str(row["id"]),
+                    client_id=row["client_id"],
+                    event_type=row["event_type"],
+                    severity=row["severity"],
+                    outcome=row["outcome"],
+                    source_agent=row["source_agent"],
+                    request_id=row["request_id"],
+                    resource_type=row["resource_type"],
+                    resource_id=row["resource_id"],
+                    payload=payload or {},
+                    created_at=row["created_at"].isoformat() if row["created_at"] else None,
+                ))
+            except Exception as e:
+                # One malformed row must not drop the rest of the page.
+                logger.warning("AuditService.query: skipping unparseable row: %s", e)
+        return events

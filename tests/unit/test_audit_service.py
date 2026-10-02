@@ -9,13 +9,14 @@ without asserting anything about a real database.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
 
 from src.registry.models.audit_event import AuditEvent
-from src.services.audit_service import AuditService
+from src.services.audit_service import AuditService, _MAX_QUERY_LIMIT
 
 
 class _FakeAcquireCtx:
@@ -125,3 +126,107 @@ async def test_log_never_raises_when_write_fails(monkeypatch):
         source_agent="A9_Deep_Analysis_Agent",
     )
     assert ok is False
+
+
+# ---------------------------------------------------------------------------
+# query() -- the read path behind GET /api/v1/admin/audit-events
+# ---------------------------------------------------------------------------
+
+def _fake_row(**overrides) -> dict:
+    row = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "client_id": "lubricants",
+        "event_type": "reliability.rollup_check",
+        "severity": "warning",
+        "outcome": "fail",
+        "source_agent": "A9_Deep_Analysis_Agent",
+        "request_id": None,
+        "resource_type": "kpi",
+        "resource_id": "gross_margin_pct",
+        "payload": json.dumps({"dimension": "customer_name"}),
+        "created_at": datetime(2026, 10, 2, 12, 0, 0, tzinfo=timezone.utc),
+    }
+    row.update(overrides)
+    return row
+
+
+@pytest.mark.asyncio
+async def test_query_returns_empty_list_without_raising_when_pool_unavailable(monkeypatch):
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: None))
+    events = await AuditService.query(client_id="lubricants")
+    assert events == []
+
+
+@pytest.mark.asyncio
+async def test_query_with_no_filters_returns_most_recent_across_all_clients(monkeypatch):
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=[_fake_row()])
+    pool = _FakePool(conn)
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: pool))
+
+    events = await AuditService.query()
+
+    assert len(events) == 1
+    assert events[0].client_id == "lubricants"
+    assert events[0].outcome == "fail"
+    assert events[0].payload == {"dimension": "customer_name"}
+    sql, params = conn.fetch.call_args[0][0], conn.fetch.call_args[0][1:]
+    assert "WHERE" not in sql  # no filters supplied -> no WHERE clause at all
+    assert params == (100,)  # just the default limit
+
+
+@pytest.mark.asyncio
+async def test_query_filters_are_anded_and_parameterized(monkeypatch):
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=[])
+    pool = _FakePool(conn)
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: pool))
+
+    await AuditService.query(client_id="lubricants", event_type="reliability.rollup_check", outcome="fail")
+
+    sql, params = conn.fetch.call_args[0][0], conn.fetch.call_args[0][1:]
+    assert "client_id = $1" in sql
+    assert "event_type = $2" in sql
+    assert "outcome = $3" in sql
+    assert " AND " in sql
+    assert params == ("lubricants", "reliability.rollup_check", "fail", 100)
+
+
+@pytest.mark.asyncio
+async def test_query_limit_is_clamped_to_the_ceiling(monkeypatch):
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=[])
+    pool = _FakePool(conn)
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: pool))
+
+    await AuditService.query(limit=999999)
+
+    params = conn.fetch.call_args[0][1:]
+    assert params[-1] == _MAX_QUERY_LIMIT  # never the raw 999999 asked for
+
+
+@pytest.mark.asyncio
+async def test_query_returns_empty_list_without_raising_when_read_fails(monkeypatch):
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(side_effect=RuntimeError("connection reset"))
+    pool = _FakePool(conn)
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: pool))
+
+    events = await AuditService.query(client_id="lubricants")
+    assert events == []
+
+
+@pytest.mark.asyncio
+async def test_query_skips_one_unparseable_row_without_dropping_the_rest(monkeypatch):
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=[
+        _fake_row(severity="not-a-valid-severity"),  # fails AuditEvent validation
+        _fake_row(resource_id="net_revenue"),  # valid
+    ])
+    pool = _FakePool(conn)
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: pool))
+
+    events = await AuditService.query()
+
+    assert len(events) == 1
+    assert events[0].resource_id == "net_revenue"

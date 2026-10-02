@@ -145,11 +145,21 @@ response. The response field stays (it has in-process consumers) but stops being
 Pilot scope: `A9_Solution_Finder_Agent` (six event types already emitted, plus
 `heuristic_stub_fallback`), then a generic uncaught-exception sink at the FastAPI layer.
 
-### Read path
+### Read path — 🏁 BUILT (2026-10-02)
 
-`GET /api/v1/admin/audit-events` with filters on `client_id`, `event_type`, `severity`, `request_id`
-and a time window. Reuse `admin.py`'s existing `X-Admin-Key` gate (`src/api/routes/admin.py:16-32`)
-rather than inventing a second admin auth mechanism.
+`GET /api/v1/admin/audit-events` (`src/api/routes/admin.py`), gated by the existing `X-Admin-Key`
+dependency (`_require_admin_key`, `src/api/routes/admin.py:16-32`) — no second admin auth mechanism
+invented. Filters on `client_id`, `event_type`, `severity`, `outcome`, `request_id`, and a `since`/
+`until` time window, all optional and ANDed; `limit` clamped server-side to 500 regardless of what is
+asked for. Spans every client by design — this is an admin diagnostics surface, not a tenant-facing
+one, so there is deliberately no `tenant_scope()` on the read. The write path's own discipline
+extends here: `AuditService.query()` never raises, returning an empty list on no pool or a query
+failure rather than a 500 — a degraded diagnostics endpoint is not itself an incident worth paging
+on, and an empty page with `status="ok"` says exactly that.
+
+Tests: `tests/unit/test_audit_service.py` (filter/parameter wiring, limit clamping, one malformed row
+not dropping the rest of the page), `tests/unit/test_admin_audit_events.py` (the auth gate, params
+forwarded correctly, empty result is 200 not an error).
 
 ### UI
 

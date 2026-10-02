@@ -1,10 +1,12 @@
 import logging
 import os
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from src.api.runtime import AgentRuntime, get_agent_runtime
+from src.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -153,3 +155,39 @@ async def test_slice_validity(
         result.get("status"), result.get("not_sliceable_by"),
     )
     return {"status": result["status"], "data": result}
+
+
+@router.get(
+    "/audit-events",
+    summary="Read back the stage-wise reliability panel's raw events",
+    description=(
+        "docs/architecture/audit_event_system_design.md, section 4 'Read path'. "
+        "Reads from audit_events across all three event families sharing that "
+        "table (SF's narrative/debug pilot, Infra C's SOC 2 access/action trail, "
+        "and the stage-wise reliability panel -- distinguished by event_type "
+        "prefix, never by schema). Every filter is optional and ANDed; omitting "
+        "all of them returns the most recent events across every client, which "
+        "is why this spans tenants and requires X-Admin-Key rather than being "
+        "a tenant-facing endpoint. limit is clamped server-side regardless of "
+        "what is asked for. Returns an empty list (never a 500) when the "
+        "database pool is unavailable or the query itself fails -- the "
+        "diagnostics endpoint degrading is not an incident worth paging on; "
+        "an empty page with status='ok' says exactly that."
+    ),
+)
+async def get_audit_events(
+    _: None = Depends(_require_admin_key),
+    client_id: Optional[str] = Query(None, description="Filter to one client/tenant"),
+    event_type: Optional[str] = Query(None, description="Exact event_type match, e.g. 'reliability.rollup_check'"),
+    severity: Optional[str] = Query(None, description="'info' | 'warning' | 'error'"),
+    outcome: Optional[str] = Query(None, description="'pass' | 'fail' | 'abstain'"),
+    request_id: Optional[str] = Query(None, description="Correlate to one workflow run"),
+    since: Optional[datetime] = Query(None, description="ISO timestamp — only events at or after this"),
+    until: Optional[datetime] = Query(None, description="ISO timestamp — only events at or before this"),
+    limit: int = Query(100, description="Max rows to return; clamped server-side"),
+):
+    events = await AuditService.query(
+        client_id=client_id, event_type=event_type, severity=severity, outcome=outcome,
+        request_id=request_id, since=since, until=until, limit=limit,
+    )
+    return {"status": "ok", "data": {"events": [e.model_dump() for e in events], "count": len(events)}}
