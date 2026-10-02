@@ -271,6 +271,63 @@ def verify_rls(dsn: str, probe_client_id: str) -> List[str]:
         return [f"RLS: verification failed to run: {e}"]
 
 
+# audit_events_retention_sweep's scheduled job, as registered by
+# supabase/migrations/20261002020000_schedule_audit_events_sweep.sql.
+_EXPECTED_CRON_JOB = "audit-events-retention-sweep"
+_EXPECTED_CRON_SCHEDULE = "0 3 * * 0"
+
+
+def verify_scheduled_jobs(dsn: str) -> List[str]:
+    """Confirm the audit_events retention sweep's pg_cron job actually exists
+    and is active, not just that its migration was written.
+
+    A migration creating the job is not the same fact as the job existing in
+    `cron.job` -- pg_cron might not be enabled (the `CREATE EXTENSION`
+    silently requires privileges this role may not have on some managed
+    Postgres tiers), or a later manual change could have unscheduled or
+    disabled it. Same discipline as `verify_rls` above: the thing that
+    matters is verified live, not assumed from the migration file.
+    """
+    issues: List[str] = []
+
+    async def _run() -> List[str]:
+        from urllib.parse import urlparse
+        host = (urlparse(dsn).hostname or "").lower()
+        ssl_setting = False if host in ("localhost", "127.0.0.1", "::1") else "require"
+        conn = await asyncpg.connect(dsn, statement_cache_size=0, timeout=15, ssl=ssl_setting)
+        try:
+            ext = await conn.fetchrow("SELECT 1 FROM pg_extension WHERE extname = 'pg_cron'")
+            if ext is None:
+                return [
+                    "Scheduled jobs: extension 'pg_cron' is not installed — migration "
+                    "20261002020000_schedule_audit_events_sweep.sql has not been applied "
+                    "(run: supabase db push --linked)"
+                ]
+            job = await conn.fetchrow(
+                "SELECT schedule, active FROM cron.job WHERE jobname = $1", _EXPECTED_CRON_JOB,
+            )
+            if job is None:
+                issues.append(
+                    f"Scheduled jobs: '{_EXPECTED_CRON_JOB}' is not registered in cron.job"
+                )
+            else:
+                if not job["active"]:
+                    issues.append(f"Scheduled jobs: '{_EXPECTED_CRON_JOB}' exists but is not active")
+                if job["schedule"] != _EXPECTED_CRON_SCHEDULE:
+                    issues.append(
+                        f"Scheduled jobs: '{_EXPECTED_CRON_JOB}' schedule is "
+                        f"'{job['schedule']}', expected '{_EXPECTED_CRON_SCHEDULE}'"
+                    )
+        finally:
+            await conn.close()
+        return issues
+
+    try:
+        return asyncio.run(_run())
+    except Exception as e:
+        return [f"Scheduled jobs: verification failed to run: {e}"]
+
+
 # ---------------------------------------------------------------------------
 # Per-client verification
 # ---------------------------------------------------------------------------
@@ -380,6 +437,19 @@ Examples:
             print("  OK  — a9_tenant_scope role, policies, and fail-closed probes verified")
     else:
         print(f"  SKIPPED — set SUPABASE_DB_URL in {env_file} to verify RLS")
+    print()
+
+    print("Checking: scheduled jobs (audit_events retention sweep)")
+    if dsn:
+        cron_issues = verify_scheduled_jobs(dsn)
+        if cron_issues:
+            all_clean = False
+            for issue in cron_issues:
+                print(f"  MISMATCH  {issue}")
+        else:
+            print(f"  OK  — '{_EXPECTED_CRON_JOB}' registered, active, schedule matches")
+    else:
+        print(f"  SKIPPED — set SUPABASE_DB_URL in {env_file} to verify scheduled jobs")
     print()
 
     with httpx.Client(timeout=30) as http:

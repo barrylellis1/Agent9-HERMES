@@ -136,14 +136,22 @@ upsert accumulates onto an existing rollup row rather than overwriting it. `Audi
 wraps it; `POST /api/v1/admin/audit-events/sweep` (`X-Admin-Key`-gated, optional `cutoff_days`) is
 today's only way to invoke it.
 
-**What "a Supabase scheduled job" assumed, and doesn't have yet.** This project has no `pg_cron`
-extension enabled and no other scheduled-job mechanism anywhere in the codebase — no Railway cron,
-no app-level scheduler. The sweep above is real and tested, but nothing calls it automatically. Three
-live options, not decided here: enable `pg_cron` and schedule `SELECT sweep_audit_events_retention();`
-directly in Postgres; a Railway cron job hitting the admin endpoint; or an external scheduler (e.g. a
-GitHub Actions workflow) doing the same. Whichever is chosen, it is an infrastructure decision with
-its own failure-mode question (who notices if the scheduled call silently stops firing) and deserves
-its own look rather than inheriting a mechanism this note never actually verified existed.
+**What "a Supabase scheduled job" assumed, and now has — 🏁 RESOLVED (2026-10-02).** This project
+had no `pg_cron` extension enabled and no other scheduled-job mechanism anywhere in the codebase — no
+Railway cron, no app-level scheduler — a gap the original phrasing here assumed away without
+verifying. Resolved by enabling `pg_cron`
+(`supabase/migrations/20261002020000_schedule_audit_events_sweep.sql`) and scheduling
+`SELECT sweep_audit_events_retention();` directly in Postgres, weekly (Sunday 03:00 UTC), over the two
+alternatives considered (a Railway cron job or an external scheduler, both hitting the admin
+endpoint) — running inside Postgres needs no admin-key exposure to an automated caller and no
+dependency on the app server being up. The manual trigger (`POST /api/v1/admin/audit-events/sweep`)
+stays available for an ad hoc run or a non-default `cutoff_days`.
+
+**Verified, not merely migrated:** `scripts/verify_prod_registry.py`'s `verify_scheduled_jobs()`
+checks `cron.job` directly — the job exists, is active, and its schedule matches — rather than
+trusting that the migration having been written means the job is actually running. Same discipline
+as that script's existing `verify_rls()`. A migration that creates a scheduled job is not the same
+fact as the job existing and firing.
 
 Infra C's own 2-year SOC 2 retention (`DEVELOPMENT_BACKLOG.md` §C1) is untouched by any of this — it
 governs the access/action family, which has no `pass`/`abstain` volume problem to begin with.
