@@ -58,6 +58,67 @@ run_enterprise_assessment.py
 
 ---
 
+## Urgent bug fixes
+
+**Flagged 2026-10-02, found live while testing locally — not yet scoped into a phase number.**
+Separate from "Live defects" below: those are UI/UX papercuts, this is a correctness/security bug.
+Surface it here rather than burying it in the backlog's per-phase detail until it has an owner.
+
+### 🔴 Per-client credentials don't persist past onboarding — every backend shares ONE global connection
+
+**Severity: multi-tenant correctness bug, not a missing feature.** Verified by tracing the actual
+code, not inferred from behavior.
+
+**What the UI implies.** The Data Product Onboarding wizard's Connection Details step has a
+per-data-product "Service Account JSON Path (Optional)" field for BigQuery (equivalent fields exist
+for other backends) — reads as "this is how you connect *this* client's warehouse."
+
+**What actually happens.**
+- The typed value is read in exactly two places, both one-time onboarding actions: schema Discovery
+  (`_resolve_inspection_settings`, `src/agents/new/a9_data_product_agent.py:1100`) and KPI query
+  validation (`_build_connection_config_for_source`, `:5736`).
+- `register_data_product`'s final `DataProduct(...)` construction (`:854-873`) carries no credential
+  field at all — `client_id`, `source_system`, `tables`, `views`, `time_dimensions`, `metadata`,
+  nothing else. Whatever was typed into that box is discarded the moment onboarding completes.
+- Every live query thereafter — every KPI assessment, every DA run, every dashboard refresh — goes
+  through a connection method that takes **no client_id or data_product_id**: `_ensure_bq_connected()`
+  (`:4055`) is one cached `self._bq_manager` for the entire server process, built once from `.env`'s
+  single global `GOOGLE_APPLICATION_CREDENTIALS`.
+- **Not BigQuery-specific.** `_ensure_snowflake_connected(data_product_id=None)` (`:4131`) has the
+  identical shape — it even *accepts* `data_product_id` and its own docstring claims "metadata
+  embedded in the data product registry record" is priority #1 for resolving connection config — but
+  `data_product_id` is referenced nowhere in the function body (confirmed by grep over the full
+  method). Same `self._sf_manager` single-cached-connection pattern as BigQuery. The docstring
+  describes a design that was never implemented.
+
+**Consequence.** Onboard a second real client with their own GCP project or Snowflake account, and
+the product never actually queries *their* warehouse in production. Every live query continues
+against whichever single credential happens to be configured in the server's environment — fails
+outright if that credential lacks access to the new tenant's data, or worse, silently resolves
+against the wrong tenant's data if a database/dataset name collides. This is the infrastructure-layer
+version of the exact failure class CLAUDE.md's Multi-Tenant Client Isolation section exists to
+prevent for data rows — except here it's the connection itself, not a missing `WHERE client_id = …`.
+
+**Distinct from the already-tracked Infra B "Connection Profiles in browser localStorage" item**
+(`docs/DEVELOPMENT_BACKLOG.md` §Infra B, `🔴 SECURITY`) — that item concerns a *different* UI flow
+(the standalone Connection Profiles feature) that at least persists something client-side. This
+onboarding-wizard field doesn't persist anywhere at all, client-side or server-side. The two are
+related (both are "credentials have no durable per-tenant home") and likely converge on the same
+fix, but are not the same bug and neither supersedes the other in the backlog.
+
+**Also found in the same investigation, fixed in this commit:** `docs/DEVELOPMENT_BACKLOG.md:101`
+marked "Connection Profiles backend storage + credential encryption" as "✅ Infra B — complete" —
+false, contradicted by that same file's own dedicated section (`:3125`) describing it as not started.
+
+**Not yet scoped — needs a design pass before estimating effort.** At minimum: a credential-reference
+field on `DataProduct` (or wiring through the existing, currently-unused `ConnectionProfile` /
+`connection_profiles` mechanism — `get_active_profile` is already imported in DPA and never called);
+`register_data_product` persisting it; and every backend's `_ensure_*_connected()` resolving
+per-data-product instead of per-process. Likely couples to the Infra B Connection Profiles backend
+work already in the backlog rather than being a fully separate build.
+
+---
+
 ## The three things to decide first
 
 Pick these before writing code. Each is a fork, not a task.

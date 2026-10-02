@@ -98,7 +98,7 @@ run_enterprise_assessment.py
 | Usage monitoring (events, quotas, alerts) | Infra A3 |
 | Admin Console — Workflow history, error log, token cost, registry editor, LLM config | Infra A5 — the **error log / token cost** portions are now designed in `docs/architecture/audit_event_system_design.md`; do not redesign separately |
 | ~~Registry client-isolation enforcement~~ | ✅ Infra A4 — complete (per-request refresh, strict client_id filter, reload endpoint, health dashboard) |
-| ~~Connection Profiles backend storage + credential encryption~~ | ✅ Infra B — complete |
+| **Connection Profiles backend storage + credential encryption** | **NOT complete — correction 2026-10-02.** This line previously read "✅ Infra B — complete," contradicted by this file's own dedicated section (§Infra B, below, 🔴 SECURITY) describing it as not started: no Supabase table, no `client_id` scoping, no encryption, credentials in browser localStorage for the standalone Connection Profiles UI flow. Separately and more severely, the Data Product Onboarding wizard's per-data-product credential field (a different flow) doesn't persist *anywhere* past onboarding — see `DEVELOPMENT_PLAN.md` → *Urgent bug fixes* |
 | ~~Authentication (Supabase Auth)~~ | ✅ Infra B — complete (dual-mode login + JWT middleware) |
 | Azure OpenAI provider + LLM audit export | Infra B2 |
 | ~~Database-level multi-tenant isolation~~ | ✅ Infra B3 — complete and verified live in production (RLS via `a9_tenant_scope` role on 12 tables, `tenant_scope()` transaction helper, provider `get_by_client()`, DGA gate in DPA `execute_sql`, composite-delete fix) |
