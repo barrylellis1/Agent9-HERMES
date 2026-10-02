@@ -170,9 +170,13 @@ async def test_slice_validity(
         "is why this spans tenants and requires X-Admin-Key rather than being "
         "a tenant-facing endpoint. limit is clamped server-side regardless of "
         "what is asked for. Returns an empty list (never a 500) when the "
-        "database pool is unavailable or the query itself fails -- the "
-        "diagnostics endpoint degrading is not an incident worth paging on; "
-        "an empty page with status='ok' says exactly that."
+        "query itself fails. status='degraded' (code-review finding, "
+        "2026-10-02) specifically means no database pool was available at "
+        "all -- distinct from status='ok' with an empty list, which means "
+        "the pool answered and genuinely found nothing matching the filters. "
+        "Collapsing those two into the same 'ok' would make the whole "
+        "reliability panel silently going dark read identically to a clean "
+        "bill of health."
     ),
 )
 async def get_audit_events(
@@ -186,6 +190,11 @@ async def get_audit_events(
     until: Optional[datetime] = Query(None, description="ISO timestamp — only events at or before this"),
     limit: int = Query(100, description="Max rows to return; clamped server-side"),
 ):
+    if not AuditService.pool_available():
+        return {
+            "status": "degraded",
+            "data": {"events": [], "count": 0, "detail": "No database pool available — the reliability panel is not writing anywhere right now."},
+        }
     events = await AuditService.query(
         client_id=client_id, event_type=event_type, severity=severity, outcome=outcome,
         request_id=request_id, since=since, until=until, limit=limit,

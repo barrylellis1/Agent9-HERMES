@@ -52,7 +52,7 @@ class SituationAwarenessAgentConfig(BaseModel):
 ## Protocol Entrypoints
 | Method | Description | Request Model | Response Model |
 |--------|-------------|---------------|----------------|
-| `detect_situations` | Detect situations across KPIs. In assessment mode, processes a single KPI using its MonitoringProfile (comparison_period, volatility_band, min_breach_duration, confidence_floor). Returns `escalate_to_da: bool` for assessment engine routing. | `SituationDetectionRequest` | `SituationDetectionResponse` |
+| `detect_situations` | Detect situations across KPIs for a principal context. Does **not** itself read MonitoringProfile fields or take an assessment-mode parameter — see the "Card correction" note under Phase 9A below for where that logic actually lives and why this row previously said otherwise. | `SituationDetectionRequest` | `SituationDetectionResponse` |
 | `process_nl_query` | Process natural language queries about KPIs | `NLQueryRequest` | `NLQueryResponse` |
 | `process_hitl_feedback` | Handle human-in-the-loop feedback for situations | `HITLRequest` | `HITLResponse` |
 | `get_recommended_questions` | Get recommended questions based on principal context | N/A | `List[str]` |
@@ -278,7 +278,7 @@ registry record it was handed (not from a `detect_situations` parameter) and, af
 - `volatility_band` — read but not yet used to filter noise in the current implementation
 - `confidence_floor` — gate on SA's returned `confidence`; below floor → `KPIAssessmentStatus.MONITORING`
 
-`comparison_period` and `min_breach_duration` are `MonitoringProfile` registry fields (`src/registry/models/kpi.py`) not yet read by this method — Phase 9B scope, not Phase 9A as previously stated here.
+**Correction (code-review, 2026-10-02): `comparison_period` IS read** — `_timeframe_for_kpi()` (`run_enterprise_assessment.py:226-233`) reads `monitoring_profile.comparison_period` and maps it to a `TimeFrame` via `_COMPARISON_PERIOD_TO_TIMEFRAME`; `_assess_kpi` calls it at line 340. Only `min_breach_duration` (`MonitoringProfile`, `src/registry/models/kpi.py`) is genuinely unread today — Phase 9B scope. The line above was wrong when first written in this same correction pass; verified by grep, not assumed.
 
 ### Assessment Engine Integration (actually: `run_enterprise_assessment.py`)
 `EnterpriseAssessmentEngine.run()` processes one KPI per `_assess_kpi` call. `KPIAssessment`

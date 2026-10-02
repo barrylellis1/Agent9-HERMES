@@ -186,10 +186,12 @@ different questions and merging them would make both harder to scan.
 
 ## 6. Open questions
 
-1. ~~**Retention policy.**~~ **Resolved 2026-10-02** — tiered by `outcome`, not by severity or
-   family: see §4. `pass` rows live 90 days then roll into a permanent aggregate; `fail`/`abstain`
-   rows get Infra C1's 2-year SOC 2 horizon with no scheduled deletion, since they are both rare and
-   the candidate raw material for VA/theory-layer evidence.
+1. ~~**Retention policy.**~~ **Resolved 2026-10-02, revised same day — see §4, which is the current
+   version.** `pass` AND `abstain` rows live 90 days then roll into a permanent aggregate; only
+   `fail` rows get Infra C1's 2-year SOC 2 horizon with no scheduled deletion. (This item originally
+   grouped `fail`/`abstain` together as both rare; wiring SA's confidence-floor signal the same day
+   falsified that for `abstain`, which §4 now explains. If this summary and §4 ever disagree again,
+   §4 is authoritative — it is the one with the worked example.)
 2. ~~**Does this replace or feed Sentry?**~~ **Resolved 2026-10-02** — complementary, not
    overlapping. Sentry answers "what crashed" (infrastructure failure: an exception, a 500) on
    inputs that are otherwise structurally fine. This table answers "what did the agent conclude"

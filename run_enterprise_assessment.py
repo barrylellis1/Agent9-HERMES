@@ -322,6 +322,15 @@ class EnterpriseAssessmentEngine:
         """Run SA detection for one KPI. Returns KPIAssessment with escalate_to_da set."""
         kpi_id = getattr(kpi, "id", str(kpi))
         kpi_name = getattr(kpi, "name", kpi_id)
+        # code-review (2026-10-02): `x or y` does not fall through on an empty
+        # string, only on None/falsy -- if self.config.client_id were ever ""
+        # (reachable via ?client_id= on the assessments route, Optional[str]
+        # with no non-empty validation) this would write an audit row with an
+        # unscoped client_id instead of skipping, unlike the `if client_id:`
+        # guards DA and SA use for the same signal elsewhere in this same
+        # change. Resolved once here, explicitly normalized to None, and
+        # every call site below checks it before writing.
+        _event_client_id = getattr(kpi, "client_id", None) or self.config.client_id or None
 
         # Retrieve per-KPI calibration overrides when available.
         monitoring_profile = getattr(kpi, "monitoring_profile", None)
@@ -439,16 +448,17 @@ class EnterpriseAssessmentEngine:
                 # borderline KPI, which is exactly why the design note's retention
                 # tier for 'abstain' was revised the same day this was wired (see
                 # that note's retention table).
-                await AuditService.log(
-                    client_id=getattr(kpi, "client_id", None) or self.config.client_id,
-                    event_type="reliability.detection_confidence",
-                    severity="info",
-                    outcome="abstain",
-                    source_agent="EnterpriseAssessmentEngine",
-                    resource_type="kpi",
-                    resource_id=kpi_id,
-                    payload={"confidence": confidence, "confidence_floor": confidence_floor, "severity_score": severity_score},
-                )
+                if _event_client_id:
+                    await AuditService.log(
+                        client_id=_event_client_id,
+                        event_type="reliability.detection_confidence",
+                        severity="info",
+                        outcome="abstain",
+                        source_agent="EnterpriseAssessmentEngine",
+                        resource_type="kpi",
+                        resource_id=kpi_id,
+                        payload={"confidence": confidence, "confidence_floor": confidence_floor, "severity_score": severity_score},
+                    )
                 return KPIAssessment(
                     id=str(uuid.uuid4()),
                     run_id=run_id,
@@ -460,16 +470,17 @@ class EnterpriseAssessmentEngine:
                     escalated_to_da=False,
                 )
 
-            await AuditService.log(
-                client_id=getattr(kpi, "client_id", None) or self.config.client_id,
-                event_type="reliability.detection_confidence",
-                severity="info",
-                outcome="pass",
-                source_agent="EnterpriseAssessmentEngine",
-                resource_type="kpi",
-                resource_id=kpi_id,
-                payload={"confidence": confidence, "confidence_floor": confidence_floor, "severity_score": severity_score},
-            )
+            if _event_client_id:
+                await AuditService.log(
+                    client_id=_event_client_id,
+                    event_type="reliability.detection_confidence",
+                    severity="info",
+                    outcome="pass",
+                    source_agent="EnterpriseAssessmentEngine",
+                    resource_type="kpi",
+                    resource_id=kpi_id,
+                    payload={"confidence": confidence, "confidence_floor": confidence_floor, "severity_score": severity_score},
+                )
             return KPIAssessment(
                 id=str(uuid.uuid4()),
                 run_id=run_id,
@@ -489,16 +500,17 @@ class EnterpriseAssessmentEngine:
             # not that the signal was merely inconclusive. Rare by construction
             # (unlike the confidence-floor abstain above), so it keeps the
             # long-retention tier.
-            await AuditService.log(
-                client_id=getattr(kpi, "client_id", None) or self.config.client_id,
-                event_type="reliability.detection_confidence",
-                severity="error",
-                outcome="fail",
-                source_agent="EnterpriseAssessmentEngine",
-                resource_type="kpi",
-                resource_id=kpi_id,
-                payload={"error": str(e)},
-            )
+            if _event_client_id:
+                await AuditService.log(
+                    client_id=_event_client_id,
+                    event_type="reliability.detection_confidence",
+                    severity="error",
+                    outcome="fail",
+                    source_agent="EnterpriseAssessmentEngine",
+                    resource_type="kpi",
+                    resource_id=kpi_id,
+                    payload={"error": str(e)},
+                )
             return KPIAssessment(
                 id=str(uuid.uuid4()),
                 run_id=run_id,

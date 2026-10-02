@@ -468,9 +468,14 @@ class A9_Situation_Awareness_Agent:
             # unclassified KPI no longer silently drops, which is why a real
             # total-mismatch today is rare enough to be worth flagging loudly
             # rather than suppressed on an unproven prior that it's normal.
-            # registered == 0 (nothing registered for this client yet)
-            # abstains rather than failing -- that can be a legitimate,
-            # brand-new client, not a defect.
+            # registered == 0 (nothing registered for this client yet) emits
+            # no event at all -- not an `abstain` row -- because a brand-new
+            # client with an empty registry is not itself a fact worth a
+            # reliability record; _kpi_coverage_outcome() returns None for
+            # this case specifically so the `if _outcome:` below skips the
+            # write (code-review, 2026-10-02: an earlier draft of this
+            # comment said "abstains", which would wrongly imply a row
+            # exists for this case when audit_events has none).
             _outcome = (
                 _kpi_coverage_outcome(_coverage.get("registered", 0), _coverage.get("evaluated", 0))
                 if client_id else None

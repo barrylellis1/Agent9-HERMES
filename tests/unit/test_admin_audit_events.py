@@ -62,7 +62,8 @@ def test_403_when_no_key_header(monkeypatch):
 
 def test_200_with_correct_key_returns_events(monkeypatch):
     monkeypatch.setenv("ADMIN_API_KEY", "secret123")
-    with patch("src.api.routes.admin.AuditService.query", new=AsyncMock(return_value=[_event()])):
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.query", new=AsyncMock(return_value=[_event()])):
         client = TestClient(_app(), raise_server_exceptions=False)
         resp = client.get("/api/v1/admin/audit-events", headers={"X-Admin-Key": "secret123"})
 
@@ -73,12 +74,14 @@ def test_200_with_correct_key_returns_events(monkeypatch):
     assert body["data"]["events"][0]["event_type"] == "reliability.rollup_check"
 
 
-def test_empty_result_is_200_not_an_error(monkeypatch):
-    """The diagnostics endpoint degrading (no pool, nothing found) is not an
-    incident -- an empty page with status='ok' says exactly that, per
-    AuditService.query's own contract of never raising."""
+def test_empty_result_with_pool_available_is_ok_not_degraded(monkeypatch):
+    """The pool answered and genuinely found nothing matching the filters --
+    distinct from no pool at all (see the dedicated 'degraded' test below).
+    Collapsing the two would make the panel silently going dark read
+    identically to a clean bill of health (code-review finding, 2026-10-02)."""
     monkeypatch.setenv("ADMIN_API_KEY", "secret123")
-    with patch("src.api.routes.admin.AuditService.query", new=AsyncMock(return_value=[])):
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.query", new=AsyncMock(return_value=[])):
         client = TestClient(_app(), raise_server_exceptions=False)
         resp = client.get("/api/v1/admin/audit-events", headers={"X-Admin-Key": "secret123"})
 
@@ -89,10 +92,28 @@ def test_empty_result_is_200_not_an_error(monkeypatch):
     assert body["data"]["events"] == []
 
 
+def test_no_pool_is_degraded_not_ok(monkeypatch):
+    """No database pool at all -- must read as 'degraded', never as 'ok' with
+    an empty list, which would be indistinguishable from every reliability
+    check having passed."""
+    monkeypatch.setenv("ADMIN_API_KEY", "secret123")
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=False), \
+         patch("src.api.routes.admin.AuditService.query", new=AsyncMock(return_value=[])) as spy:
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.get("/api/v1/admin/audit-events", headers={"X-Admin-Key": "secret123"})
+
+    assert resp.status_code == 200
+    body = json.loads(resp.content)
+    assert body["status"] == "degraded"
+    assert body["data"]["count"] == 0
+    spy.assert_not_called()  # no pool -> never even attempts the query
+
+
 def test_query_params_are_forwarded_to_audit_service(monkeypatch):
     monkeypatch.setenv("ADMIN_API_KEY", "secret123")
     spy = AsyncMock(return_value=[])
-    with patch("src.api.routes.admin.AuditService.query", new=spy):
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.query", new=spy):
         client = TestClient(_app(), raise_server_exceptions=False)
         resp = client.get(
             "/api/v1/admin/audit-events",

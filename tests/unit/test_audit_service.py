@@ -230,3 +230,18 @@ async def test_query_skips_one_unparseable_row_without_dropping_the_rest(monkeyp
 
     assert len(events) == 1
     assert events[0].resource_id == "net_revenue"
+
+
+# ---------------------------------------------------------------------------
+# pool_available() -- lets the admin endpoint distinguish "no pool" from
+# "pool answered, nothing matched" (code-review finding, 2026-10-02)
+# ---------------------------------------------------------------------------
+
+def test_pool_available_false_when_no_pool(monkeypatch):
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: None))
+    assert AuditService.pool_available() is False
+
+
+def test_pool_available_true_when_pool_present(monkeypatch):
+    monkeypatch.setattr(AuditService, "_pool", staticmethod(lambda: _FakePool(AsyncMock())))
+    assert AuditService.pool_available() is True

@@ -49,6 +49,24 @@ class AuditService:
         return getattr(RegistryBootstrap._db_manager, "pool", None)
 
     @staticmethod
+    def pool_available() -> bool:
+        """Is there a database pool to read or write through at all?
+
+        Code-review finding (2026-10-02): `query()` returning `[]` when the
+        pool is unavailable is indistinguishable, at the admin endpoint, from
+        "every reliability check passed" -- a monitoring blind spot in the
+        monitoring system itself. `_pool()` is `None` not only for an
+        unusual backend (a DuckDB-backed `_db_manager`, which has no `.pool`
+        attribute at all) but, more routinely, whenever `RegistryBootstrap`
+        has not finished initializing yet, or a pool that failed to connect.
+        `GET /api/v1/admin/audit-events` uses this to report `status:
+        "degraded"` rather than `"ok"` on an empty result caused by no pool,
+        so an empty page reads as "this signal never ran here" rather than
+        "clean bill of health".
+        """
+        return AuditService._pool() is not None
+
+    @staticmethod
     async def log(
         client_id: str,
         event_type: str,
