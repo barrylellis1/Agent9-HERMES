@@ -1,5 +1,6 @@
 import { User } from 'lucide-react';
 import { Principal, Council, Persona } from '../api/types';
+import { personaDisplayLabel } from '../utils/personaLabels';
 
 // Mock Data for the Ridgeline Scanner (Simulating System Pulse)
 export const MOCK_HISTORY = Array.from({ length: 12 }).map((_, i) => ({
@@ -33,17 +34,6 @@ export const AVAILABLE_PRINCIPALS: Principal[] = [
   { id: "finance_manager_001", name: "Marcus Webb", title: "Finance Manager", initials: "MW", decision_style: "analytical", color: "bg-amber-500/20 text-amber-400", workflow_role: "framer" },
 ];
 
-export const AVAILABLE_COUNCILS: Council[] = [
-  { id: "mbb_council", label: "MBB Strategy Council", description: "McKinsey, BCG, Bain", icon: User, color: "text-purple-400" },
-  { id: "big4_council", label: "Big 4 Advisory Council", description: "Deloitte, EY-Parthenon, KPMG, PwC", icon: User, color: "text-blue-400" },
-  { id: "tech_council", label: "Tech Transformation", description: "Accenture, Deloitte, BCG", icon: User, color: "text-emerald-400" },
-  { id: "risk_council", label: "Risk & Governance", description: "KPMG, EY-Parthenon, Deloitte", icon: User, color: "text-red-400" },
-  // Method-defined alternative to the four firm-branded presets above — see
-  // consulting_personas_registry.yaml:350. Offered alongside MBB, not in place
-  // of it (2026-08-17 decision); the analytical comparison is still open.
-  { id: "lens_council", label: "Analytical Lens Council", description: "Commercial, Operational, Structural", icon: User, color: "text-teal-400" },
-];
-
 // Preset -> persona-id list, mirroring consulting_personas_registry.yaml's
 // `council_presets` section exactly.
 //
@@ -60,6 +50,12 @@ export const AVAILABLE_COUNCILS: Council[] = [
 // were ever added. Populating `selectedPersonas` at the moment a preset is
 // chosen (see DeepFocusView.tsx) fixes the root cause for all five presets,
 // not just the new one.
+//
+// Declared BEFORE AVAILABLE_COUNCILS (moved 2026-10-02, Phase 18 Category C)
+// so each preset's description can be DERIVED from this list via
+// personaDisplayLabel() rather than hand-typed — a hand-typed description
+// is exactly how "McKinsey, BCG, Bain" ended up on screen, and how it could
+// silently drift from this array if either were edited without the other.
 export const COUNCIL_PRESET_PERSONAS: Record<string, string[]> = {
   mbb_council: ["mckinsey", "bcg", "bain"],
   big4_council: ["deloitte", "ey_parthenon", "kpmg", "pwc_strategy"],
@@ -68,13 +64,39 @@ export const COUNCIL_PRESET_PERSONAS: Record<string, string[]> = {
   lens_council: ["commercial", "operational", "structural"],
 };
 
+// Phase 18 Category C (2026-10-02): every label and description below used to
+// name real firms directly ("MBB Strategy Council" / "McKinsey, BCG, Bain",
+// "Big 4 Advisory Council" / "Deloitte, EY-Parthenon, KPMG, PwC") in the
+// council-preset PICKER a user sees before a debate even starts — the most
+// exposed surface of all, since it explicitly invites "pick which firm's
+// approach you want" rather than describing what the product itself does.
+// Descriptions are now derived from COUNCIL_PRESET_PERSONAS via
+// personaDisplayLabel(), the same de-branding utility the Executive Briefing
+// and CouncilDebatePage already use, so they can't drift from the persona
+// list they describe. Labels naming a specific firm or a well-known
+// firm-grouping nickname ("MBB", "Big 4") are renamed to describe the
+// council's actual composition instead.
+const councilDescription = (ids: string[]): string => ids.map(personaDisplayLabel).join(', ');
+
+export const AVAILABLE_COUNCILS: Council[] = [
+  { id: "mbb_council", label: "Strategy Council", description: councilDescription(COUNCIL_PRESET_PERSONAS.mbb_council), icon: User, color: "text-purple-400" },
+  { id: "big4_council", label: "Enterprise Advisory Council", description: councilDescription(COUNCIL_PRESET_PERSONAS.big4_council), icon: User, color: "text-blue-400" },
+  { id: "tech_council", label: "Tech Transformation", description: councilDescription(COUNCIL_PRESET_PERSONAS.tech_council), icon: User, color: "text-emerald-400" },
+  { id: "risk_council", label: "Risk & Governance", description: councilDescription(COUNCIL_PRESET_PERSONAS.risk_council), icon: User, color: "text-red-400" },
+  // Method-defined alternative to the four firm-branded presets above — see
+  // consulting_personas_registry.yaml:350. Offered alongside MBB, not in place
+  // of it (2026-08-17 decision); the analytical comparison is still open.
+  { id: "lens_council", label: "Analytical Lens Council", description: councilDescription(COUNCIL_PRESET_PERSONAS.lens_council), icon: User, color: "text-teal-400" },
+];
+
 export const AVAILABLE_PERSONAS: Persona[] = [
-  // Consulting Firms
-  { id: "mckinsey", label: "McKinsey", type: "firm", icon: User, color: "text-purple-400" },
-  { id: "bcg", label: "BCG", type: "firm", icon: User, color: "text-green-400" },
-  { id: "bain", label: "Bain", type: "firm", icon: User, color: "text-red-400" },
-  { id: "deloitte", label: "Deloitte", type: "firm", icon: User, color: "text-blue-400" },
-  { id: "accenture", label: "Accenture", type: "firm", icon: User, color: "text-orange-400" },
+  // Consulting Firms — label resolves through personaDisplayLabel(), not a
+  // literal name, for the same reason as AVAILABLE_COUNCILS above.
+  { id: "mckinsey", label: personaDisplayLabel("mckinsey"), type: "firm", icon: User, color: "text-purple-400" },
+  { id: "bcg", label: personaDisplayLabel("bcg"), type: "firm", icon: User, color: "text-green-400" },
+  { id: "bain", label: personaDisplayLabel("bain"), type: "firm", icon: User, color: "text-red-400" },
+  { id: "deloitte", label: personaDisplayLabel("deloitte"), type: "firm", icon: User, color: "text-blue-400" },
+  { id: "accenture", label: personaDisplayLabel("accenture"), type: "firm", icon: User, color: "text-orange-400" },
   // Legacy Roles (Fallback)
   { id: "CFO", label: "CFO", type: "role", icon: User, color: "text-emerald-400" },
   { id: "Supply Chain Expert", label: "Supply Chain", type: "role", icon: User, color: "text-amber-400" },

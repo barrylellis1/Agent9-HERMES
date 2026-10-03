@@ -772,6 +772,32 @@ backward compatible; and `_describe_queryable` never lists another tenant's KPIs
 the human when empty. The pre-existing lens-probe tests mock `analysis={"question": ...}` with no
 `kind`, so they take the human branch and prove nothing about this path.
 
+**Correction (2026-10-02): `lens_probe_findings` is no longer unrendered** — the line above is stale.
+`decision-studio-ui/src/pages/CouncilDebatePage.tsx`'s "Before the Debate" screen renders it directly
+(`finding.why`, `finding.rows` as a table), confirmed live by driving the app.
+
+**Found live the same day, fixed the same day:** that rendered `finding.why` field carried a real
+firm's branded framework name verbatim — "As a transaction advisor applying the Value Creation
+Framework..." (EY-Parthenon's own public methodology name) — on screen, in a user-facing panel. No
+firm name appeared, so `test_no_firm_names_in_prompts.py`'s guard (scoped to
+`a9_deep_analysis_agent.py`, a different file, written before this lens-probe feature existed) never
+covered it, and this feature's own `lp_prompt`/`fu_prompt` (`_generate_lens_probe`,
+`_run_lens_followups`, both this file) had no output constraint on framework names at all — only SF's
+synthesis prompt did (the `"FIRM NAMES MUST NOT APPEAR..."` block earlier in this file). Fixed by
+adding an equivalent `## OUTPUT CONSTRAINT` paragraph to both prompts, reusing that proven wording:
+name the method, not its branded title, in the `why`/`question` fields specifically. The frameworks
+stay in the prompt as *input* (`to_prompt_context()`'s `**Key Frameworks:**` line, unchanged) — that
+is legitimate internal reasoning-anchor usage per M3's precedent (`personaLabels.ts`'s own docstring);
+only their appearance in what the model *returns* is now constrained.
+
+Tests: `test_sf_lens_probe_generation.py::test_lens_probe_constrains_framework_names_out_of_the_answer`
+and `test_sf_lens_followups.py::TestFollowUpFrameworkNameConstraint` — both capture the real prompt
+sent for a firm persona whose registered frameworks are the exact ones that leaked live
+(`ey_parthenon`/"Value Creation Framework", `accenture`/"Industry X.0") and assert the constraint
+text reaches it, while confirming the frameworks still reach the prompt as context. Neither proves
+the model obeys the instruction — same limitation `test_no_firm_names_in_prompts.py`'s own docstring
+states for its guard.
+
 
 ### Addendum follow-through — findings reach the hypothesis (Oct 2026)
 

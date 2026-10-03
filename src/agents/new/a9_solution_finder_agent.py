@@ -2122,7 +2122,14 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         'One more: {"kind":"data_query","kpi":"<one listed KPI>",'
                                         '"dimension":"<one listed dimension, or empty>",'
                                         '"timeframe":"<one listed timeframe>","comparison":true,'
-                                        '"why":"<what this could change about your conclusion>"}'
+                                        '"why":"<what this could change about your conclusion>"}\n\n'
+                                        # Same gap, same fix as the initial lens probe prompt
+                                        # above (found live 2026-10-02) -- this is its follow-up
+                                        # round, sharing the same "why" field and the same risk.
+                                        "## OUTPUT CONSTRAINT\n"
+                                        "Do not name your Key Frameworks by their proper title in \"why\" — "
+                                        "describe what the analysis does, in plain words, not what it is "
+                                        "branded. This applies to possessives and paraphrases equally."
                                     )
                                     fu_req = A9_LLM_AnalysisRequest(
                                         request_id=f"{req_id}_lensfollowup{_round}_{p.id}",
@@ -2268,7 +2275,25 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     '"why":"<what this tells you that you cannot infer>"}\n'
                                     "For human_question:\n"
                                     '{"kind":"human_question","question":"<one sentence>",'
-                                    '"why":"<why only a person can answer this>"}'
+                                    '"why":"<why only a person can answer this>"}\n\n'
+                                    # Found live 2026-10-02: a real run's "why" field read
+                                    # "As a transaction advisor applying the Value Creation
+                                    # Framework..." -- the persona's own branded framework
+                                    # name, verbatim, in text a user reads on screen. No
+                                    # firm name appeared, so this slipped past the exact
+                                    # category the SF synthesis guardrail (above, this file)
+                                    # already checks for; it is the same exposure one level
+                                    # removed, via a prompt added after that guardrail was
+                                    # written, so it never inherited it. Same fix, applied
+                                    # here directly rather than left for a reviewer to
+                                    # notice framework names aren't firm names.
+                                    "## OUTPUT CONSTRAINT\n"
+                                    "Do not name your Key Frameworks by their proper title in \"why\" or "
+                                    "\"question\" — describe what the analysis does, in plain words, not "
+                                    "what it is branded. Write \"isolating which cost components moved\", "
+                                    "not \"applying the Value Creation Framework\". This applies to "
+                                    "possessives and paraphrases equally. The framework still shapes what "
+                                    "you ask; only its branded name is excluded from the words you return."
                                 )
                                 lp_req = A9_LLM_AnalysisRequest(
                                     request_id=f"{req_id}_lensprobe_{p.id}",

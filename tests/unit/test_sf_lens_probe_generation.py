@@ -150,6 +150,45 @@ async def test_each_personas_own_real_frameworks_reach_its_own_prompt(monkeypatc
     assert "Reallocation / Exit Economics" not in stub.captured["commercial"]
 
 
+FIRM_COUNCIL = ["mckinsey", "ey_parthenon", "accenture"]
+
+
+@pytest.mark.asyncio
+async def test_lens_probe_constrains_framework_names_out_of_the_answer(monkeypatch):
+    """Found live 2026-10-02: a real run's "why" field read 'As a transaction
+    advisor applying the Value Creation Framework...' -- EY-Parthenon's own
+    branded framework, verbatim, in text a user reads on screen. No firm name
+    appeared, so the existing FIRM_PATTERNS guard in
+    test_no_firm_names_in_prompts.py (scoped to a9_deep_analysis_agent.py,
+    a different file) would not have caught it, and this prompt predates that
+    guardrail entirely -- Phase 22, 2026-10-01, a day after Phase 18 shipped.
+
+    This does not assert the model OBEYS the instruction (a unit test cannot
+    prove that, same limitation test_no_firm_names_in_prompts.py's own
+    docstring states) -- it asserts the instruction reaches the prompt, for a
+    real firm persona whose registered frameworks are the exact ones that
+    leaked live, so the constraint cannot silently vanish in a refactor."""
+    sf = await _build_sf(monkeypatch)
+    stub = _CapturingLensProbeOrchestrator()
+    sf.orchestrator = stub
+    sf.llm_service_agent = None
+
+    await _run(sf, _sf_request(personas=FIRM_COUNCIL))
+
+    for pid in FIRM_COUNCIL:
+        prompt = stub.captured[pid]
+        assert "OUTPUT CONSTRAINT" in prompt, f"{pid}'s prompt lost the anti-leak instruction"
+        assert "do not name your key frameworks by their proper title" in prompt.lower()
+
+    # The frameworks are still legitimate prompt INPUT (M3's internal-
+    # reasoning-anchor precedent, personaLabels.ts) -- only their appearance
+    # in the model's OUTPUT is what the constraint above targets. Confirms
+    # this fix didn't strip the frameworks from context entirely, which would
+    # silence the analytical differentiation the frameworks exist to produce.
+    assert "Value Creation Framework" in stub.captured["ey_parthenon"]
+    assert "Industry X.0" in stub.captured["accenture"]
+
+
 @pytest.mark.asyncio
 async def test_probes_run_concurrently_not_serially(monkeypatch):
     """asyncio.gather, mirroring _run_stage1's own pattern -- 3 calls at

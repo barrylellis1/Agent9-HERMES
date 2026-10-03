@@ -188,7 +188,31 @@ construction instead of needing its own entry in yet another hardcoded map. `npm
   generated from backend prompts in `consulting_persona_provider.py` / `a9_solution_finder_agent.py`,
   neither touched by any Phase 18 step so far. A label fix on the frontend cannot reach this; it needs
   its own pass over the persona prompt content.
-- `uiConstants.ts`, `ProblemRefinementChat.tsx`, `decision_quality.py` — not yet checked this pass.
+**Checked and fixed, same session:** `uiConstants.ts` — the council-preset PICKER itself named firms
+directly ("MBB Strategy Council" / "McKinsey, BCG, Bain", "Big 4 Advisory Council" / full roster
+spelled out) in the screen a user sees *before* a debate even starts, arguably the single most exposed
+surface of all. Presets renamed to describe composition, not firms; descriptions now derived from
+`COUNCIL_PRESET_PERSONAS` via `personaDisplayLabel()` so they cannot drift from the list they describe.
+
+**Checked, confirmed clean:** `ProblemRefinementChat.tsx` (de-branded 2026-08-16, firm names remain
+only in a comment documenting that fix) and `decision_quality.py` (its one hit is an internal
+engineering comment about a false-positive detection bug, never rendered to any user).
+
+**Found live the same session, more severe than anything else in this inventory:** the actual
+generated PROSE — not a label — carried a real firm's branded methodology name verbatim ("applying
+the Value Creation Framework," EY-Parthenon's own public positioning). Traced to
+`a9_solution_finder_agent.py`'s lens-probe prompts (`_generate_lens_probe`, `_run_lens_followups`,
+both dated 2026-10-01 — a day *after* Phase 18 shipped, so they never inherited its guardrail). Fixed
+by extending the exact proven "name the method, never the firm" constraint already working in this
+same file's synthesis prompt to both lens-probe prompts. See the SF card's Phase 22 addendum section
+for full detail and the two regression tests that capture the real prompt text for the exact personas
+that leaked live. `CouncilDebatePage.tsx`'s own de-branding fix (above) is what first surfaced this —
+fixing the header label made the still-exposed body prose visible by contrast.
+
+**Still open:** `CouncilDebate.tsx` (different file, similar name) — its `FIRM_NAMES` map and ~20
+flavor-text strings naming firms inline, not touched this session. `AVAILABLE_PERSONAS` in
+`uiConstants.ts` is also missing `kpmg`/`pwc_strategy`/`ey_parthenon` entirely (a completeness gap,
+not a de-branding one) — noted, not fixed, since it's a different bug.
 
 ### 3. Phase 24 — commit or drop
 

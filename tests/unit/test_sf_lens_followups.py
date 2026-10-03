@@ -57,6 +57,7 @@ class _Orch:
         self.followups = followups
         self.dpa = dpa
         self.followup_calls = 0
+        self.captured: dict[str, str] = {}  # request_id -> actual prompt sent
 
     async def get_agent(self, name, *a, **k):
         return self.dpa if name == "A9_Data_Product_Agent" else None
@@ -64,6 +65,7 @@ class _Orch:
     async def execute_agent_method(self, agent_name, method_name, params):
         req = params.get("request")
         rid = getattr(req, "request_id", "")
+        self.captured[rid] = getattr(req, "content", "") or ""
         if "_lensfollowup" in rid:
             idx = int(re.search(r"_lensfollowup(\d+)_", rid).group(1))
             self.followup_calls += 1
@@ -159,6 +161,56 @@ class TestFollowUps:
         f = _finding(await _run(sf))
         assert f.get("rows"), "the original finding must survive"
         assert (f.get("follow_ups") or []) == []
+
+
+class TestFollowUpFrameworkNameConstraint:
+    """Found live 2026-10-02: the follow-up round shares the initial lens
+    probe's "why" field and the same gap -- a real firm's branded framework
+    name reaching text a user reads on screen (see test_sf_lens_probe_
+    generation.py's test_lens_probe_constrains_framework_names_out_of_the_
+    answer for the live incident this mirrors). Fixed by the same OUTPUT
+    CONSTRAINT paragraph added to both prompts; this asserts it reaches the
+    follow-up round specifically, since it is a second, independent prompt
+    string that could drift out of sync with the first one."""
+
+    @pytest.mark.asyncio
+    async def test_followup_prompt_constrains_framework_names(self, monkeypatch):
+        dpa = _dpa()
+        orch = _Orch(DATA_Q, [DONE], dpa)
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test_1234567890")
+        sf = await A9_Solution_Finder_Agent.create({
+            "enable_llm_debate": True, "enable_hybrid_council": True,
+            "enable_causal_grounding": False, "lens_probe_max_followups": 1,
+        })
+        await sf.connect()
+        sf.orchestrator = orch
+        sf.llm_service_agent = None
+
+        request = SolutionFinderRequest(
+            request_id=str(uuid.uuid4()), principal_id="cfo_001",
+            problem_statement="Gross margin declined vs prior year",
+            deep_analysis_output={"plan": {"kpi_name": "Gross Margin %", "client_id": "lubricants"}},
+            client_id="lubricants",
+            preferences={"debate_stage": "lens_probe", "consulting_personas": ["ey_parthenon"]},
+            evaluation_criteria=[TradeOffCriterion(name="impact", weight=0.5),
+                                 TradeOffCriterion(name="cost", weight=0.3),
+                                 TradeOffCriterion(name="risk", weight=0.2)],
+        )
+        with _patched_provider(), \
+             patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR, \
+             patch("src.registry.providers.assumption_provider.AssumptionProvider") as MockAP:
+            MockKR.return_value.get_causal_neighbourhood = AsyncMock(return_value=[])
+            MockAP.return_value.get_active_constraints = AsyncMock(return_value=[])
+            await sf.recommend_actions(request)
+
+        followup_prompts = [v for k, v in orch.captured.items() if "_lensfollowup" in k]
+        assert followup_prompts, "the follow-up round never ran -- test setup didn't exercise it"
+        for prompt in followup_prompts:
+            assert "OUTPUT CONSTRAINT" in prompt
+            assert "do not name your key frameworks by their proper title" in prompt.lower()
+        # Still legitimate prompt input (M3's internal-reasoning-anchor
+        # precedent) -- the constraint targets output, not context.
+        assert "Value Creation Framework" in followup_prompts[0]
 
 
 class TestFollowUpRendering:
