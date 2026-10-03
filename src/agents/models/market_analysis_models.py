@@ -32,6 +32,16 @@ class MarketAnalysisRequest(BaseModel):
     """
 
     session_id: str = Field(..., description="Caller-supplied session identifier")
+    client_id: Optional[str] = Field(
+        None,
+        description=(
+            "Tenant this request belongs to. Optional because not every caller has one "
+            "(e.g. company-profile's industry-research endpoint, run before a client_id "
+            "exists) -- but when present it scopes the reliability.citation_quality audit "
+            "event (2026-10-02); a caller that omits it simply gets no event, matching "
+            "every other reliability signal's own missing-client_id behavior."
+        ),
+    )
     kpi_name: str = Field(..., description="Name of the KPI under investigation")
     kpi_context: str = Field(
         ...,

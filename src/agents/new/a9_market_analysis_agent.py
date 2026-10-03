@@ -49,8 +49,39 @@ from src.agents.new.a9_llm_service_agent import (
 )
 from src.llm_services.model_routing import TaskType as A9TaskType
 from src.llm_services.perplexity_service import PerplexityService
+from src.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
+
+
+def _citation_quality_outcome(
+    error_msg: Optional[str], signals: List[MarketSignal]
+) -> str:
+    """Decide the `reliability.citation_quality` outcome for one analyze_market
+    call. Pure, no agent instance needed -- same extraction discipline as
+    `_rollup_check_outcome` (DA) and `_kpi_coverage_outcome` (SA).
+
+    `fail`: the search itself errored (`error_msg` set) -- a genuine
+    availability problem, not merely a weaker signal.
+    `pass`: at least one signal carries a real, checkable URL -- the
+    "resolves" half of "a citation resolves, is recent, and is relevant, or
+    it is not." Recency and relevance are NOT checked here: `published_at`
+    is frequently absent even on genuine Perplexity citations, and
+    `relevance_score` is LLM-assigned on every signal including fabricated
+    ones, so neither field reliably distinguishes a real citation from a
+    synthesized one the way URL presence does.
+    `abstain`: no error, but no signal has a URL either -- a pure
+    LLM-knowledge fallback (no real search occurred), or Perplexity returned
+    only its own unattributed answer-text synthesis (`_parse_citations`'s own
+    fallback path, which is an intentional, accepted shape, not a defect).
+    Neither case is a found problem, so neither is `fail`.
+    """
+    if error_msg:
+        return "fail"
+    if any(s.url for s in signals):
+        return "pass"
+    return "abstain"
+
 
 # ---------------------------------------------------------------------------
 # Synthesis task type — resolved per provider at call time by the LLM service
@@ -227,6 +258,33 @@ class A9_Market_Analysis_Agent:
         # Step 3 — Confidence score heuristic
         # ------------------------------------------------------------------
         confidence = self._compute_confidence(signals, synthesis)
+
+        # Stage-wise reliability panel (2026-10-02 scope extension to
+        # docs/architecture/audit_event_system_design.md). The one stage of
+        # five with no signal until now -- confirmed live the same day:
+        # driving a full SA->DA->MA->SF run produced zero MA entries in
+        # audit_events, because nothing emitted one, not because MA ran
+        # clean. client_id is Optional on MarketAnalysisRequest (not every
+        # caller has one yet, e.g. company-profile's industry-research
+        # endpoint) -- skip entirely rather than guess, same posture as
+        # every other signal's missing-client_id behavior.
+        if request.client_id:
+            _outcome = _citation_quality_outcome(error_msg, signals)
+            await AuditService.log(
+                client_id=request.client_id,
+                event_type="reliability.citation_quality",
+                severity="warning" if _outcome == "fail" else "info",
+                outcome=_outcome,
+                source_agent="A9_Market_Analysis_Agent",
+                resource_type="kpi",
+                resource_id=request.kpi_name,
+                payload={
+                    "sources_queried": sources_queried,
+                    "signal_count": len(signals),
+                    "signals_with_url": sum(1 for s in signals if s.url),
+                    "error": error_msg,
+                },
+            )
 
         return MarketAnalysisResponse(
             session_id=request.session_id,

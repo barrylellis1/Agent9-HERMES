@@ -52,6 +52,38 @@ Signal generation uses a two-tier enrichment to produce business-specific signal
 ## Dependencies
 - `PerplexityService` (`src/llm_services/perplexity_service.py`) — optional, web search
 - `A9_LLM_Service_Agent` — synthesis narrative (acquired from AgentRegistry if not injected)
+- `AuditService` (`src/services/audit_service.py`, 2026-10-02) — plain static service, not an
+  agent, not registry-instantiated. `analyze_market` writes a `reliability.citation_quality`
+  event when `request.client_id` is present. Never raises; a missing pool or failed write
+  degrades silently, the analysis's own result is unaffected.
+
+## Reliability panel signal — `reliability.citation_quality` (2026-10-02)
+
+The fifth and final stage-wise signal — the only one of five with no signal at all until a live
+SA→DA→MA→SF run showed zero MA entries reaching `audit_events`, confirmed to be because nothing
+emitted one rather than because MA ran clean (`docs/architecture/audit_event_system_design.md`).
+
+**`client_id` is new on `MarketAnalysisRequest`** (`src/agents/models/market_analysis_models.py`),
+`Optional[str] = None` — the model never carried tenant scoping before. Wired at the one call site
+that has it (`src/api/routes/workflows.py`'s DA→MA integration, `request.client_id` was already in
+scope there). `company_profile.py`'s industry-research call site has no tenant context at all (it
+runs before a client_id exists) and is left passing none — the signal simply skips for that path,
+same posture as every other signal's missing-client_id behavior.
+
+**`_citation_quality_outcome(error_msg, signals)`** (module-level pure function, same file):
+`fail` when the search itself errored — a genuine availability problem; `pass` when at least one
+`MarketSignal` carries a real `url` — the "resolves" half of "a citation resolves, is recent, and
+is relevant, or it is not"; `abstain` otherwise (a pure LLM-knowledge fallback with no real search,
+or Perplexity's own unattributed answer-text synthesis in `_parse_citations` — an intentional,
+accepted shape, not a defect). Recency (`published_at`) and relevance (`relevance_score`) are
+deliberately **not** checked: `published_at` is frequently absent even on genuine citations, and
+`relevance_score` is LLM-assigned on every signal including fabricated ones, so neither field
+reliably distinguishes a real citation from a synthesized one the way URL presence does.
+
+Tests: `tests/unit/test_ma_citation_quality_reliability_event.py` (10) — the pure outcome function
+across all three outcomes plus the error-takes-precedence edge case; real Perplexity citations
+emit `pass`; the LLM-only fallback emits `abstain` not `fail`; a Perplexity search error emits
+`fail`; no `client_id` skips emission entirely; an audit-write failure never breaks the analysis.
 
 ## LLM Configuration
 The agent names a **task type**, not a model (Sep 2026). It passes
