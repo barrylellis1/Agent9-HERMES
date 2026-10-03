@@ -319,3 +319,29 @@ async def test_full_round_trip_questions_to_answers_to_differentiated_stage1(mon
     for pid in LENS_COUNCIL:
         assert fake_answers[pid] in sections[pid]
     assert sections["commercial"] != sections["operational"] != sections["structural"]
+
+
+@pytest.mark.asyncio
+async def test_lens_probe_triage_flushes_its_audit_event(monkeypatch):
+    """_flush_sf_audit_log() built 2026-10-02 -- the original pilot scope
+    docs/architecture/audit_event_system_design.md named before the
+    stage-wise reliability panel extended it to five other signals. Confirmed
+    live the same day: driving a full SA->DA->MA->SF run showed SF's own
+    audit_log never reaching the sink at all. This is the one response-
+    construction site reachable without mocking the full synthesis path;
+    the other (the main ranked_options return) is covered by
+    test_sf_audit_log_flush.py's direct tests of the flush function itself."""
+    sf = await _build_sf(monkeypatch)
+    stub = _CapturingLensProbeOrchestrator()
+    sf.orchestrator = stub
+    sf.llm_service_agent = None
+
+    with patch("src.agents.new.a9_solution_finder_agent.AuditService.log", new=AsyncMock(return_value=True)) as spy:
+        resp = await _run(sf, _sf_request(personas=LENS_COUNCIL))
+
+    assert resp.status == "success"
+    spy.assert_awaited_once()
+    kwargs = spy.call_args.kwargs
+    assert kwargs["event_type"] == "sf.lens_probe_triage"
+    assert kwargs["client_id"] == "lubricants"
+    assert kwargs["payload"]["asked_of_principal"] == sorted(LENS_COUNCIL)

@@ -49,6 +49,7 @@ from src.registry.consulting_personas.consulting_persona_provider import (
     get_framing_context_for_decision_style,
     DECISION_STYLE_TO_PERSONA,
 )
+from src.services.audit_service import AuditService
 
 
 logger = logging.getLogger(__name__)
@@ -534,6 +535,67 @@ def _token_usage_event(ledger: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         "total_tokens": _in + _out,
         "by_call": ledger,
     }]
+
+
+# Events whose name signals a genuine problem rather than ordinary narration --
+# elevated severity on the sink write. Everything else defaults to "info".
+# Deliberately a small, explicit allow-list rather than inferring severity from
+# the event name: an unlisted future event type defaults to "info", the safe
+# direction for a narrative family that has no outcome to gate on.
+_SF_EVENT_SEVERITY: Dict[str, str] = {
+    "llm_debate_error": "error",
+    "heuristic_stub_fallback": "warning",
+    "impact_scope_contradiction": "warning",
+}
+
+
+async def _flush_sf_audit_log(
+    client_id: Optional[str], request_id: str, events: List[Dict[str, Any]]
+) -> None:
+    """Persist SF's own narrative `audit_log` events to the shared sink.
+
+    This is the original pilot scope `docs/architecture/audit_event_system_
+    design.md` named before the stage-wise reliability panel extended it to
+    five other signals: "a real run on 2026-08-22 emitted six genuinely
+    useful operational events and threw all of them away." Confirmed
+    2026-10-02: driving a full SA->DA->MA->SF run showed only one reliability
+    signal reaching the log at all; this is the other half of that gap --
+    `audit_log` is a request-scoped Python list, still attached to the HTTP
+    response as it always was (nothing here changes that), but was never
+    ALSO persisted, so every one of these events vanished the moment the
+    response was sent.
+
+    Flushed once, from the already-accumulated list, at the point a response
+    is about to be returned -- not from each of the ~13 append call sites
+    scattered through this method. A single flush point is far less to keep
+    in sync as event types are added, and it naturally sweeps in any future
+    append the individual call sites might add without needing its own wiring.
+
+    `outcome=None` for all of them: these are narrative/debug events, not
+    checks with a verdict -- the same distinction the stage-wise reliability
+    signals (`reliability.*`) draw against this family (`sf.*`).
+
+    `return_exceptions=True` on the gather: `AuditService.log()` already
+    never raises by its own contract, but this call sits directly in the
+    response path for the agent's main return value -- a defensive second
+    layer here, not a substitute for that contract, so a future violation of
+    it (a refactor that drops AuditService.log's own try/except) degrades to
+    a dropped audit event rather than breaking the SF response a principal is
+    waiting on. One failed write cannot affect another either way.
+    """
+    if not client_id or not events:
+        return
+    await asyncio.gather(*[
+        AuditService.log(
+            client_id=client_id,
+            event_type=f"sf.{event.get('event', 'unknown')}",
+            severity=_SF_EVENT_SEVERITY.get(event.get("event", ""), "info"),
+            source_agent="A9_Solution_Finder_Agent",
+            request_id=request_id,
+            payload={k: v for k, v in event.items() if k != "event"},
+        )
+        for event in events
+    ], return_exceptions=True)
 
 
 def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
@@ -2360,21 +2422,23 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             len(lens_probe_findings), len(lens_probe_questions),
                             f", {len(_degraded)} degraded from an unanswerable query" if _degraded else "",
                         )
+                        _lp_triage_event = [{
+                            "event": "lens_probe_triage",
+                            "answered_from_data": sorted(lens_probe_findings.keys()),
+                            "asked_of_principal": sorted(lens_probe_questions.keys()),
+                            # Named explicitly: a query we could not answer becoming a
+                            # question is a DEGRADATION, not a lens's judgement that a
+                            # person was needed. Conflating them would hide warehouse
+                            # failures as product behaviour.
+                            "degraded_to_question": sorted(_degraded),
+                        }]
+                        await _flush_sf_audit_log(_lp_client_id, req_id, _lp_triage_event)
                         return SolutionFinderResponse.success(
                             request_id=req_id,
                             options_ranked=[],
                             lens_probe_questions=lens_probe_questions,
                             lens_probe_findings=lens_probe_findings,
-                            audit_log=[{
-                                "event": "lens_probe_triage",
-                                "answered_from_data": sorted(lens_probe_findings.keys()),
-                                "asked_of_principal": sorted(lens_probe_questions.keys()),
-                                # Named explicitly: a query we could not answer becoming a
-                                # question is a DEGRADATION, not a lens's judgement that a
-                                # person was needed. Conflating them would hide warehouse
-                                # failures as product behaviour.
-                                "degraded_to_question": sorted(_degraded),
-                            }],
+                            audit_log=_lp_triage_event,
                         )
 
                     # Add Problem Refinement context from MBB-style chat
@@ -4060,6 +4124,14 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             )
 
             # Single HITL event required per PRD
+            _full_audit_log = (
+                [{"event": "ranked_options", "count": len(options_payload)}]
+                + audit_log
+                + _token_usage_event(_token_ledger)
+            )
+            await _flush_sf_audit_log(
+                getattr(request, "client_id", None), req_id, _full_audit_log
+            )
             return SolutionFinderResponse.success(
                 request_id=req_id,
                 analysis_degraded=_degraded_reason is not None,
@@ -4072,11 +4144,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 human_action_type="approval",
                 human_action_context=_hitl_context,
                 constraint_exposure=constraint_exposure,
-                audit_log=(
-                    [{"event": "ranked_options", "count": len(options_payload)}]
-                    + audit_log
-                    + _token_usage_event(_token_ledger)
-                ),
+                audit_log=_full_audit_log,
                 # Enhanced Decision Briefing Fields
                 problem_reframe=problem_reframe,
                 unresolved_tensions=unresolved_tensions_list,

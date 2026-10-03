@@ -864,3 +864,48 @@ retried; **the cap binds even when the lens never stops**; `0` spends nothing; a
 keeps round 1; and the renderer labels rounds rather than flattening them.
 
 UI renders each round as "Then asked again" beneath the first result.
+
+## SF's own `audit_log` finally persisted (Oct 2026)
+
+**The original pilot scope.** `docs/architecture/audit_event_system_design.md`'s motivating example
+was always SF: "a real run on 2026-08-22 emitted six genuinely useful operational events and threw
+all of them away." The stage-wise reliability panel extended that design to five other signals across
+SA/DA/DGA before this agent's own `audit_log` — the thing that started the whole effort — was ever
+wired to the sink. Confirmed live 2026-10-02: driving a full SA→DA→MA→SF run showed only one of six
+reliability signals reaching `backend.log` at all, and SF's `audit_log` was the other half of that
+gap — `token_usage`, `causal_context`, `stage1_calls_complete`, `critic_pass_findings`,
+`llm_debate_analysis_req`, `llm_debate_completed`, `impact_scope_contradiction`,
+`impact_estimate_computed`, `decision_briefing_generated`, `llm_debate_error`,
+`heuristic_stub_fallback`, `ranked_options`, `lens_probe_triage` — all still attached to the response
+exactly as before, still never persisted anywhere else.
+
+**`_flush_sf_audit_log(client_id, request_id, events)`** (module-level, this file) is called once per
+response-construction site — `lens_probe_triage`'s early return and the main `ranked_options` return
+— from the already-accumulated `audit_log` list, not from each of the ~13 scattered `.append()` call
+sites. One flush point is far less to keep in sync as event types are added, and automatically sweeps
+in any future append without needing its own wiring.
+
+- `event_type` is namespaced `sf.<event name>` — a third family on the shared `audit_events` table,
+  distinct from the five `reliability.*` stage-wise signals and from Infra C's SOC 2 access/action
+  trail. `outcome` is always `None`: these are narrative/debug events, not checks with a verdict.
+- `severity` defaults to `info`; a small explicit allow-list (`_SF_EVENT_SEVERITY`) elevates
+  `llm_debate_error` to `error` and `heuristic_stub_fallback`/`impact_scope_contradiction` to
+  `warning` — the three event names that signal an actual problem rather than ordinary narration.
+  `heuristic_stub_fallback` is the exact event `project_sf_synthesis_output_ceiling` describes: SF
+  truncating into a generic stub while reporting success. Persisted, "how often did this fire this
+  month, for which client" finally becomes an answerable question.
+- `return_exceptions=True` on the flush's `asyncio.gather` — a defensive second layer, not a
+  substitute for `AuditService.log()`'s own never-raises contract: this call sits directly in the
+  response path for SF's main return value, so a future violation of that contract (a refactor that
+  drops the try/except inside `AuditService.log`) must degrade to a dropped event, never to a broken
+  SF response a principal is waiting on.
+
+Tests: `tests/unit/test_sf_audit_log_flush.py` (8) — the flush function directly: no-op on missing
+client_id or empty events, correct `sf.` namespacing, payload excludes the redundant `event` key,
+`outcome` always absent/None, severity elevation for the three problem events, every entry flushed
+even with duplicate event names, and a simulated `AuditService.log` failure confirmed non-raising.
+`test_sf_lens_probe_generation.py::test_lens_probe_triage_flushes_its_audit_event` — true end-to-end
+confirmation for the one response site reachable without mocking the full synthesis path; the main
+`ranked_options` site is covered by the flush function's own direct tests, consistent with this
+agent's established testing posture for its larger synthesis path ("no established pattern," per the
+card's own admission elsewhere — live verification is the coverage for that specific call site).
