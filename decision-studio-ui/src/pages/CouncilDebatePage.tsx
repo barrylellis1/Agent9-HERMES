@@ -5,61 +5,76 @@ import { runSolutionFinder, storePendingDecisionSnapshot } from '../api/client';
 import type { LensProbeFinding } from '../api/types';
 import { BrandLogo } from '../components/BrandLogo';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
+import { personaDisplayLabel } from '../utils/personaLabels';
 
 // ─── Firm colour palette ───────────────────────────────────────────────────────
 
 // Keyed by persona id, not exclusively firm id — commercial/operational/
 // structural (lens_council) run through the exact same column rendering as
 // mckinsey/bcg/bain, so they need entries here too or they fall through to
-// getFirmColor's generic grey fallback below: label=raw-id, no accent color,
-// which reads as "this option is broken" rather than "this is a different,
-// equally-supported methodology" (2026-08-17).
-const FIRM_COLORS: Record<string, { label: string; accent: string; border: string; badge: string }> = {
+// getFirmColor's generic grey fallback below: accent/border/badge only, no
+// label field — see the Phase 18 Category C fix note below for why.
+//
+// Phase 18 Category C fix (2026-10-02): this map's own `label` fields used to
+// be read straight onto the screen -- real firm legal names ("McKinsey",
+// "BCG", "Bain") rendered in a council of consultancies the product is
+// selling against. Worse, any persona NOT in this map (ey_parthenon,
+// accenture, deloitte, kpmg, pwc_strategy -- the full roster personaLabels.ts
+// already covers) fell through to getFirmColor's fallback, which returned
+// `label: id` verbatim: the raw, undisguised firm id, uppercased by the
+// surrounding CSS. That is how a card rendered "EY_PARTHENON" and
+// "ACCENTURE" on screen -- confirmed live, not inferred. `label` is now
+// dropped from every entry here; this map supplies color only, and
+// getFirmColor always resolves the displayed text through
+// personaDisplayLabel(), the same de-branding utility the Executive Briefing
+// already uses, so a persona added to the roster in the future is de-branded
+// by construction instead of needing its own entry in yet another hardcoded
+// map -- which is exactly the gap that let this ship (2026-08-17).
+const FIRM_COLORS: Record<string, { accent: string; border: string; badge: string }> = {
   mckinsey: {
-    label: 'McKinsey',
     accent: 'text-blue-300',
     border: 'border-blue-500/30',
     badge: 'bg-blue-900/30 text-blue-300',
   },
   bcg: {
-    label: 'BCG',
     accent: 'text-severity-opportunity',
     border: 'border-severity-opportunity/30',
     badge: 'bg-severity-opportunity/30 text-severity-opportunity',
   },
   bain: {
-    label: 'Bain',
     accent: 'text-severity-warning',
     border: 'border-severity-warning/30',
     badge: 'bg-severity-warning/30 text-severity-warning',
   },
   commercial: {
-    label: 'Commercial',
     accent: 'text-cyan-300',
     border: 'border-cyan-500/30',
     badge: 'bg-cyan-900/30 text-cyan-300',
   },
   operational: {
-    label: 'Operational',
     accent: 'text-orange-300',
     border: 'border-orange-500/30',
     badge: 'bg-orange-900/30 text-orange-300',
   },
   structural: {
-    label: 'Structural',
     accent: 'text-violet-300',
     border: 'border-violet-500/30',
     badge: 'bg-violet-900/30 text-violet-300',
   },
 };
 
-const getFirmColor = (id: string) =>
-  FIRM_COLORS[id.toLowerCase()] ?? {
-    label: id,
+const getFirmColor = (id: string) => {
+  const colors = FIRM_COLORS[id.toLowerCase()] ?? {
     accent: 'text-slate-300',
     border: 'border-slate-700',
     badge: 'bg-slate-800 text-slate-300',
   };
+  // label ALWAYS resolves through personaDisplayLabel(), never from FIRM_COLORS
+  // or the raw id directly -- the de-branding utility the briefing already
+  // uses, so this single call site is the only place that needs to know the
+  // full persona roster, rather than every id needing its own map entry here.
+  return { ...colors, label: personaDisplayLabel(id) };
+};
 
 /** Render a warehouse cell for display.
  *

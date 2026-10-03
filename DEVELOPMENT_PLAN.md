@@ -161,6 +161,35 @@ consulting firm."* A landing page and an executive briefing template carry the n
 These are third-party trademarks on a product you intend to sell. Mechanically it's a rename;
 the reason it ranks first is exposure, not difficulty.
 
+**Status update (2026-10-02) — this table is stale, not wrong in direction.** Two commits landed
+since it was written: `5265c7e` (marketing copy — LandingPage/HowItWorks) and `bedec81` (DA's live
+prompt text + `DeepFocusView`'s "AI Recommends" line). Neither touched this table's remaining files;
+`personaLabels.ts`'s own header names the gap explicitly as "Phase 18 Category C," deliberately
+scoped out of the briefing-only fix.
+
+**Found live 2026-10-02, fixed same day:** `CouncilDebatePage.tsx`'s council-debate screen was
+rendering raw persona ids as card headers — confirmed live as `"EY_PARTHENON"`, `"ACCENTURE"` —
+because its local `FIRM_COLORS` map only covered `mckinsey`/`bcg`/`bain` and three lens names;
+anything else fell through `getFirmColor`'s fallback, which returned `label: id` verbatim. Fixed by
+removing every `label` field from `FIRM_COLORS` (colors only now) and having `getFirmColor` always
+resolve the displayed text through `personaDisplayLabel()` — the same de-branding utility the
+Executive Briefing already uses — so a persona added to the roster in future is covered by
+construction instead of needing its own entry in yet another hardcoded map. `npm run build` clean.
+
+**NOT fixed by the above, and still open:**
+- `CouncilDebate.tsx` (different file, similar name) — its own `FIRM_NAMES` map still spells out
+  `'McKinsey & Company'` / `'Bain & Company'` for the loading-animation header, AND its phase 1–3
+  "thinking" flavor-text arrays contain ~20 strings that name *other* firms inline (e.g. "Reviewing
+  BCG proposal..." inside the `mckinsey` bucket) — a content rewrite, not a label swap.
+- **The generated prose itself still carries real firms' public methodology names.** The screenshot
+  that found this bug showed body text reading "applying the Value Creation Framework" (EY-Parthenon's
+  actual positioning) and "the Industry X.0 framework" (Accenture's). Neither string names a firm
+  directly, but both are real, identifiable, trademarked framework names tied to one firm each —
+  generated from backend prompts in `consulting_persona_provider.py` / `a9_solution_finder_agent.py`,
+  neither touched by any Phase 18 step so far. A label fix on the frontend cannot reach this; it needs
+  its own pass over the persona prompt content.
+- `uiConstants.ts`, `ProblemRefinementChat.tsx`, `decision_quality.py` — not yet checked this pass.
+
 ### 3. Phase 24 — commit or drop
 
 227 lines of proposal sitting uncommitted for 8 days. Either commit it as a proposal (it's
