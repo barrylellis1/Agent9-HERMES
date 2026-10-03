@@ -56,6 +56,40 @@ _ROLLUP_TOTAL_KEY = "\x00__rollup_total__"
 _MIXED_MODE_PURITY_THRESHOLD = 0.80  # fraction of top-N items that must be one direction to be "pure"
 
 
+def _rollup_check_outcome(
+    warehouse_delta: Optional[float],
+    contributions: List[float],
+    tolerance: float = 1.15,
+    floor: float = 0.01,
+) -> Tuple[str, Optional[float]]:
+    """Decide the `reliability.rollup_check` outcome for one dimension.
+
+    Pure, no agent instance needed -- extracted 2026-10-02 so the three-way
+    decision is directly testable without constructing a DeepAnalysisPlan and
+    mocking execute_deep_analysis's full call chain (this agent's card: "no
+    established pattern" for that, "live verification is the coverage here").
+
+    `abstain`: no warehouse total (`warehouse_delta is None`), or the ratio
+    bridge produced no `contribution_pp` for this dimension at all -- the
+    bridge never engaged for this KPI, confirmed live as `bridge=0/0`. This is
+    NOT the same as "ran and reconciled"; the original fail-only design made
+    the two indistinguishable in audit_events, which is the gap this function
+    closes.
+    `fail`: contributions exist and overshoot the warehouse-computed delta --
+    members are top-N, so the sum is a subset of the whole and can only be
+    checked for OVERSHOOT, never undershoot.
+    `pass`: contributions exist and reconcile within tolerance.
+
+    Returns `(outcome, contributions_sum)` -- `contributions_sum` is `None`
+    for `abstain`, since there was nothing to sum.
+    """
+    if warehouse_delta is None or not contributions:
+        return "abstain", None
+    sum_c = sum(contributions)
+    overshoots = abs(sum_c) > abs(warehouse_delta) * tolerance + floor
+    return ("fail" if overshoots else "pass"), sum_c
+
+
 def _classify_benchmark_segments(is_not_items):
     """Classify IS NOT items into control_group vs internal_benchmark (top quartile by absolute delta)."""
     if not is_not_items:
@@ -2589,37 +2623,37 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # Python — so a divergence means one of them is wrong. Logged rather than
             # raised: the total is authoritative and already correct on its own, and a
             # bad decomposition must not take down an otherwise-good analysis.
+            # Stage-wise reliability panel (2026-10-02; emission widened same day
+            # after a live run showed the gap). Every dimension in
+            # _dimension_totals now reports an outcome, not just the fail case:
+            # `abstain` when the cross-check genuinely could not run (no
+            # warehouse total, or the bridge produced no contribution_pp for
+            # this dimension -- confirmed live as `bridge=0/0`, meaning the
+            # ratio bridge never engaged for this KPI at all), `pass` when it
+            # ran and reconciled, `fail` on overshoot. The prior fail-only
+            # design meant "ran and reconciled" and "never ran" were both
+            # silence in audit_events -- indistinguishable from each other and
+            # from "signal not wired" -- exactly the not-checked-is-not-pass
+            # failure mode this whole panel exists to prevent, reproduced in
+            # this signal's own blind spot.
             for _dim, _tot in _dimension_totals.items():
-                if _tot.delta is None:
-                    continue
                 _contribs = [
                     cp.contribution_pp for cp in change_points
                     if cp.dimension == _dim and cp.contribution_pp is not None
                 ]
-                if not _contribs:
-                    continue
-                _sum_c = sum(_contribs)
-                # Members shown are top-N, so the sum is a subset of the whole and can
-                # only be checked for OVERSHOOT — exceeding the total it decomposes.
-                _overshoots = abs(_sum_c) > abs(_tot.delta) * 1.15 + 0.01
-                if _overshoots:
+                _outcome, _sum_c = _rollup_check_outcome(_tot.delta, _contribs)
+                if _outcome == "fail":
                     self.logger.warning(
                         f"[ROLLUP-CHECK] {_dim}: contributions sum to {_sum_c:.3f} but the "
                         f"warehouse total moved {_tot.delta:.3f} — decomposition overshoots "
                         f"the quantity it decomposes"
                     )
-                # Stage-wise reliability panel (2026-10-02 scope extension to
-                # docs/architecture/audit_event_system_design.md). `fail` only —
-                # a clean rollup is the overwhelming common case and is not
-                # persisted per-run here; see that doc's retention design for why
-                # `pass` volume is handled by sampling/aggregation, not per-event
-                # writes, once this signal has a second call site to generalize from.
-                if _overshoots and getattr(plan, "client_id", None):
+                if getattr(plan, "client_id", None):
                     await AuditService.log(
                         client_id=plan.client_id,
                         event_type="reliability.rollup_check",
-                        severity="warning",
-                        outcome="fail",
+                        severity="warning" if _outcome == "fail" else "info",
+                        outcome=_outcome,
                         source_agent="A9_Deep_Analysis_Agent",
                         resource_type="kpi",
                         resource_id=plan.kpi_name,
