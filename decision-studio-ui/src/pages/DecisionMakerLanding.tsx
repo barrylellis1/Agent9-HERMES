@@ -96,8 +96,25 @@ export function DecisionMakerLanding({
     }
     setOpeningId(item.request_id);
     try {
-      const snapshot = await getPendingDecisionSnapshot(item.request_id);
-      localStorage.setItem(localKey, JSON.stringify(snapshot));
+      const snapshot: any = await getPendingDecisionSnapshot(item.request_id);
+      // Snapshots written since 2026-10-03 are wrapped as {briefing,
+      // situation, analysis, debateConfig} specifically so "How the council
+      // decided" (CouncilDebatePage.tsx) can also restore across sessions/
+      // devices -- that page reads situation_${id}/analysis_${id}/
+      // debate_config_${id} from localStorage and had no way to get them
+      // from a snapshot restore before this, so the link 404'd with
+      // "Situation data not found" on every single pending decision opened
+      // this way. Rows written before the fix are the bare briefing object
+      // itself; detected by the wrapper's own key, not a version field this
+      // schema-less store never had.
+      const hasWrapper = snapshot && typeof snapshot === 'object' && 'briefing' in snapshot;
+      const briefing = hasWrapper ? snapshot.briefing : snapshot;
+      localStorage.setItem(localKey, JSON.stringify(briefing));
+      if (hasWrapper) {
+        if (snapshot.situation) localStorage.setItem(`situation_${item.situation_id}`, JSON.stringify(snapshot.situation));
+        if (snapshot.analysis) localStorage.setItem(`analysis_${item.situation_id}`, JSON.stringify(snapshot.analysis));
+        if (snapshot.debateConfig) localStorage.setItem(`debate_config_${item.situation_id}`, JSON.stringify(snapshot.debateConfig));
+      }
       navigate(`/briefing/${item.situation_id}`);
     } catch {
       setError(

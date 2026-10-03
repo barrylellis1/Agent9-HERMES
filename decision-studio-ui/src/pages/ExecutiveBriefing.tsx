@@ -641,9 +641,30 @@ export function ExecutiveBriefing() {
       setVaSolutionId(vaId)
       if (vaId) {
         localStorage.setItem(`va_solution_${situationId}`, vaId)
-        // Store briefing snapshot to Supabase for portfolio replay
+        // Store briefing snapshot to Supabase for portfolio replay. Wrapped
+        // with situation/analysis/debateConfig alongside the briefing
+        // (2026-10-03, user-caught) — the bare briefing object was enough to
+        // replay the Executive Briefing page itself but not "How the
+        // council decided": CouncilDebatePage.tsx reads situation_${id}/
+        // analysis_${id}/debate_config_${id} from localStorage, which a
+        // Portfolio replay on a different session/device never had —
+        // "Situation data not found" every time. These three keys were
+        // already written to THIS browser's localStorage when the live
+        // debate completed (DeepFocusView.tsx's dispatchToSolutionFinder),
+        // so read them back here rather than re-deriving anything.
         if (briefing) {
-          storeBriefingSnapshot(vaId, briefing).catch(() => {
+          let situationData: unknown = null, analysisData: unknown = null, debateConfigData: unknown = null
+          try {
+            situationData = JSON.parse(localStorage.getItem(`situation_${situationId}`) || 'null')
+            analysisData = JSON.parse(localStorage.getItem(`analysis_${situationId}`) || 'null')
+            debateConfigData = JSON.parse(localStorage.getItem(`debate_config_${situationId}`) || 'null')
+          } catch { /* malformed localStorage entry — snapshot still stores the briefing itself below */ }
+          storeBriefingSnapshot(vaId, {
+            briefing,
+            situation: situationData,
+            analysis: analysisData,
+            debateConfig: debateConfigData,
+          }).catch(() => {
             // Non-fatal — briefing replay won't work but approval is fine
           })
         }
@@ -673,8 +694,19 @@ export function ExecutiveBriefing() {
     // If loading from a VA solution snapshot (Portfolio replay)
     if (solutionIdParam) {
       getBriefingSnapshot(solutionIdParam)
-        .then((snapshot) => {
-          setBriefing(snapshot as any)
+        .then((snapshot: any) => {
+          // Snapshots written since 2026-10-03 are wrapped as {briefing,
+          // situation, analysis, debateConfig} so "How the council decided"
+          // can also restore on replay — see the storeBriefingSnapshot call
+          // above for why. Rows written before the fix are the bare
+          // briefing object itself; detected by the wrapper's own key.
+          const hasWrapper = snapshot && typeof snapshot === 'object' && 'briefing' in snapshot
+          setBriefing((hasWrapper ? snapshot.briefing : snapshot) as any)
+          if (hasWrapper && situationId) {
+            if (snapshot.situation) localStorage.setItem(`situation_${situationId}`, JSON.stringify(snapshot.situation))
+            if (snapshot.analysis) localStorage.setItem(`analysis_${situationId}`, JSON.stringify(snapshot.analysis))
+            if (snapshot.debateConfig) localStorage.setItem(`debate_config_${situationId}`, JSON.stringify(snapshot.debateConfig))
+          }
           setApproveState('approved')  // Show as already approved (read-only replay)
           setVaSolutionId(solutionIdParam)
         })

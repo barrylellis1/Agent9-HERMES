@@ -511,8 +511,25 @@ export const CouncilDebatePage: React.FC = () => {
           // actual completed recommendation without re-running DA/SF, and
           // so it survives beyond this one browser session. Fire-and-forget,
           // same non-fatal contract as VA's own storeBriefingSnapshot.
+          //
+          // Wrapped with situation/analysis/debateConfig alongside the
+          // briefing (2026-10-03, user-caught) — the server snapshot used to
+          // store the bare briefing object only, which is enough to render
+          // the Executive Briefing page itself but not "How the council
+          // decided": CouncilDebatePage.tsx (this component) reads
+          // situation_${id}/analysis_${id}/debate_config_${id} from
+          // localStorage on mount, and a pending decision opened from a
+          // different session/device never had those keys — "Situation data
+          // not found" on every single one, 100% of the time. See
+          // DecisionMakerLanding.tsx's openPendingDecision() for the restore
+          // side of this fix.
           if (lastRequestId) {
-            storePendingDecisionSnapshot(lastRequestId, bp).catch(() => {});
+            storePendingDecisionSnapshot(lastRequestId, {
+              briefing: bp,
+              situation,
+              analysis: deepAnalysisResults,
+              debateConfig,
+            }).catch(() => {});
           }
         } catch (_) { /* quota still exceeded — skip persistence, state held in memory */ }
       }
