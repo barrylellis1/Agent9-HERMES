@@ -598,6 +598,55 @@ async def _flush_sf_audit_log(
     ], return_exceptions=True)
 
 
+async def _flush_sf_decision_quality(
+    client_id: Optional[str],
+    request_id: str,
+    solutions: Dict[str, Any],
+    da_result: Optional[Dict[str, Any]],
+) -> None:
+    """Score this run against the DQ rubric and persist its 4 checkable links.
+
+    Only L1 (frame) and L4 (tradeoffs) are excluded -- `decision_quality.py`
+    marks both `advisory=True` precisely because `persona_council_experiments
+    .md` Sec 5 measured a 71% false-positive rate scoring a semantic property
+    from a term screen, and logging that screen as a pass/fail verdict would
+    be exactly what that module's own docstring warns against: folding a
+    screen into "a cleverer regex" and presenting it as a check. The other
+    four links (information, alternatives, reasoning, commitment) are
+    deterministic reads of structured fields already on this response, not
+    term screens, so they carry the same verdict discipline as every other
+    reliability signal.
+
+    `link.passed` is already True/False/None under the same "None is
+    not-checked" discipline `reliability.*` uses everywhere else -- mapped
+    straight across to pass/fail/abstain.
+    """
+    if not client_id:
+        return
+    try:
+        from src.analysis.decision_quality import score_run
+
+        score = score_run(solutions, da_result=da_result, run_id=request_id)
+    except Exception:
+        return
+    _outcome_map = {True: "pass", False: "fail", None: "abstain"}
+    _checkable = [link for link in score.links() if not link.advisory]
+    await asyncio.gather(*[
+        AuditService.log(
+            client_id=client_id,
+            event_type="reliability.decision_quality",
+            severity="warning" if link.passed is False else "info",
+            outcome=_outcome_map[link.passed],
+            source_agent="A9_Solution_Finder_Agent",
+            request_id=request_id,
+            resource_type="dq_link",
+            resource_id=link.name,
+            payload={"detail": link.detail, "evidence": link.evidence},
+        )
+        for link in _checkable
+    ], return_exceptions=True)
+
+
 def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
     """Coerce the impact_estimate dict into the typed model. Field shape is
     unchanged from the existing prompt JSON — this only adds validation."""
@@ -4129,8 +4178,22 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 + audit_log
                 + _token_usage_event(_token_ledger)
             )
-            await _flush_sf_audit_log(
-                getattr(request, "client_id", None), req_id, _full_audit_log
+            _sf_client_id = getattr(request, "client_id", None)
+            await _flush_sf_audit_log(_sf_client_id, req_id, _full_audit_log)
+            await _flush_sf_decision_quality(
+                _sf_client_id,
+                req_id,
+                {
+                    "options_ranked": options_payload,
+                    "audit_log": _full_audit_log,
+                    "constraint_exposure": constraint_exposure,
+                    "tradeoff_matrix": matrix_payload,
+                    "moderator_grades": moderator_grades,
+                    "decision_ask": decision_ask,
+                    "immediate_actions": immediate_actions_list,
+                    "next_steps": next_steps_list,
+                },
+                request.deep_analysis_output,
             )
             return SolutionFinderResponse.success(
                 request_id=req_id,

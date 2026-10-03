@@ -909,3 +909,42 @@ confirmation for the one response site reachable without mocking the full synthe
 `ranked_options` site is covered by the flush function's own direct tests, consistent with this
 agent's established testing posture for its larger synthesis path ("no established pattern," per the
 card's own admission elsewhere — live verification is the coverage for that specific call site).
+
+## Decision Quality's 4 non-advisory links join the reliability panel (Oct 2026)
+
+**Scope decision (user's explicit choice, "option 2"):** only the four non-advisory DQ links —
+information (L3), alternatives (L2), reasoning (L5), commitment (L6) — reach `audit_events`. The two
+semantic links, frame (L1) and tradeoffs (L4), stay out entirely. `src/analysis/decision_quality.py`
+marks both `advisory=True` because `persona_council_experiments.md` §5 measured a **71%
+false-positive rate** scoring a semantic property from a term screen — logging that screen as a
+pass/fail verdict on the sixth `reliability.*` signal would be exactly what that module's own
+docstring warns against: folding a screen into "a cleverer regex" and presenting it as a check. This
+was a conscious choice to under-cover rather than mis-cover a stage.
+
+**`_flush_sf_decision_quality(client_id, request_id, solutions, da_result)`** (module-level, this
+file) is called once, immediately after `_flush_sf_audit_log`, at the main `ranked_options` return
+site only — the one place with a full options/synthesis payload to score. The `lens_probe_triage`
+early return has no options at all and cannot be scored.
+
+- Calls the real `score_run()` (`src/analysis/decision_quality.py`) against a hand-built `solutions`
+  dict assembled from variables already local to this method at that point — `options_payload`,
+  `_full_audit_log`, `constraint_exposure`, `matrix_payload`, `moderator_grades`, `decision_ask`,
+  `immediate_actions_list`, `next_steps_list` — all already plain dicts/lists matching `score_run`'s
+  expected shape exactly, confirmed by reading every `solutions.get(...)` call in that function before
+  wiring this. `da_result=request.deep_analysis_output`, the same object SF's own moderator-grade
+  override already passes to `extract_da_facts()` a few hundred lines earlier in this method —
+  confirmed compatible by that existing call, not assumed.
+- `event_type="reliability.decision_quality"`, `resource_type="dq_link"`, `resource_id=link.name`
+  (`"information"`, `"alternatives"`, `"reasoning"`, `"commitment"`) — one event per checkable link,
+  the same per-unit granularity DGA uses per dimension.
+- `link.passed` is already `True`/`False`/`None` under DQ's own "None is not-checked" discipline
+  (same rule `src/analysis/` uses everywhere); mapped straight across to `pass`/`fail`/`abstain`.
+  `severity` is `warning` on `fail`, `info` otherwise.
+- `score_run()` raising for any reason is swallowed, not propagated — same defensive posture as
+  `AuditService.log()`'s own contract, since this sits in SF's main response path.
+
+Tests: `tests/unit/test_sf_decision_quality_reliability_event.py` (11) — exactly 4 events emitted,
+never `frame`/`tradeoffs` resource_ids, correct event_type/fields, alternatives pass/fail/abstain
+across 2-distinct-family / 1-family / 0-option inputs, commitment pass/fail on decision_ask
+presence, reasoning abstains with no `da_result`, a `score_run` exception is swallowed, and one
+failed write doesn't block or raise for the other three.
