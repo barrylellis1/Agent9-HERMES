@@ -276,6 +276,7 @@ class A9_Market_Analysis_Agent:
                 severity="warning" if _outcome == "fail" else "info",
                 outcome=_outcome,
                 source_agent="A9_Market_Analysis_Agent",
+                request_id=request.request_id,
                 resource_type="kpi",
                 resource_id=request.kpi_name,
                 payload={

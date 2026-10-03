@@ -2655,6 +2655,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         severity="warning" if _outcome == "fail" else "info",
                         outcome=_outcome,
                         source_agent="A9_Deep_Analysis_Agent",
+                        request_id=req_id,
                         resource_type="kpi",
                         resource_id=plan.kpi_name,
                         payload={

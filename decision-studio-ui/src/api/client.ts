@@ -1092,6 +1092,79 @@ export async function testSliceValidity(kpiId: string, clientId: string, dimensi
 }
 
 // ---------------------------------------------------------------------------
+// Reliability panel (docs/architecture/audit_event_system_design.md) — the
+// stage-wise reliability.* signals written by SA/DA/MA/SF. Two read paths:
+//
+//   GET /admin/reliability-events  — tenant-scoped, NO auth. What the product
+//     UI calls (briefing footer, DeepFocusView drill-down) for evidence about
+//     a run the caller already has context for.
+//   GET /admin/audit-events        — cross-tenant, X-Admin-Key gated. Ops-only
+//     fleet view; see getAuditEventsAdmin() below. The key is supplied by a
+//     human pasting it into the operator panel each session (sessionStorage
+//     only) — it must never be baked into the shipped JS bundle.
+// ---------------------------------------------------------------------------
+
+export interface AuditEventRecord {
+  id: string;
+  client_id: string;
+  event_type: string;
+  severity: 'info' | 'warning' | 'error';
+  outcome: 'pass' | 'fail' | 'abstain' | null;
+  source_agent: string;
+  request_id: string | null;
+  resource_type: string | null;
+  resource_id: string | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AuditEventsResult {
+  status: 'ok' | 'degraded';
+  events: AuditEventRecord[];
+  count: number;
+}
+
+export async function getReliabilityEvents(
+  clientId: string,
+  requestId?: string,
+  limit = 100,
+): Promise<AuditEventsResult> {
+  const params = new URLSearchParams({ client_id: clientId, limit: String(limit) });
+  if (requestId) params.set('request_id', requestId);
+  const envelope = await requestJson<Envelope<{ events: AuditEventRecord[]; count: number; detail?: string }>>(
+    `/admin/reliability-events?${params.toString()}`,
+  );
+  return {
+    status: (envelope.status as AuditEventsResult['status']) ?? 'ok',
+    events: envelope.data?.events ?? [],
+    count: envelope.data?.count ?? 0,
+  };
+}
+
+// Ops-only, cross-tenant. `adminKey` comes from the operator typing it into
+// the Reliability settings page each session — never from a bundled constant.
+export async function getAuditEventsAdmin(
+  adminKey: string,
+  filters: { clientId?: string; eventType?: string; outcome?: string; since?: string; limit?: number } = {},
+): Promise<AuditEventsResult> {
+  const params = new URLSearchParams();
+  if (filters.clientId) params.set('client_id', filters.clientId);
+  if (filters.eventType) params.set('event_type', filters.eventType);
+  if (filters.outcome) params.set('outcome', filters.outcome);
+  if (filters.since) params.set('since', filters.since);
+  params.set('limit', String(filters.limit ?? 200));
+  const envelope = await requestJson<Envelope<{ events: AuditEventRecord[]; count: number; detail?: string }>>(
+    `/admin/audit-events?${params.toString()}`,
+    { headers: { 'X-Admin-Key': adminKey } },
+  );
+  return {
+    status: (envelope.status as AuditEventsResult['status']) ?? 'ok',
+    events: envelope.data?.events ?? [],
+    count: envelope.data?.count ?? 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Connection Profiles — Infra B (Supabase-backed, client-scoped, encrypted)
 // ---------------------------------------------------------------------------
 

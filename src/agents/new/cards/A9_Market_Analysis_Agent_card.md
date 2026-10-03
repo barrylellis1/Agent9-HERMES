@@ -80,10 +80,21 @@ deliberately **not** checked: `published_at` is frequently absent even on genuin
 `relevance_score` is LLM-assigned on every signal including fabricated ones, so neither field
 reliably distinguishes a real citation from a synthesized one the way URL presence does.
 
-Tests: `tests/unit/test_ma_citation_quality_reliability_event.py` (10) — the pure outcome function
+Tests: `tests/unit/test_ma_citation_quality_reliability_event.py` (11) — the pure outcome function
 across all three outcomes plus the error-takes-precedence edge case; real Perplexity citations
 emit `pass`; the LLM-only fallback emits `abstain` not `fail`; a Perplexity search error emits
-`fail`; no `client_id` skips emission entirely; an audit-write failure never breaks the analysis.
+`fail`; no `client_id` skips emission entirely; an audit-write failure never breaks the analysis;
+a missing `request_id` degrades to `None`, not a crash.
+
+**`request_id` was never forwarded either (found and fixed 2026-10-03, same sweep as DA's identical
+bug).** `MarketAnalysisRequest` is a plain `BaseModel`, not `A9AgentBaseRequest` — it had no
+`request_id` field at all, so `AuditService.log(..., request_id=...)` would have raised
+`AttributeError` the moment it was added naively. Fixed properly: added `request_id: Optional[str]
+= None` to the model, and the DA→MA integration call site (`workflows.py`) now passes
+`response.request_id` — DA's own `DeepAnalysisResponse.request_id`, the same id that ends up in the
+frontend's `currentAnalysis.request_id` — so `reliability.citation_quality` correlates to the exact
+same run as the DA `reliability.rollup_check` events it was invoked alongside, letting a per-run
+reliability view show both.
 
 ## LLM Configuration
 The agent names a **task type**, not a model (Sep 2026). It passes

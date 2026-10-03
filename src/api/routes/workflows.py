@@ -1472,6 +1472,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             _analysis_mode = getattr(response, "analysis_mode", None) or request.analysis_mode or "problem"
             _ma_req = MarketAnalysisRequest(
                 session_id=f"da-{request_id}",
+                request_id=response.request_id,
                 client_id=request.client_id,
                 kpi_name=str(_kpi_name),
                 kpi_context=str(_scqa)[:500],

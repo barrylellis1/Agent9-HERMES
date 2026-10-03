@@ -25,6 +25,7 @@ from src.agents.models.market_analysis_models import MarketAnalysisRequest, Mark
 def _make_request(**kwargs) -> MarketAnalysisRequest:
     defaults = dict(
         session_id="sess-001",
+        request_id="deep-analysis-req-001",
         client_id="lubricants",
         kpi_name="Gross Margin",
         kpi_context="Gross Margin dropped 2.3pp in lubricants Q1 2026",
@@ -92,8 +93,29 @@ async def test_real_citations_emit_pass():
     assert kwargs["event_type"] == "reliability.citation_quality"
     assert kwargs["outcome"] == "pass"
     assert kwargs["client_id"] == "lubricants"
+    assert kwargs["request_id"] == "deep-analysis-req-001"
     assert kwargs["resource_id"] == "Gross Margin"
     assert kwargs["payload"]["signals_with_url"] == 2
+
+
+@pytest.mark.asyncio
+async def test_missing_request_id_logs_none_not_a_crash():
+    """request_id is Optional (only the DA->MA integration call site has it;
+    e.g. company-profile's industry-research endpoint does not) -- must
+    degrade to request_id=None, never AttributeError on a field that isn't
+    there (MarketAnalysisRequest is a plain BaseModel, not A9AgentBaseRequest,
+    so it has no request_id unless this model declares one itself)."""
+    agent = _agent_with_mocks(
+        enable_perplexity=True,
+        perplexity_result={"answer": "Context.", "citations": ["https://a.com"]},
+    )
+    request = _make_request(request_id=None)
+    with patch("src.agents.new.a9_market_analysis_agent.AuditService.log", new=AsyncMock(return_value=True)) as spy:
+        resp = await agent.analyze_market(request)
+
+    assert resp.synthesis
+    spy.assert_awaited_once()
+    assert spy.call_args.kwargs["request_id"] is None
 
 
 @pytest.mark.asyncio

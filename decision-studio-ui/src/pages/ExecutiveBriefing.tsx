@@ -20,6 +20,7 @@ import { ContradictionBanner } from '../components/briefing/ContradictionBanner'
 import { WhyNowBand } from '../components/briefing/WhyNowBand'
 import { CompactOptionRow } from '../components/briefing/CompactOptionRow'
 import { VerificationLedger } from '../components/briefing/VerificationLedger'
+import { ReliabilityAuditStrip } from '../components/briefing/ReliabilityAuditStrip'
 import { councilCompositionLabel } from '../utils/personaLabels'
 import type { AcceptedSolution as VASolution } from '../types/valueAssurance'
 
@@ -1859,6 +1860,10 @@ export function ExecutiveBriefing() {
                 {data.metrics?.confidence && <span>Confidence: {data.metrics.confidence}</span>}
                 <span>Generated: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
               </div>
+              <ReliabilityAuditStrip
+                clientId={localStorage.getItem('a9_active_client_id') || undefined}
+                requestId={situationId ? localStorage.getItem(`solution_request_${situationId}`) : null}
+              />
             </footer>
           </div>
         </div>

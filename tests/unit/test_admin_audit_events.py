@@ -131,6 +131,92 @@ def test_query_params_are_forwarded_to_audit_service(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# GET /api/v1/admin/reliability-events -- the tenant-facing, unauthenticated
+# sibling. No X-Admin-Key anywhere in this block: that is the whole point --
+# the briefing footer and DeepFocusView drill-down are ordinary product
+# surfaces, not ops tooling, and must never need the shared admin secret.
+# ---------------------------------------------------------------------------
+
+def test_reliability_events_requires_no_admin_key():
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.query", new=AsyncMock(return_value=[])):
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.get("/api/v1/admin/reliability-events", params={"client_id": "lubricants"})
+    assert resp.status_code == 200
+
+
+def test_reliability_events_client_id_is_required():
+    client = TestClient(_app(), raise_server_exceptions=False)
+    resp = client.get("/api/v1/admin/reliability-events")
+    assert resp.status_code == 422
+
+
+def test_reliability_events_filters_to_reliability_prefix_by_default():
+    """A client's row set also contains sf.* narrative events on the same
+    table (and, in principle, Infra C's SOC2 trail) -- this endpoint must
+    never leak either family to a tenant-facing caller."""
+    events = [
+        _event(event_type="reliability.rollup_check", outcome="fail"),
+        _event(event_type="sf.heuristic_stub_fallback", outcome=None),
+    ]
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.query", new=AsyncMock(return_value=events)):
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.get("/api/v1/admin/reliability-events", params={"client_id": "lubricants"})
+
+    body = json.loads(resp.content)
+    assert body["data"]["count"] == 1
+    assert body["data"]["events"][0]["event_type"] == "reliability.rollup_check"
+
+
+def test_reliability_events_forwards_client_id_and_request_id():
+    spy = AsyncMock(return_value=[])
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.query", new=spy):
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.get(
+            "/api/v1/admin/reliability-events",
+            params={"client_id": "lubricants", "request_id": "req-123", "limit": 25},
+        )
+
+    assert resp.status_code == 200
+    spy.assert_awaited_once()
+    kwargs = spy.call_args.kwargs
+    assert kwargs["client_id"] == "lubricants"
+    assert kwargs["request_id"] == "req-123"
+    assert kwargs["limit"] == 25
+
+
+def test_reliability_events_degraded_when_no_pool():
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=False), \
+         patch("src.api.routes.admin.AuditService.query", new=AsyncMock()) as spy:
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.get("/api/v1/admin/reliability-events", params={"client_id": "lubricants"})
+
+    body = json.loads(resp.content)
+    assert body["status"] == "degraded"
+    spy.assert_not_called()
+
+
+def test_reliability_events_custom_prefix_override():
+    """Documented as a footgun for a tenant-facing caller, but not blocked --
+    an internal/operator caller of this same endpoint may legitimately want
+    a narrower reliability.* sub-family."""
+    events = [_event(event_type="reliability.slice_validity"), _event(event_type="reliability.rollup_check")]
+    with patch("src.api.routes.admin.AuditService.pool_available", return_value=True), \
+         patch("src.api.routes.admin.AuditService.query", new=AsyncMock(return_value=events)):
+        client = TestClient(_app(), raise_server_exceptions=False)
+        resp = client.get(
+            "/api/v1/admin/reliability-events",
+            params={"client_id": "lubricants", "event_type_prefix": "reliability.slice_validity"},
+        )
+
+    body = json.loads(resp.content)
+    assert body["data"]["count"] == 1
+    assert body["data"]["events"][0]["event_type"] == "reliability.slice_validity"
+
+
+# ---------------------------------------------------------------------------
 # POST /api/v1/admin/audit-events/sweep
 # ---------------------------------------------------------------------------
 

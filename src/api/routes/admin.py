@@ -158,6 +158,43 @@ async def test_slice_validity(
 
 
 @router.get(
+    "/reliability-events",
+    summary="Tenant-scoped read of one client's (optionally one run's) reliability evidence",
+    description=(
+        "The product-facing sibling of GET /audit-events below. That endpoint is "
+        "X-Admin-Key gated and deliberately cross-tenant (an ops diagnostics read); "
+        "the shared admin key must never reach the browser bundle, so no ordinary "
+        "principal-facing surface -- the briefing footer's audit strip, "
+        "DeepFocusView's analyst drill-down -- can call it. This one is the tenant-"
+        "facing read those surfaces use instead: client_id is required and strictly "
+        "scopes the read (root CLAUDE.md tenant-isolation rule), request_id narrows "
+        "further to the one SA/DA/MA/SF call that produced it when the caller has "
+        "it. Restricted server-side to the event_type_prefix family (default "
+        "'reliability.') so a tenant-facing read can never surface sf.* narrative "
+        "events or Infra C's SOC 2 access/action trail sharing this table. "
+        "No auth required (read-only, tenant-scoped) -- same posture as "
+        "GET /connection-health and GET /slice-validity above. Will move to "
+        "Supabase session auth in Infra B."
+    ),
+)
+async def get_reliability_events(
+    client_id: str = Query(..., description="Tenant — strict scope, required"),
+    request_id: Optional[str] = Query(None, description="Narrow to the one pipeline-stage call that produced these"),
+    event_type_prefix: str = Query("reliability.", description="Server-side prefix filter; never pass 'sf.' or 'auth.' from a tenant-facing caller"),
+    limit: int = Query(100, description="Max rows to return; clamped server-side"),
+):
+    if not AuditService.pool_available():
+        return {
+            "status": "degraded",
+            "data": {"events": [], "count": 0, "detail": "No database pool available — the reliability panel is not writing anywhere right now."},
+        }
+    events = await AuditService.query(client_id=client_id, request_id=request_id, limit=limit)
+    if event_type_prefix:
+        events = [e for e in events if e.event_type.startswith(event_type_prefix)]
+    return {"status": "ok", "data": {"events": [e.model_dump() for e in events], "count": len(events)}}
+
+
+@router.get(
     "/audit-events",
     summary="Read back the stage-wise reliability panel's raw events",
     description=(
@@ -209,10 +246,13 @@ async def get_audit_events(
         "docs/architecture/audit_event_system_design.md, section 4 retention table. "
         "Rolls up and deletes 'pass'/'abstain' rows older than cutoff_days (default "
         "90) into audit_events_daily_rollup; 'fail' and NULL-outcome rows are never "
-        "touched. Manually triggered only — there is no pg_cron extension enabled on "
-        "this Supabase project and no other scheduled-job mechanism anywhere in this "
-        "codebase, so nothing calls this automatically yet. Safe to call repeatedly: "
-        "the underlying SQL function accumulates its rollup counts rather than "
+        "touched. Also runs automatically: pg_cron calls sweep_audit_events_retention() "
+        "weekly, Sunday 03:00 UTC (supabase/migrations/20261002020000_schedule_audit_"
+        "events_sweep.sql). This manual trigger remains useful for an ad hoc run or a "
+        "cutoff_days other than the scheduled job's default 90. Safe to call repeatedly, "
+        "manually or from the schedule: the underlying SQL function accumulates its "
+        "rollup counts rather than overwriting them, so a retried or overlapping call "
+        "cannot lose or double-count a day already partly swept. "
         "overwriting them, so a retried or overlapping call cannot lose or "
         "double-count a day already partly swept. Requires the X-Admin-Key header."
     ),

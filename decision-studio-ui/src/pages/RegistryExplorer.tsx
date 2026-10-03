@@ -5,6 +5,7 @@ import { SettingsLayout } from '../components/SettingsLayout'
 import { AccountabilityInterviewPanel } from '../components/AccountabilityInterviewPanel'
 import { ConnectionHealthPanel } from '../components/ConnectionHealthPanel'
 import { SliceValidityPanel } from '../components/SliceValidityPanel'
+import { ReliabilityPanel } from '../components/ReliabilityPanel'
 import { PrincipalCardList } from '../components/PrincipalEditor'
 import {
   type BusinessTerm,
@@ -371,12 +372,14 @@ export function RegistryExplorer() {
     if (pathname === '/settings/ownership-interview') return 'ownership-interview'
     if (pathname === '/settings/connection-health') return 'connection-health'
     if (pathname === '/settings/slice-validity') return 'slice-validity'
+    if (pathname === '/settings/reliability') return 'reliability'
     return 'glossary'
   })()
 
   // Map URL section names → internal state
   const showConnectionHealth = sectionParam === 'connection-health'
   const showSliceValidity    = sectionParam === 'slice-validity'
+  const showReliability      = sectionParam === 'reliability'
   const showAccountability   = sectionParam === 'accountability'
   const showInterview        = sectionParam === 'ownership-interview'
   const registryKey: RegistryKey = (
@@ -1321,6 +1324,12 @@ export function RegistryExplorer() {
             </div>
           ) : null}
 
+          {showReliability ? (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <ReliabilityPanel />
+            </div>
+          ) : null}
+
           {showAccountability ? (
             <div className="bg-card border border-border rounded-xl p-6">
               <AccountabilityPanel clientId={activeClientId} />
@@ -1349,7 +1358,7 @@ export function RegistryExplorer() {
             </div>
           ) : null}
 
-          <div className={showConnectionHealth || showSliceValidity || showAccountability || showInterview || showPrincipals ? 'hidden' : ''}>
+          <div className={showConnectionHealth || showSliceValidity || showReliability || showAccountability || showInterview || showPrincipals ? 'hidden' : ''}>
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>

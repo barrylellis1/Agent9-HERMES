@@ -487,6 +487,7 @@ class A9_Situation_Awareness_Agent:
                     severity="error" if _outcome == "fail" else "info",
                     outcome=_outcome,
                     source_agent="A9_Situation_Awareness_Agent",
+                    request_id=original_request_id,
                     resource_type="client",
                     resource_id=client_id,
                     payload={

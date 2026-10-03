@@ -32,6 +32,19 @@ class MarketAnalysisRequest(BaseModel):
     """
 
     session_id: str = Field(..., description="Caller-supplied session identifier")
+    request_id: Optional[str] = Field(
+        None,
+        description=(
+            "The DA run's own request_id (DeepAnalysisResponse.request_id) when MA is "
+            "invoked from the DA->MA integration call -- NOT the outer workflow-tracking "
+            "id (those differ: execute_deep_analysis mints its own internally). Passing "
+            "DA's id here lets reliability.citation_quality (2026-10-02) correlate to the "
+            "same run as DA's own reliability.rollup_check events, so a per-run reliability "
+            "view can show both. None for callers outside that integration (e.g. company-"
+            "profile's industry-research endpoint) -- the event is simply written without "
+            "a request_id in that case, same posture as client_id above."
+        ),
+    )
     client_id: Optional[str] = Field(
         None,
         description=(

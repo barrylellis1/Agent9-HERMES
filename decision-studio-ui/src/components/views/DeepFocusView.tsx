@@ -15,7 +15,8 @@ import {
   CircleDot,
   TrendingUp,
   SplitSquareHorizontal,
-  ExternalLink
+  ExternalLink,
+  ShieldAlert
 } from 'lucide-react';
 import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict, MarketSynthesis, FramingDecision, FramingPrompt } from '../../api/types';
 import { runDeepAnalysis } from '../../api/client';
@@ -25,6 +26,7 @@ import { ProblemRefinementChat, RefinementProgress } from '../ProblemRefinementC
 import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
 import { BrandLogo } from '../BrandLogo';
 import { CausalNeighbourhoodEvidence } from '../CausalNeighbourhoodEvidence';
+import { ReliabilityDrillDown } from '../reliability/ReliabilityDrillDown';
 
 // ─── SCQA parser — extracts Answer/Situation/Complication/Question from flat text ───
 function parseScqa(raw: string): Record<string, string> {
@@ -667,6 +669,26 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                             </div>
                             )}
                         </div>
+                    </AccordionSection>
+                )}
+
+                {/* Reliability Checks — docs/DEVELOPMENT_BACKLOG.md "Cross-view:
+                    Reliability signal surfaces" #4, the analyst drill-down.
+                    currentAnalysis carries its own request_id (every agent
+                    response does, A9AgentBaseResponse) -- the same id DA's
+                    execute_deep_analysis used when it wrote reliability.
+                    rollup_check events, so this looks up exactly this run's
+                    evidence, not the fleet. Collapsed by default: most runs
+                    have nothing noteworthy here, and an always-open section
+                    with "no checks failed" in it every time trains readers to
+                    skip past it. */}
+                {currentAnalysis?.request_id && (
+                    <AccordionSection
+                        id="reliability-checks"
+                        title="Reliability Checks"
+                        icon={<ShieldAlert className="w-5 h-5 text-blue-400" />}
+                    >
+                        <ReliabilityDrillDown clientId={clientId} requestId={currentAnalysis.request_id} />
                     </AccordionSection>
                 )}
 

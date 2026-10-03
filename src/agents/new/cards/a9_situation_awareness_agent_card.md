@@ -303,6 +303,12 @@ the field's name this is not live automatic routing to DA.
 
 Tests: `tests/unit/test_sa_kpi_coverage_reliability_event.py`, including a fixture reproducing the Brookshire Brothers shape (non-empty, non-overlapping `business_processes` on both sides) against today's already-fixed fail-open logic, to prove the signal fires on a genuine zero-overlap case and not only on the empty-list shortcut the original bug exploited.
 
+**`request_id` was missing here too (found and fixed 2026-10-03, same sweep as DA and MA's identical
+bug).** The `AuditService.log()` call never passed `request_id` — fixed with `request_id=
+original_request_id` (already minted at the top of `detect_situations` for the response). Lower
+stakes than DA/MA's fix since `kpi_coverage` is a fleet-level-per-call signal with no natural
+per-situation correlation target anyway, but consistent with every other signal now carrying one.
+
 ## Phase 10B Improvements (Apr 2026)
 
 ### Client Scoping Refactor
