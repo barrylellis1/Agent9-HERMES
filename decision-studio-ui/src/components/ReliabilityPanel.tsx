@@ -222,7 +222,7 @@ export function ReliabilityPanel() {
                   <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Signal</th>
                   <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Pass</th>
                   <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Fail</th>
-                  <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Abstain</th>
+                  <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Not checked</th>
                   <th className="pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">Fail rate (of checked)</th>
                 </tr>
               </thead>
@@ -232,7 +232,7 @@ export function ReliabilityPanel() {
                     <td className="py-2.5 pr-4 text-white font-medium">{EVENT_TYPE_LABELS[r.eventType] ?? r.eventType}</td>
                     <td className="py-2.5 pr-4 text-severity-opportunity">{r.pass}</td>
                     <td className="py-2.5 pr-4 text-severity-critical">{r.fail}</td>
-                    <td className="py-2.5 pr-4 text-severity-warning">{r.abstain}</td>
+                    <td className="py-2.5 pr-4 text-slate-500">{r.abstain}</td>
                     <td className="py-2.5 text-slate-300">{r.checked ? `${((r.fail / r.checked) * 100).toFixed(0)}%` : '—'}</td>
                   </tr>
                 ))}
