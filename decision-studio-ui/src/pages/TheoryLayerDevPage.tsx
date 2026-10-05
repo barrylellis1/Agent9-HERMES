@@ -1,24 +1,32 @@
 /**
- * TheoryLayerDevPage — DEV-ONLY harness for the Phase 17 theory-layer exhibit.
+ * TheoryLayerDevPage — harness for the Phase 17 theory-layer exhibit.
  *
- * NOT linked from production navigation, deliberately. DEVELOPMENT_PLAN.md
- * Phase 17's delivery rule: "Do not ship a partial four-panel layout... Either
- * all four sections carry content for the client being demonstrated, or the
- * exhibit stays off." The Causal Edges density gate is not passed for any
- * client yet (0 tested edges), and that bar is cleared by accumulated VA
- * verdicts over real use — never by seeding. So this route exists to prove the
- * rendering works end-to-end against real data, without putting the exhibit in
- * front of anyone as though it were finished.
+ * Linked into LeftNav.tsx's Workspace group (2026-10-04), after an
+ * orchestrated batch of real SA->DA->SF->approve->evaluate cycles
+ * (scripts/orchestrate_reliability_demo.py) genuinely cleared the Causal
+ * Edges density gate for `premium_mix_pct` -- confirmed `gross_margin_pct
+ * <-> premium_mix_pct` as `intervention_tested`/`va_validated` through the
+ * real write-back mechanism (a9_value_assurance_agent.py's
+ * _confirm_causal_edge_from_verdict), not seeded. DEVELOPMENT_PLAN.md Phase
+ * 17's delivery rule ("do not ship a partial four-panel layout... either all
+ * four sections carry content, or the exhibit stays off") is the reason this
+ * stayed unlinked until there was a real KPI to point at -- not a blanket
+ * "never link this" rule. Most other KPIs still show an unpassed gate; this
+ * page is still a raw KPI-picker harness, not production-styled chrome, so
+ * the banner below is softened, not removed.
  *
- * Reachable only by typing the URL: /dev/theory-layer
+ * Previously reachable only by typing /dev/theory-layer directly; now also
+ * linked from nav, same URL.
  */
 import { useState } from 'react';
 import { TheoryLayerExhibit } from '../components/theory/TheoryLayerExhibit';
 
-const SAMPLE_KPIS = ['gross_margin_pct', 'gross_profit', 'net_revenue', 'cogs'];
+const SAMPLE_KPIS = ['premium_mix_pct', 'gross_margin_pct', 'gross_profit', 'net_revenue', 'cogs'];
 
 export function TheoryLayerDevPage() {
-  const [kpiId, setKpiId] = useState('gross_margin_pct');
+  // premium_mix_pct is the default: it's the one KPI with a genuinely
+  // cleared density gate today, per the header comment above.
+  const [kpiId, setKpiId] = useState('premium_mix_pct');
   const [clientId, setClientId] = useState('lubricants');
   const [includeValues, setIncludeValues] = useState(false);
 
@@ -27,7 +35,7 @@ export function TheoryLayerDevPage() {
       <header className="max-w-4xl mb-6">
         <div className="inline-flex items-center gap-2 px-2 py-1 rounded bg-severity-warning/30 border border-severity-warning/50 mb-3">
           <span className="text-[10px] uppercase tracking-widest text-severity-warning/90 font-semibold">
-            Dev prototype — not shipped
+            Early exhibit — real data where the density gate has cleared, raw harness chrome everywhere else
           </span>
         </div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Theory Layer Exhibit</h1>

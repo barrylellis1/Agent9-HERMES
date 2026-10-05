@@ -57,6 +57,40 @@ function summarizeByEventType(events: AuditEventRecord[]): EventTypeRate[] {
   return Array.from(byType.values()).sort((a, b) => b.fail - a.fail || a.eventType.localeCompare(b.eventType))
 }
 
+// The 4 non-advisory Decision Quality links SF wires into audit_events
+// (frame and trade-offs are deliberately excluded — see A9_Solution_Finder_
+// Agent_card.md's "Decision Quality's 4 non-advisory links" section). Fixed
+// order matches that card and this session's own commit history.
+const DQ_LINKS = ['information', 'alternatives', 'reasoning', 'commitment'] as const
+type DQOutcome = AuditEventRecord['outcome']
+
+interface DQRun {
+  requestId: string
+  createdAt: string
+  links: Partial<Record<(typeof DQ_LINKS)[number], DQOutcome>>
+}
+
+function buildDQRuns(events: AuditEventRecord[]): DQRun[] {
+  const byRequest = new Map<string, DQRun>()
+  for (const e of events) {
+    if (e.event_type !== 'reliability.decision_quality' || !e.request_id || !e.resource_id) continue
+    const run = byRequest.get(e.request_id) ?? { requestId: e.request_id, createdAt: e.created_at, links: {} }
+    if (e.created_at < run.createdAt) run.createdAt = e.created_at
+    run.links[e.resource_id as (typeof DQ_LINKS)[number]] = e.outcome
+    byRequest.set(e.request_id, run)
+  }
+  return Array.from(byRequest.values()).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+}
+
+function DQDot({ outcome }: { outcome: DQOutcome | undefined }) {
+  const cls = outcome === 'pass' ? 'bg-severity-opportunity'
+    : outcome === 'fail' ? 'bg-severity-critical'
+    : outcome === 'abstain' ? 'bg-slate-500'
+    : 'bg-slate-800'
+  const title = outcome ?? 'no data'
+  return <span className={`inline-block w-2.5 h-2.5 rounded-full ${cls}`} title={title} />
+}
+
 export function ReliabilityPanel() {
   const [adminKey, setAdminKey] = useState<string>(() => sessionStorage.getItem(SESSION_KEY) ?? '')
   const [keyInput, setKeyInput] = useState('')
@@ -131,6 +165,8 @@ export function ReliabilityPanel() {
     () => events.filter((e) => e.event_type === 'reliability.kpi_coverage' && e.outcome !== 'pass'),
     [events],
   )
+
+  const dqRuns = useMemo(() => buildDQRuns(events), [events])
 
   if (!adminKey) {
     return (
@@ -236,6 +272,53 @@ export function ReliabilityPanel() {
                     <td className="py-2.5 text-slate-300">{r.checked ? `${((r.fail / r.checked) * 100).toFixed(0)}%` : '—'}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Decision Quality — trend over time. Weakest-link framing per the
+          "Crossing the Reliability Threshold" doc: overall quality is the
+          weakest link, not the average, so "chain holds" requires all 4
+          non-advisory links passing on that run, not a percentage. */}
+      <section className="mb-6">
+        <h3 className="text-sm font-semibold text-slate-300 mb-2">Decision Quality — trend over time</h3>
+        {dqRuns.length === 0 ? (
+          <p className="text-sm text-slate-500 italic">No Decision Quality events in range.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 text-left">
+                  <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Run</th>
+                  {DQ_LINKS.map((link) => (
+                    <th key={link} className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">{link}</th>
+                  ))}
+                  <th className="pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">Chain holds</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dqRuns.map((r) => {
+                  const values = DQ_LINKS.map((l) => r.links[l])
+                  const checked = values.filter((v) => v != null)
+                  const chainHolds = checked.length > 0 && checked.every((v) => v === 'pass')
+                  return (
+                    <tr key={r.requestId} className="border-b border-slate-800/60 hover:bg-slate-800/20">
+                      <td className="py-2.5 pr-4 text-slate-400 text-xs">{new Date(r.createdAt).toLocaleString()}</td>
+                      {DQ_LINKS.map((link) => (
+                        <td key={link} className="py-2.5 pr-4"><DQDot outcome={r.links[link]} /></td>
+                      ))}
+                      <td className="py-2.5">
+                        {checked.length === 0
+                          ? <span className="text-slate-600">—</span>
+                          : chainHolds
+                            ? <span className="text-severity-opportunity text-xs font-medium">yes</span>
+                            : <span className="text-severity-critical text-xs font-medium">no</span>}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

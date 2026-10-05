@@ -42,7 +42,7 @@ import {
   PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronRight,
   Box, Briefcase, Building2, CheckCircle2, Database, GitBranch,
   LogOut, ShieldCheck, Sparkles, Users, UserCheck, Activity,
-  Shield, BarChart2, Target, Library, ShieldAlert,
+  Shield, BarChart2, Target, Library, ShieldAlert, Network,
 } from 'lucide-react';
 import { BrandLogo } from '../BrandLogo';
 import { getSettingsClientId, getSettingsMode, isAdminMode, exitAdminMode, type SettingsMode } from '../../utils/settingsMode';
@@ -133,6 +133,12 @@ const MAINTENANCE_NAV: SettingsNavGroup[] = [
       // has no real parent/child nesting to express that with, so this page
       // links out to both instead (see ReliabilityPanel.tsx).
       { label: 'Reliability',        to: '/settings/reliability',       icon: <ShieldAlert className="w-4 h-4" /> },
+      // Linked 2026-10-04, after an orchestrated batch of real SA->DA->SF
+      // ->approve->evaluate cycles genuinely cleared the Causal Edges
+      // density gate for premium_mix_pct — see TheoryLayerDevPage.tsx's own
+      // header comment. Was deliberately unlinked until there was a real
+      // KPI to point at, per DEVELOPMENT_PLAN.md Phase 17's delivery rule.
+      { label: 'Theory Layer',       to: '/dev/theory-layer',           icon: <Network className="w-4 h-4" /> },
       { label: 'Connection Health',  to: '/settings/connection-health', icon: <Activity className="w-4 h-4" /> },
       { label: 'Slice Validity',     to: '/settings/slice-validity',    icon: <ShieldCheck className="w-4 h-4" /> },
     ],
