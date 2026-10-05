@@ -260,7 +260,7 @@ unblock in the backlog: build Meridian and four phases become available.
 
 | Phase | Status | Gate |
 |---|---|---|
-| **17** — Theory Layer | **GATED** | All of T1–T4 verified present: migrations `20260830160000/170000/180000/190000`, `src/analysis/decomposition.py`, `src/registry/validators/additivity_validator.py`, `_grade_assumptions_from_verdict` in the VA agent. Exhibit is `/dev/theory-layer`, **deliberately unlinked from nav**. Causal-edge density gate sits at 0 tested edges and **clears only through accumulated VA verdicts over real use — never by seeding.** Registry data not yet synced to production. |
+| **17** — Theory Layer | **Partially live (2026-10-04)** | All of T1–T4 verified present: migrations `20260830160000/170000/180000/190000`, `src/analysis/decomposition.py`, `src/registry/validators/additivity_validator.py`, `_grade_assumptions_from_verdict` in the VA agent. Exhibit is `/dev/theory-layer`, **now linked into LeftNav's Workspace group** (was deliberately unlinked — see git history for that commit). Causal-edge density gate has genuinely cleared for `premium_mix_pct` (lubricants): `gross_margin_pct<->premium_mix_pct` confirmed `intervention_tested`/`va_validated` by `scripts/orchestrate_reliability_demo.py` driving real SA→DA→SF→approve→evaluate cycles through the real API, never by seeding — see that script's own docstring for the method. Every other KPI's gate is still unpassed; this is one real data point, not a general clearance. Registry data not yet synced to production. |
 | **20** — Causal-neighbourhood evidence | **PARTIAL** | Backend + `CausalTrendChart.tsx` present (`components/visualizations/`). BigQuery-only this pass. |
 
 ### Parallel tracks (no phase number)
