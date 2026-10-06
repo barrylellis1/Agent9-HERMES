@@ -623,6 +623,14 @@ async def _flush_sf_decision_quality(
     """
     if not client_id:
         return
+    # score_run reads dict-shaped payloads (isinstance(ask, dict) etc.), but
+    # callers hand over local Pydantic models (DecisionAsk, ImmediateAction).
+    # Passing a model straight through made every commitment link read as
+    # "no decision_ask" -- found live 2026-10-06 across all 13 captured runs.
+    solutions = {
+        k: (v.model_dump() if hasattr(v, "model_dump") else v)
+        for k, v in solutions.items()
+    }
     try:
         from src.analysis.decision_quality import score_run
 

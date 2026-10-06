@@ -912,6 +912,12 @@ card's own admission elsewhere — live verification is the coverage for that sp
 
 ## Decision Quality's 4 non-advisory links join the reliability panel (Oct 2026)
 
+**Fixed 2026-10-06: `commitment` was failing on every run for a wiring reason, not a model reason.**
+`_flush_sf_decision_quality` passed the local `DecisionAsk` Pydantic model into `score_run`, which
+only reads dicts (`isinstance(ask, dict)`), so SF's real decision owner was invisible. The helper now
+normalizes Pydantic values to dicts before scoring. Regression test: `test_pydantic_decision_ask_is_scored_as_commitment_pass`.
+
+
 **Scope decision (user's explicit choice, "option 2"):** only the four non-advisory DQ links —
 information (L3), alternatives (L2), reasoning (L5), commitment (L6) — reach `audit_events`. The two
 semantic links, frame (L1) and tradeoffs (L4), stay out entirely. `src/analysis/decision_quality.py`

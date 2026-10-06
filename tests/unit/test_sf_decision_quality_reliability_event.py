@@ -162,3 +162,22 @@ async def test_a_failed_write_does_not_raise_or_block_the_others():
     ) as spy:
         await _flush_sf_decision_quality("lubricants", "req-1", _BASE_SOLUTIONS, None)
     assert spy.await_count == 4
+
+
+@pytest.mark.asyncio
+async def test_pydantic_decision_ask_is_scored_as_commitment_pass():
+    """Regression (2026-10-06): callers pass a DecisionAsk model, not a dict.
+    score_run reads dicts only, so a model here silently read as 'no ask' and
+    commitment failed on every run. The helper must normalize it."""
+    from src.agents.models.solution_finder_models import DecisionAsk
+
+    solutions = dict(
+        _BASE_SOLUTIONS,
+        decision_ask=DecisionAsk(decision_text="Approve the pricing reset", decision_owner="CFO"),
+        immediate_actions=[{"action": "notify procurement"}],
+    )
+    with patch("src.agents.new.a9_solution_finder_agent.AuditService.log", new=AsyncMock(return_value=True)) as spy:
+        await _flush_sf_decision_quality("lubricants", "req-1", solutions, None)
+
+    commitment = next(c.kwargs for c in spy.call_args_list if c.kwargs["resource_id"] == "commitment")
+    assert commitment["outcome"] == "pass"
