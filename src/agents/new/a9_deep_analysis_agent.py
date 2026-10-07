@@ -3662,21 +3662,31 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     evidence_caveats.append(
                         "No causal mechanism recorded for this relationship — direction and pathway are not established."
                     )
-                # Distinctness caveat (2026-10-07 pre-mortem finding): an
-                # accounting_identity neighbour is arithmetically the SAME
-                # quantity restated, e.g. average_order_value is DEFINED as
-                # net_amount/order_count. Choosing it is not independent
-                # evidence — a fresh diagnosis on it would agree with this
-                # one by construction, not by confirmation. Flagged here so
-                # the gate itself discloses this, ahead of (and regardless
-                # of whether we build) a reframe-triggered DA re-run that
-                # would need to skip identity-basis choices for the same
-                # reason.
+                # Component caveat (2026-10-07, corrected same day after a
+                # principal review session). An accounting_identity
+                # neighbour is NOT the same quantity restated — it's a
+                # component of this KPI's own formula (e.g. cogs is one of
+                # the two terms gross_margin_pct is computed from; net_revenue
+                # is the other). A separate DA on a component is genuinely
+                # informative: it can show the problem concentrated on one
+                # side of the ratio while the other side is stable, which
+                # this KPI's own Is/Is-Not analysis may never break out at
+                # that granularity. An earlier version of this caveat read
+                # "...choosing it restates this KPI, it does not add
+                # independent evidence" — that was wrong; it conflated
+                # "worth a separate look" with a different question the
+                # identity DOES answer: whether a later VA-validated solution
+                # on this component should confirm a NEW causal claim in the
+                # theory layer. It shouldn't — moving a component moves the
+                # parent by arithmetic necessity, so there's nothing
+                # uncertain left to test. That's what this caveat now says.
                 if basis == "accounting_identity":
                     evidence_caveats.append(
-                        f"{neighbour_name} is arithmetically derived from {kpi_name} (accounting "
-                        "identity), not a separate causal driver — choosing it restates this KPI, "
-                        "it does not add independent evidence."
+                        f"{neighbour_name} is a component of {kpi_name}'s own formula (accounting "
+                        "identity), not an independent driver. A separate analysis here can still "
+                        "show whether this specific component is where the problem lies — but "
+                        "confirming a solution here won't register as a new causal finding, since "
+                        "the relationship is true by definition, not by evidence."
                     )
                 hop_word = "hop" if hop == 1 else "hops"
                 alternatives.append(FramingAlternative(

@@ -931,8 +931,28 @@ This is the distinctness PRECONDITION for the DA-re-run proposal, not the re-run
 unbuilt. A future re-run should gate on `basis == "causal_estimate"`; running DA again on an
 `accounting_identity` choice would just reproduce the same decomposition.
 
-Tests: `test_da_framing_prompt.py::test_accounting_identity_basis_carries_distinctness_caveat`,
+Tests (original names, see correction below): `test_da_framing_prompt.py::test_accounting_identity_basis_carries_distinctness_caveat`,
 `::test_causal_estimate_basis_carries_no_distinctness_caveat`.
+
+**Corrected same day, after a principal reviewed a live `gross_margin_pct` framing gate.** The
+"agrees by construction" framing above conflated two different questions: (1) is a component worth
+investigating separately, and (2) does confirming a solution on it count as a new causal finding. An
+`accounting_identity` neighbour answers (2) "no" but NOT (1) "no" — `cogs` and `net_revenue` are each
+one of the two terms `gross_margin_pct` is literally computed from, and a separate DA on either one
+is genuinely informative: it can show the margin move concentrated on the cost side while revenue is
+flat (or vice versa), which `gross_margin_pct`'s own Is/Is-Not analysis may never break out at that
+granularity. The caveat text was wrong to say choosing an identity "does not add independent
+evidence" — it does, for diagnosis. What it correctly rules out is treating a later VA-validated
+solution on the component as confirming a NEW causal claim in the theory layer, since moving a
+component moves the parent by arithmetic necessity, not by evidence.
+
+Caveat text and the two tests above were updated in place the same day (now
+`test_accounting_identity_basis_carries_component_caveat` /
+`test_causal_estimate_basis_carries_no_component_caveat`) to say this correctly. The UI
+consequence: an "Analyze" action for an independent DA investigation is offered for every
+causal-graph neighbour regardless of `basis` (`CausalNeighbourhoodEvidence.tsx`, moved there from an
+earlier, narrower placement on the compact `FramingGateCard.tsx` decision list that gated on
+`basis == causal_estimate` — that gate is gone; `basis` now only changes the caveat wording shown).
 
 ## Polarity-unaware "over/under-performing" wording; governed dimension labels (Aug 2026)
 

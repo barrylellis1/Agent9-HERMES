@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Target, Newspaper, Lock, History, User, ExternalLink } from 'lucide-react';
+import { Target, Newspaper, Lock, History, User } from 'lucide-react';
 import type { FramingPrompt, FramingDecision } from '../api/client';
 import { orderedCausalKpiIds, causalColorFor, alternativeShortLabel } from '../utils/causalColors';
 
@@ -30,34 +30,11 @@ interface FramingGateCardProps {
   prompt: FramingPrompt;
   onSubmit: (decision: FramingDecision) => void;
   isSubmitting?: boolean;
-  /**
-   * Needed only to build the "Investigate separately" deep-link URL
-   * (2026-10-07). Omitted entirely in any caller that hasn't threaded these
-   * through yet — the button just doesn't render, nothing else degrades.
-   */
-  principalId?: string;
-  clientId?: string;
 }
 
 type Choice = 'confirm_stated' | { alternative: string } | 'other';
 
-/**
- * Opens a second, fully independent SA→DA→SF→approval instance for an
- * alternative KPI in a new tab — no merge back into this workflow (2026-10-07).
- * See the "Let a principal investigate a causal alternative in a new tab"
- * plan. Only ever called for basis === 'causal_estimate' alternatives: an
- * accounting-identity alternative would just re-diagnose the same quantity
- * under a different name, agreeing by construction rather than by
- * independent evidence.
- */
-function openInvestigateTab(kpiId: string, clientId?: string, principalId?: string) {
-  const params = new URLSearchParams({ investigate: kpiId });
-  if (clientId) params.set('client', clientId);
-  if (principalId) params.set('principal', principalId);
-  window.open(`/dashboard?${params.toString()}`, '_blank');
-}
-
-export function FramingGateCard({ prompt, onSubmit, isSubmitting = false, principalId, clientId }: FramingGateCardProps) {
+export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: FramingGateCardProps) {
   const [choice, setChoice] = useState<Choice | null>(null);
   const [otherText, setOtherText] = useState('');
   const [falsifier, setFalsifier] = useState('');
@@ -182,56 +159,44 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false, princi
           </p>
         )}
 
+        {/* "Investigate separately" (open an independent DA in a new tab)
+            lives on the Causal Neighbourhood tiles in the LEFT panel
+            (CausalNeighbourhoodEvidence.tsx), not here — this card stays a
+            pure decision widget per its own design note above. */}
         {prompt.alternatives.map((alt, i) => {
           const isMarket = alt.source === 'market_signal';
           const selected = isAlternativeSelected(alt.kpi_id);
           const dotColor = isMarket ? null : causalColorFor(alt.kpi_id, ordered);
-          const canInvestigateSeparately = !isMarket && alt.basis === 'causal_estimate' && !!alt.kpi_id;
           return (
-            <div key={`${alt.source}-${alt.kpi_id ?? i}`} className="relative">
-              <button
-                type="button"
-                data-testid="framing-alternative"
-                data-source={alt.source}
-                data-kpi-id={alt.kpi_id ?? ''}
-                onClick={() => alt.kpi_id && setChoice({ alternative: alt.kpi_id })}
-                disabled={!alt.kpi_id}
-                className={`w-full text-left rounded-lg border px-3 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  selected
-                    ? 'border-indigo-500 bg-indigo-950/40'
-                    : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800/70 hover:border-slate-600'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {isMarket ? (
-                    <Newspaper className="h-3 w-3 flex-shrink-0 text-cyan-400" />
-                  ) : (
-                    <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: dotColor ?? undefined }} />
-                  )}
-                  <span className="text-sm leading-snug text-slate-100 truncate">{alternativeShortLabel(alt)}</span>
-                  {alt.neighbour_snapshot?.percent_change != null && (
-                    <span className={`flex-shrink-0 text-[11px] text-slate-400 ${canInvestigateSeparately ? 'ml-2' : 'ml-auto'}`}>
-                      {alt.neighbour_snapshot.percent_change > 0 ? '+' : ''}
-                      {alt.neighbour_snapshot.percent_change.toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-              </button>
-              {canInvestigateSeparately && (
-                <button
-                  type="button"
-                  data-testid="framing-investigate-separately"
-                  title={`Open an independent analysis of ${alt.kpi_id} in a new tab — doesn't affect this decision`}
-                  onClick={e => {
-                    e.stopPropagation();
-                    openInvestigateTab(alt.kpi_id as string, clientId, principalId);
-                  }}
-                  className="absolute right-2 top-2 flex items-center gap-1 rounded border border-slate-600 bg-slate-900/80 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-indigo-500 hover:text-indigo-300"
-                >
-                  Investigate separately <ExternalLink className="h-2.5 w-2.5" />
-                </button>
-              )}
-            </div>
+            <button
+              key={`${alt.source}-${alt.kpi_id ?? i}`}
+              type="button"
+              data-testid="framing-alternative"
+              data-source={alt.source}
+              data-kpi-id={alt.kpi_id ?? ''}
+              onClick={() => alt.kpi_id && setChoice({ alternative: alt.kpi_id })}
+              disabled={!alt.kpi_id}
+              className={`w-full text-left rounded-lg border px-3 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                selected
+                  ? 'border-indigo-500 bg-indigo-950/40'
+                  : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800/70 hover:border-slate-600'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {isMarket ? (
+                  <Newspaper className="h-3 w-3 flex-shrink-0 text-cyan-400" />
+                ) : (
+                  <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: dotColor ?? undefined }} />
+                )}
+                <span className="text-sm leading-snug text-slate-100 truncate">{alternativeShortLabel(alt)}</span>
+                {alt.neighbour_snapshot?.percent_change != null && (
+                  <span className="ml-auto flex-shrink-0 text-[11px] text-slate-400">
+                    {alt.neighbour_snapshot.percent_change > 0 ? '+' : ''}
+                    {alt.neighbour_snapshot.percent_change.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+            </button>
           );
         })}
 

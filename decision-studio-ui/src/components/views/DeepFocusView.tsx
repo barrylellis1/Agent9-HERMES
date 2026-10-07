@@ -931,7 +931,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                         icon={<SplitSquareHorizontal className="w-4 h-4 text-indigo-400" />}
                         summary={`${framingPrompt.alternatives.length} candidate${framingPrompt.alternatives.length === 1 ? '' : 's'}`}
                     >
-                        <CausalNeighbourhoodEvidence prompt={framingPrompt} kpiName={framingPrompt.kpi_name || situation.kpi_name} />
+                        <CausalNeighbourhoodEvidence
+                            prompt={framingPrompt}
+                            kpiName={framingPrompt.kpi_name || situation.kpi_name}
+                            clientId={clientId}
+                            principalId={principalId}
+                        />
                     </AccordionSection>
                 )}
             </div>
@@ -1184,7 +1189,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              }}
                              principalContext={principalContext}
                              principalId={principalId}
-                             clientId={clientId}
                              onComplete={onRefinementComplete}
                              onCancel={onRefinementCancel}
                              initialMarketSignals={initialMarketSignals}

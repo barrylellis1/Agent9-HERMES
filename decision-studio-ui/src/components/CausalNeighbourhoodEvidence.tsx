@@ -1,8 +1,9 @@
-import { Newspaper } from 'lucide-react';
+import { Newspaper, ExternalLink } from 'lucide-react';
 import type { FramingPrompt, FramingAlternative } from '../api/types';
 import { CausalTrendChart } from './visualizations/CausalTrendChart';
 import { buildCausalTrendChart } from '../utils/causalTrendSeries';
 import { orderedCausalKpiIds, causalColorFor, alternativeShortLabel, CAUSAL_PRIMARY_HUE } from '../utils/causalColors';
+import { openInvestigateTab } from '../utils/investigateLink';
 
 /**
  * Phase 20 §14 decision 8 — the LEFT-panel (primary DA pane) half of the
@@ -32,12 +33,26 @@ function fmtPct(v: number | null | undefined): string {
   return `${sign}${v.toFixed(1)}%`;
 }
 
-function EvidenceCard({ alt, dotColor }: { alt: FramingAlternative; dotColor: string }) {
+function EvidenceCard({
+  alt,
+  dotColor,
+  clientId,
+  principalId,
+}: {
+  alt: FramingAlternative;
+  dotColor: string;
+  clientId?: string;
+  principalId?: string;
+}) {
   const isMarket = alt.source === 'market_signal';
   const confidenceClass = alt.confidence && CONFIDENCE_TONE[alt.confidence]
     ? CONFIDENCE_TONE[alt.confidence]
     : 'text-slate-400 border-slate-600';
   const snap = alt.neighbour_snapshot;
+  // Offered for every causal-graph neighbour regardless of basis — see
+  // investigateLink.ts for why an accounting_identity component is still
+  // worth a separate look (it just can't register as a new causal finding).
+  const canAnalyze = !isMarket && !!alt.kpi_id;
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-3">
@@ -50,12 +65,25 @@ function EvidenceCard({ alt, dotColor }: { alt: FramingAlternative; dotColor: st
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm leading-snug text-slate-100">{alt.objective_text}</p>
-            {snap && snap.value !== null && snap.value !== undefined && (
-              <span className="flex-shrink-0 text-right text-xs">
-                <span className="font-medium text-slate-200">{fmtPct(snap.percent_change)}</span>
-                <span className="ml-1 text-slate-500">this period</span>
-              </span>
-            )}
+            <div className="flex flex-shrink-0 items-center gap-2">
+              {snap && snap.value !== null && snap.value !== undefined && (
+                <span className="text-right text-xs">
+                  <span className="font-medium text-slate-200">{fmtPct(snap.percent_change)}</span>
+                  <span className="ml-1 text-slate-500">this period</span>
+                </span>
+              )}
+              {canAnalyze && (
+                <button
+                  type="button"
+                  data-testid="causal-neighbour-analyze"
+                  title={`Open an independent analysis of ${alt.kpi_id} in a new tab — doesn't affect this decision`}
+                  onClick={() => openInvestigateTab(alt.kpi_id as string, clientId, principalId)}
+                  className="flex items-center gap-1 rounded border border-slate-600 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-indigo-500 hover:text-indigo-300"
+                >
+                  Analyze <ExternalLink className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className="rounded border border-slate-600 px-1.5 py-px text-[9px] uppercase tracking-wider text-slate-400">
@@ -90,7 +118,17 @@ function EvidenceCard({ alt, dotColor }: { alt: FramingAlternative; dotColor: st
   );
 }
 
-export function CausalNeighbourhoodEvidence({ prompt, kpiName }: { prompt: FramingPrompt; kpiName: string }) {
+export function CausalNeighbourhoodEvidence({
+  prompt,
+  kpiName,
+  clientId,
+  principalId,
+}: {
+  prompt: FramingPrompt;
+  kpiName: string;
+  clientId?: string;
+  principalId?: string;
+}) {
   const ordered = orderedCausalKpiIds(prompt.alternatives);
   const chartData = buildCausalTrendChart(
     { kpiId: prompt.kpi_id || kpiName, label: kpiName, snapshot: prompt.primary_snapshot },
@@ -130,6 +168,8 @@ export function CausalNeighbourhoodEvidence({ prompt, kpiName }: { prompt: Frami
             key={`${alt.source}-${alt.kpi_id ?? i}`}
             alt={alt}
             dotColor={alt.source === 'causal_graph' ? causalColorFor(alt.kpi_id, ordered) : CAUSAL_PRIMARY_HUE}
+            clientId={clientId}
+            principalId={principalId}
           />
         ))}
       </div>

@@ -565,12 +565,17 @@ export interface FramingAlternative {
   /** Phase 20 — causal_graph only, populated best-effort. */
   neighbour_snapshot?: NeighbourSnapshot | null;
   /**
-   * KPIRelationship.basis passthrough (causal_graph only, added 2026-10-07).
-   * "accounting_identity" means this alternative is arithmetically the same
-   * quantity as the KPI just analysed (e.g. average_order_value is DEFINED
-   * as net_amount/order_count) — investigating it independently would agree
-   * by construction, not by independent evidence. Only "causal_estimate"
-   * alternatives should offer an independent investigation action.
+   * KPIRelationship.basis passthrough (causal_graph only, added 2026-10-07,
+   * corrected same day). "accounting_identity" means this alternative is a
+   * COMPONENT of the analysed KPI's own formula (e.g. cogs is one of the two
+   * terms gross_margin_pct is computed from) — not the same quantity
+   * restated. A separate DA on it is genuinely informative (the problem can
+   * sit on one side of a ratio while the other side is stable), so this does
+   * NOT gate whether "Analyze" should be offered — see
+   * CausalNeighbourhoodEvidence.tsx. What it gates is downstream in VA/the
+   * theory layer: a validated solution on an identity component shouldn't
+   * register as confirming a new causal claim, since moving a component
+   * moves the parent by arithmetic necessity rather than by evidence.
    */
   basis?: 'accounting_identity' | 'causal_estimate' | null;
 }
