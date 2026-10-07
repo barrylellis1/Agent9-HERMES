@@ -228,6 +228,35 @@ export function useDecisionStudio() {
     }
   }, [situations, pendingKpiName]);
 
+  // "Investigate separately" deep link (2026-10-07, see FramingGateCard.tsx's
+  // openInvestigateTab). A tab opened via window.open() carries no React
+  // Router `state` — that only survives an in-SPA navigate(path, {state}),
+  // like the kpiName pattern above — so this reads a plain query param
+  // instead. Runs once on mount; investigateTriggeredRef guards against a
+  // second fire if location.search is re-evaluated later.
+  const investigateTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (investigateTriggeredRef.current) return;
+    const params = new URLSearchParams(location.search);
+    const kpiId = params.get('investigate');
+    if (!kpiId) return;
+    investigateTriggeredRef.current = true;
+    const client = params.get('client');
+    const principal = params.get('principal');
+    if (client) setSelectedClientId(client);
+    if (principal) setSelectedPrincipal(principal);
+    const synthetic: Situation = {
+      situation_id: `investigate-${kpiId}-${Date.now()}`,
+      kpi_id: kpiId,
+      kpi_name: kpiId,
+      description: `Independent investigation of ${kpiId}, opened from a framing alternative.`,
+      severity: 'medium',
+      card_type: 'problem',
+    };
+    setSelectedSituation(synthetic);
+    handleDeepAnalysis(synthetic);
+  }, [location.search]);
+
   // Restore solutions from persistence when situation changes
   useEffect(() => {
     if (selectedSituation?.situation_id) {
@@ -320,7 +349,12 @@ export function useDecisionStudio() {
       lastPrincipalRef.current = selectedPrincipal;
       lastTimeframeRef.current = timeframe;
       lastClientRef.current = selectedClientId;
-      handleRefresh();
+      // Skip the full SA scan when this tab was opened for a single-KPI
+      // "Investigate separately" deep link (see the effect above) — the
+      // whole point is a targeted DA on one KPI, not a dashboard-wide scan
+      // the principal never asked for in this tab.
+      const isInvestigateTab = new URLSearchParams(location.search).has('investigate');
+      if (!isInvestigateTab) handleRefresh();
       return;
     }
 

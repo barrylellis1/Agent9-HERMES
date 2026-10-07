@@ -564,6 +564,15 @@ export interface FramingAlternative {
   evidence_caveats: string[];
   /** Phase 20 — causal_graph only, populated best-effort. */
   neighbour_snapshot?: NeighbourSnapshot | null;
+  /**
+   * KPIRelationship.basis passthrough (causal_graph only, added 2026-10-07).
+   * "accounting_identity" means this alternative is arithmetically the same
+   * quantity as the KPI just analysed (e.g. average_order_value is DEFINED
+   * as net_amount/order_count) — investigating it independently would agree
+   * by construction, not by independent evidence. Only "causal_estimate"
+   * alternatives should offer an independent investigation action.
+   */
+  basis?: 'accounting_identity' | 'causal_estimate' | null;
 }
 
 /** A previously recorded framing decision — re-presented with its reasoning and falsifier, never pre-ticked. */

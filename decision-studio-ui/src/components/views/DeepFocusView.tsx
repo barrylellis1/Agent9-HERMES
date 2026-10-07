@@ -1184,6 +1184,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              }}
                              principalContext={principalContext}
                              principalId={principalId}
+                             clientId={clientId}
                              onComplete={onRefinementComplete}
                              onCancel={onRefinementCancel}
                              initialMarketSignals={initialMarketSignals}

@@ -39,6 +39,8 @@ interface ProblemRefinementChatProps {
   deepAnalysisOutput: any;
   principalContext: any;
   principalId: string;
+  /** Threaded through to FramingGateCard's "Investigate separately" action. */
+  clientId?: string;
   onComplete: (result: ProblemRefinementResult) => void;
   onCancel: () => void;
   initialMarketSignals?: MarketSignal[];
@@ -91,6 +93,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   deepAnalysisOutput,
   principalContext,
   principalId,
+  clientId,
   onComplete,
   onCancel,
   initialMarketSignals: _initialMarketSignals,
@@ -493,6 +496,8 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
             prompt={refinementState.framing_prompt}
             onSubmit={submitFraming}
             isSubmitting={isSubmittingFraming}
+            principalId={principalId}
+            clientId={clientId}
           />
         </div>
       ) : (
