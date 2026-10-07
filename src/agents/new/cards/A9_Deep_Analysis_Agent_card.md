@@ -906,6 +906,34 @@ alternatives; `gross_margin_pct`'s is unaffected. 1 new test
 `test_hop_two_excluded_when_second_edge_walked_backward` reworked onto a scenario this refinement
 doesn't also touch, so it still isolates what it was written to test.
 
+## Framing alternatives now carry `basis`, with a distinctness caveat on identities (Oct 2026)
+
+**Found via a pre-mortem, not a bug report.** Objective 2 of "Crossing the Reliability Threshold"
+(decide where DQ's frame link is graded) proposed re-running DA on a reframed KPI as evidence it's a
+genuinely different diagnosis, not a re-narration. The pre-mortem's first failure mode: an "alternative"
+objective can be arithmetically the SAME quantity as the one just analysed — `average_order_value` is
+DEFINED as `net_amount / order_count`. A fresh DA on it would agree with the original by construction,
+not by independent confirmation, and nothing in the gate disclosed that.
+
+`FramingAlternative` gained a `basis` field (`accounting_identity` | `causal_estimate`), passthrough
+from `KPIRelationship.basis` (already computed, already on every edge — `_build_framing_prompt` was
+just dropping it at the model boundary). An `accounting_identity` alternative now carries an explicit
+`evidence_caveats` entry: *"X is arithmetically derived from Y (accounting identity), not a separate
+causal driver — choosing it restates this KPI, it does not add independent evidence."*
+
+**Verified live, same day:** a real `net_revenue` framing gate for lubricants offers three alternatives
+— `average_order_value` and `sales_order_count` both `accounting_identity` (both carry the caveat),
+`units_sold` the one genuine `causal_estimate` claim (no caveat). This matches exactly what an earlier
+scripted probe had silently done: it picked `average_order_value`, which was never independent
+evidence, and the gate gave no indication of that.
+
+This is the distinctness PRECONDITION for the DA-re-run proposal, not the re-run itself — that remains
+unbuilt. A future re-run should gate on `basis == "causal_estimate"`; running DA again on an
+`accounting_identity` choice would just reproduce the same decomposition.
+
+Tests: `test_da_framing_prompt.py::test_accounting_identity_basis_carries_distinctness_caveat`,
+`::test_causal_estimate_basis_carries_no_distinctness_caveat`.
+
 ## Polarity-unaware "over/under-performing" wording; governed dimension labels (Aug 2026)
 
 **Defect 1 — SCQA narrative read backwards for inverse-logic KPIs.** `direction` in

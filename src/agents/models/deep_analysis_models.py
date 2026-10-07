@@ -453,6 +453,19 @@ class FramingAlternative(A9AgentBaseModel):
     provenance_caveat: Optional[str] = Field(
         None, description="Human-facing copy for `provenance`, from _FRAMING_PROVENANCE_CAVEAT — NOT the LLM-instruction text in a9_solution_finder_agent.py's _PROVENANCE_CAVEAT"
     )
+    basis: Optional[Literal["accounting_identity", "causal_estimate"]] = Field(
+        None,
+        description=(
+            "KPIRelationship.basis, passthrough — causal_graph only. Distinguishes an "
+            "arithmetically-derived neighbour (e.g. average_order_value is DEFINED as "
+            "net_amount/order_count) from a genuinely separate causal claim. Added "
+            "2026-10-07 after a pre-mortem on re-running DA per reframe: the first "
+            "failure mode found was that an 'alternative' objective can be definitionally "
+            "the same quantity as the one just analysed, so a fresh diagnosis on it would "
+            "agree by construction, not by independent evidence. This field is what a "
+            "reframe-triggered DA re-run (not yet built) would gate on."
+        ),
+    )
     evidence_caveats: List[str] = Field(
         default_factory=list,
         description="Plain-language caveats a reader needs before treating this as a real alternative (e.g. mechanism unconfirmed, independently-generated market signal)"

@@ -184,6 +184,35 @@ class TestCausalGraphAlternatives:
         assert alt.mechanism is not None  # identity edges keep their (accurate) mechanism text
 
     @pytest.mark.asyncio
+    async def test_accounting_identity_basis_carries_distinctness_caveat(self):
+        """2026-10-07 pre-mortem finding (objective 2, Crossing the Reliability
+        Threshold): an accounting_identity neighbour is arithmetically the SAME
+        quantity restated (e.g. average_order_value is DEFINED as
+        net_amount/order_count), so choosing it is not independent evidence --
+        a fresh diagnosis on it would agree by construction, not confirmation.
+        The gate must disclose this, ahead of (and regardless of) whether a
+        reframe-triggered DA re-run gets built on top of it."""
+        da = _make_da_stub()
+        edge = _relationship(basis="accounting_identity", mechanism="X is calculated from Y.")
+        with _registry_patch([_kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess")]), \
+             _providers(neighbourhood=[(edge, 1)]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        alt = result.alternatives[0]
+        assert alt.basis == "accounting_identity"
+        assert any("not a separate causal driver" in c for c in alt.evidence_caveats)
+
+    @pytest.mark.asyncio
+    async def test_causal_estimate_basis_carries_no_distinctness_caveat(self):
+        da = _make_da_stub()
+        edge = _relationship(basis="causal_estimate", mechanism="X drives Y via pricing pass-through.")
+        with _registry_patch([_kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess")]), \
+             _providers(neighbourhood=[(edge, 1)]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        alt = result.alternatives[0]
+        assert alt.basis == "causal_estimate"
+        assert not any("not a separate causal driver" in c for c in alt.evidence_caveats)
+
+    @pytest.mark.asyncio
     async def test_two_hop_edge_preserves_hop_distance_not_flattened(self):
         da = _make_da_stub()
         # base_oil_cost -> cogs (hop 1, already visited via kpi_id="cogs")
