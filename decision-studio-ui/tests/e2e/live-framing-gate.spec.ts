@@ -212,40 +212,35 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     const ownerText = await page.getByText(/you own this kpi/i).count();
     console.log(`[framing] "you own this KPI" shown: ${!!ownerText} (payload owner_role=${framingPrompt?.owner_role}, viewer_is_owner=${framingPrompt?.viewer_is_owner})`);
 
-    // ── CHECK 5: alternatives — real causal-graph / market-signal data ──────
+    // ── CHECK 5: alternatives — real causal-graph / market-signal data, but
+    // no longer selectable in this card (2026-10-07: reframing to a
+    // different KPI without actually analysing it was a liability — the
+    // Causal Neighbourhood panel's "Analyze" action is the only way to
+    // pursue an alternative now, and it runs a real, independent DA). This
+    // card still receives the full payload (the left-panel evidence section
+    // reads the same `framingPrompt`), it just renders zero
+    // `framing-alternative` buttons regardless of payload size.
     const altButtons = page.getByTestId('framing-alternative');
     const altCount = await altButtons.count();
-    console.log(`[framing] alternatives offered: payload=${framingPrompt?.alternatives?.length ?? 0} rendered=${altCount}`);
-    expect(altCount, 'alternatives payload/DOM count mismatch').toBe(framingPrompt?.alternatives?.length ?? 0);
+    console.log(`[framing] alternatives in payload=${framingPrompt?.alternatives?.length ?? 0} (not selectable here by design — see Causal Neighbourhood's Analyze action), rendered as buttons=${altCount}`);
+    expect(altCount, 'alternative buttons must never render in the compact gate — only confirm_stated/other are offered').toBe(0);
     for (const a of (framingPrompt?.alternatives ?? [])) {
-      console.log(`  - [${a.source}] ${a.objective_text} (hops=${a.hops ?? 'n/a'}, provenance=${a.provenance ?? 'n/a'}, confidence=${a.confidence ?? 'n/a'})`);
+      console.log(`  - [${a.source}] ${a.objective_text} (hops=${a.hops ?? 'n/a'}, provenance=${a.provenance ?? 'n/a'}, confidence=${a.confidence ?? 'n/a'}, basis=${a.basis ?? 'n/a'})`);
     }
 
     // ── CHECK 6: submit is disabled until BOTH a choice AND a falsifier are given ──
     const submitBtn = page.getByTestId('framing-submit');
     await expect(submitBtn, 'submit must start disabled — nothing pre-selected').toBeDisabled();
 
-    // Pick the first real alternative if one exists (more informative than
-    // confirming — exercises the reframe path SF Slice 7 depends on); fall
-    // back to confirming the stated objective if the graph offered none.
-    let chosenChoice: 'alternative' | 'confirm_stated';
-    let chosenObjectiveText: string;
-    if (altCount > 0) {
-      chosenChoice = 'alternative';
-      // Phase 20: the button's visible text is now a short label
-      // (alternativeShortLabel), not the full objective_text sent to the
-      // backend — read the real value from the already-captured payload via
-      // data-kpi-id rather than parsing the DOM, which would silently drift
-      // from what actually gets submitted.
-      const chosenKpiId = await altButtons.first().getAttribute('data-kpi-id');
-      const chosenAlt = (framingPrompt?.alternatives ?? []).find((a: any) => a.kpi_id === chosenKpiId);
-      chosenObjectiveText = chosenAlt?.objective_text ?? '';
-      await altButtons.first().click();
-    } else {
-      chosenChoice = 'confirm_stated';
-      chosenObjectiveText = framingPrompt?.stated_objective_text ?? '';
-      await page.getByTestId('framing-confirm-stated').click();
-    }
+    // Only confirm_stated is exercised here now — "alternative" is retired
+    // from the UI (the gate relabeled the SAME analysis under a different
+    // KPI's name without ever diagnosing it; Analyze does the honest version
+    // of this in a separate tab). The backend model still accepts the
+    // "alternative" literal for historical decisions, but nothing in the UI
+    // submits it anymore.
+    const chosenChoice: 'confirm_stated' = 'confirm_stated';
+    const chosenObjectiveText: string = framingPrompt?.stated_objective_text ?? '';
+    await page.getByTestId('framing-confirm-stated').click();
     await expect(submitBtn, 'submit must still be disabled with a choice but no falsifier').toBeDisabled();
 
     const falsifierText = 'If this KPI does not move as expected within two assessment cycles after acting on this objective, this frame was wrong.';

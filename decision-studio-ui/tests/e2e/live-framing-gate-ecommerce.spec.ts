@@ -223,13 +223,15 @@ test.describe('Live — Phase 19 framing gate (ecommerce_revenue, non-owner CEO 
     // either direction, so causal-graph alternatives MUST be empty here — any
     // alternative present must be market_signal-sourced only. This is the empty-
     // graph "never fabricate" path the unit tests assert with mocks; this proves
-    // it against the real registry.
+    // it against the real registry. Separately (2026-10-07), alternatives are no
+    // longer selectable as buttons in this card regardless of payload size — see
+    // live-framing-gate.spec.ts's CHECK 5 comment for why.
     const altButtons = page.getByTestId('framing-alternative');
     const altCount = await altButtons.count();
-    console.log(`[framing] alternatives offered: payload=${framingPrompt?.alternatives?.length ?? 0} rendered=${altCount}`);
-    expect(altCount, 'alternatives payload/DOM count mismatch').toBe(framingPrompt?.alternatives?.length ?? 0);
+    console.log(`[framing] alternatives in payload=${framingPrompt?.alternatives?.length ?? 0}, rendered as buttons=${altCount}`);
+    expect(altCount, 'alternative buttons must never render in the compact gate').toBe(0);
     for (const a of (framingPrompt?.alternatives ?? [])) {
-      console.log(`  - [${a.source}] ${a.objective_text} (hops=${a.hops ?? 'n/a'}, provenance=${a.provenance ?? 'n/a'}, confidence=${a.confidence ?? 'n/a'})`);
+      console.log(`  - [${a.source}] ${a.objective_text} (hops=${a.hops ?? 'n/a'}, provenance=${a.provenance ?? 'n/a'}, confidence=${a.confidence ?? 'n/a'}, basis=${a.basis ?? 'n/a'})`);
     }
     const causalAlternatives = (framingPrompt?.alternatives ?? []).filter((a: any) => a.source === 'causal_graph');
     expect(causalAlternatives.length, 'kpi_relationships has zero rows for ecommerce_revenue — no causal-graph alternative should have been fabricated').toBe(0);
@@ -238,27 +240,12 @@ test.describe('Live — Phase 19 framing gate (ecommerce_revenue, non-owner CEO 
     const submitBtn = page.getByTestId('framing-submit');
     await expect(submitBtn, 'submit must start disabled — nothing pre-selected').toBeDisabled();
 
-    // Expected to be the confirm_stated branch (no causal alternatives; a
-    // market-signal one may or may not be present depending on whether MA
-    // detected a live conflict for this KPI/period) — but stay generic and
-    // follow whatever the real payload actually offers, same as run #1.
-    let chosenChoice: 'alternative' | 'confirm_stated';
-    let chosenObjectiveText: string;
-    if (altCount > 0) {
-      chosenChoice = 'alternative';
-      // Phase 20: the button's visible text is now a short label
-      // (alternativeShortLabel), not the full objective_text sent to the
-      // backend — read the real value from the already-captured payload via
-      // data-kpi-id rather than parsing the DOM.
-      const chosenKpiId = await altButtons.first().getAttribute('data-kpi-id');
-      const chosenAlt = (framingPrompt?.alternatives ?? []).find((a: any) => a.kpi_id === chosenKpiId);
-      chosenObjectiveText = chosenAlt?.objective_text ?? '';
-      await altButtons.first().click();
-    } else {
-      chosenChoice = 'confirm_stated';
-      chosenObjectiveText = framingPrompt?.stated_objective_text ?? '';
-      await page.getByTestId('framing-confirm-stated').click();
-    }
+    // Only confirm_stated is offered now (see CHECK 5 note) — this run's
+    // original point, that an empty causal graph shouldn't fabricate an
+    // alternative, is unaffected either way.
+    const chosenChoice: 'confirm_stated' = 'confirm_stated';
+    const chosenObjectiveText: string = framingPrompt?.stated_objective_text ?? '';
+    await page.getByTestId('framing-confirm-stated').click();
     await expect(submitBtn, 'submit must still be disabled with a choice but no falsifier').toBeDisabled();
 
     const falsifierText = 'If this KPI does not move as expected within two assessment cycles after acting on this objective, this frame was wrong.';

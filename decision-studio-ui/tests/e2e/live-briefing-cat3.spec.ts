@@ -158,12 +158,10 @@ test.describe('Live — Phase 13 Cat 3 briefing UI', () => {
     await startRefinement.click();
     const framingCard = page.getByTestId('framing-gate-card');
     await framingCard.waitFor({ state: 'visible', timeout: 90_000 });
-    const altButtons = page.getByTestId('framing-alternative');
-    if (await altButtons.count() > 0) {
-      await altButtons.first().click();
-    } else {
-      await page.getByTestId('framing-confirm-stated').click();
-    }
+    // "alternative" retired from the UI 2026-10-07 — only confirm_stated/
+    // other are offered now (Analyze, in the left-panel Causal Neighbourhood
+    // section, is the real path to a different KPI).
+    await page.getByTestId('framing-confirm-stated').click();
     await page.getByTestId('framing-falsifier-input').fill(
       'If this KPI does not move as expected within two assessment cycles after acting on this objective, this frame was wrong.'
     );

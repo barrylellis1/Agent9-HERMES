@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Target, Newspaper, Lock, History, User } from 'lucide-react';
+import { Target, Lock, History, User } from 'lucide-react';
 import type { FramingPrompt, FramingDecision } from '../api/client';
-import { orderedCausalKpiIds, causalColorFor, alternativeShortLabel } from '../utils/causalColors';
 
 /**
  * The mandatory framing gate (Phase 19) — a genuinely new visual moment, not
@@ -16,10 +15,21 @@ import { orderedCausalKpiIds, causalColorFor, alternativeShortLabel } from '../u
  * alternative, crammed into the Action Center's narrow column. That evidence
  * now lives in DeepFocusView's LEFT-panel "Causal Neighbourhood" section
  * (CausalNeighbourhoodEvidence.tsx), where there's room for it — plus the
- * trend chart, which never fit here at all. This card asks a question and
- * collects a decision; it doesn't argue the case. Each option is a color dot
- * (matching the LEFT panel's chart/evidence via utils/causalColors.ts) and a
- * short label — someone answering here references the rich evidence there.
+ * trend chart, which never fit here at all.
+ *
+ * 2026-10-07 — the "alternative" choice (reframe the objective to a
+ * different KPI) is retired. It never re-ran DA on the chosen KPI
+ * (DeepFocusView.tsx:618's long-standing note: a reframe "still reflects the
+ * original KPI's own analysis, re-framed to this decision"), so SF would
+ * generate solutions that LOOK like a decided, falsifiable answer for e.g.
+ * "Cost of Goods Sold" while actually being grounded in gross_margin_pct's
+ * own change-point data — the exact looks-rigorous-but-isn't gap Phase 19
+ * exists to catch elsewhere. The honest version of "I think it's really a
+ * different KPI" is now the Causal Neighbourhood panel's "Analyze" action,
+ * which runs a real, independent DA in a new tab. This card only ever offers
+ * two choices: confirm the stated objective, or restate the goal in free
+ * text while staying on THIS analysis (e.g. a different success criterion or
+ * stakeholder angle — not a KPI switch).
  *
  * NOTHING is pre-selected. Submit stays disabled until a choice is made AND
  * the falsification criterion is non-blank — both are required on every
@@ -32,48 +42,32 @@ interface FramingGateCardProps {
   isSubmitting?: boolean;
 }
 
-type Choice = 'confirm_stated' | { alternative: string } | 'other';
+type Choice = 'confirm_stated' | 'other';
 
 export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: FramingGateCardProps) {
   const [choice, setChoice] = useState<Choice | null>(null);
   const [otherText, setOtherText] = useState('');
   const [falsifier, setFalsifier] = useState('');
 
-  const ordered = orderedCausalKpiIds(prompt.alternatives);
-
   const isValid = choice !== null && falsifier.trim().length > 0 &&
     (choice !== 'other' || otherText.trim().length > 0);
 
   const handleSubmit = () => {
     if (!isValid || choice === null) return;
-    let decision: FramingDecision;
-    if (choice === 'confirm_stated') {
-      decision = {
-        choice: 'confirm_stated',
-        chosen_objective_text: prompt.stated_objective_text,
-        falsification_criterion: falsifier.trim(),
-      };
-    } else if (choice === 'other') {
-      decision = {
-        choice: 'other',
-        chosen_objective_text: otherText.trim(),
-        other_text: otherText.trim(),
-        falsification_criterion: falsifier.trim(),
-      };
-    } else {
-      const alt = prompt.alternatives.find(a => a.kpi_id === choice.alternative);
-      decision = {
-        choice: 'alternative',
-        chosen_kpi_id: choice.alternative,
-        chosen_objective_text: alt?.objective_text || choice.alternative,
-        falsification_criterion: falsifier.trim(),
-      };
-    }
+    const decision: FramingDecision = choice === 'confirm_stated'
+      ? {
+          choice: 'confirm_stated',
+          chosen_objective_text: prompt.stated_objective_text,
+          falsification_criterion: falsifier.trim(),
+        }
+      : {
+          choice: 'other',
+          chosen_objective_text: otherText.trim(),
+          other_text: otherText.trim(),
+          falsification_criterion: falsifier.trim(),
+        };
     onSubmit(decision);
   };
-
-  const isAlternativeSelected = (kpiId: string | null | undefined) =>
-    typeof choice === 'object' && choice !== null && 'alternative' in choice && choice.alternative === kpiId;
 
   return (
     <div data-testid="framing-gate-card" className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto p-4">
@@ -127,7 +121,7 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
 
       {prompt.alternatives.length > 0 && (
         <p className="text-[11px] text-slate-500">
-          See <span className="text-slate-400">Causal Neighbourhood</span> on the left for the evidence behind each option below.
+          See <span className="text-slate-400">Causal Neighbourhood</span> on the left to analyze any of these drivers independently — switching the objective here isn't how to pursue them.
         </p>
       )}
 
@@ -152,53 +146,12 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
           </div>
         </button>
 
-        {prompt.alternatives.length === 0 && (
-          <p className="px-1 text-[11px] italic text-slate-500">
-            No specific alternative is suggested by the causal graph or market signals for this KPI —
-            confirming is the only option, but the falsifier below still records what would change your mind.
-          </p>
-        )}
-
-        {/* "Investigate separately" (open an independent DA in a new tab)
-            lives on the Causal Neighbourhood tiles in the LEFT panel
-            (CausalNeighbourhoodEvidence.tsx), not here — this card stays a
-            pure decision widget per its own design note above. */}
-        {prompt.alternatives.map((alt, i) => {
-          const isMarket = alt.source === 'market_signal';
-          const selected = isAlternativeSelected(alt.kpi_id);
-          const dotColor = isMarket ? null : causalColorFor(alt.kpi_id, ordered);
-          return (
-            <button
-              key={`${alt.source}-${alt.kpi_id ?? i}`}
-              type="button"
-              data-testid="framing-alternative"
-              data-source={alt.source}
-              data-kpi-id={alt.kpi_id ?? ''}
-              onClick={() => alt.kpi_id && setChoice({ alternative: alt.kpi_id })}
-              disabled={!alt.kpi_id}
-              className={`w-full text-left rounded-lg border px-3 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                selected
-                  ? 'border-indigo-500 bg-indigo-950/40'
-                  : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800/70 hover:border-slate-600'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                {isMarket ? (
-                  <Newspaper className="h-3 w-3 flex-shrink-0 text-cyan-400" />
-                ) : (
-                  <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: dotColor ?? undefined }} />
-                )}
-                <span className="text-sm leading-snug text-slate-100 truncate">{alternativeShortLabel(alt)}</span>
-                {alt.neighbour_snapshot?.percent_change != null && (
-                  <span className="ml-auto flex-shrink-0 text-[11px] text-slate-400">
-                    {alt.neighbour_snapshot.percent_change > 0 ? '+' : ''}
-                    {alt.neighbour_snapshot.percent_change.toFixed(1)}%
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
+        {/* "framing-alternative" buttons used to render here, one per
+            prompt.alternatives entry, letting the principal pick a
+            different KPI as the objective without ever analysing it. See
+            this file's header comment for why that was retired 2026-10-07
+            — kept as a plain data-testid-free comment, not a disabled
+            stub, so there's nothing here for a stale selector to match. */}
 
         {/* "Other" free-text option */}
         <div
