@@ -1232,6 +1232,35 @@ def build_constraint_hitl_context(
     }
 
 
+def _reader_state(rel: Any) -> str:
+    """The one of three states a person sees for this link. Mirrors
+    decision-studio-ui/src/utils/trustState.ts so model-written prose and the
+    screens describe the same link the same way."""
+    if getattr(rel, "basis", None) == "accounting_identity":
+        return "Calculated (true by definition; arithmetic, not a causal finding)"
+    if getattr(rel, "causal_rung", None) == "intervention_tested":
+        return "Tested (held up when a past decision was measured; consistent with, not proof)"
+    return "Assumed (not yet tested)"
+
+
+# The context above is written in registry terms because the model reasons
+# over it. Without this rule that vocabulary came straight back out in text a
+# decision-maker reads -- found in a real briefing: "the confirmed,
+# highest-confidence causal driver in the register (cogs<->gross_margin_pct,
+# confirmed provenance)", describing a link that is plain arithmetic.
+_READER_WRITING_RULE = (
+    "WRITING FOR THE READER: the ids and tags above are for your reasoning only. In every "
+    "piece of text a person will read (titles, descriptions, rationale, assumptions, pros, "
+    "cons, next steps): name KPIs the way a manager would say them (\"Gross Margin %\", "
+    "never `gross_margin_pct`); never write the words provenance, register, rung, edge, "
+    "template, hop, or causal graph; describe how well a relationship is established using "
+    "only its reader-facing state: tested, assumed, or calculated. A calculated relationship "
+    "is arithmetic and must never be presented as evidence or as a causal driver. "
+    "Exception: a field that asks for a causal edge (such as causal_grounding) keeps the "
+    "ids exactly as written above."
+)
+
+
 def _build_causal_context_section(relationships: List[Any], constraints: List[Any]) -> str:
     """Format the causal chain + active constraints for the synthesis prompt,
     with provenance-aware caveating baked into the text itself (Phase 15
@@ -1276,7 +1305,10 @@ def _build_causal_context_section(relationships: List[Any], constraints: List[An
             parts.append(f"provenance: {r.provenance} ({caveat})")
             if getattr(r, "confidence", None):
                 parts.append(f"confidence: {r.confidence}")
+            parts.append(f"reader-facing state: {_reader_state(r)}")
             lines.append("- " + " | ".join(parts))
+        lines.append("")
+        lines.append(_READER_WRITING_RULE)
         lines.append("")
 
     if constraints:
@@ -3414,7 +3446,10 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "proposal, state whether the final option 'answered' it (with a cited change) or it is "
                             "'standing'. No findings for an option -> empty list.\n"
                             "5. grade_rationale: cite the SPECIFIC constraint, edge, or number you graded against. "
-                            "Calibration language: 'consistent with' at most — never 'proved'.\n"
+                            "Calibration language: 'consistent with' at most — never 'proved'. "
+                            "grade_rationale is read by a decision-maker: name KPIs the way a manager would say "
+                            "them, never by id; do not write provenance, register, rung, edge, template or hop; "
+                            "describe how established a relationship is only as tested, assumed or calculated.\n"
                             "The recommendation MUST be consistent with the grades: do not recommend an option that "
                             "fails a constraint while an alternative survives, unless recommendation_rationale "
                             "explicitly justifies the trade-off.\n"

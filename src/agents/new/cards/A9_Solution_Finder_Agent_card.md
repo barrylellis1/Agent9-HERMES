@@ -954,3 +954,21 @@ never `frame`/`tradeoffs` resource_ids, correct event_type/fields, alternatives 
 across 2-distinct-family / 1-family / 0-option inputs, commitment pass/fail on decision_ask
 presence, reasoning abstains with no `da_result`, a `score_run` exception is swallowed, and one
 failed write doesn't block or raise for the other three.
+
+## Model-written prose uses the reader's vocabulary (Oct 2026)
+
+The causal context given to synthesis is in registry terms (ids, provenance, rung), and that
+vocabulary was coming straight back out in text a decision-maker reads. A real briefing said "the
+confirmed, highest-confidence causal driver in the register (cogs<->gross_margin_pct, confirmed
+provenance)" about a link that is plain arithmetic.
+
+`_build_causal_context_section` now appends `reader-facing state: Calculated | Tested | Assumed` to
+each relationship (`_reader_state`, mirroring `decision-studio-ui/src/utils/trustState.ts`) and a
+`WRITING FOR THE READER` rule: KPI names not ids, none of provenance / register / rung / edge /
+template / hop, and a calculated relationship is never presented as evidence. `causal_grounding`
+keeps ids, because `normalize_causal_edge` parses them. The moderator's `grade_rationale` rule
+carries the same instruction.
+
+This is an instruction to a model, so it reduces the jargon rather than guaranteeing its absence.
+
+Test: `test_sf_stage_d_causal_grounding.py::test_causal_context_tells_the_model_to_write_for_a_reader`.

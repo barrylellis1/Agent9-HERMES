@@ -217,10 +217,10 @@ def effective_turn_budget(topic_sequence: List[str]) -> int:
 # person deciding the frame and needs to read correctly on its own, with no
 # model in between to soften or contextualize it.
 _FRAMING_PROVENANCE_CAVEAT = {
-    "template": "An unconfirmed industry pattern, not yet checked against this client's own data.",
-    "confirmed": "Confirmed by this client directly.",
-    "hitl_proposed": "Surfaced from how the system has been used here, not yet confirmed by anyone.",
-    "va_validated": "Outcome-tested by Value Assurance on a solution that used this relationship — the strongest evidence available, though still 'consistent with', never 'proved'.",
+    "template": "An industry pattern. It has not been checked against your own data.",
+    "confirmed": "Your team confirmed this link.",
+    "hitl_proposed": "Suggested by how the system has been used here. Nobody has confirmed it yet.",
+    "va_validated": "A past decision relied on this link and the result held up when measured. That is consistent with the link being real; it is not proof.",
 }
 
 # Found live 2026-08-18: KPI.owner_role in the registry uses short codes
@@ -3660,7 +3660,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 evidence_caveats: List[str] = []
                 if not mechanism:
                     evidence_caveats.append(
-                        "No causal mechanism recorded for this relationship — direction and pathway are not established."
+                        "The mechanism behind this link has not been recorded, so how it works and which way it runs are unknown."
                     )
                 # Component caveat (2026-10-07, corrected same day after a
                 # principal review session). An accounting_identity
@@ -3682,11 +3682,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 # uncertain left to test. That's what this caveat now says.
                 if basis == "accounting_identity":
                     evidence_caveats.append(
-                        f"{neighbour_name} is a component of {kpi_name}'s own formula (accounting "
-                        "identity), not an independent driver. A separate analysis here can still "
-                        "show whether this specific component is where the problem lies — but "
-                        "confirming a solution here won't register as a new causal finding, since "
-                        "the relationship is true by definition, not by evidence."
+                        f"{neighbour_name} is one of the figures {kpi_name} is calculated from. "
+                        "Analyzing it separately can show whether the problem sits in this part. "
+                        "Acting on it will not count as new evidence, because the link is true by "
+                        "definition."
                     )
                 hop_word = "hop" if hop == 1 else "hops"
                 alternatives.append(FramingAlternative(

@@ -309,3 +309,27 @@ def _patched_provider_for_e2e():
     factory = MagicMock()
     factory.get_provider.return_value = provider
     return patch("src.registry.factory.RegistryFactory", return_value=factory)
+
+
+def test_causal_context_tells_the_model_to_write_for_a_reader():
+    """The context is in registry terms; the prose a person reads must not be."""
+    from src.agents.new.a9_solution_finder_agent import _build_causal_context_section
+    from src.registry.models.kpi_relationship import KPIRelationship
+
+    def rel(**kw):
+        base = dict(kpi_id="cogs", related_kpi_id="gross_margin_pct", client_id="c1",
+                    relationship_type="custom", conflict_direction="diverging", provenance="confirmed")
+        base.update(kw)
+        return KPIRelationship(**base)
+
+    text = _build_causal_context_section(
+        [rel(basis="accounting_identity"),
+         rel(kpi_id="premium_mix_pct", causal_rung="intervention_tested", provenance="va_validated"),
+         rel(kpi_id="units_sold", provenance="template")],
+        [],
+    )
+    assert "reader-facing state: Calculated" in text
+    assert "reader-facing state: Tested" in text
+    assert "reader-facing state: Assumed" in text
+    assert "WRITING FOR THE READER" in text
+    assert _build_causal_context_section([], []) == ""

@@ -201,7 +201,7 @@ class TestCausalGraphAlternatives:
             result = await da._build_framing_prompt(_da_output(), {})
         alt = result.alternatives[0]
         assert alt.basis == "accounting_identity"
-        assert any("component of" in c and "not an independent driver" in c for c in alt.evidence_caveats)
+        assert any("calculated from" in c and "true by definition" in c for c in alt.evidence_caveats)
 
     @pytest.mark.asyncio
     async def test_causal_estimate_basis_carries_no_component_caveat(self):
@@ -212,7 +212,7 @@ class TestCausalGraphAlternatives:
             result = await da._build_framing_prompt(_da_output(), {})
         alt = result.alternatives[0]
         assert alt.basis == "causal_estimate"
-        assert not any("component of" in c and "not an independent driver" in c for c in alt.evidence_caveats)
+        assert not any("calculated from" in c and "true by definition" in c for c in alt.evidence_caveats)
 
     @pytest.mark.asyncio
     async def test_question_does_not_invite_choosing_among_alternatives(self):
