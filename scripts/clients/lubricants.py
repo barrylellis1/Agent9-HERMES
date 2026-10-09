@@ -1120,7 +1120,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         # "confidence" in arithmetic. confidence/causal_rung dropped (neither
         # applies to a relationship that's true by construction); provenance
         # stays "confirmed" (the edge itself is real, just not evidence-based).
-        "mechanism": "Gross Margin % is calculated from Net Revenue and COGS; revenue movements (volume, price, mix) move the ratio directly, not the reverse.",
+        "mechanism": "Gross Margin % is worked out from Net Revenue and Cost of Goods Sold, so any change in revenue (volume, price or mix) changes the margin directly.",
         "provenance": "confirmed",
         "causal_direction": "kpi_causes_related",
         # kpi_relationship_basis_design.md §2, built 2026-08-30: the field the
@@ -1166,7 +1166,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         # causal_rung dropped for the same reason as above. The genuinely
         # causal base-oil-price story that used to live here has no KPI to
         # attach to yet -- see design note §3, not solved by this edit.
-        "mechanism": "Gross Margin % is calculated from Net Revenue and COGS; COGS movements directly move the ratio (Revenue held constant), not the reverse.",
+        "mechanism": "Gross Margin % is worked out from Net Revenue and Cost of Goods Sold, so any change in Cost of Goods Sold changes the margin directly.",
         "provenance": "confirmed",
         "basis": "accounting_identity",  # see the net_revenue<->gross_margin_pct edge above
         # The formula is explicit: COGS (via the ratio) drives margin, not
@@ -1197,7 +1197,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         # a ledger line). That external claim has no KPI to attach to yet;
         # see design note §3. lag_periods/confidence/causal_rung dropped --
         # an identity component sums same-period, by construction.
-        "mechanism": "Raw Materials (base oil) is an account_category component of COGS; it sums into the COGS total directly, not via an inferred pass-through.",
+        "mechanism": "Raw materials (base oil) is one of the cost lines that add up to Cost of Goods Sold.",
         "provenance": "confirmed",
         "basis": "accounting_identity",  # exact account_category sub-slice of COGS, per this edge's own comment above
         # base_oil_cost (kpi_id) causes cogs (related_kpi_id) -- this is the
@@ -1240,7 +1240,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         # doesn't need graduating through the evidence ladder at all; it's
         # true by construction from day one, same as the other three edges
         # reclassified alongside it.
-        "mechanism": "Distribution (freight and packaging) is an account_category component of COGS; it sums into the COGS total directly, not via an inferred pass-through.",
+        "mechanism": "Distribution (freight and packaging) is one of the cost lines that add up to Cost of Goods Sold.",
         "provenance": "confirmed",
         # distribution_cost (kpi_id) causes cogs (related_kpi_id).
         "causal_direction": "kpi_causes_related",
@@ -1257,7 +1257,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "custom",
         "conflict_direction": "converging",
         "description": "Blending, filling, and production overhead is a direct COGS component",
-        "mechanism": "Manufacturing is an account_category component of COGS; it sums into the COGS total directly, not via an inferred pass-through.",
+        "mechanism": "Manufacturing is one of the cost lines that add up to Cost of Goods Sold.",
         "provenance": "confirmed",
         "causal_direction": "kpi_causes_related",
         "basis": "accounting_identity",
@@ -1269,7 +1269,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "custom",
         "conflict_direction": "converging",
         "description": "Containers, labeling, and packaging materials is a direct COGS component",
-        "mechanism": "Packaging is an account_category component of COGS; it sums into the COGS total directly, not via an inferred pass-through.",
+        "mechanism": "Packaging is one of the cost lines that add up to Cost of Goods Sold.",
         "provenance": "confirmed",
         "causal_direction": "kpi_causes_related",
         "basis": "accounting_identity",
@@ -1318,7 +1318,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "custom",
         "conflict_direction": "diverging",
         "description": "Units sold moving opposite to net revenue signals a price or mix problem",
-        "mechanism": "Net Revenue is a function of units sold and price/mix; more units sold, price and mix held constant, drives higher revenue. Sales order line data carries unit volume directly, decomposing a revenue move into its volume component.",
+        "mechanism": "Net Revenue depends on units sold and on price and mix. With price and mix unchanged, more units sold means more revenue, so unit volume shows how much of a revenue change came from volume.",
         "lag_periods": 0,
         "causal_rung": "correlational",
         "provenance": "confirmed",
@@ -1332,7 +1332,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "custom",
         "conflict_direction": "diverging",
         "description": "Order count is one of the two exact factors of net revenue (order_count * average_order_value)",
-        "mechanism": "average_order_value is DEFINED as SUM(net_amount) / COUNT(DISTINCT sales_order_id), so sales_order_count * average_order_value reproduces total sales revenue by construction, not via an inferred pass-through.",
+        "mechanism": "Average Order Value is net sales divided by the number of orders, so order count times average order value equals total sales revenue.",
         "provenance": "confirmed",
         "causal_direction": "kpi_causes_related",
         "basis": "accounting_identity",
@@ -1344,7 +1344,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "custom",
         "conflict_direction": "diverging",
         "description": "Average order value is one of the two exact factors of net revenue (order_count * average_order_value)",
-        "mechanism": "average_order_value is DEFINED as SUM(net_amount) / COUNT(DISTINCT sales_order_id), so sales_order_count * average_order_value reproduces total sales revenue by construction, not via an inferred pass-through.",
+        "mechanism": "Average Order Value is net sales divided by the number of orders, so order count times average order value equals total sales revenue.",
         "provenance": "confirmed",
         "causal_direction": "kpi_causes_related",
         "basis": "accounting_identity",
@@ -1360,7 +1360,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "custom",
         "conflict_direction": "converging",
         "description": "Net revenue plus tax collected reproduces gross revenue exactly",
-        "mechanism": "gross_revenue = net_revenue + sales_tax_collected, an order-level accounting identity (order_gross_amount = order_net_amount + order_tax_amount for every order), not an inferred pass-through.",
+        "mechanism": "Gross Revenue is Net Revenue plus the sales tax collected, order by order.",
         "provenance": "confirmed",
         "causal_direction": "kpi_causes_related",
         "basis": "accounting_identity",
@@ -1372,7 +1372,7 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "custom",
         "conflict_direction": "converging",
         "description": "Tax collected is the entire gross-to-net revenue gap in this dataset",
-        "mechanism": "gross_revenue = net_revenue + sales_tax_collected, an order-level accounting identity, not an inferred pass-through.",
+        "mechanism": "Gross Revenue is Net Revenue plus the sales tax collected, order by order.",
         "provenance": "confirmed",
         "causal_direction": "kpi_causes_related",
         "basis": "accounting_identity",
@@ -1531,16 +1531,14 @@ PORTS: List[Dict[str, Any]] = [
         "linked_kpi_id": "base_oil_cost",
         "lag_periods": 1,
         "buffer_description": (
-            "One-month inventory buffer between spot base-oil purchases and COGS "
-            "recognition; hedges and contract repricing lag further slow transmission "
-            "-- carried over verbatim from the mechanism text the kpi_relationships "
-            "edge above used to hold before its 2026-08-22 reclassification."
+            "About one month of inventory sits between buying base oil and its cost "
+            "reaching Cost of Goods Sold; hedges and contract repricing slow it further."
         ),
         "current_signal": (
-            "Base oil spot price rising while base_oil_cost/COGS is declining -- an "
-            "external move that should have transmitted and hasn't (theory_layer_design.md "
-            "§2.3's own anchor scenario). The interesting object is whatever is absorbing "
-            "it in the chain (inventory layers, hedges, mix shift) -- not yet identified."
+            "The market price of base oil is rising while raw materials cost and Cost of "
+            "Goods Sold are falling. The price rise has not reached costs yet. Something is "
+            "absorbing it (inventory, hedges or a shift in product mix) and it has not been "
+            "identified."
         ),
         "source": "manual",
     },
