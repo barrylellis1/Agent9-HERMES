@@ -479,18 +479,29 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2 mb-1">
-               <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
-                 analysisMode === 'opportunity' ? 'bg-severity-healthy/20 text-severity-healthy' :
-                 analysisMode === 'mixed' ? 'bg-severity-warning/20 text-severity-warning' :
-                 'bg-severity-critical/20 text-severity-critical'
-               }`}>
-                 {analysisMode === 'opportunity' ? 'Opportunity' : analysisMode === 'mixed' ? 'Mixed' : situation.severity}
-               </span>
-               <span className="text-slate-500 text-xs uppercase tracking-wider">
-                 ID: {situation.situation_id?.substring(0, 8)}
-               </span>
+               {/* A tab opened with Analyze has no detected situation behind
+                   it, so there is no real severity or id to show. */}
+               {situation.situation_id?.startsWith('investigate-') ? (
+                 <span className="px-2 py-0.5 text-xs font-medium rounded border border-slate-600 text-slate-300">
+                   Separate analysis
+                 </span>
+               ) : (
+                 <>
+                   <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
+                     analysisMode === 'opportunity' ? 'bg-severity-healthy/20 text-severity-healthy' :
+                     analysisMode === 'mixed' ? 'bg-severity-warning/20 text-severity-warning' :
+                     'bg-severity-critical/20 text-severity-critical'
+                   }`}>
+                     {analysisMode === 'opportunity' ? 'Opportunity' : analysisMode === 'mixed' ? 'Mixed' : situation.severity}
+                   </span>
+                   <span className="text-slate-500 text-xs uppercase tracking-wider">
+                     ID: {situation.situation_id?.substring(0, 8)}
+                   </span>
+                 </>
+               )}
             </div>
             <h1 className="text-xl font-bold text-white">{situation.kpi_name} {
+              situation.situation_id?.startsWith('investigate-') ? '' :
               analysisMode === 'opportunity' ? 'Opportunity' :
               analysisMode === 'mixed' ? 'Mixed Analysis' :
               'Variance'
@@ -538,12 +549,16 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                     <p className="text-lg text-slate-200 mb-4 leading-relaxed">
                         {situation.description || "The system has detected a significant anomaly in this KPI."}
                     </p>
+                    {/* No stock "significant variance" line for a separate
+                        analysis: nothing flagged this KPI. */}
+                    {(situation.business_impact || !situation.situation_id?.startsWith('investigate-')) && (
                     <div className="p-4 bg-slate-950/50 rounded-lg border border-slate-800/50">
                          <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Business Impact</h4>
                          <p className="text-sm text-slate-400">
                              {situation.business_impact || "Significant variance detected against operational thresholds. Immediate attention recommended."}
                          </p>
                     </div>
+                    )}
                 </AccordionSection>
                 )}
 

@@ -50,15 +50,15 @@ function explainOutcome(e: AuditEventRecord): string | null {
       // new/a9_deep_analysis_agent.py) — distinguished here by which field is
       // missing, since the payload doesn't carry a reason code of its own.
       if (p.warehouse_delta === null || p.warehouse_delta === undefined) {
-        return 'no comparison baseline available for this period'
+        return 'No comparison figure was available for this period, so there was nothing to check against.'
       }
-      return 'not applicable — this KPI has no ratio-margin bridge configured'
+      return 'This check only runs for ratio KPIs such as margins. This KPI is a plain total, so it did not run.'
     case 'reliability.citation_quality':
-      return 'synthesis used general knowledge only — no live citation to verify'
+      return 'No web search ran, so the market commentary has no source to check.'
     case 'reliability.kpi_coverage':
-      return 'no KPIs registered yet for this client'
+      return 'No KPIs are registered yet for this client.'
     case 'reliability.detection_confidence':
-      return 'confidence score not available for this KPI'
+      return 'No detection score was available for this KPI.'
     default:
       return null
   }
@@ -100,11 +100,22 @@ function groupEvents(events: AuditEventRecord[]): Group[] {
   )
 }
 
+// A count only. The ids behind it are registry keys (often the same KPI id
+// repeated once per breakdown), which told a reader nothing.
 function resourceSummary(ids: string[]): string | null {
-  if (ids.length === 0) return null
-  if (ids.length === 1) return ids[0]
-  const shown = ids.slice(0, 3).join(', ')
-  return ids.length > 3 ? `${ids.length} checks: ${shown}, +${ids.length - 3} more` : `${ids.length} checks: ${shown}`
+  return ids.length > 1 ? `${ids.length} checks of this kind` : null
+}
+
+// Reader-facing names for this panel. The operator ReliabilityPanel keeps the
+// stage-prefixed labels in eventTypeLabels.ts.
+const PLAIN_LABELS: Record<string, string> = {
+  'reliability.detection_confidence': 'Detection strength',
+  'reliability.kpi_coverage': 'KPI coverage',
+  'reliability.rollup_check': 'Segments add up to the total',
+  'reliability.slice_validity': 'Breakdowns allowed for this KPI',
+  'reliability.tree_reconciliation': 'Parts add up to the KPI',
+  'reliability.citation_quality': 'Market sources',
+  'reliability.decision_quality': 'Decision quality',
 }
 
 // The one-sentence synthesis a reader should walk away with, stated directly
@@ -126,7 +137,7 @@ function Headline({ groups }: { groups: Group[] }) {
     return (
       <div className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-1">
         <ShieldQuestion className="w-4 h-4 shrink-0 text-slate-500" />
-        Nothing flagged — {notApplicable === 1 ? '1 check didn’t apply' : `${notApplicable} checks didn’t apply`} to this analysis.
+        Nothing flagged, but {notApplicable === 1 ? '1 check could not run' : `${notApplicable} checks could not run`} on this analysis. The reason is under each.
       </div>
     )
   }
@@ -177,9 +188,9 @@ export function ReliabilityDrillDown({ clientId, requestId }: { clientId?: strin
       {groups.map((g) => (
         <div key={g.latestId} className="flex items-start justify-between gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2">
           <div className="min-w-0">
-            <div className="text-xs font-medium text-white">{reliabilityEventLabel(g.eventType)}</div>
+            <div className="text-xs font-medium text-white">{PLAIN_LABELS[g.eventType] ?? reliabilityEventLabel(g.eventType)}</div>
             {resourceSummary(g.resourceIds) && (
-              <div className="text-[10px] text-slate-500 font-mono truncate">{resourceSummary(g.resourceIds)}</div>
+              <div className="text-[10px] text-slate-500">{resourceSummary(g.resourceIds)}</div>
             )}
             {g.reasonClasses.length > 0 && (
               <div className="text-[10px] text-severity-warning mt-0.5">
