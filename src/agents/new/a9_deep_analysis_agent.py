@@ -4388,7 +4388,16 @@ If nothing relevant is found for a category, use an empty list."""
 
         is_str = ", ".join(is_items) if is_items else "leading segments"
         is_not_str = ", ".join(is_not_items) if is_not_items else "remaining segments"
-        cp_str = "; ".join(top_cps) if top_cps else "key contributors identified"
+        # Reader-facing form: "Product Name: Synthetic Blend Engine Oil (-6.3)",
+        # not the raw column key "product_name=...". top_cps keeps the raw
+        # form because it also feeds LLM prompts.
+        _display_cps = [
+            (f"{cp.dimension.replace('_', ' ').title()}: {cp.key} ({cp.delta:+.1f})"
+             if cp.delta is not None else f"{cp.dimension.replace('_', ' ').title()}: {cp.key}")
+            for cp in (change_points or [])[:4]
+            if cp.dimension and cp.key
+        ]
+        cp_str = "; ".join(_display_cps) if _display_cps else "key contributors identified"
 
         # Matrix branch takes priority — mirrors _fallback()'s ordering.
         if matrix_ran and (_confirmed or _basis_specific):
@@ -4573,7 +4582,13 @@ If nothing relevant is found for a category, use an empty list."""
         def _fallback() -> str:
             is_str = ", ".join(is_items) if is_items else "leading segments"
             is_not_str = ", ".join(is_not_items) if is_not_items else "remaining segments"
-            cp_str = "; ".join(top_cps) if top_cps else "key contributors identified"
+            _display_cps = [
+                (f"{cp.dimension.replace('_', ' ').title()}: {cp.key} ({cp.delta:+.1f})"
+                 if cp.delta is not None else f"{cp.dimension.replace('_', ' ').title()}: {cp.key}")
+                for cp in (change_points or [])[:4]
+                if cp.dimension and cp.key
+            ]
+            cp_str = "; ".join(_display_cps) if _display_cps else "key contributors identified"
             # Matrix branch takes priority — one narrative read ACROSS the two cross-sectional bases.
             if matrix_ran and (_confirmed or _basis_specific):
                 _prim = _basis_label(comparator)

@@ -243,13 +243,14 @@ export function useDecisionStudio() {
     investigateTriggeredRef.current = true;
     const client = params.get('client');
     const principal = params.get('principal');
+    const displayName = params.get('name') || kpiId;
     if (client) setSelectedClientId(client);
     if (principal) setSelectedPrincipal(principal);
     const synthetic: Situation = {
       situation_id: `investigate-${kpiId}-${Date.now()}`,
       kpi_id: kpiId,
-      kpi_name: kpiId,
-      description: `Independent investigation of ${kpiId}, opened from a framing alternative.`,
+      kpi_name: displayName,
+      description: `A separate look at ${displayName}, opened from Related drivers.`,
       severity: 'medium',
       card_type: 'problem',
     };

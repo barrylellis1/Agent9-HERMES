@@ -300,6 +300,20 @@ def _da_no_llm() -> A9_Deep_Analysis_Agent:
 
 
 class TestSituationComplicationFacts:
+    def test_key_drivers_read_as_names_not_column_keys(self):
+        """The Analysis panel printed 'product_name=Synthetic Blend (-6.3)'.
+        A reader sees 'Product Name: Synthetic Blend (-6.3)'."""
+        from src.agents.models.deep_analysis_models import ChangePoint
+        da = _da_no_llm()
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=_kt(),
+            change_points=[ChangePoint(dimension="product_name", key="Synthetic Blend", delta=-6.3)],
+            spec={"comparison_type": "previous", "inverse_logic": False},
+            analysis_mode="problem",
+        )
+        assert "Product Name: Synthetic Blend (-6.3)" in result
+        assert "product_name=" not in result
+
     def test_problem_mode_names_no_recommendation(self):
         da = _da_no_llm()
         result = da._build_situation_complication_facts(

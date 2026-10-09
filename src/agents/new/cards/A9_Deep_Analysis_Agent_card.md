@@ -1088,3 +1088,13 @@ returned unchanged; the UI renders it as evidence with one of three trust states
 Calculated, see `theory_layer_design.md` §4 "Surface vocabulary").
 
 Test: `test_da_framing_prompt.py::test_question_does_not_invite_choosing_among_alternatives`.
+
+## Key drivers in the Analysis text use readable dimension names (Oct 2026)
+
+`_build_situation_complication_facts` and `_generate_scqa_summary`'s `_fallback()` printed change
+points as raw column keys ("product_name=Synthetic Blend Engine Oil (-6.3)"). The reader-facing
+string is now "Product Name: Synthetic Blend Engine Oil (-6.3)" (mechanical Title Case of the
+dimension, the same fallback the frontend uses when the glossary has no label). `top_cps` keeps the
+raw form because it also feeds LLM prompts. Fixed in both duplicate paths.
+
+Test: `test_da_scqa_deferral.py::TestSituationComplicationFacts::test_key_drivers_read_as_names_not_column_keys`.

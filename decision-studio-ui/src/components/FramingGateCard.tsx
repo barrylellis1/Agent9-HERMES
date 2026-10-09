@@ -44,6 +44,17 @@ interface FramingGateCardProps {
 
 type Choice = 'confirm_stated' | 'other';
 
+/**
+ * Decisions recorded before 2026-10-07 stored a templated sentence
+ * ("The objective is Addressing X instead of Y directly — connected N hops
+ * away in the causal graph, not recovering Y."). Shown as "Focus on X
+ * instead of Y." Anything that does not match is shown unchanged.
+ */
+function plainPriorObjective(text: string): string {
+  const m = text.match(/Addressing (.+?) instead of (.+?) directly/);
+  return m ? `Focus on ${m[1]} instead of ${m[2]}.` : text;
+}
+
 export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: FramingGateCardProps) {
   const [choice, setChoice] = useState<Choice | null>(null);
   const [otherText, setOtherText] = useState('');
@@ -95,10 +106,10 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
           <History className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-500" />
           <div className="min-w-0 text-[11px] text-slate-400">
             <span className="font-medium text-slate-300">Previously decided:</span>{' '}
-            {prompt.prior_frame.chosen_objective_text}
+            {plainPriorObjective(prompt.prior_frame.chosen_objective_text)}
             {prompt.prior_frame.falsification_criterion && (
               <span className="block mt-0.5 italic text-slate-500">
-                Falsifier: {prompt.prior_frame.falsification_criterion}
+                Would have been wrong if: {prompt.prior_frame.falsification_criterion}
               </span>
             )}
           </div>

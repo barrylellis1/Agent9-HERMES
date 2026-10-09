@@ -77,7 +77,7 @@ function EvidenceCard({
             type="button"
             data-testid="causal-neighbour-analyze"
             title={`Open a separate analysis of ${alternativeShortLabel(alt)} in a new tab. This decision is not affected.`}
-            onClick={() => openInvestigateTab(alt.kpi_id as string, clientId, principalId)}
+            onClick={() => openInvestigateTab(alt.kpi_id as string, clientId, principalId, alternativeShortLabel(alt))}
             className="flex flex-shrink-0 items-center gap-1 rounded border border-slate-600 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-indigo-500 hover:text-indigo-300"
           >
             Analyze <ExternalLink className="h-2.5 w-2.5" />

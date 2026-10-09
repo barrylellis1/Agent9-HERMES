@@ -16,8 +16,9 @@
  * the parent by arithmetic necessity. That distinction is surfaced in the
  * caveat text, not by withholding this button.
  */
-export function openInvestigateTab(kpiId: string, clientId?: string, principalId?: string) {
+export function openInvestigateTab(kpiId: string, clientId?: string, principalId?: string, kpiName?: string) {
   const params = new URLSearchParams({ investigate: kpiId });
+  if (kpiName) params.set('name', kpiName);
   if (clientId) params.set('client', clientId);
   if (principalId) params.set('principal', principalId);
   window.open(`/dashboard?${params.toString()}`, '_blank');

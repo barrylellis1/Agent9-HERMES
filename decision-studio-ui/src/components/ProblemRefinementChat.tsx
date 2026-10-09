@@ -323,8 +323,11 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
           <div className="flex items-center gap-1.5 min-w-0">
             <MessageCircle className="w-4 h-4 text-indigo-400 flex-shrink-0" />
             <h3 className="text-sm font-semibold text-white truncate">Refinement</h3>
-            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full flex-shrink-0 ${styleInfo.color}`}>
-              {styleInfo.label}
+            <span
+              title="Questions are tuned to this principal's decision style"
+              className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full flex-shrink-0 ${styleInfo.color}`}
+            >
+              {styleInfo.label} style
             </span>
           </div>
           <button
