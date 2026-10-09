@@ -164,7 +164,7 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
             onClick={() => setChoice('other')}
             className="flex w-full items-center gap-2 text-left"
           >
-            <span className="text-sm text-slate-100">Something else</span>
+            <span className="text-sm text-slate-100">A different objective</span>
           </button>
           {choice === 'other' && (
             <textarea
@@ -181,7 +181,7 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
       {/* Required falsification criterion — every submission, no exceptions */}
       <div>
         <label className="block text-xs font-medium text-slate-300">
-          What would tell you this frame was wrong? <span className="text-severity-critical">*</span>
+          What would tell you this was the wrong objective? <span className="text-severity-critical">*</span>
         </label>
         <textarea
           data-testid="framing-falsifier-input"

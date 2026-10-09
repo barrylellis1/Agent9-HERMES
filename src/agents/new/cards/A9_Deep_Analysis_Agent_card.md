@@ -1077,3 +1077,14 @@ Tests: `tests/unit/test_no_firm_names_in_prompts.py` (10) — no firm name in pr
 roster; the guidance was not hollowed out by the rename (length, language and focus instructions
 retained); the three styles stay distinct; every roster slot keeps a non-empty label; and the
 selection keys are unchanged so routing cannot drift.
+
+## Framing question reworded once alternatives stopped being selectable (Oct 2026)
+
+`_build_framing_prompt` now asks "Is recovering {KPI} the right objective for this analysis?" The
+earlier wording ended "...or does the evidence below point to a different one?", which invited a
+choice the gate no longer offers: a different driver is pursued through its own analysis (the
+"Analyze" action on the related-driver tiles), not by relabelling this one. `alternatives` is still
+returned unchanged; the UI renders it as evidence with one of three trust states (Tested / Assumed /
+Calculated, see `theory_layer_design.md` §4 "Surface vocabulary").
+
+Test: `test_da_framing_prompt.py::test_question_does_not_invite_choosing_among_alternatives`.

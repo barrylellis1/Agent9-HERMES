@@ -215,6 +215,18 @@ class TestCausalGraphAlternatives:
         assert not any("component of" in c and "not an independent driver" in c for c in alt.evidence_caveats)
 
     @pytest.mark.asyncio
+    async def test_question_does_not_invite_choosing_among_alternatives(self):
+        """Alternatives stopped being selectable at the gate (2026-10-07), so
+        the question must not point the reader at 'the evidence below'."""
+        da = _make_da_stub()
+        edge = _relationship(basis="causal_estimate", mechanism="X drives Y.")
+        with _registry_patch([_kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess")]), \
+             _providers(neighbourhood=[(edge, 1)]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        assert result.question.endswith("the right objective for this analysis?")
+        assert "evidence below" not in result.question
+
+    @pytest.mark.asyncio
     async def test_two_hop_edge_preserves_hop_distance_not_flattened(self):
         da = _make_da_stub()
         # base_oil_cost -> cogs (hop 1, already visited via kpi_id="cogs")

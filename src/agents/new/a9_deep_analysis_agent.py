@@ -3818,10 +3818,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             alternatives = _causal_alts + _market_alts
 
             stated_objective_text = f"Recovering {kpi_name}"
-            question = (
-                f"Is recovering {kpi_name} the right objective here, or does the evidence below "
-                f"point to a different one?"
-            )
+            # Alternatives are no longer selectable at the gate (a different
+            # driver is pursued through its own analysis), so the question
+            # no longer invites choosing among "the evidence below".
+            question = f"Is recovering {kpi_name} the right objective for this analysis?"
 
             return FramingPrompt(
                 kpi_id=kpi_id,

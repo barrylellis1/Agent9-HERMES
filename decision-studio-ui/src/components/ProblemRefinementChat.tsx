@@ -46,6 +46,7 @@ interface ProblemRefinementChatProps {
 }
 
 const TOPIC_LABELS: Record<string, string> = {
+  problem_framing: 'Confirm the objective',
   hypothesis_validation: 'Validating Findings',
   scope_boundaries: 'Defining Scope',
   external_context: 'External Context',
