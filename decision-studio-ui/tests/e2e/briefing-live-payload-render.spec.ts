@@ -381,12 +381,12 @@ test.describe('compact decision-brief restructure', () => {
     await expect(page.getByText(/strategic options/i).first()).toBeVisible({ timeout: 20_000 });
     const ledgerHeading = page.getByText(/verification ledger/i);
     await expect(ledgerHeading).toBeVisible(); // accordion header itself always renders
-    await expect(page.getByText(/constraint survival/i)).toBeHidden();
+    await expect(page.getByText(/fits your stated constraints/i)).toBeHidden();
 
     await page.getByRole('button', { name: /show the analysis/i }).click();
-    await expect(page.getByText(/constraint survival/i)).toBeVisible();
-    await expect(page.getByText(/causal grounding/i)).toBeVisible();
-    await expect(page.getByText(/arithmetic consistency/i)).toBeVisible();
+    await expect(page.getByText(/fits your stated constraints/i)).toBeVisible();
+    await expect(page.getByText('Relies on', { exact: true })).toBeVisible();
+    await expect(page.getByText(/numbers add up/i)).toBeVisible();
 
     const rationale = built.moderator_grades?.opt_1?.grade_rationale;
     expect(rationale, 'fixture must carry a grade_rationale for this assertion to mean anything').toBeTruthy();

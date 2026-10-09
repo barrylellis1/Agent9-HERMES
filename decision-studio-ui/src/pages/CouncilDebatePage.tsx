@@ -1,3 +1,4 @@
+import { LinkReliance } from '../components/shared/LinkReliance';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, Loader2, CheckCircle2, Database } from 'lucide-react';
@@ -1069,9 +1070,10 @@ export const CouncilDebatePage: React.FC = () => {
                       </span>
                     </div>
                     {g?.causal_grounding && (
-                      <p className="text-[11px] text-slate-400 mb-1">
-                        <span className="text-slate-600">causal: </span>{g.causal_grounding}
-                      </p>
+                      <div className="mb-1 flex items-start gap-2 text-[11px] text-slate-400">
+                        <span className="text-slate-600">relies on:</span>
+                        <LinkReliance raw={g.causal_grounding} />
+                      </div>
                     )}
                     {Array.isArray(g?.violated_constraints) && g.violated_constraints.length > 0 && (
                       <p className="text-[11px] text-severity-critical mb-1">Violates: {g.violated_constraints.join('; ')}</p>

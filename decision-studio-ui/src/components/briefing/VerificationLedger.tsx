@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+import { LinkReliance } from '../shared/LinkReliance';
 
 /**
  * VerificationLedger — the distilled "did this survive scrutiny" check, per
@@ -40,21 +41,23 @@ const chipClass = (v: string | undefined) =>
       ? 'text-severity-critical border-severity-critical print:text-red-700 print:border-red-600'
       : 'text-severity-warning border-severity-warning print:text-amber-700 print:border-amber-600';
 
+const GRADE_WORD: Record<string, string> = { pass: 'Passed', fail: 'Failed', flag: 'Flagged' };
+const gradeWord = (v: string | undefined) => (v ? GRADE_WORD[v] ?? v : 'Not graded');
+
 export function VerificationLedger({ grade, optionLabel, situationId }: VerificationLedgerProps) {
   if (!grade) return null;
 
   return (
     <div className="p-5 space-y-3">
       <p className="text-xs text-slate-400 print:text-slate-600">
-        Verification for the recommended option, Option {optionLabel} — graded against the client's
-        constraint register, causal model, and the critic's findings.
+        Checks on the recommended option, Option {optionLabel}.
       </p>
 
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 print:border-slate-200 print:bg-white">
-          <span className="text-xs text-slate-300 print:text-slate-700">Constraint survival</span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-mono uppercase ${chipClass(grade.constraint_survival)}`}>
-            {grade.constraint_survival ?? 'ungraded'}
+          <span className="text-xs text-slate-300 print:text-slate-700">Fits your stated constraints</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${chipClass(grade.constraint_survival)}`}>
+            {gradeWord(grade.constraint_survival)}
           </span>
         </div>
         {grade.violated_constraints && grade.violated_constraints.length > 0 && (
@@ -64,16 +67,16 @@ export function VerificationLedger({ grade, optionLabel, situationId }: Verifica
         )}
 
         <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 print:border-slate-200 print:bg-white">
-          <span className="text-xs text-slate-300 print:text-slate-700">Causal grounding</span>
-          <span className="text-[11px] text-slate-400 text-right max-w-[60%] print:text-slate-600">
-            {grade.causal_grounding || 'insufficient_data'}
-          </span>
+          <span className="text-xs text-slate-300 print:text-slate-700">Relies on</span>
+          <div className="max-w-[65%]">
+            <LinkReliance raw={grade.causal_grounding} />
+          </div>
         </div>
 
         <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 print:border-slate-200 print:bg-white">
-          <span className="text-xs text-slate-300 print:text-slate-700">Arithmetic consistency</span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-mono uppercase ${chipClass(grade.arithmetic_consistency)}`}>
-            {grade.arithmetic_consistency ?? 'ungraded'}
+          <span className="text-xs text-slate-300 print:text-slate-700">Numbers add up</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${chipClass(grade.arithmetic_consistency)}`}>
+            {gradeWord(grade.arithmetic_consistency)}
           </span>
         </div>
         {grade.arithmetic_note && (
