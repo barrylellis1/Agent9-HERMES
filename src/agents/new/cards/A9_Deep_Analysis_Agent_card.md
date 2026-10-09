@@ -1098,3 +1098,12 @@ dimension, the same fallback the frontend uses when the glossary has no label). 
 raw form because it also feeds LLM prompts. Fixed in both duplicate paths.
 
 Test: `test_da_scqa_deferral.py::TestSituationComplicationFacts::test_key_drivers_read_as_names_not_column_keys`.
+
+## Framing "Why" detail reworded in plain sentences (Oct 2026)
+
+`_FRAMING_PROVENANCE_CAVEAT`, the no-mechanism caveat and the accounting-identity caveat in
+`_build_framing_prompt` are shown to the reader behind "Why" on each related-driver tile. They were
+reworded from registry terms into one plain sentence each (for example, `va_validated` now reads
+"A past decision relied on this link and the result held up when measured. That is consistent with
+the link being real; it is not proof."). Meaning is unchanged. This landed in commit 1de4079
+alongside the Solution Finder prompt change.
