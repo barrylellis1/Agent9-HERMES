@@ -337,13 +337,11 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
     }
     const timeSensitivity = timeSensitivityMap[situation?.severity?.toLowerCase()] || 'Review Required'
     
-    // Calculate confidence from analysis completeness
-    const hasChangePoints = analysis?.change_points?.length > 0
-    const hasKtAnalysis = analysis?.kt_is_is_not?.where_is?.length > 0
-    const hasSolutions = topOptions.length > 0
-    const confidenceScore = [hasChangePoints, hasKtAnalysis, hasSolutions].filter(Boolean).length
-    const confidenceMap = ['Low', 'Medium', 'High', 'Very High']
-    const confidence = confidenceMap[confidenceScore] || 'Medium'
+    // No overall "confidence" is computed here. An earlier version counted
+    // which sections were present (change points, Is/Is-Not, options) and
+    // labelled the count Low..Very High, which measured completeness, not
+    // confidence, and could read "Very High" over bets that are all Assumed.
+    // Trust is shown per bet and per link instead (utils/trustState.ts).
     
     // Decision deadline based on severity.
     //
@@ -837,7 +835,6 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
           ? String(situation.description).replace(/\s*\(threshold=\w+\)/gi, '').trim()
           : `${kpiName} variance detected`,
         timeSensitivity,
-        confidence,
         decisionDeadline,
       },
       executiveSummary,

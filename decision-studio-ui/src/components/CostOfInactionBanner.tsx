@@ -8,7 +8,8 @@ export interface CostOfInactionBannerProps {
   projected30d: number;
   projected90d: number;
   trendDirection: 'deteriorating' | 'stable' | 'recovering';
-  trendConfidence: ConfidenceLevel;
+  /** Omit when no real confidence measure exists; the label is then not shown. */
+  trendConfidence?: ConfidenceLevel;
   estimatedRevenueImpact30d?: number;
   estimatedRevenueImpact90d?: number;
   /** e.g. "%" or "$M" — defaults to "%" */
@@ -265,11 +266,15 @@ export const CostOfInactionBanner: React.FC<CostOfInactionBannerProps> = ({
           Trend:{' '}
           <span className="font-semibold capitalize">{cfg.label}</span>
         </span>
-        <span className="opacity-40">|</span>
-        <span>
-          Confidence:{' '}
-          <span className="font-semibold">{CONFIDENCE_LABEL[trendConfidence]}</span>
-        </span>
+        {trendConfidence && (
+          <>
+            <span className="opacity-40">|</span>
+            <span>
+              Confidence:{' '}
+              <span className="font-semibold">{CONFIDENCE_LABEL[trendConfidence]}</span>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

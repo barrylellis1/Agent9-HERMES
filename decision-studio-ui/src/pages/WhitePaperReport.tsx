@@ -128,7 +128,6 @@ export function WhitePaperReport() {
           </div>
           <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-xs text-slate-500">
             <span><strong className="text-slate-700">Severity:</strong> {data.urgency}</span>
-            <span><strong className="text-slate-700">Confidence:</strong> {data.metrics?.confidence}</span>
             <span><strong className="text-slate-700">Decision Deadline:</strong> {data.metrics?.decisionDeadline}</span>
           </div>
         </section>

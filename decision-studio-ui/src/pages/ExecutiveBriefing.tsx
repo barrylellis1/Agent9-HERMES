@@ -1180,15 +1180,11 @@ export function ExecutiveBriefing() {
               const costOfInaction = kd?.current_value != null ? (() => {
                 const { projected30d, projected90d, trend: trendDir } =
                   projectKpiTrend(kd.current_value, kd.percent_change, kd.comparison_value)
-                const confidenceLevelMap: Record<string, 'HIGH' | 'MODERATE' | 'LOW'> = {
-                  'Low': 'LOW', 'Medium': 'MODERATE', 'High': 'HIGH', 'Very High': 'HIGH',
-                }
                 return {
                   kpiName: kd.kpi_name,
                   currentValue: kd.current_value,
                   projected30d, projected90d,
                   trendDirection: trendDir,
-                  trendConfidence: confidenceLevelMap[data.metrics?.confidence] || 'LOW' as const,
                   kpiUnit: kd.unit,
                 }
               })() : null
@@ -1889,7 +1885,6 @@ export function ExecutiveBriefing() {
                   <span>Council: {councilCompositionLabel(personaOrder)}</span>
                 )}
                 <span>Model: Claude (Anthropic)</span>
-                {data.metrics?.confidence && <span>Confidence: {data.metrics.confidence}</span>}
                 <span>Generated: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
               </div>
               <ReliabilityAuditStrip
