@@ -272,6 +272,8 @@ async def _confirm_causal_edge_from_verdict(
       'ungrounded', or 'insufficient_data'.
     - A matching kpi_relationships row must actually exist for this client --
       an edge cited in prose that was never registered confirms nothing.
+    - The matching row must be a causal_estimate. An accounting_identity is
+      true by definition and is never marked as tested.
 
     Non-fatal: a persistence failure must never break the VA response that
     triggered it, same posture as the assumption grading write-back above.
@@ -294,6 +296,18 @@ async def _confirm_causal_edge_from_verdict(
             logger_.info(
                 "[VA] claimed_causal_edge '%s' has no matching kpi_relationships row for "
                 "client '%s' -- not confirming (no speculative confirmation)",
+                claimed_causal_edge, client_id,
+            )
+            return
+        if match.basis == "accounting_identity":
+            # Arithmetic cannot be outcome-tested: moving a component moves
+            # its parent by definition, so a validated solution says nothing
+            # new about this link. Found live 2026-10-09 -- an identity link
+            # (sales_order_count<->net_revenue) had been recorded as
+            # intervention_tested and was inflating the tested count.
+            logger_.info(
+                "[VA] claimed_causal_edge '%s' is an accounting identity for client '%s' "
+                "-- not confirming (arithmetic is not a testable claim)",
                 claimed_causal_edge, client_id,
             )
             return

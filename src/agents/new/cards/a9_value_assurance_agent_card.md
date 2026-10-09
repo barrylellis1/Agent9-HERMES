@@ -347,3 +347,13 @@ hop's decision — no `reframed_from_id` lineage field exists yet to link succes
 needs `framing_prompt`/`framing_record` threaded through the frontend's `debateConfig.refinementResult`
 the same way `framing_decision` already is, which doesn't happen today. See
 `docs/architecture/reframe_relaunch_and_lineage_design.md`.
+
+## Accounting-identity links are never marked as tested (Oct 2026)
+
+`_confirm_causal_edge_from_verdict()` now returns without writing when the matched
+`kpi_relationships` row has `basis == "accounting_identity"`. Arithmetic cannot be outcome-tested:
+moving a component moves its parent by definition, so a VALIDATED solution says nothing new about
+the link. Found live: `sales_order_count<->net_revenue` (an identity) had been recorded as
+`intervention_tested` / `va_validated` and was counting toward the tested total.
+
+Test: `test_va_causal_edge_confirmation.py::TestAccountingIdentityIsNeverConfirmed`.

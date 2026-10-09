@@ -171,3 +171,21 @@ class TestNonFatal:
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "base_oil_cost<->cogs", SolutionVerdict.VALIDATED, logger_,
             )
+
+
+class TestAccountingIdentityIsNeverConfirmed:
+    @pytest.mark.asyncio
+    async def test_validated_verdict_on_an_identity_link_writes_nothing(self, logger_):
+        """Arithmetic is not a testable claim: a validated solution that cited
+        an accounting-identity link must not mark it intervention_tested."""
+        with patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockProvider:
+            instance = MockProvider.return_value
+            instance.get_all = AsyncMock(return_value=[_edge(
+                kpi_id="sales_order_count", related_kpi_id="net_revenue",
+                basis="accounting_identity",
+            )])
+            instance.upsert = AsyncMock()
+            await _confirm_causal_edge_from_verdict(
+                "lubricants", "sales_order_count<->net_revenue", SolutionVerdict.VALIDATED, logger_,
+            )
+            instance.upsert.assert_not_awaited()
