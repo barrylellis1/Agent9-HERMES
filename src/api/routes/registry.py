@@ -1057,6 +1057,10 @@ async def get_theory_layer(
         def _kpi(kid: str):
             return kpi_provider.get(kid, client_id=client_id) if kpi_provider else None
 
+        def _name(kid: str) -> str:
+            k = _kpi(kid)
+            return getattr(k, "name", None) or kid
+
         primary = _kpi(kpi_id)
 
         # --- Spine: arithmetic parentage (Phase 17 T2) ---------------------
@@ -1121,7 +1125,7 @@ async def get_theory_layer(
                     if prev is not None:
                         prior_values[nid] = prev
             except Exception as exc:
-                notes.append(f"Live values unavailable ({exc}) - spine renders structure only.")
+                notes.append(f"Current values unavailable ({exc}); showing structure only.")
 
         spine_nodes = []
         for nid in node_ids:
@@ -1191,8 +1195,8 @@ async def get_theory_layer(
             )
             if bridge is None and prior_values:
                 notes.append(
-                    "Variance bridge unavailable — prior-period values missing for one or more "
-                    "spine inputs, so the move cannot be decomposed exactly."
+                    "The change cannot be broken down: prior-period values are missing for "
+                    "one or more inputs."
                 )
 
         # --- Causal edges (Phase 15 D/E + basis, §2) -----------------------
@@ -1201,6 +1205,8 @@ async def get_theory_layer(
         for rel, hops in neighbourhood:
             d = rel.model_dump()
             d["hops"] = hops
+            d["kpi_name"] = _name(rel.kpi_id)
+            d["related_kpi_name"] = _name(rel.related_kpi_id)
             # Assumptions ride along as a marker per §5, never as a section.
             # No graded verdict attaches to an EDGE today — T3 grades
             # assumptions per SOLUTION — so this is explicitly pending rather
@@ -1222,16 +1228,14 @@ async def get_theory_layer(
         for e in causal_edges:
             reachable.add(e["kpi_id"])
             reachable.add(e["related_kpi_id"])
-        ports = [p.model_dump() for p in port_rows if p.linked_kpi_id in reachable]
+        ports = [
+            {**p.model_dump(), "linked_kpi_name": _name(p.linked_kpi_id)}
+            for p in port_rows if p.linked_kpi_id in reachable
+        ]
 
+        # density_gate_passed is reported as a flag; the page words it for a
+        # reader, so no internal-vocabulary note is appended here.
         summary = _epistemic_summary(causal_edges)
-        if not summary["density_gate_passed"]:
-            notes.append(
-                f"Causal Edges density gate NOT passed: {summary['tested']} tested vs "
-                f"{summary['causal_claims'] - summary['tested']} unconfirmed claim(s). "
-                "Per DEVELOPMENT_PLAN.md Phase 17 this bar is cleared by real accretion "
-                "(VA verdicts), never by seeding."
-            )
 
         return Envelope(data={
             "kpi_id": kpi_id,

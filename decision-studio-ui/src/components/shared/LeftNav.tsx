@@ -138,7 +138,7 @@ const MAINTENANCE_NAV: SettingsNavGroup[] = [
       // density gate for premium_mix_pct — see TheoryLayerDevPage.tsx's own
       // header comment. Was deliberately unlinked until there was a real
       // KPI to point at, per DEVELOPMENT_PLAN.md Phase 17's delivery rule.
-      { label: 'Theory Layer',       to: '/dev/theory-layer',           icon: <Network className="w-4 h-4" /> },
+      { label: 'KPI Drivers',        to: '/dev/theory-layer',           icon: <Network className="w-4 h-4" /> },
       { label: 'Connection Health',  to: '/settings/connection-health', icon: <Activity className="w-4 h-4" /> },
       { label: 'Slice Validity',     to: '/settings/slice-validity',    icon: <ShieldCheck className="w-4 h-4" /> },
     ],

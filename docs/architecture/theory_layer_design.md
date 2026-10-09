@@ -94,6 +94,16 @@ A per-client, persistent artifact with two components and one integrity mechanis
 | `hitl_proposed` | Extracted from usage, awaiting confirmation | dotted+badge | Not consumed until confirmed |
 | `va_validated` | Outcome-tested by VA (DiD + human adjudication) | solid | Highest rank; language capped at "consistent with" — never "proved" |
 
+**Surface vocabulary (2026-10-09).** The ladder above stays in the registry. Decision-maker screens show one of three states, derived from recorded fields only in `decision-studio-ui/src/utils/trustState.ts`, with the ladder detail behind a "Why" expand:
+
+| Surface state | Rule | Covers |
+|---|---|---|
+| Calculated | `basis == accounting_identity` | arithmetic links (the spine) |
+| Tested | `causal_rung == intervention_tested` | `va_validated` links; a failed verdict is Tested with a "did not hold" marker, not a fourth state |
+| Assumed | everything else | `template`, `confirmed`, `hitl_proposed`; a plain line says which |
+
+A briefing assumption that rests on a pre-decision measurement ("grounded") reads Assumed with a source line; Tested is reserved for an outcome verdict. Used by the related-driver tiles, the briefing's "What this bets on" panel and the KPI Drivers page.
+
 **Shard alignment warning:** per-principal personalization (PIB, lens weighting) *institutionalizes shard divergence* unless it becomes role-weighted **views over one shared model**. DA findings update the shared graph; the system flags when two principals' explanations of the same upstream cause contradict.
 
 **Definition of "situation" (target state):** an assumption in the client's causal model was falsified — not merely "threshold crossed." This framing dissolves alert noise structurally: explained variance stops being a situation while its explanation holds (and only while it holds — §5.1).

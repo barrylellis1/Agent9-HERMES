@@ -1,40 +1,24 @@
 /**
- * TheoryLayerExhibit — the theory layer rendered as one conditional stack
- * (Phase 17, Stage 6). DEV-ONLY PROTOTYPE, not linked into production nav.
+ * TheoryLayerExhibit — how one KPI connects to the rest of the business.
  *
- * STRUCTURE follows docs/architecture/kpi_relationship_basis_design.md §5,
- * which explicitly REJECTED the fixed four-quadrant grid Phase 17's own
- * headline describes: "a rigid grid reserving space for all four concepts on
- * every KPI recreates exactly that failure at the panel level" — Spine only
- * exists for an FI-anchored KPI, Ports only when MA's conflict fires. So
- * Spine → Edges → Ports stack full-width and render ONLY with real content.
+ * STRUCTURE follows docs/architecture/kpi_relationship_basis_design.md §5:
+ * sections stack full-width and render ONLY with real content.
  *
- * ASSUMPTIONS IS NOT A SECTION, deliberately. Same §5: "Assumptions was never
- * a fourth section to begin with... A holding/breaking verdict is a marker ON
- * an edge, not independent content with its own chart." It appears here as a
- * per-card verdict badge, and while T3 grades assumptions per SOLUTION (not
- * per edge) the badge honestly reads "verdict pending" rather than being
- * silently omitted — §5's own stated default.
+ * TRUST is shown with the same three states as every other decision-maker
+ * screen (utils/trustState.ts): Tested, Assumed, Calculated. Solid border =
+ * Tested or Calculated, dashed = Assumed. The registry's fuller provenance
+ * ladder is still there, behind "Why" on each link.
  *
- * THE VISUAL GRAMMAR — certainty is the primary visual variable, because
- * "the difference is not how the recommendation READS, it is what can be
- * CHECKED" (DEVELOPMENT_PLAN.md Phase 17). Line/border style encodes the
- * provenance ladder (theory_layer_design.md §4):
- *
- *   solid   = certain      — accounting identity (arithmetic) or DiD-tested
- *   dashed  = asserted     — a domain fact someone blessed, not tested
- *   dotted  = assumed      — industry template, or an external port
- *
- * NUMBERS LIVE ONLY ON THE SPINE. The annotations carry words and grades,
- * never invented figures. This is the one rule that keeps the qualitative
- * layers from borrowing the arithmetic's authority — Phase 17's own warning
- * that "a wrong number in a diagram is harder to challenge than one in a
- * table; the picture carries authority the arithmetic has not earned."
+ * NUMBERS LIVE ONLY ON THE ARITHMETIC. The driver cards carry words and
+ * states, never invented figures — "a wrong number in a diagram is harder to
+ * challenge than one in a table" (DEVELOPMENT_PLAN.md Phase 17).
  */
 import { useEffect, useState } from 'react';
 import {
   Loader2, CheckCircle2, AlertTriangle, ArrowDown, Plug, GitBranch, Calculator,
 } from 'lucide-react';
+import { linkTrust, distanceInWords, TrustState } from '../../utils/trustState';
+import { TrustBadge } from '../shared/TrustBadge';
 import {
   getTheoryLayer, TheoryLayerPayload, TheoryCausalEdge, TheoryPort, TheorySpineNode, TheorySpineEdge,
 } from '../../api/client';
@@ -45,33 +29,7 @@ interface Props {
   includeValues?: boolean;
 }
 
-/** Certainty tier — the single encoding every card and line derives from. */
-type Tier = 'certain' | 'asserted' | 'assumed';
-
-function edgeTier(e: TheoryCausalEdge): Tier {
-  if (e.basis === 'accounting_identity') return 'certain';
-  if (e.causal_rung === 'intervention_tested') return 'certain';
-  if (e.provenance === 'template') return 'assumed';
-  return 'asserted';
-}
-
-const TIER_STYLE: Record<Tier, { border: string; label: string; chip: string }> = {
-  certain: {
-    border: 'border-solid border-slate-500',
-    label: 'text-slate-200',
-    chip: 'bg-slate-700/60 text-slate-200',
-  },
-  asserted: {
-    border: 'border-dashed border-slate-600',
-    label: 'text-slate-300',
-    chip: 'bg-slate-800 text-slate-400',
-  },
-  assumed: {
-    border: 'border-dotted border-slate-700',
-    label: 'text-slate-400',
-    chip: 'bg-slate-800/60 text-slate-500',
-  },
-};
+const STATE_ORDER: Record<TrustState, number> = { tested: 0, assumed: 1, calculated: 2 };
 
 function fmtValue(n: TheorySpineNode): string {
   if (n.value === null || n.value === undefined) return '—';
@@ -83,16 +41,15 @@ function fmtValue(n: TheorySpineNode): string {
 
 /** Section shell — never renders when it has nothing real to show (§5). */
 function Section({
-  title, kind, icon, children,
+  title, icon, children,
 }: {
-  title: string; kind: string; icon: React.ReactNode; children: React.ReactNode;
+  title: string; icon: React.ReactNode; children: React.ReactNode;
 }) {
   return (
     <section className="border-t border-slate-800 pt-5">
       <header className="flex items-baseline gap-2 mb-3">
         <span className="text-slate-500">{icon}</span>
         <h3 className="text-sm font-semibold tracking-wide text-white uppercase">{title}</h3>
-        <span className="text-[11px] uppercase tracking-widest text-slate-600">{kind}</span>
       </header>
       {children}
     </section>
@@ -103,7 +60,7 @@ function SpineNode({ node, role }: { node: TheorySpineNode; role?: string }) {
   return (
     <div className="border border-solid border-slate-600 rounded-lg bg-slate-900 px-3 py-2 min-w-[160px]">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-xs text-slate-400 font-mono">{node.kpi_id}</span>
+        <span className="text-xs text-slate-400">{node.name || node.kpi_id}</span>
         {role && <span className="text-[10px] uppercase tracking-wider text-slate-600">{role}</span>}
       </div>
       <div className="text-lg font-semibold text-white tabular-nums">{fmtValue(node)}</div>
@@ -137,7 +94,7 @@ function VarianceBridge({
   nodes: TheorySpineNode[];
   unit: string;
 }) {
-  const nameOf = (id: string) => nodes.find((n) => n.kpi_id === id)?.kpi_id || id;
+  const nameOf = (id: string) => nodes.find((n) => n.kpi_id === id)?.name || id;
   const magnitudes = [
     Math.abs(bridge.prior_value), Math.abs(bridge.current_value),
     ...bridge.effects.map((e) => Math.abs(e.effect)),
@@ -157,7 +114,7 @@ function VarianceBridge({
         const positive = r.value >= 0;
         return (
           <div key={i} className="flex items-center gap-3">
-            <span className={`w-36 shrink-0 text-xs font-mono truncate ${
+            <span className={`w-40 shrink-0 text-xs truncate ${
               r.kind === 'anchor' ? 'text-slate-300' : 'text-slate-400'
             }`}>
               {r.label}
@@ -184,7 +141,7 @@ function VarianceBridge({
         );
       })}
       <div className="pt-2 mt-1 border-t border-slate-800 flex items-baseline gap-2 text-xs">
-        <span className="text-slate-500">observed move</span>
+        <span className="text-slate-500">total change</span>
         <span className={`font-semibold tabular-nums ${
           bridge.total_move >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'
         }`}>
@@ -192,7 +149,7 @@ function VarianceBridge({
         </span>
         {bridge.exact ? (
           <span className="text-slate-600">
-            · effects close exactly (residual {bridge.residual.toFixed(4)}{unit})
+            · the parts account for the full change
           </span>
         ) : (
           <span className="text-severity-warning/80">· {bridge.note}</span>
@@ -276,38 +233,31 @@ function SpineBranch({
 }
 
 function CausalEdgeCard({ edge }: { edge: TheoryCausalEdge }) {
-  const tier = edgeTier(edge);
-  const s = TIER_STYLE[tier];
-  const arrow = tier === 'certain' ? '——▸' : tier === 'asserted' ? '– –▸' : '⋯⋯▸';
+  // Each card is a pair in its own right, so the line never names the page's KPI.
+  const trust = linkTrust(edge, null);
+  const border = trust.state === 'assumed' ? 'border-dashed border-slate-600' : 'border-solid border-slate-500';
+  const detail = [
+    distanceInWords(edge.hops),
+    edge.confidence ? `${edge.confidence} confidence` : null,
+    edge.lag_periods !== null ? `${edge.lag_periods}-month lag` : null,
+  ].filter(Boolean).join(' · ');
   return (
-    <div className={`border ${s.border} rounded-lg bg-slate-900/60 p-3`}>
+    <div data-testid="driver-link" className={`border ${border} rounded-lg bg-slate-900/60 p-3`}>
       <div className="flex items-center gap-2 flex-wrap">
-        <span className={`font-mono text-xs ${s.label}`}>{edge.kpi_id}</span>
-        <span className="text-slate-600 text-xs">{arrow}</span>
-        <span className={`font-mono text-xs ${s.label}`}>{edge.related_kpi_id}</span>
-        <span className={`text-[10px] px-1.5 py-0.5 rounded ${s.chip} uppercase tracking-wider`}>
-          {edge.basis === 'accounting_identity' ? 'identity · certain' : tier}
-        </span>
-        {edge.hops > 1 && (
-          <span className="text-[10px] text-slate-600">{edge.hops} hops</span>
-        )}
+        <span className="text-sm text-slate-100">{edge.kpi_name || edge.kpi_id}</span>
+        <span className="text-slate-600 text-xs">↔</span>
+        <span className="text-sm text-slate-100">{edge.related_kpi_name || edge.related_kpi_id}</span>
+        <span className="ml-auto"><TrustBadge state={trust.state} held={trust.held} /></span>
       </div>
-      {edge.mechanism && (
-        <p className="text-xs text-slate-400 mt-2 leading-relaxed">{edge.mechanism}</p>
-      )}
-      <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-600">
-        {edge.basis === 'accounting_identity' ? (
-          <span>true by construction — no confidence applies to arithmetic</span>
-        ) : (
-          <>
-            <span>{edge.provenance}</span>
-            {edge.confidence && <span>· {edge.confidence} confidence</span>}
-            {edge.lag_periods !== null && <span>· {edge.lag_periods}mo lag</span>}
-            {/* §5: Assumptions is a MARKER, never a section. */}
-            <span className="text-slate-700">· ○ verdict pending</span>
-          </>
-        )}
-      </div>
+      <p className="text-xs text-slate-400 mt-1.5">{trust.line}</p>
+      <details className="mt-1.5">
+        <summary className="cursor-pointer list-none text-[11px] text-slate-500 hover:text-slate-300">▸ Why</summary>
+        <div className="mt-1.5 space-y-1 text-xs text-slate-400">
+          {edge.mechanism && <p className="leading-relaxed">{edge.mechanism}</p>}
+          {detail && <p className="text-slate-500">{detail}</p>}
+          <p className="font-mono text-[10px] text-slate-600">source: {edge.provenance}</p>
+        </div>
+      </details>
     </div>
   );
 }
@@ -318,7 +268,7 @@ function PortCard({ port }: { port: TheoryPort }) {
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs font-semibold text-severity-warning/90">{port.name}</span>
         <span className="text-slate-600 text-xs">⋯⋯▸</span>
-        <span className="font-mono text-xs text-slate-300">{port.linked_kpi_id}</span>
+        <span className="text-xs text-slate-300">{port.linked_kpi_name || port.linked_kpi_id}</span>
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-severity-warning/30 text-severity-warning/80 uppercase tracking-wider">
           {port.port_type.replace(/_/g, ' ')}
         </span>
@@ -363,14 +313,16 @@ export function TheoryLayerExhibit({ kpiId, clientId, includeValues = false }: P
   if (!data) {
     return (
       <div className="flex items-center gap-2 text-slate-500 text-sm py-12 justify-center">
-        <Loader2 className="w-4 h-4 animate-spin" /> Assembling theory layer…
+        <Loader2 className="w-4 h-4 animate-spin" /> Loading…
       </div>
     );
   }
 
   const { spine, causal_edges, ports, epistemic_summary: es } = data;
-  const identities = causal_edges.filter((e) => e.basis === 'accounting_identity');
-  const claims = causal_edges.filter((e) => e.basis !== 'accounting_identity');
+  const orderedEdges = [...causal_edges].sort(
+    (a, b) => STATE_ORDER[linkTrust(a, null).state] - STATE_ORDER[linkTrust(b, null).state],
+  );
+  const assumedCount = es.asserted + es.template;
   const primary = spine.nodes.find((n) => n.kpi_id === data.kpi_id);
 
   return (
@@ -379,36 +331,24 @@ export function TheoryLayerExhibit({ kpiId, clientId, includeValues = false }: P
       <header>
         <div className="flex items-baseline gap-3 flex-wrap">
           <h2 className="text-lg font-bold text-white">{data.kpi_name}</h2>
-          <span className="text-xs text-slate-500 font-mono">{data.client_id}</span>
         </div>
-        {/* Makes VERIFIABILITY visible — the exhibit's stated job. Identities
-            are counted apart from causal claims on purpose: arithmetic is not
-            verified theory, and folding it in would inflate "confirmed". */}
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span className="text-slate-300">
-            <strong className="text-white tabular-nums">{es.identities}</strong> arithmetic identities
-            <span className="text-slate-600"> (certain)</span>
-          </span>
+        <div data-testid="trust-summary" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-300">
+          <span><strong className="text-white tabular-nums">{es.identities}</strong> calculated</span>
           <span className="text-slate-600">·</span>
-          <span className="text-slate-300">
-            <strong className="text-white tabular-nums">{es.causal_claims}</strong> causal claims:
-            <span className="text-slate-400"> {es.tested} tested</span>
-            <span className="text-slate-500"> · {es.asserted} asserted</span>
-            <span className="text-slate-600"> · {es.template} template</span>
-          </span>
+          <span><strong className="text-white tabular-nums">{es.tested}</strong> tested</span>
+          <span className="text-slate-600">·</span>
+          <span><strong className="text-white tabular-nums">{assumedCount}</strong> assumed</span>
         </div>
-        {!es.density_gate_passed && (
-          <p className="mt-2 text-[11px] text-severity-warning/70 leading-relaxed">
-            <AlertTriangle className="w-3 h-3 inline mr-1 -mt-0.5" />
-            Density gate not passed — tested edges do not yet outnumber unconfirmed ones.
-            This bar is cleared by accumulated Value Assurance verdicts, never by seeding.
+        {!es.density_gate_passed && assumedCount > 0 && (
+          <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
+            Most links here are still assumptions. They become tested as decisions are measured.
           </p>
         )}
       </header>
 
       {/* ---- 1. CORE SPINE (conditional) -------------------------------- */}
       {spine.edges.length > 0 && primary && (
-        <Section title="Core Spine" kind="arithmetic" icon={<Calculator className="w-4 h-4" />}>
+        <Section title="How it's calculated" icon={<Calculator className="w-4 h-4" />}>
           {/* THE CHART is the variance bridge (§4). Composition is context
               underneath it, collapsed — never the headline. */}
           {spine.variance_bridge ? (
@@ -420,14 +360,14 @@ export function TheoryLayerExhibit({ kpiId, clientId, includeValues = false }: P
           ) : (
             <p className="text-[11px] text-slate-600 mb-3">
               {spine.reconciliation
-                ? 'Variance bridge unavailable — prior-period values missing, so the move cannot be decomposed.'
-                : 'Structure only — enable live values to decompose the period-over-period move.'}
+                ? 'The change cannot be broken down: prior-period values are missing.'
+                : 'Turn on current values to see what moved it this period.'}
             </p>
           )}
 
           <details className="mt-4 group">
             <summary className="text-[11px] uppercase tracking-widest text-slate-600 cursor-pointer hover:text-slate-400 list-none">
-              ▸ composition (what it is made of)
+              ▸ What it is made of
             </summary>
             <div className="mt-3">
               {/* Rendered by ACTUAL depth, not flattened. The lubricants tree
@@ -448,12 +388,12 @@ export function TheoryLayerExhibit({ kpiId, clientId, includeValues = false }: P
                   spine.reconciliation.ok ? 'text-severity-opportunity/80' : 'text-severity-critical'
                 }`}>
                   {spine.reconciliation.ok
-                    ? <><CheckCircle2 className="w-3.5 h-3.5 mt-px" /> children reconcile to parent</>
+                    ? <><CheckCircle2 className="w-3.5 h-3.5 mt-px" /> The parts add up to the total.</>
                     : <><AlertTriangle className="w-3.5 h-3.5 mt-px" /> {spine.reconciliation.detail}</>}
                 </div>
               ) : (
                 <p className="mt-3 text-[11px] text-slate-600">
-                  Live values not requested, so reconciliation is unchecked.
+                  Turn on current values to check that the parts add up.
                 </p>
               )}
             </div>
@@ -461,37 +401,20 @@ export function TheoryLayerExhibit({ kpiId, clientId, includeValues = false }: P
         </Section>
       )}
 
-      {/* ---- 2. CAUSAL EDGES (conditional) ------------------------------ */}
-      {causal_edges.length > 0 && (
-        <Section title="Causal Edges" kind="theory" icon={<GitBranch className="w-4 h-4" />}>
+      {/* ---- 2. DRIVERS (conditional) ----------------------------------- */}
+      {orderedEdges.length > 0 && (
+        <Section title="What drives it" icon={<GitBranch className="w-4 h-4" />}>
           <div className="space-y-2">
-            {identities.length > 0 && (
-              <>
-                <p className="text-[11px] text-slate-600 uppercase tracking-widest">
-                  True by construction
-                </p>
-                {identities.map((e) => (
-                  <CausalEdgeCard key={`${e.kpi_id}-${e.related_kpi_id}`} edge={e} />
-                ))}
-              </>
-            )}
-            {claims.length > 0 && (
-              <>
-                <p className="text-[11px] text-slate-600 uppercase tracking-widest pt-2">
-                  Empirical claims
-                </p>
-                {claims.map((e) => (
-                  <CausalEdgeCard key={`${e.kpi_id}-${e.related_kpi_id}`} edge={e} />
-                ))}
-              </>
-            )}
+            {orderedEdges.map((e) => (
+              <CausalEdgeCard key={`${e.kpi_id}-${e.related_kpi_id}`} edge={e} />
+            ))}
           </div>
         </Section>
       )}
 
       {/* ---- 3. EXTERNAL PORTS (conditional) ---------------------------- */}
       {ports.length > 0 && (
-        <Section title="External Ports" kind="outside the ledger" icon={<Plug className="w-4 h-4" />}>
+        <Section title="Outside factors" icon={<Plug className="w-4 h-4" />}>
           <div className="space-y-2">
             {ports.map((p) => <PortCard key={p.id || p.name} port={p} />)}
           </div>

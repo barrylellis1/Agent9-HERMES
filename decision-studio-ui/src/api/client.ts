@@ -1487,6 +1487,8 @@ export interface TheorySpineEdge {
 export interface TheoryCausalEdge {
   kpi_id: string;
   related_kpi_id: string;
+  kpi_name?: string;
+  related_kpi_name?: string;
   basis: 'accounting_identity' | 'causal_estimate';
   mechanism: string | null;
   lag_periods: number | null;
@@ -1503,6 +1505,7 @@ export interface TheoryPort {
   name: string;
   port_type: string;
   linked_kpi_id: string;
+  linked_kpi_name?: string;
   lag_periods: number | null;
   buffer_description: string | null;
   current_signal: string | null;

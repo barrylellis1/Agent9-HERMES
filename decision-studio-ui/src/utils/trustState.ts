@@ -27,9 +27,13 @@ const LINK_SOURCE_LINE: Record<string, string> = {
 
 export function linkTrust(
   link: { basis?: string | null; causal_rung?: string | null; provenance?: string | null; hops?: number | null },
-  parentName: string,
+  /** The KPI being analysed. Pass null when the link is shown as a pair in its own right. */
+  parentName: string | null,
 ): TrustReading {
   if (link.basis === 'accounting_identity') {
+    if (parentName === null) {
+      return { state: 'calculated', line: 'True by definition: one is calculated from the other.' };
+    }
     const direct = link.hops == null || link.hops <= 1;
     return {
       state: 'calculated',
@@ -44,6 +48,28 @@ export function linkTrust(
   return {
     state: 'assumed',
     line: LINK_SOURCE_LINE[link.provenance ?? ''] ?? 'Not yet tested.',
+  };
+}
+
+const ASSUMPTION_SOURCE_LINE: Record<string, string> = {
+  sa_assessment: 'Backed by the latest assessment.',
+  ma_query: 'Backed by market research.',
+  human_confirmation: 'Confirmed by a person.',
+};
+
+/**
+ * A briefing assumption is a bet made before the decision, so it reads
+ * Assumed even when it rests on a measurement ("grounded"); the line says
+ * what backs it. Nothing here can be Tested until a graded outcome reaches
+ * this payload.
+ */
+export function assumptionTrust(a: { grounded?: boolean; validated_by?: string | null }): TrustReading {
+  if (a.grounded !== true) {
+    return { state: 'assumed', line: "The model's reasoning, not yet measured." };
+  }
+  return {
+    state: 'assumed',
+    line: ASSUMPTION_SOURCE_LINE[a.validated_by ?? ''] ?? 'Backed by a measurement.',
   };
 }
 
