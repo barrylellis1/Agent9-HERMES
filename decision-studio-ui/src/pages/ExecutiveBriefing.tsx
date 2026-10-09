@@ -1397,8 +1397,8 @@ export function ExecutiveBriefing() {
             <AccordionSection id="recommendation" title="Next Steps & Implementation" openSections={openSections} onToggle={toggleSection}
               icon={<CheckCircle2 className="w-4 h-4 text-slate-400" />}>
               <div className="p-5">
-                {/* Screen: gradient blue card / Print: monochrome left-border callout */}
-                <div className="bg-slate-900 border border-slate-700 text-white p-6 rounded-xl print:bg-white print:border-l-4 print:border-slate-800 print:rounded-none print:pl-5 print:pr-0 print:py-3">
+                {/* Screen: dark card / Print: plain bordered block */}
+                <div className="bg-slate-900 border border-slate-700 text-white p-6 rounded-xl print:bg-white print:border-slate-300 print:rounded-none print:px-5 print:py-3">
                   <h3 className="text-lg font-bold mb-3 print:text-slate-900">{data.recommendation?.headline}</h3>
                   <p className="text-slate-300 leading-relaxed text-sm mb-5 print:text-slate-700">{data.recommendation?.rationale}</p>
                   {/* Cat 3 / M5. The typed List[ImmediateAction] wins when the run
@@ -1617,9 +1617,9 @@ export function ExecutiveBriefing() {
                   </div>
                 )}
                 {data.situation?.keyQuestion && (
-                  <div className="bg-slate-900 border-l-4 border-slate-500 p-4 rounded-r-lg print:bg-blue-50 print:border-blue-600">
-                    <h3 className="font-semibold text-slate-200 mb-1 text-sm print:text-blue-900">Key Question</h3>
-                    <p className="text-slate-400 italic text-sm print:text-blue-800">{data.situation.keyQuestion}</p>
+                  <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg print:bg-white print:border-slate-300">
+                    <h3 className="font-semibold text-slate-200 mb-1 text-sm print:text-slate-900">Key Question</h3>
+                    <p className="text-slate-400 italic text-sm print:text-slate-700">{data.situation.keyQuestion}</p>
                   </div>
                 )}
                 {data.situation?.assumptions?.length > 0 && (
@@ -1742,13 +1742,13 @@ export function ExecutiveBriefing() {
                       </div>
                     )}
                     {data.unresolved_tensions?.length > 0 && (
-                      <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg print:bg-purple-50 print:border-purple-200">
-                        <h3 className="font-semibold text-slate-200 mb-2 text-sm print:text-purple-900">Unresolved Tensions</h3>
+                      <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg print:bg-white print:border-slate-300">
+                        <h3 className="font-semibold text-slate-200 mb-2 text-sm print:text-slate-900">Unresolved Tensions</h3>
                         <ul className="space-y-2">
                           {data.unresolved_tensions.map((t: any, i: number) => (
-                            <li key={i} className="text-slate-400 text-xs print:text-purple-800">
-                              <p className="font-medium text-slate-300 print:text-purple-800">{t.tension || t}</p>
-                              {t.requires && <p className="text-slate-500 mt-0.5 print:text-purple-600">Requires: {t.requires}</p>}
+                            <li key={i} className="text-slate-400 text-xs print:text-slate-700">
+                              <p className="font-medium text-slate-300 print:text-slate-800">{t.tension || t}</p>
+                              {t.requires && <p className="text-slate-500 mt-0.5 print:text-slate-600">Requires: {t.requires}</p>}
                             </li>
                           ))}
                         </ul>
