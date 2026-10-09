@@ -927,9 +927,9 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                 {framingPrompt && (
                     <AccordionSection
                         id="causal-neighbourhood"
-                        title="Causal Neighbourhood"
+                        title="Related drivers"
                         icon={<SplitSquareHorizontal className="w-4 h-4 text-indigo-400" />}
-                        summary={`${framingPrompt.alternatives.length} candidate${framingPrompt.alternatives.length === 1 ? '' : 's'}`}
+                        summary={`${framingPrompt.alternatives.length} driver${framingPrompt.alternatives.length === 1 ? '' : 's'}`}
                     >
                         <CausalNeighbourhoodEvidence
                             prompt={framingPrompt}

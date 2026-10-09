@@ -121,7 +121,7 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
 
       {prompt.alternatives.length > 0 && (
         <p className="text-[11px] text-slate-500">
-          See <span className="text-slate-400">Causal Neighbourhood</span> on the left to analyze any of these drivers independently — switching the objective here isn't how to pursue them.
+          Think a different driver is the real issue? Use <span className="text-slate-400">Analyze</span> on it under <span className="text-slate-400">Related drivers</span>.
         </p>
       )}
 
