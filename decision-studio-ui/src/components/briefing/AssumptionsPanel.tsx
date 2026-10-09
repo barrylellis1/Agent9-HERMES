@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, ShieldCheck, HelpCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { SolutionAssumption } from '../../api/types'
+import { assumptionTrust } from '../../utils/trustState'
+import { TrustBadge } from '../shared/TrustBadge'
 
 /**
  * What an option bets on — the panel behind every impact range.
@@ -10,17 +12,12 @@ import type { SolutionAssumption } from '../../api/types'
  * from"), and it is the single AssumptionsPanel called for by Phase 15 Stage G —
  * there is deliberately no second assumption component.
  *
- * GROUNDED vs INFERRED IS THE POINT
- * ---------------------------------
- * `grounded` says whether the assumption rests on something measured
- * (an SA assessment, a market query) or on the model's reasoning. Collapsing the
- * two into one undifferentiated bullet list is what makes an inferred claim read
- * with the authority of a measured one. `provenance` names the specific source
- * where one exists.
- *
- * LANGUAGE CAP (theory §4): nothing here says "proved" or "validated" as a
- * verdict. A grounded assumption is one that is *consistent with* what was
- * measured, and the labels are written to stay inside that.
+ * Each bet shows one trust state (utils/trustState.ts) and one plain line
+ * saying what backs it. A bet resting on a measurement still reads Assumed:
+ * a measurement taken before the decision is not an outcome test, and the
+ * line ("Backed by the latest assessment.") carries the difference from one
+ * that is only the model's reasoning. Confidence and the raw source sit
+ * behind "Why".
  */
 
 interface AssumptionsPanelProps {
@@ -31,24 +28,13 @@ interface AssumptionsPanelProps {
   defaultOpen?: boolean
 }
 
-const VALIDATED_BY_LABELS: Record<string, string> = {
-  sa_assessment: 'Situation assessment',
-  ma_query: 'Market query',
-  human_confirmation: 'Confirmed by a person',
-}
-
-const CONFIDENCE_TONE: Record<string, string> = {
-  high: 'text-severity-opportunity border-severity-opportunity print:text-emerald-700',
-  moderate: 'text-severity-warning border-severity-warning print:text-amber-700',
-  low: 'text-severity-critical border-severity-critical print:text-red-700',
-}
-
 export function AssumptionsPanel({ assumptions, impactLabel, defaultOpen = false }: AssumptionsPanelProps) {
   const [open, setOpen] = useState(defaultOpen)
   if (!assumptions.length) return null
 
-  const groundedCount = assumptions.filter(a => a.grounded === true).length
-  const inferredCount = assumptions.length - groundedCount
+  const readings = assumptions.map(assumptionTrust)
+  const testedCount = readings.filter(r => r.state === 'tested').length
+  const assumedCount = readings.length - testedCount
 
   return (
     <div data-testid="assumptions-panel" className="mt-4 rounded-lg border border-slate-700 bg-slate-800/30 print:border-slate-200 print:bg-white">
@@ -61,8 +47,8 @@ export function AssumptionsPanel({ assumptions, impactLabel, defaultOpen = false
           What this bets on
           {impactLabel && <span className="font-normal text-slate-500">— behind {impactLabel}</span>}
         </span>
-        <span className="flex-shrink-0 text-[10px] font-mono text-slate-500">
-          {groundedCount} grounded · {inferredCount} inferred
+        <span className="flex-shrink-0 text-[10px] text-slate-500">
+          {testedCount > 0 && `${testedCount} tested · `}{assumedCount} assumed
         </span>
       </button>
 
@@ -72,45 +58,37 @@ export function AssumptionsPanel({ assumptions, impactLabel, defaultOpen = false
         <p className="mb-2 hidden text-[10px] font-mono uppercase tracking-wider text-slate-500 print:block">
           What this bets on
         </p>
-        <ul className="space-y-2.5">
+        <ul className="space-y-3">
           {assumptions.map((a, i) => {
-            const grounded = a.grounded === true
+            const trust = readings[i]
+            const detail = [
+              a.confidence ? `${a.confidence} confidence` : null,
+              a.validated_at ? `checked ${a.validated_at.slice(0, 10)}` : null,
+            ].filter(Boolean).join(' · ')
             return (
-              <li key={i} data-testid="assumption-item" className="flex items-start gap-2">
-                {grounded ? (
-                  <ShieldCheck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-severity-opportunity print:text-emerald-700" />
-                ) : (
-                  <HelpCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-500 print:text-slate-500" />
-                )}
-                <div className="min-w-0 flex-1">
+              <li key={i} data-testid="assumption-item">
+                <div className="flex items-start justify-between gap-3">
                   <p className="text-xs leading-snug text-slate-300 print:text-slate-700">{a.assumption}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <span
-                      className={`rounded border px-1.5 py-px text-[9px] uppercase tracking-wider ${
-                        grounded
-                          ? 'border-severity-opportunity text-severity-opportunity print:text-emerald-700'
-                          : 'border-slate-600 text-slate-500'
-                      }`}
-                    >
-                      {grounded ? 'grounded' : 'inferred'}
-                    </span>
-                    {a.confidence && (
-                      <span className={`rounded border px-1.5 py-px text-[9px] uppercase tracking-wider ${CONFIDENCE_TONE[a.confidence] ?? 'border-slate-600 text-slate-500'}`}>
-                        {a.confidence} confidence
-                      </span>
-                    )}
-                    {a.validated_by && (
-                      <span className="text-[9px] text-slate-400 print:text-slate-500">
-                        {VALIDATED_BY_LABELS[a.validated_by] ?? a.validated_by}
-                      </span>
-                    )}
-                    {/* The specific source, when one was recorded. This is what
-                        turns "grounded" from a badge into something checkable. */}
-                    {a.provenance && (
-                      <span className="text-[9px] font-mono text-slate-400 print:text-slate-500">· {a.provenance}</span>
-                    )}
-                  </div>
+                  <TrustBadge state={trust.state} held={trust.held} />
                 </div>
+                <p className="mt-1 text-[11px] text-slate-500 print:text-slate-600">{trust.line}</p>
+                {(detail || a.provenance) && (
+                  <>
+                    <details className="mt-1 print:hidden">
+                      <summary className="cursor-pointer list-none text-[11px] text-slate-500 hover:text-slate-300">
+                        ▸ Why
+                      </summary>
+                      <div className="mt-1 space-y-0.5 text-[11px] text-slate-500">
+                        {detail && <p>{detail}</p>}
+                        {a.provenance && <p className="font-mono text-[10px]">source: {a.provenance}</p>}
+                      </div>
+                    </details>
+                    {/* A forwarded PDF has no expand, so the checkable source prints. */}
+                    {a.provenance && (
+                      <p className="mt-0.5 hidden font-mono text-[9px] text-slate-500 print:block">source: {a.provenance}</p>
+                    )}
+                  </>
+                )}
               </li>
             )
           })}
