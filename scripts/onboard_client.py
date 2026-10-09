@@ -190,6 +190,58 @@ def _delete_by_client(
         print(f"  WARNING: DELETE from {table} returned {resp.status_code}: {resp.text[:200]}")
 
 
+def _link_key(row: Dict[str, Any]) -> frozenset:
+    return frozenset((row.get("kpi_id"), row.get("related_kpi_id")))
+
+
+def _preserve_earned_link_states(
+    seed_rows: List[Dict[str, Any]],
+    existing_rows: List[Dict[str, Any]],
+) -> tuple:
+    """Keep what Value Assurance verdicts earned across a re-seed.
+
+    kpi_relationships is delete-then-insert, but it is not purely seed-owned:
+    a VALIDATED verdict marks a link causal_rung='intervention_tested' +
+    provenance='va_validated' at runtime. Re-seeding must not reset that.
+
+    Returns (rows_to_insert, carried, kept_unseeded):
+    - a seeded causal link that had earned state keeps its rung and provenance;
+    - an earned link the seed no longer lists is re-inserted unchanged;
+    - a seeded accounting identity never carries earned state (arithmetic is
+      not a testable claim), which also clears any stale record of one.
+    """
+    earned = {
+        _link_key(r): r for r in existing_rows
+        if r.get("provenance") == "va_validated" and r.get("causal_rung") == "intervention_tested"
+    }
+    out: List[Dict[str, Any]] = []
+    carried: List[str] = []
+    seeded_keys = set()
+    for row in seed_rows:
+        key = _link_key(row)
+        seeded_keys.add(key)
+        prior = earned.get(key)
+        if prior is not None and row.get("basis") != "accounting_identity":
+            row = {**row, "causal_rung": "intervention_tested", "provenance": "va_validated"}
+            carried.append(f'{row["kpi_id"]}<->{row["related_kpi_id"]}')
+        out.append(row)
+    kept_unseeded = [
+        r for k, r in earned.items()
+        if k not in seeded_keys and r.get("basis") != "accounting_identity"
+    ]
+    return out + kept_unseeded, carried, kept_unseeded
+
+
+def _fetch_by_client(
+    client: httpx.Client, base_url: str, service_key: str, table: str, client_id: str,
+) -> List[Dict[str, Any]]:
+    """Read-only; safe in dry-run."""
+    url = f"{base_url.rstrip('/')}/rest/v1/{table}?client_id=eq.{client_id}&select=*"
+    resp = client.get(url, headers=_headers(service_key))
+    resp.raise_for_status()
+    return resp.json()
+
+
 # ---------------------------------------------------------------------------
 # Business process + glossary stamp helpers
 # ---------------------------------------------------------------------------
@@ -473,6 +525,16 @@ def onboard_client(
                 sys.exit(1)
             # Delete-first: kpi_relationships has a composite PK (client_id, kpi_id, related_kpi_id)
             # and PostgREST merge-duplicates doesn't reliably resolve conflicts on composite keys.
+            # The table is not purely seed-owned, though: Value Assurance verdicts mark links
+            # as tested at runtime, so that earned state is read first and carried across.
+            existing_links = _fetch_by_client(http, base_url, service_key, "kpi_relationships", client_id)
+            kpi_relationships, carried, kept_unseeded = _preserve_earned_link_states(
+                kpi_relationships, existing_links,
+            )
+            if carried:
+                print(f"  Preserving tested state on {len(carried)} link(s): {', '.join(carried)}")
+            if kept_unseeded:
+                print(f"  Keeping {len(kept_unseeded)} tested link(s) the seed does not list")
             _delete_by_client(http, base_url, service_key, "kpi_relationships", client_id, dry_run)
             n = _upsert(http, base_url, service_key, "kpi_relationships", kpi_relationships, dry_run)
             print(f"  OK  {n} row(s) upserted\n")
