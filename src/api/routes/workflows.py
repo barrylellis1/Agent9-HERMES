@@ -621,14 +621,22 @@ class BriefingQAResponse(BaseModel):
 
 
 def _detect_transparency_tier(question: str):
+    """Classify the QUESTION by keyword. This never inspects the answer.
+
+    Only the cautionary labels are shown to the reader. Tiers 1 and 2 used to
+    carry "Direct from analysis data" / "Calculated from analysis data", which
+    asserted where the answer came from on the strength of the question's
+    wording alone; every answer here is model-written from the same briefing
+    context. The tier number is kept for callers; its label is now blank.
+    """
     q = question.lower()
     if any(kw in q for kw in ["recommend", "should we", "what would you", "your opinion", "best option", "advise"]):
-        return 4, "Opinion / Recommendation"
+        return 4, "Opinion"
     if any(kw in q for kw in ["why", "implication", "impact of", "what does it mean", "suggest about", "indicate", "tell us"]):
-        return 3, "Inferred from analysis"
+        return 3, "Interpretation"
     if any(kw in q for kw in ["compare", "difference", "higher", "lower", "rank", "how much", "how many", "percentage", "ratio"]):
-        return 2, "Calculated from analysis data"
-    return 1, "Direct from analysis data"
+        return 2, ""
+    return 1, ""
 
 
 def _build_briefing_context(record: WorkflowRecord) -> str:

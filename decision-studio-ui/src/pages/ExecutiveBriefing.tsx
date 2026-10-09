@@ -211,10 +211,10 @@ function DecisionChat({
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[90%] rounded-lg px-3 py-2 ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-100'}`}>
               <p className="text-xs whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-              {msg.qa && msg.qa.tier_label && (
+              {msg.qa && (msg.qa.tier_label || msg.qa.sources?.length > 0) && (
                 <span className={`inline-block text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded mt-1 ${TIER_BADGE_COLORS[msg.qa.transparency_tier] ?? 'bg-slate-800 text-slate-400'}`}>
                   {msg.qa.tier_label}
-                  {msg.qa.sources?.length > 0 && ` · ${msg.qa.sources.join(', ')}`}
+                  {msg.qa.sources?.length > 0 && `${msg.qa.tier_label ? ' · ' : ''}${msg.qa.sources.join(', ')}`}
                 </span>
               )}
               {msg.qa?.suggested_followups && msg.qa.suggested_followups.length > 0 && (
