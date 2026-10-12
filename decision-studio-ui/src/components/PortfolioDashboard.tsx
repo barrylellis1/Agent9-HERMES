@@ -70,9 +70,9 @@ const PHASE_STYLE: Record<SolutionPhase, { label: string; className: string }> =
 
 function VerdictBadge({ status }: { status: SolutionVerdict }) {
   const map: Record<SolutionVerdict, { label: string; className: string; Icon: React.ElementType; pulse?: boolean }> = {
-    VALIDATED: { label: 'Validated', className: 'bg-green-100 text-green-800', Icon: CheckCircle2 },
-    PARTIAL: { label: 'Partial', className: 'bg-yellow-100 text-yellow-800', Icon: AlertTriangle },
-    FAILED: { label: 'Failed', className: 'bg-red-100 text-red-800', Icon: XCircle },
+    VALIDATED: { label: 'Held up', className: 'bg-green-100 text-green-800', Icon: CheckCircle2 },
+    PARTIAL: { label: 'Partly held up', className: 'bg-yellow-100 text-yellow-800', Icon: AlertTriangle },
+    FAILED: { label: 'Did not hold', className: 'bg-red-100 text-red-800', Icon: XCircle },
     MEASURING: { label: 'Measuring', className: 'bg-blue-100 text-blue-700', Icon: Loader2, pulse: true },
   };
   const cfg = map[status];
@@ -162,21 +162,21 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
           borderClass="border-severity-opportunity/40"
         />
         <SummaryCard
-          label="Validated"
+          label="Held up"
           value={`${validatedCount}`}
           subtext={`${pct(validatedCount)} of tracked solutions`}
           valueClass="text-severity-healthy"
           borderClass="border-severity-healthy/40"
         />
         <SummaryCard
-          label="Partial"
+          label="Partly held up"
           value={`${partialCount}`}
           subtext={`${pct(partialCount)} of tracked solutions`}
           valueClass="text-yellow-400"
           borderClass="border-yellow-800/40"
         />
         <SummaryCard
-          label="Failed"
+          label="Did not hold"
           value={`${failedCount}`}
           subtext={`${pct(failedCount)} of tracked solutions`}
           valueClass="text-severity-critical"

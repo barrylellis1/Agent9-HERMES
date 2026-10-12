@@ -750,7 +750,7 @@ export function HowItWorks() {
                   recommendations that worked tactically but no longer matter strategically.
                 </span>
               }
-              whatItProduces="Composite verdict (Validated / Partial / Failed / Measuring), a breakdown separating your impact from external factors, strategy alignment assessment comparing actual outcomes to original intent, and a portfolio-level ROI view across all tracked decisions."
+              whatItProduces="Composite verdict (Held up / Partly held up / Did not hold / Measuring), a breakdown separating your impact from external factors, strategy alignment assessment comparing actual outcomes to original intent, and a portfolio-level ROI view across all tracked decisions."
               differentiator="No other system connects diagnosis → recommendation → measured result in a single pipeline. The audit trail runs from the original situation card through the approved solution to the measured outcome — so you can answer 'did that work?' with data, not instinct."
             />
           </motion.div>

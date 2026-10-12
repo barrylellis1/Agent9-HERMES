@@ -56,9 +56,9 @@ function StatusBadge({ status }: { status: SolutionVerdict }) {
   };
   const labels: Record<SolutionVerdict, string> = {
     MEASURING: 'Measuring',
-    VALIDATED: 'Validated',
-    PARTIAL: 'Partial',
-    FAILED: 'Failed',
+    VALIDATED: 'Held up',
+    PARTIAL: 'Partly held up',
+    FAILED: 'Did not hold',
   };
   return (
     <span
@@ -107,9 +107,14 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
 
   const currentPhase: SolutionPhase = solution.phase || 'APPROVED';
   const hasEvaluation = !!solution.impact_evaluation;
+  // A verdict whose evaluation detail did not load (see note below) is not
+  // "preliminary" — saying so beside a final verdict reads as a contradiction.
+  const hasVerdict = !!solution.status && solution.status !== 'MEASURING';
   const attributionNote = hasEvaluation
     ? null
-    : 'Preliminary: not yet compared against segments the decision did not touch.';
+    : hasVerdict
+      ? 'The measurement detail behind this verdict is not available on this page.'
+      : 'Preliminary: not yet compared against segments the decision did not touch.';
 
   const handlePhaseTransition = async (newPhase: SolutionPhase) => {
     setTransitioning(true);

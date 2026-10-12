@@ -34,19 +34,19 @@ const VERDICT_CONFIG: Record<
   { label: string; className: string; Icon: React.ElementType; pulse: boolean }
 > = {
   VALIDATED: {
-    label: 'Validated',
+    label: 'Held up',
     className: 'bg-green-100 text-green-800',
     Icon: CheckCircle2,
     pulse: false,
   },
   PARTIAL: {
-    label: 'Partial',
+    label: 'Partly held up',
     className: 'bg-yellow-100 text-yellow-800',
     Icon: AlertTriangle,
     pulse: false,
   },
   FAILED: {
-    label: 'Failed',
+    label: 'Did not hold',
     className: 'bg-red-100 text-red-800',
     Icon: XCircle,
     pulse: false,

@@ -72,7 +72,7 @@ This design ensures tight coupling between state changes and UI re-renders, maki
 **Must NOT:** Have any side effects — static content + animations only.
 
 ### LandingPage
-**File:** `src/pages/LandingPage.tsx`  
+**File:** `src/pages/LandingPageAlternate.tsx` (imported in `App.tsx` as `LandingPage`)  
 **Type:** Page  
 **Renders:** Marketing landing page with hero, product narrative, CTAs to login/demo.  
 **Owns:** None — purely presentation.  
