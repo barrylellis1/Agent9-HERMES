@@ -255,6 +255,50 @@ def _roles_match(role_a: Optional[str], role_b: Optional[str]) -> bool:
     return _ROLE_ABBREVIATION_EXPANSIONS.get(a, a) == _ROLE_ABBREVIATION_EXPANSIONS.get(b, b)
 
 
+_READER_COMPARATOR = {
+    "yoy": "the same period last year",
+    "qoq": "the previous quarter",
+    "mom": "the previous month",
+    "previous": "the prior period",
+    "budget": "budget",
+    "plan_variance": "plan",
+}
+
+
+def _reader_comparator(comparison_type: Optional[str]) -> str:
+    """Comparison basis in words a reader uses ("yoy" -> "the same period last
+    year"). An unrecognised value is returned unchanged, never guessed."""
+    key = str(comparison_type or "").strip().lower()
+    return _READER_COMPARATOR.get(key, comparison_type or "the prior period")
+
+
+def _reader_delta(delta: float, unit: Optional[str] = None) -> str:
+    """A change as a reader would write it: "-5.7M", "+918K", "-6.3pp".
+
+    No currency symbol is added. The unit is not reliably known at this point,
+    and a guessed "$" on a non-currency figure has shipped before.
+    """
+    mag = abs(delta)
+    sign = "+" if delta >= 0 else "-"
+    if unit == "%":
+        return f"{sign}{mag:.1f}pp"
+    for limit, suffix in ((1e9, "B"), (1e6, "M"), (1e3, "K")):
+        if mag >= limit:
+            return f"{sign}{mag / limit:.1f}{suffix}"
+    return f"{sign}{mag:.1f}"
+
+
+def _reader_change_points(change_points: Optional[List[Any]], unit: Optional[str] = None) -> List[str]:
+    """Key drivers for reader-facing text: "Product Name: Synthetic Blend (-6.3)"."""
+    out: List[str] = []
+    for cp in (change_points or [])[:4]:
+        if not (cp.dimension and cp.key):
+            continue
+        label = f"{cp.dimension.replace('_', ' ').title()}: {cp.key}"
+        out.append(f"{label} ({_reader_delta(cp.delta, unit)})" if cp.delta is not None else label)
+    return out
+
+
 def _first_numeric_value(exec_result: Optional[Dict[str, Any]]) -> Optional[float]:
     """Extract the single scalar value from a non-dimensional (no GROUP BY)
     execute_sql result — exactly one row, one meaningful value column. Mirrors
@@ -2454,6 +2498,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         compound_pattern=getattr(plan, "compound_pattern", None),
                         matrix_ran=matrix_ran,
                         comparator_secondary=comparator_secondary,
+                        kpi_unit=getattr(kpi_def, "unit", None),
                     )
                 except Exception as e:
                     self.logger.info(f"[FRAMING] situation_complication_summary build failed (non-fatal): {e}")
@@ -3687,14 +3732,12 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         "Acting on it will not count as new evidence, because the link is true by "
                         "definition."
                     )
-                hop_word = "hop" if hop == 1 else "hops"
                 alternatives.append(FramingAlternative(
                     source="causal_graph",
                     kpi_id=neighbour,
-                    objective_text=(
-                        f"Addressing {neighbour_name} instead of {kpi_name} directly — "
-                        f"connected {hop} {hop_word} away in the causal graph"
-                    ),
+                    # Distance is carried by `hops`; the UI parses the
+                    # "Addressing X instead of" prefix for the short label.
+                    objective_text=f"Addressing {neighbour_name} instead of {kpi_name} directly",
                     hops=hop,
                     relationship_type=getattr(edge, "relationship_type", None),
                     conflict_direction=getattr(edge, "conflict_direction", None),
@@ -4325,6 +4368,7 @@ If nothing relevant is found for a category, use an empty list."""
         compound_pattern: Optional[str] = None,
         matrix_ran: bool = False,
         comparator_secondary: Optional[str] = None,
+        kpi_unit: Optional[str] = None,
     ) -> str:
         """Deterministic, facts-only Situation+Complication narrative.
 
@@ -4390,13 +4434,11 @@ If nothing relevant is found for a category, use an empty list."""
         # Reader-facing form: "Product Name: Synthetic Blend Engine Oil (-6.3)",
         # not the raw column key "product_name=...". top_cps keeps the raw
         # form because it also feeds LLM prompts.
-        _display_cps = [
-            (f"{cp.dimension.replace('_', ' ').title()}: {cp.key} ({cp.delta:+.1f})"
-             if cp.delta is not None else f"{cp.dimension.replace('_', ' ').title()}: {cp.key}")
-            for cp in (change_points or [])[:4]
-            if cp.dimension and cp.key
-        ]
+        _display_cps = _reader_change_points(change_points, kpi_unit)
         cp_str = "; ".join(_display_cps) if _display_cps else "key contributors identified"
+        # Reader wording for the basis; `comparator` itself stays raw because
+        # _basis_label() below matches on it.
+        comparator_words = _reader_comparator(comparator)
 
         # Matrix branch takes priority — mirrors _fallback()'s ordering.
         if matrix_ran and (_confirmed or _basis_specific):
@@ -4422,7 +4464,7 @@ If nothing relevant is found for a category, use an empty list."""
 
         if analysis_mode == "opportunity":
             return (
-                f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator}. "
+                f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}. "
                 f"Complication: The outperformance is concentrated in {is_str} — creating a replication opportunity in {is_not_str}. "
                 f"Key drivers: {cp_str}."
             )
@@ -4467,11 +4509,11 @@ If nothing relevant is found for a category, use an empty list."""
             )
 
         if alert_type == "projected_breach":
-            situation_prefix = f"Situation: {plan.kpi_name} is trending toward a threshold breach vs. {comparator}."
+            situation_prefix = f"Situation: {plan.kpi_name} is trending toward a threshold breach vs. {comparator_words}."
         elif alert_type == "plan_variance":
-            situation_prefix = f"Situation: {plan.kpi_name} is tracking below plan vs. {comparator}."
+            situation_prefix = f"Situation: {plan.kpi_name} is tracking below plan."
         else:
-            situation_prefix = f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator}."
+            situation_prefix = f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}."
 
         return (
             f"{situation_prefix} "
@@ -4581,13 +4623,9 @@ If nothing relevant is found for a category, use an empty list."""
         def _fallback() -> str:
             is_str = ", ".join(is_items) if is_items else "leading segments"
             is_not_str = ", ".join(is_not_items) if is_not_items else "remaining segments"
-            _display_cps = [
-                (f"{cp.dimension.replace('_', ' ').title()}: {cp.key} ({cp.delta:+.1f})"
-                 if cp.delta is not None else f"{cp.dimension.replace('_', ' ').title()}: {cp.key}")
-                for cp in (change_points or [])[:4]
-                if cp.dimension and cp.key
-            ]
+            _display_cps = _reader_change_points(change_points, kpi_unit)
             cp_str = "; ".join(_display_cps) if _display_cps else "key contributors identified"
+            comparator_words = _reader_comparator(comparator)
             # Matrix branch takes priority — one narrative read ACROSS the two cross-sectional bases.
             if matrix_ran and (_confirmed or _basis_specific):
                 _prim = _basis_label(comparator)
@@ -4614,7 +4652,7 @@ If nothing relevant is found for a category, use an empty list."""
                 return " ".join(parts)
             if analysis_mode == "opportunity":
                 return (
-                    f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator}. "
+                    f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}. "
                     f"Complication: The outperformance is concentrated in {is_str} — creating a replication opportunity in {is_not_str}. "
                     f"Key drivers: {cp_str}. "
                     f"{_question_line(f'Question: How do we scale the {is_str} performance across {is_not_str}?')}"
@@ -4685,11 +4723,11 @@ If nothing relevant is found for a category, use an empty list."""
                 )
             # Build situation prefix based on alert_type
             if alert_type == "projected_breach":
-                situation_prefix = f"Situation: {plan.kpi_name} is trending toward a threshold breach vs. {comparator}."
+                situation_prefix = f"Situation: {plan.kpi_name} is trending toward a threshold breach vs. {comparator_words}."
             elif alert_type == "plan_variance":
-                situation_prefix = f"Situation: {plan.kpi_name} is tracking below plan vs. {comparator}."
+                situation_prefix = f"Situation: {plan.kpi_name} is tracking below plan."
             else:
-                situation_prefix = f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator}."
+                situation_prefix = f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}."
             return (
                 f"{situation_prefix} "
                 f"{complication} "

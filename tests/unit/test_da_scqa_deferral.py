@@ -314,6 +314,52 @@ class TestSituationComplicationFacts:
         assert "Product Name: Synthetic Blend (-6.3)" in result
         assert "product_name=" not in result
 
+    def test_large_driver_figures_are_abbreviated_without_a_currency_symbol(self):
+        """Found live: 'Customer Region: North America (-5735814.9)'."""
+        from src.agents.models.deep_analysis_models import ChangePoint
+        da = _da_no_llm()
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=_kt(),
+            change_points=[ChangePoint(dimension="customer_region", key="North America", delta=-5735814.9)],
+            spec={"comparison_type": "previous", "inverse_logic": False},
+            analysis_mode="problem",
+        )
+        assert "Customer Region: North America (-5.7M)" in result
+        assert "5735814" not in result
+        assert "$" not in result
+
+    def test_percentage_kpi_drivers_read_in_points(self):
+        from src.agents.models.deep_analysis_models import ChangePoint
+        da = _da_no_llm()
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=_kt(),
+            change_points=[ChangePoint(dimension="product_name", key="Synthetic Blend", delta=-6.3)],
+            spec={"comparison_type": "previous", "inverse_logic": False},
+            analysis_mode="problem", kpi_unit="%",
+        )
+        assert "Synthetic Blend (-6.3pp)" in result
+
+    def test_comparison_basis_is_written_in_words(self):
+        """Found live: 'has risen vs. yoy'."""
+        da = _da_no_llm()
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=_kt(), change_points=[],
+            spec={"comparison_type": "yoy", "inverse_logic": False},
+            analysis_mode="problem",
+        )
+        assert "vs. the same period last year" in result
+        assert "yoy" not in result
+
+    def test_plan_variance_does_not_say_below_plan_vs_budget(self):
+        da = _da_no_llm()
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=_kt(), change_points=[],
+            spec={"comparison_type": "budget", "inverse_logic": False},
+            analysis_mode="problem", alert_type="plan_variance",
+        )
+        assert "is tracking below plan." in result
+        assert "vs. budget" not in result
+
     def test_problem_mode_names_no_recommendation(self):
         da = _da_no_llm()
         result = da._build_situation_complication_facts(

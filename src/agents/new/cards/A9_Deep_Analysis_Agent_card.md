@@ -1107,3 +1107,24 @@ reworded from registry terms into one plain sentence each (for example, `va_vali
 "A past decision relied on this link and the result held up when measured. That is consistent with
 the link being real; it is not proof."). Meaning is unchanged. This landed in commit 1de4079
 alongside the Solution Finder prompt change.
+
+## Analysis sentence: figures, comparison basis and objective text in reader terms (Oct 2026)
+
+Found by a live framing-gate check on `net_revenue` (no model involved), three leftovers in text the
+reader sees or that travels in the payload:
+
+- Key drivers printed raw floats ("Customer Region: North America (-5735814.9)"). Now abbreviated
+  ("-5.7M", "+918K") and, for a `%` KPI, in points ("-6.3pp"). No currency symbol is added: the unit
+  is not reliably known here and a guessed "$" has shipped before.
+- The comparison basis printed the registry key ("has risen vs. yoy", "is tracking below plan vs.
+  budget"). Now "vs. the same period last year"; the plan-variance sentence ends at "below plan."
+  The raw `comparator` is unchanged for `_basis_label()` and for the LLM prompt.
+- A causal alternative's `objective_text` ended "connected N hops away in the causal graph". The
+  suffix is dropped; `hops` already carries the distance. The "Addressing X instead of Y directly"
+  prefix is kept because `causalColors.ts` and `FramingGateCard.tsx` parse it.
+
+Module-level helpers `_reader_comparator`, `_reader_delta`, `_reader_change_points` serve both
+duplicate paths (`_build_situation_complication_facts` and `_generate_scqa_summary`'s `_fallback()`).
+`_build_situation_complication_facts` gained an optional `kpi_unit`.
+
+Tests: four new cases in `test_da_scqa_deferral.py::TestSituationComplicationFacts`.
