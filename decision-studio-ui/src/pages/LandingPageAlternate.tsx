@@ -194,7 +194,7 @@ export function LandingPageAlternate() {
             className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6"
           >
             From KPI breach to verified outcome.{' '}
-            <span className="text-indigo-400">With proof built in.</span>
+            <span className="text-indigo-400">With measurement built in.</span>
           </motion.h1>
 
           <motion.p
@@ -203,7 +203,7 @@ export function LandingPageAlternate() {
           >
             Decision Studio helps mid-market leadership teams close the loop from KPI breach
             to verified outcome: continuous monitoring, structured root-cause diagnosis,
-            competing action options, human approval, and Value Assurance that proves whether
+            competing action options, human approval, and Value Assurance that measures whether
             the action actually moved the metric.
           </motion.p>
 
@@ -211,7 +211,7 @@ export function LandingPageAlternate() {
             variants={fadeUp}
             className="mb-10 flex flex-wrap items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400"
           >
-            {['Detect', 'Diagnose', 'Debate', 'Approve', 'Prove'].map((step, index) => (
+            {['Detect', 'Diagnose', 'Debate', 'Approve', 'Measure'].map((step, index) => (
               <div key={step} className="flex items-center gap-2">
                 <span className="rounded-full border border-slate-700/70 bg-slate-900/80 px-3 py-1.5 text-slate-300">
                   {step}
@@ -276,7 +276,7 @@ export function LandingPageAlternate() {
               <motion.p variants={fadeUp} className="text-slate-300 text-sm leading-relaxed mb-4">
                 When executives don't have time for a twelve-week consulting engagement, they revert to instinct. 
                 Decision Studio changes the economics. It orchestrates structured root-cause isolation and 
-                causal attribution — with you guiding every step — in the time it takes to finish a cup of coffee.
+                weighed action options — with you guiding every step — in the time it takes to finish a cup of coffee.
               </motion.p>
             </motion.div>
           </div>
@@ -339,7 +339,7 @@ export function LandingPageAlternate() {
                 </p>
                 <div className="mt-auto pt-5 border-t border-slate-800/50 flex items-center gap-2 text-xs text-slate-500">
                   <span className="w-1 h-1 rounded-full bg-emerald-600" />
-                  Outcome proof is the missing layer
+                  Outcome measurement is the missing layer
                 </div>
               </motion.div>
             </div>
@@ -359,7 +359,7 @@ export function LandingPageAlternate() {
         >
           <p className="text-2xl sm:text-3xl font-bold text-white leading-snug">
             What if you could close all three gaps —{' '}
-            <span className="text-indigo-400">and prove it?</span>
+            <span className="text-indigo-400">and measure the result?</span>
           </p>
         </motion.div>
       </section>
@@ -432,7 +432,7 @@ export function LandingPageAlternate() {
             <motion.div variants={fadeUp} className="text-center mb-20">
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">See it in action</h2>
               <p className="text-slate-400 max-w-xl mx-auto">
-                The operating sequence from detection to proof, with you in the loop at every decision point.
+                The operating sequence from detection to measured outcome, with you in the loop at every decision point.
               </p>
             </motion.div>
 
@@ -451,7 +451,7 @@ export function LandingPageAlternate() {
                   This NotebookLM walkthrough follows a 50-location coffee chain from dashboard
                   symptom to verified outcome: the drop is detected, the cause is isolated,
                   the council debates conflicting actions, a human approves the move, and
-                  Value Assurance proves whether it worked.
+                  Value Assurance measures whether it worked.
                 </p>
               </div>
 
@@ -606,7 +606,7 @@ export function LandingPageAlternate() {
       </section>
 
       {/* ═══════════════════════════════════════════
-          4. STEP 06 — PROOF IT WORKED
+          4. STEP 06 — MEASURE WHETHER IT WORKED
       ═══════════════════════════════════════════ */}
       <section className="py-28 px-6 border-t border-slate-800/40">
         <div className="max-w-5xl mx-auto">
@@ -620,7 +620,7 @@ export function LandingPageAlternate() {
                 <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Step 06</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Proof it worked.
+                Measure whether it worked.
               </h2>
               <p className="text-slate-300 max-w-2xl leading-relaxed">
                 After you approve a solution, Decision Studio tracks three trajectories — so you
@@ -660,7 +660,7 @@ export function LandingPageAlternate() {
                   <div>
                     <p className="text-white font-semibold text-sm mb-1">Actual results</p>
                     <p className="text-slate-400 text-sm leading-relaxed">
-                      What really happened — measured monthly, with causal attribution that separates your decision's impact from market noise.
+                      What really happened — measured monthly, and compared with segments the decision did not touch, to separate its effect from market noise.
                     </p>
                   </div>
                 </div>

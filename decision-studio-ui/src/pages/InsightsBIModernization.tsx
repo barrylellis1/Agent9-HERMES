@@ -504,10 +504,10 @@ export function InsightsBIModernization() {
                 </div>
                 <div>
                   <h3 className="text-white font-semibold mb-2">
-                    Proof that decisions worked
+                    Measurement of whether decisions worked
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Trajectory tracking and causal attribution that closes the accountability
+                    Trajectory tracking and outcome measurement that close the accountability
                     loop. Not a lagging report — a forward-looking comparison of what
                     actually happened versus what would have happened without action.
                     The discipline to ask "did it work?" forces better decisions at the

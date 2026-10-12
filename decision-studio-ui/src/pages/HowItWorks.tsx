@@ -126,7 +126,7 @@ const trustArchitecturePoints = [
     icon: <Users className="w-4 h-4" />,
   },
   {
-    title: 'Outcome proof is built in',
+    title: 'Outcome measurement is built in',
     copy: 'Value Assurance tracks inaction, expected recovery, and actual results after approval so the decision can be evaluated.',
     icon: <LineChart className="w-4 h-4" />,
   },
@@ -1064,7 +1064,7 @@ export function HowItWorks() {
                 { label: 'Diagnose',  color: 'bg-amber-500' },
                 { label: 'Options', color: 'bg-violet-400' },
                 { label: 'Decide',    color: 'bg-indigo-500' },
-                { label: 'Prove',     color: 'bg-emerald-500' },
+                { label: 'Measure',   color: 'bg-emerald-500' },
               ].map((step, i, arr) => (
                 <div key={step.label} className="flex items-center">
                   <div className="flex flex-col items-center gap-3">
