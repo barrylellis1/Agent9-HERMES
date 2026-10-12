@@ -106,7 +106,7 @@ export function LandingPageAlternate() {
   useSatoshiFont()
   usePageMeta({
     title: 'Decision Studio | Decision Assurance for Executive Teams',
-    description: 'Decision Studio closes the loop from KPI movement to diagnosed cause, human-approved action, and verified outcome tracking.',
+    description: 'Decision Studio closes the loop from KPI movement to diagnosed cause, human-approved action, and measured outcome tracking.',
     path: '/',
   })
   const councilCaseStudyVideoSrc = 'https://customer-erkp1ybr2e8wokyn.cloudflarestream.com/ab19f3317eeb53efeeb3a6dd516b6ae9/iframe'
@@ -193,7 +193,7 @@ export function LandingPageAlternate() {
             variants={fadeUp}
             className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6"
           >
-            From KPI breach to verified outcome.{' '}
+            From KPI breach to measured outcome.{' '}
             <span className="text-indigo-400">With measurement built in.</span>
           </motion.h1>
 
@@ -202,7 +202,7 @@ export function LandingPageAlternate() {
             className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed"
           >
             Decision Studio helps mid-market leadership teams close the loop from KPI breach
-            to verified outcome: continuous monitoring, structured root-cause diagnosis,
+            to measured outcome: continuous monitoring, structured root-cause diagnosis,
             competing action options, human approval, and Value Assurance that measures whether
             the action actually moved the metric.
           </motion.p>
@@ -449,7 +449,7 @@ export function LandingPageAlternate() {
                 <h3 className="mb-3 text-2xl font-bold text-white">Watch the full decision loop</h3>
                 <p className="text-sm leading-relaxed text-slate-300">
                   This NotebookLM walkthrough follows a 50-location coffee chain from dashboard
-                  symptom to verified outcome: the drop is detected, the cause is isolated,
+                  symptom to measured outcome: the drop is detected, the cause is isolated,
                   the council debates conflicting actions, a human approves the move, and
                   Value Assurance measures whether it worked.
                 </p>
@@ -671,13 +671,13 @@ export function LandingPageAlternate() {
                   The compounding effect
                 </p>
                 <p className="text-slate-300 text-sm leading-relaxed max-w-2xl">
-                  Over time, this feedback loop does something more powerful than attribution.
-                  Every approved solution, tracked outcome, and verified ROI becomes part of the
-                  Registry — a compounding institutional memory. Executive intuition, trained on
-                  verified outcomes rather than market noise, becomes progressively more accurate.
-                  When leadership changes, the organization doesn't reset. It inherits a verified
-                  playbook of what actually worked, and the causal evidence to distinguish strategy
-                  from luck. Decision quality compounds.
+                  Over time, this feedback loop does something more powerful than any single
+                  measurement. Every approved solution, tracked outcome, and measured result becomes
+                  part of the Registry — a compounding institutional memory. Executive intuition,
+                  trained on measured outcomes rather than market noise, becomes progressively more
+                  accurate. When leadership changes, the organization doesn't reset. It inherits a
+                  record of what held up when measured, and the evidence to tell strategy from
+                  luck. Decision quality compounds.
                 </p>
               </motion.div>
 

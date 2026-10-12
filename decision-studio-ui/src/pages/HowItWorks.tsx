@@ -403,7 +403,7 @@ export function HowItWorks() {
             variants={fadeUp}
             className="text-lg text-slate-300 max-w-2xl leading-relaxed"
           >
-            A governed pipeline from KPI breach to verified outcome: specialized agents
+            A governed pipeline from KPI breach to measured outcome: specialized agents
             structure the evidence, executives keep decision authority, and Value Assurance
             measures whether the approved action worked.
           </motion.p>
@@ -836,7 +836,7 @@ export function HowItWorks() {
               <p className="text-sm text-slate-400 leading-relaxed">
                 When a model generates a narrative or recommendation, it should be
                 anchored to structured data that can be audited. You can challenge the diagnosis
-                by looking at the dimensional table. You can verify the attribution by examining
+                by looking at the dimensional table. You can check the measured effect by examining
                 the trajectory math. The architecture is designed to keep the reasoning inspectable.
               </p>
             </motion.div>
