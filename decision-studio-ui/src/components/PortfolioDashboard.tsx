@@ -8,6 +8,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { AcceptedSolution, SolutionVerdict, SolutionPhase, VsPlanVerdict } from '../types/valueAssurance';
+import { useKpiNames } from '../hooks/useKpiNames';
 
 interface PortfolioDashboardProps {
   solutions: AcceptedSolution[];
@@ -55,14 +56,6 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-function humanizeKpiId(raw: string): string {
-  const withoutPrefix = raw.replace(/^[a-z]{2,5}_/, '');
-  return withoutPrefix
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
 }
 
 const PHASE_STYLE: Record<SolutionPhase, { label: string; className: string }> = {
@@ -144,6 +137,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
   onSelectSolution,
 }) => {
   const total = solutions.length;
+  const kpiName = useKpiNames();
   const pct = (n: number) => (total > 0 ? `${Math.round((n / total) * 100)}%` : '0%');
   // Compute total realized benefit — flip sign for cost KPIs so savings count positive
   const dollarBenefit = solutions.reduce((sum, sol) => {
@@ -253,7 +247,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
                   {/* KPI — humanized name + truncated description */}
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-white truncate">
-                      {humanizeKpiId(sol.kpi_id)}
+                      {kpiName(sol.kpi_id)}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate mt-0.5">{sol.solution_description}</p>
                   </div>

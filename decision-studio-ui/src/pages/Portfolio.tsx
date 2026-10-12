@@ -8,6 +8,7 @@ import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { TrajectoryChart } from '../components/visualizations/TrajectoryChart';
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel';
 import { AttributionBreakdown } from '../components/AttributionBreakdown';
+import { useKpiNames } from '../hooks/useKpiNames';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,14 +31,6 @@ function formatImpact(value: number, kpiId?: string): string {
   if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
   return `${sign}$${abs.toFixed(0)}`;
-}
-
-function humanizeKpiId(raw: string): string {
-  const withoutPrefix = raw.replace(/^[a-z]{2,5}_/, '');
-  return withoutPrefix
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
 }
 
 function formatDate(iso: string): string {
@@ -104,6 +97,7 @@ interface DetailPanelProps {
 }
 
 function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpdated }: DetailPanelProps) {
+  const kpiName = useKpiNames();
   const [measurementValue, setMeasurementValue] = useState('');
   const [recording, setRecording] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
@@ -168,7 +162,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
           <h2 className="text-lg font-semibold text-white leading-snug">
             {solution.solution_description}
           </h2>
-          <p className="text-xs text-slate-500 mt-1">{humanizeKpiId(solution.kpi_id)}</p>
+          <p className="text-xs text-slate-500 mt-1">{kpiName(solution.kpi_id)}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <PhaseBadge phase={currentPhase} />
@@ -359,7 +353,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
           approvedAt={solution.approved_at}
           measurementWindowDays={solution.measurement_window_days}
           inactionHorizonMonths={solution.inaction_horizon_months}
-          kpiName={solution.kpi_id}
+          kpiName={kpiName(solution.kpi_id)}
           phase={currentPhase}
           planValue={solution.plan_value_at_approval}
         />

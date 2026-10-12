@@ -1454,15 +1454,15 @@ export function ExecutiveBriefing() {
                       </div>
                       {vaSolutionId && (
                         <div className="bg-white rounded-lg p-2.5 border border-severity-opportunity mb-3">
-                          <p className="text-[10px] text-slate-500 uppercase mb-0.5">VA Reference</p>
+                          <p className="text-[10px] text-slate-500 uppercase mb-0.5">Tracking reference</p>
                           <p className="text-xs font-mono text-slate-700">{vaSolutionId.slice(0, 8)}...</p>
                         </div>
                       )}
                       <div className="bg-emerald-100/50 rounded-lg p-3 text-xs text-emerald-800">
                         <p className="font-medium mb-1">What happens next:</p>
                         <ol className="space-y-0.5 text-severity-opportunity list-decimal list-inside">
-                          <li>Value Assurance Agent monitors KPI performance against the expected recovery range</li>
-                          <li>Difference-in-Differences attribution separates your intervention's impact from market movements</li>
+                          <li>The KPI is tracked against the range this option was expected to recover</li>
+                          <li>The result is compared with segments the decision did not touch, to separate its effect from market movement</li>
                           <li>Results will appear in your Solutions Portfolio</li>
                         </ol>
                       </div>

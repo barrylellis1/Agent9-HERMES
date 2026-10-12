@@ -823,8 +823,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                         )}
                         {controls.length > 0 && (
                           <details className="group">
-                            <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400 select-none">Control Group ({controls.length} segments)</summary>
-                            <p className="text-[10px] text-slate-600 mt-1 mb-2 pl-1">Segments performing at or near target — used to isolate factors driving the variance.</p>
+                            <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400 select-none">Segments near target ({controls.length})</summary>
+                            <p className="text-[10px] text-slate-600 mt-1 mb-2 pl-1">Segments performing at or near target. They are the comparison used to work out what is driving the gap.</p>
                             <div className="mt-1 space-y-1">
                               {controls.map((seg: any, i: number) => (
                                 <div key={i} className="flex items-center justify-between bg-slate-950/50 rounded px-3 py-2 text-xs text-slate-400">
@@ -833,7 +833,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                     {seg.is_outlier && (
                                       <span
                                         className="text-[10px] px-1.5 py-0.5 bg-severity-warning/30 text-severity-warning rounded font-medium cursor-help"
-                                        title="Statistical outlier — delta exceeds mean + 2σ of peer segments. Excluded from replication candidates; interpret with caution."
+                                        title="An unusually large change compared with similar segments. Not used as a model to copy; read with caution."
                                       >
                                         Outlier
                                       </span>

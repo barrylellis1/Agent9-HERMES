@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { fallbackKpiName } from '../../hooks/useKpiNames';
 import { LinePath } from '@visx/shape';
 import { scaleLinear } from '@visx/scale';
 import { curveMonotoneX } from '@visx/curve';
@@ -29,15 +30,6 @@ interface TooltipState {
 }
 
 // Humanize a raw KPI ID like "lub_gross_margin_pct" → "Gross Margin Pct"
-function humanizeKpiId(raw: string): string {
-  // Strip common prefix patterns: one segment followed by an underscore that starts the real name
-  // e.g. "lub_gross_margin_pct" → "gross_margin_pct", "lube_gross_margin" → "gross_margin"
-  const withoutPrefix = raw.replace(/^[a-z]{2,5}_/, '');
-  return withoutPrefix
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
 
 // Draws a single animating line via a framer-motion path length trick
 interface AnimatedLineProps {
@@ -460,7 +452,7 @@ export const TrajectoryChart: React.FC<TrajectoryChartProps> = (props) => {
       {/* Header */}
       {props.kpiName && (
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-          {humanizeKpiId(props.kpiName)} — Value Trajectory
+          {fallbackKpiName(props.kpiName)} — Value Trajectory
         </div>
       )}
 

@@ -61,9 +61,9 @@ const basisLabel = (c?: string): string => (c === 'budget' ? 'vs Budget' : 'vs P
 const TierChip: React.FC<{ tier?: string | null }> = ({ tier }) => {
   if (!tier || tier === 'healthy') return null
   const cfg: Record<string, { label: string; cls: string }> = {
-    confirmed: { label: 'confirmed', cls: 'bg-severity-critical/20 text-severity-critical border-severity-critical/60' },
-    basis_specific: { label: 'artifact?', cls: 'bg-severity-warning/20 text-severity-warning border-severity-warning/60' },
-    secondary_only: { label: '2nd-basis', cls: 'bg-blue-950 text-blue-300 border-blue-800/60' },
+    confirmed: { label: 'both', cls: 'bg-severity-critical/20 text-severity-critical border-severity-critical/60' },
+    basis_specific: { label: 'one only', cls: 'bg-severity-warning/20 text-severity-warning border-severity-warning/60' },
+    secondary_only: { label: 'other only', cls: 'bg-blue-950 text-blue-300 border-blue-800/60' },
   }
   const c = cfg[tier]
   if (!c) return null
@@ -300,12 +300,12 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
       {/* Phase 11I-D: two-basis matrix banner — explains the second delta column + tiers */}
       {matrixRan && (
         <div className="mb-2 flex items-center flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
-          <span>Each segment cross-checked on two bases:</span>
+          <span>Each segment is checked against two comparisons:</span>
           <span className="font-mono text-slate-400">{basisLabel(comparator)}</span>
           <span className="font-mono text-slate-400">{basisLabel(comparatorSecondary)}</span>
-          <span className="flex items-center gap-1"><TierChip tier="confirmed" /> bad on both</span>
-          <span className="flex items-center gap-1"><TierChip tier="basis_specific" /> likely timing artifact</span>
-          <span className="flex items-center gap-1"><TierChip tier="secondary_only" /> only 2nd basis</span>
+          <span className="flex items-center gap-1"><TierChip tier="confirmed" /> worse on both</span>
+          <span className="flex items-center gap-1"><TierChip tier="basis_specific" /> worse on the first only, possibly a timing effect</span>
+          <span className="flex items-center gap-1"><TierChip tier="secondary_only" /> worse on the second only</span>
         </div>
       )}
 
