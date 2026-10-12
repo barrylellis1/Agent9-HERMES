@@ -100,18 +100,20 @@
   <!-- Context: Situation Summary Metrics -->
   {% if content.situation_context %}
   <div class="metrics-row">
+    {# Each box renders only when a real value exists. The "Confidence" box was
+       removed: nothing computes one, and it printed "High" by default. #}
+    {% if content.situation_context.financial_impact %}
     <div class="metric-box">
       <p class="metric-label">Impact</p>
-      <p class="metric-value">{{ content.situation_context.financial_impact or 'TBD' }}</p>
+      <p class="metric-value">{{ content.situation_context.financial_impact }}</p>
     </div>
+    {% endif %}
+    {% if content.situation_context.time_sensitivity %}
     <div class="metric-box">
       <p class="metric-label">Urgency</p>
-      <p class="metric-value">{{ content.situation_context.time_sensitivity or 'Medium' }}</p>
+      <p class="metric-value">{{ content.situation_context.time_sensitivity }}</p>
     </div>
-    <div class="metric-box">
-      <p class="metric-label">Confidence</p>
-      <p class="metric-value">{{ content.situation_context.confidence or 'High' }}</p>
-    </div>
+    {% endif %}
   </div>
   {% endif %}
 

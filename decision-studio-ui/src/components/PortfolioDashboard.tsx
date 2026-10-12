@@ -163,7 +163,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
         <SummaryCard
           label="Total ROI (est.)"
           value={formatImpact(computedImpact)}
-          subtext="Attributable impact across validated solutions"
+          subtext="Estimated effect of the decisions that held up"
           valueClass={computedImpact >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'}
           borderClass="border-severity-opportunity/40"
         />

@@ -226,7 +226,7 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
               {/* Attribution rows */}
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Attributable</span>
+                  <span className="text-slate-400">From this decision</span>
                   <span
                     className={`font-mono font-medium ${
                       evaluation.attributable_impact >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'
@@ -237,7 +237,7 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
                 </div>
                 {evaluation.market_driven_recovery !== 0 && (
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Market recovery</span>
+                    <span className="text-slate-500">From the market</span>
                     <span className="font-mono text-blue-400">
                       {formatDelta(evaluation.market_driven_recovery)}
                     </span>
@@ -253,7 +253,7 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
                 )}
                 {evaluation.control_group_change !== 0 && (
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Control group adj.</span>
+                    <span className="text-slate-500">Underlying trend</span>
                     <span className="font-mono text-slate-400">
                       {formatDelta(evaluation.control_group_change)}
                     </span>
@@ -300,7 +300,7 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
             )}
             {evaluation.control_group_description && (
               <p className="text-xs text-slate-600 italic">
-                Control group: {evaluation.control_group_description}
+                Compared against: {evaluation.control_group_description}
               </p>
             )}
           </div>

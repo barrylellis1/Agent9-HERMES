@@ -115,7 +115,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
   const hasEvaluation = !!solution.impact_evaluation;
   const attributionNote = hasEvaluation
     ? null
-    : 'Attribution: preliminary (control group data collection pending)';
+    : 'Preliminary: not yet compared against segments the decision did not touch.';
 
   const handlePhaseTransition = async (newPhase: SolutionPhase) => {
     setTransitioning(true);

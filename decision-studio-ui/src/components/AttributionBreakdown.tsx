@@ -41,7 +41,7 @@ function buildSegments(props: AttributionBreakdownProps): SegmentDef[] {
   const all: SegmentDef[] = [
     {
       key: 'attributable',
-      label: 'Attributable',
+      label: 'This decision',
       value: props.attributableImpact,
       barClass: 'bg-severity-opportunity',
       valueClass: 'text-severity-opportunity',
@@ -62,7 +62,7 @@ function buildSegments(props: AttributionBreakdownProps): SegmentDef[] {
     },
     {
       key: 'control',
-      label: 'Control adj.',
+      label: 'Underlying trend',
       value: props.controlGroupChange,
       barClass: 'bg-slate-500',
       valueClass: 'text-slate-400',
@@ -182,7 +182,7 @@ export const AttributionBreakdown: React.FC<AttributionBreakdownProps> = (props)
       {/* Header */}
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">
-          Attribution Breakdown
+          Where the change came from
         </h4>
         <span
           className={`text-lg font-bold font-mono ${
@@ -214,13 +214,13 @@ export const AttributionBreakdown: React.FC<AttributionBreakdownProps> = (props)
         <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-slate-600" />
         {props.controlGroupDescription ? (
           <span>
-            Attribution based on <span className="text-slate-400">{props.controlGroupDescription}</span> as
-            control group (Difference-in-Differences method).
+            Compared against <span className="text-slate-400">{props.controlGroupDescription}</span>, which
+            the decision did not touch, to estimate what would have happened anyway.
           </span>
         ) : (
           <span>
-            No control group available &mdash; attribution is{' '}
-            <span className="text-severity-warning">directional only</span>. Interpret with caution.
+            Nothing untouched was available to compare against, so this shows{' '}
+            <span className="text-severity-warning">direction only</span>. Read it with caution.
           </span>
         )}
       </div>
