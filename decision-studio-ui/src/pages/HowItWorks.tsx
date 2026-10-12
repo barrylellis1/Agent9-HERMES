@@ -647,7 +647,7 @@ export function HowItWorks() {
               differentiator={
                 <span>
                   The IS NOT segments — the dimensions that are <em>not</em> affected — become
-                  natural control groups for Value Assurance measurement later. The same analysis
+                  natural comparison groups for Value Assurance measurement later. The same analysis
                   that finds the problem creates the measurement framework for proving the fix worked.
                   This connection is designed in, not bolted on after the fact.
                 </span>
@@ -722,11 +722,12 @@ export function HowItWorks() {
               whatItDoes="Tracks whether approved decisions produced the expected results, and separates your impact from market noise. This is the part most systems skip entirely."
               methodology={
                 <span>
-                  <span className="text-white font-medium">Difference-in-Differences (DiD) causal attribution</span>
-                  {' '}— an econometric method for measuring the effect of an intervention by
-                  comparing changes in the affected group against changes in a control group over
-                  the same period. The control groups come directly from the IS NOT segments
-                  identified during Deep Analysis — this is why that connection matters.
+                  <span className="text-white font-medium">A difference-in-differences comparison</span>
+                  {' '}— a standard method for estimating the effect of a decision by comparing
+                  the change in the affected segments with the change in segments the decision
+                  did not touch, over the same period. Those comparison segments come directly
+                  from the IS NOT segments identified during Deep Analysis — this is why that
+                  connection matters.
                   <br /><br />
                   Three trajectories are tracked from the approval date forward:{' '}
                   <span className="text-white font-medium">inaction</span> (what would have happened
@@ -734,8 +735,8 @@ export function HowItWorks() {
                   <span className="text-white font-medium">expected</span> (what the analysis predicted
                   with the approved solution), and{' '}
                   <span className="text-white font-medium">actual</span> (what the data shows really
-                  happened). The gap between inaction and actual — adjusted for market movement via
-                  the control group — is the attributed impact.
+                  happened). The gap between inaction and actual — adjusted for market movement using
+                  the comparison segments — is the estimated effect of the decision.
                   <br /><br />
                   At approval, a{' '}
                   <span className="text-white font-medium">strategy snapshot</span>{' '}
@@ -749,8 +750,8 @@ export function HowItWorks() {
                   recommendations that worked tactically but no longer matter strategically.
                 </span>
               }
-              whatItProduces="Composite verdict (Validated / Partial / Failed / Measuring), attribution breakdown separating your impact from external factors, strategy alignment assessment comparing actual outcomes to original intent, and a portfolio-level ROI view across all tracked decisions."
-              differentiator="No other system connects diagnosis → recommendation → proof in a single pipeline. The audit trail runs from the original situation card through the approved solution to the measured outcome — so you can answer 'did that work?' with data, not instinct."
+              whatItProduces="Composite verdict (Validated / Partial / Failed / Measuring), a breakdown separating your impact from external factors, strategy alignment assessment comparing actual outcomes to original intent, and a portfolio-level ROI view across all tracked decisions."
+              differentiator="No other system connects diagnosis → recommendation → measured result in a single pipeline. The audit trail runs from the original situation card through the approved solution to the measured outcome — so you can answer 'did that work?' with data, not instinct."
             />
           </motion.div>
         </div>
@@ -817,7 +818,7 @@ export function HowItWorks() {
                     'SQL execution — actual numbers, not approximations',
                     'Change-point detection (statistical, not generative)',
                     'Trajectory projection math (inaction / expected / actual)',
-                    'DiD attribution calculation against control groups',
+                    'Outcome comparison against segments the decision did not touch',
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-sm text-slate-300 leading-relaxed">
                       <span className="w-1 h-1 rounded-full bg-slate-500/60 mt-2 flex-shrink-0" />

@@ -699,7 +699,7 @@ export function LandingPageAlternate() {
           <AnimatedStat value="5 days" suffix="" label="Onboarding to first insight" />
           <AnimatedStat value="3" suffix="×" label="Strategic perspectives" />
           <AnimatedStat value="100" suffix="%" label="Decision audit trail" />
-          <AnimatedStat value="DiD" suffix="" label="Causal attribution" />
+          <AnimatedStat value="Measured" suffix="" label="Outcomes" />
         </motion.div>
       </section>
 
