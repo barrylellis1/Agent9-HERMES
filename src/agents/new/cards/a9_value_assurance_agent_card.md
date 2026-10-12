@@ -357,3 +357,23 @@ the link. Found live: `sales_order_count<->net_revenue` (an identity) had been r
 `intervention_tested` / `va_validated` and was counting toward the tested total.
 
 Test: `test_va_causal_edge_confirmation.py::TestAccountingIdentityIsNeverConfirmed`.
+
+## A weak verdict no longer marks a link as tested (Oct 2026)
+
+`_confirm_causal_edge_from_verdict()` takes a required keyword `confidence` and returns without
+writing unless it is `MODERATE` or `HIGH`. A `LOW`-confidence verdict had no control group and no
+market or seasonal estimate, so its "attributable" figure is the total KPI change: a
+before-and-after reading. That cannot support the reader-facing claim "held up when a past decision
+was measured". `None` is treated as not good enough, and the keyword has no default so a caller
+cannot skip the check by omission.
+
+Found live: both links marked tested in the local lubricants registry
+(`premium_mix_pct<->gross_margin_pct`, `units_sold<->net_revenue`) were written by `VALIDATED`
+verdicts at `LOW` confidence with control, market and seasonal components all zero. A Solution
+Finder run then preferred an option because its link was "the one that has been outcome-tested".
+
+Known limit: `MODERATE` is reached with any one of the three inputs, so a market estimate alone,
+with no control group, still passes. Requiring a control group specifically is the stricter rule
+and has not been applied.
+
+Tests: `test_va_causal_edge_confirmation.py::TestWeakVerdictNeverConfirms`.

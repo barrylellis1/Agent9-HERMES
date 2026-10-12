@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.agents.models.value_assurance_models import SolutionVerdict
+from src.agents.models.value_assurance_models import ConfidenceLevel, SolutionVerdict
 from src.agents.new.a9_value_assurance_agent import _confirm_causal_edge_from_verdict
 
 
@@ -41,6 +41,7 @@ class TestOnlyValidatedConfirms:
             instance.upsert = AsyncMock()
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "base_oil_cost<->cogs", SolutionVerdict.VALIDATED, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
             instance.upsert.assert_awaited_once()
             confirmed = instance.upsert.await_args.args[0]
@@ -55,6 +56,7 @@ class TestOnlyValidatedConfirms:
             instance.upsert = AsyncMock()
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "base_oil_cost<->cogs", SolutionVerdict.PARTIAL, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
             instance.upsert.assert_not_awaited()
 
@@ -66,6 +68,7 @@ class TestOnlyValidatedConfirms:
             instance.upsert = AsyncMock()
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "base_oil_cost<->cogs", SolutionVerdict.FAILED, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
             instance.upsert.assert_not_awaited()
 
@@ -77,6 +80,7 @@ class TestOnlyValidatedConfirms:
             instance.upsert = AsyncMock()
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "base_oil_cost<->cogs", SolutionVerdict.MEASURING, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
             instance.upsert.assert_not_awaited()
 
@@ -90,7 +94,7 @@ class TestNoSpeculativeConfirmation:
             instance = MockProvider.return_value
             instance.get_all = AsyncMock(return_value=[_edge()])
             instance.upsert = AsyncMock()
-            await _confirm_causal_edge_from_verdict("lubricants", None, SolutionVerdict.VALIDATED, logger_)
+            await _confirm_causal_edge_from_verdict("lubricants", None, SolutionVerdict.VALIDATED, logger_, confidence=ConfidenceLevel.MODERATE)
             instance.upsert.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -99,7 +103,7 @@ class TestNoSpeculativeConfirmation:
             instance = MockProvider.return_value
             instance.get_all = AsyncMock(return_value=[_edge()])
             instance.upsert = AsyncMock()
-            await _confirm_causal_edge_from_verdict("lubricants", "ungrounded", SolutionVerdict.VALIDATED, logger_)
+            await _confirm_causal_edge_from_verdict("lubricants", "ungrounded", SolutionVerdict.VALIDATED, logger_, confidence=ConfidenceLevel.MODERATE)
             instance.upsert.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -110,6 +114,7 @@ class TestNoSpeculativeConfirmation:
             instance.upsert = AsyncMock()
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "insufficient_data", SolutionVerdict.VALIDATED, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
             instance.upsert.assert_not_awaited()
 
@@ -119,7 +124,7 @@ class TestNoSpeculativeConfirmation:
             instance = MockProvider.return_value
             instance.get_all = AsyncMock(return_value=[_edge()])
             instance.upsert = AsyncMock()
-            await _confirm_causal_edge_from_verdict(None, "base_oil_cost<->cogs", SolutionVerdict.VALIDATED, logger_)
+            await _confirm_causal_edge_from_verdict(None, "base_oil_cost<->cogs", SolutionVerdict.VALIDATED, logger_, confidence=ConfidenceLevel.MODERATE)
             instance.upsert.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -131,6 +136,7 @@ class TestNoSpeculativeConfirmation:
             instance.upsert = AsyncMock()
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "net_revenue<->some_unregistered_kpi", SolutionVerdict.VALIDATED, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
             instance.upsert.assert_not_awaited()
 
@@ -143,6 +149,7 @@ class TestNoSpeculativeConfirmation:
             instance.upsert = AsyncMock()
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "base_oil_cost<->cogs", SolutionVerdict.VALIDATED, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
             instance.upsert.assert_awaited_once()
 
@@ -158,6 +165,7 @@ class TestAlreadyConfirmedIsANoOp:
             instance.upsert = AsyncMock()
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "base_oil_cost<->cogs", SolutionVerdict.VALIDATED, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
             instance.upsert.assert_not_awaited()
 
@@ -170,6 +178,7 @@ class TestNonFatal:
             instance.get_all = AsyncMock(side_effect=RuntimeError("pool not initialized"))
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "base_oil_cost<->cogs", SolutionVerdict.VALIDATED, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
 
 
@@ -187,5 +196,41 @@ class TestAccountingIdentityIsNeverConfirmed:
             instance.upsert = AsyncMock()
             await _confirm_causal_edge_from_verdict(
                 "lubricants", "sales_order_count<->net_revenue", SolutionVerdict.VALIDATED, logger_,
+                confidence=ConfidenceLevel.MODERATE,
             )
             instance.upsert.assert_not_awaited()
+
+
+class TestWeakVerdictNeverConfirms:
+    """A VALIDATED verdict with nothing to compare against is a before-and-after
+    reading. It must not mark a link as tested."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("confidence", [ConfidenceLevel.LOW, None])
+    async def test_low_or_unknown_confidence_does_not_confirm(self, logger_, confidence):
+        with patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockProvider:
+            instance = MockProvider.return_value
+            instance.get_all = AsyncMock(return_value=[_edge()])
+            instance.upsert = AsyncMock()
+            await _confirm_causal_edge_from_verdict(
+                "lubricants", "base_oil_cost<->cogs", SolutionVerdict.VALIDATED, logger_,
+                confidence=confidence,
+            )
+            instance.upsert.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_high_confidence_confirms(self, logger_):
+        with patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockProvider:
+            instance = MockProvider.return_value
+            instance.get_all = AsyncMock(return_value=[_edge()])
+            instance.upsert = AsyncMock()
+            await _confirm_causal_edge_from_verdict(
+                "lubricants", "base_oil_cost<->cogs", SolutionVerdict.VALIDATED, logger_,
+                confidence=ConfidenceLevel.HIGH,
+            )
+            instance.upsert.assert_awaited_once()
+
+    def test_confidence_cannot_be_omitted(self):
+        import inspect
+        p = inspect.signature(_confirm_causal_edge_from_verdict).parameters["confidence"]
+        assert p.kind is inspect.Parameter.KEYWORD_ONLY and p.default is inspect.Parameter.empty

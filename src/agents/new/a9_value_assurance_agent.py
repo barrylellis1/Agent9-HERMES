@@ -244,6 +244,8 @@ async def _confirm_causal_edge_from_verdict(
     claimed_causal_edge: Optional[str],
     verdict: "SolutionVerdict",
     logger_: logging.Logger,
+    *,
+    confidence: Optional["ConfidenceLevel"],
 ) -> None:
     """Density-gate write-back infrastructure (Phase 17 T2/T3 follow-on,
     DEVELOPMENT_PLAN.md's Causal Edges density gate).
@@ -274,11 +276,24 @@ async def _confirm_causal_edge_from_verdict(
       an edge cited in prose that was never registered confirms nothing.
     - The matching row must be a causal_estimate. An accounting_identity is
       true by definition and is never marked as tested.
+    - The verdict's `confidence` must be MODERATE or HIGH. A LOW-confidence
+      verdict had no control group and no market or seasonal estimate, so its
+      "attributable" figure is just the total KPI change: a before-and-after
+      reading, which cannot support "held up when measured". `confidence` is a
+      required keyword so a caller cannot skip this check by omission; None
+      (unknown) is treated as not good enough.
 
     Non-fatal: a persistence failure must never break the VA response that
     triggered it, same posture as the assumption grading write-back above.
     """
     if verdict != SolutionVerdict.VALIDATED:
+        return
+    if confidence not in (ConfidenceLevel.MODERATE, ConfidenceLevel.HIGH):
+        logger_.info(
+            "[VA] verdict VALIDATED at confidence %s for claimed_causal_edge '%s' -- not confirming "
+            "(a before-and-after reading with nothing to compare against does not test a link)",
+            getattr(confidence, "value", confidence), claimed_causal_edge,
+        )
         return
     if not client_id or not claimed_causal_edge or claimed_causal_edge in ("ungrounded", "insufficient_data"):
         return
@@ -783,6 +798,7 @@ class A9_Value_Assurance_Agent:
         # when the verdict validates it. Non-fatal by the same design.
         await _confirm_causal_edge_from_verdict(
             solution.client_id, solution.strategy_snapshot.claimed_causal_edge, verdict, self.logger,
+            confidence=confidence,
         )
 
         return EvaluateSolutionResponse(
