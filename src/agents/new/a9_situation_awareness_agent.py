@@ -1512,7 +1512,14 @@ class A9_Situation_Awareness_Agent:
 
         y = f"[{year_col.strip('[]')}]"
         p = f"[{period_col.strip('[]')}]"
-        period_expr = f"CAST({y} AS VARCHAR(4)) + '-' + RIGHT('0' + CAST({p} AS VARCHAR(2)), 2)"
+        # The period is read as a NUMBER before it is padded. Hess stores it as text
+        # ('001'..'012'); cutting that to two characters gave '00' for every month, so
+        # the series came back as '2026-00' nine times, no month could be told from
+        # another, and no baseline could be recorded at approval (found 2026-10-13).
+        period_expr = (
+            f"CAST({y} AS VARCHAR(4)) + '-' + "
+            f"RIGHT('0' + CAST(TRY_CAST({p} AS INT) AS VARCHAR(2)), 2)"
+        )
 
         return (
             f"SELECT period, value FROM ("
@@ -1558,9 +1565,11 @@ class A9_Situation_Awareness_Agent:
         where_match = _re.search(r'\bWHERE\b(.*)', rest, _re.IGNORECASE | _re.DOTALL)
         non_date_where = ("WHERE " + where_match.group(1).strip()) if where_match else ""
 
+        # Read the period as a number before padding: LPAD(…, 2) CUTS a longer text
+        # value, so a period stored as '007' would become '00' (the SQL Server fault).
         period_expr = (
             f"CAST({year_col} AS VARCHAR) || '-' || "
-            f"LPAD(CAST({period_col} AS VARCHAR), 2, '0')"
+            f"LPAD(CAST(TRY_TO_NUMBER(CAST({period_col} AS VARCHAR)) AS VARCHAR), 2, '0')"
         )
 
         return (

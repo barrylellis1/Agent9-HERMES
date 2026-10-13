@@ -605,3 +605,14 @@ sentence is unchanged. Test: `tests/unit/test_sa_threshold_sentence.py`.
 `yellow` was HIGH and `amber` MEDIUM, so the smaller miss outranked the larger (live: B2B Revenue
 +3.1% against a 5% target was HIGH; E-Commerce Revenue +3.0% against a 15% target was MEDIUM). This
 supersedes the "amber maps to MEDIUM" statement in the Aug 2026 amber-band section above.
+
+## Monthly series labels: the period is read as a number (Oct 2026) 🔴
+
+`_ss_monthly_series_sql` built the label with `CAST(fiscal_period AS VARCHAR(2))`. Hess stores the
+period as text ('001'..'012'), so every month was labelled `2026-00`. Downstream, a series whose
+labels are not distinct calendar months is not trusted (`src/analysis/monthly_series.py`), so no KPI
+value was recorded at approval and Value Assurance could not measure any Hess decision. The
+Snowflake builder had the same cut waiting (`LPAD(text, 2)` truncates).
+
+Both now convert the period to a number first (`TRY_CAST(... AS INT)` / `TRY_TO_NUMBER`).
+Test: `tests/unit/test_sa_monthly_series_labels.py`.
