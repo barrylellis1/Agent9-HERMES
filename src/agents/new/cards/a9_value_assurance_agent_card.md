@@ -486,9 +486,13 @@ uses a series only when every label is a distinct calendar month, and only compl
 ### 1. No Action line follows the measured trend
 
 The slope was read from `deep_analysis_output["aggregates"]`, a field `DeepAnalysisResponse` has never
-had, so every No Action line was flat. `workflows.py::_trend_slope_from_situation()` now takes a
-least-squares slope over the last six complete months before approval (none with fewer than three)
-from the situation's own monthly series, and passes it as
+had, so every No Action line was flat. `workflows.py::_trend_slope_from_situation()` now takes the
+recent trend from the situation's own monthly series (`monthly_series.recent_trend_slope`): the last
+six complete months if a straight line fits them (r-squared of at least 0.4, the bar Situation
+Awareness already uses before projecting a breach), else the last three, else none. Six months alone
+was wrong on the first live run: Net Revenue had risen for four months and then fallen for two, and
+a line through all six sloped up, projecting growth for a KPI flagged for falling. It passes the
+result as
 `RegisterSolutionRequest.pre_approval_monthly_slope`. Opportunity solutions stay flat by design. The
 older single-value input (`pre_approval_kpi_value`) still works for callers that send it.
 

@@ -92,3 +92,48 @@ def trend_slope_per_month(
     if denom == 0:
         return None
     return sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys)) / denom
+
+
+def _r_squared(months: Sequence[Month]) -> Optional[float]:
+    """How well a straight line fits these months: 1.0 is exact, near 0 is none.
+    None when the values do not vary at all (a flat line fits perfectly but there
+    is no trend to speak of; callers treat that as slope 0)."""
+    xs = [float(month_index(period)) for period, _ in months]
+    ys = [value for _, value in months]
+    mean_x = sum(xs) / len(xs)
+    mean_y = sum(ys) / len(ys)
+    ss_x = sum((x - mean_x) ** 2 for x in xs)
+    ss_y = sum((y - mean_y) ** 2 for y in ys)
+    if ss_x == 0 or ss_y == 0:
+        return None
+    cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    return (cov * cov) / (ss_x * ss_y)
+
+
+MIN_TREND_FIT = 0.4  # the same bar Situation Awareness uses before projecting a breach
+
+
+def recent_trend_slope(months: Sequence[Month]) -> Optional[float]:
+    """The KPI's trend going into a decision: change per month, or None if it has none.
+
+    Tries the last six complete months, then the last three, and takes the first
+    window a straight line actually fits (r-squared of at least MIN_TREND_FIT).
+
+    Why not always six: found live on Net Revenue, which rose for four months and
+    then fell for two (12.6M, 13.9M, 14.8M, 15.2M, 14.4M, 13.1M). A line through
+    all six slopes UP by 131K a month, so "no action" projected growth for a KPI
+    that was flagged because it was falling. A line fits those six badly; it fits
+    the last three well, and they say -1.03M a month.
+
+    None when neither window has a usable trend. The caller then draws a flat line.
+    """
+    for window in (6, 3):
+        recent = list(months)[-window:]
+        if len(recent) < 3:
+            continue
+        fit = _r_squared(recent)
+        if fit is None:
+            return 0.0
+        if fit >= MIN_TREND_FIT:
+            return trend_slope_per_month(recent, lookback=window, min_points=3)
+    return None

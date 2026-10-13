@@ -127,13 +127,14 @@ def _trend_slope_from_situation(
 ) -> Optional[float]:
     """The KPI's change per month going into approval: the slope of the "No Action" line.
 
-    Least squares over the last six complete months; None with fewer than three.
+    The recent trend a straight line actually fits (six months, else three);
+    None when there is none. See monthly_series.recent_trend_slope.
     Until Oct 2026 the slope was read from deep_analysis_output["aggregates"], a
     field Deep Analysis has never returned, so every No Action line was flat.
     """
-    from src.analysis.monthly_series import trend_slope_per_month
+    from src.analysis.monthly_series import recent_trend_slope
 
-    return trend_slope_per_month(_situation_months_before_approval(situation_payload, kpi_id, today))
+    return recent_trend_slope(_situation_months_before_approval(situation_payload, kpi_id, today))
 
 
 def _resolve_va_kpi_id_and_framing(

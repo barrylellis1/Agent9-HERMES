@@ -17,6 +17,7 @@ from src.agents.new.a9_value_assurance_agent import A9_Value_Assurance_Agent
 from src.analysis.monthly_series import (
     complete_months_before,
     complete_months_between,
+    recent_trend_slope,
     trend_slope_per_month,
     trusted_months,
 )
@@ -75,6 +76,35 @@ class TestTrendSlope:
         assert trend_slope_per_month(old + recent) == pytest.approx(-10.0)
 
 
+NET_REVENUE = [  # lubricants, as returned live on 2026-10-13: up four months, then down two
+    ("2026-04", 12575801.0), ("2026-05", 13899304.0), ("2026-06", 14761735.0),
+    ("2026-07", 15167746.0), ("2026-08", 14410757.0), ("2026-09", 13108163.0),
+]
+
+
+class TestRecentTrend:
+    def test_a_rise_then_a_fall_reads_as_the_recent_fall(self):
+        """Six-month least squares slopes UP here (+131K a month). The KPI was
+        flagged because it was falling."""
+        assert trend_slope_per_month(NET_REVENUE) > 0
+        assert recent_trend_slope(NET_REVENUE) == pytest.approx(-1_029_791.5, rel=1e-3)
+
+    def test_a_clean_six_month_trend_uses_all_six(self):
+        months = [(f"2026-{m:02d}", 1000.0 - 50.0 * m) for m in range(1, 7)]
+        assert recent_trend_slope(months) == pytest.approx(-50.0)
+
+    def test_no_usable_trend_in_either_window_is_none(self):
+        zigzag = [("2026-04", 10.0), ("2026-05", 90.0), ("2026-06", 10.0),
+                  ("2026-07", 90.0), ("2026-08", 10.0), ("2026-09", 90.0)]
+        assert recent_trend_slope(zigzag) is None
+
+    def test_an_unchanging_kpi_has_a_trend_of_zero(self):
+        assert recent_trend_slope([("2026-07", 5.0), ("2026-08", 5.0), ("2026-09", 5.0)]) == 0.0
+
+    def test_fewer_than_three_months_is_none(self):
+        assert recent_trend_slope([("2026-08", 5.0), ("2026-09", 4.0)]) is None
+
+
 class TestSlopeAtApproval:
     def test_the_field_the_old_code_read_does_not_exist(self):
         assert "aggregates" not in DeepAnalysisResponse.model_fields
@@ -83,8 +113,9 @@ class TestSlopeAtApproval:
         payload = {"kpi_id": "gross_profit", "kpi_value": {"monthly_values": GROSS_PROFIT}}
         slope = _trend_slope_from_situation(payload, "gross_profit", today="2026-10-13")
         # Apr..Sep only: October and November are not before approval.
-        assert slope == pytest.approx(trend_slope_per_month(
+        assert slope == pytest.approx(recent_trend_slope(
             [(p["period"], float(p["value"])) for p in GROSS_PROFIT[:6]]))
+        assert slope < 0   # it had been falling since July
 
     def test_a_reframed_kpi_or_untrusted_series_gives_no_slope(self):
         payload = {"kpi_id": "gross_profit", "kpi_value": {"monthly_values": GROSS_PROFIT}}
