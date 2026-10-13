@@ -305,6 +305,10 @@ class RegisterSolutionRequest(BaseModel):
     # month ("YYYY-MM"). Threaded into StrategySnapshot.kpi_value_at_approval.
     baseline_kpi_value: Optional[float] = None
     baseline_period: Optional[str] = None
+    # The KPI's change per month going into approval, measured over the months
+    # before it. This is the slope of the "No Action" line. None = not measured,
+    # and the line is then flat.
+    pre_approval_monthly_slope: Optional[float] = None
     # Phase 15 Stage F: the approved option's "bets on" assumptions (SolutionOption.
     # key_assumptions from SF's synthesis, Stage B) — threaded into the
     # StrategySnapshot VA measures against, whichever path builds it. Previously

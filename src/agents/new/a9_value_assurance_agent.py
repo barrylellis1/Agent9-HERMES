@@ -633,7 +633,13 @@ class A9_Value_Assurance_Agent:
         # For opportunity solutions the inaction trend is flat — cost of inaction is foregone
         # replication benefit (modeled in expected_trend), not a deteriorating decline.
         pre_slope = 0.0
-        if not _is_opportunity and request.pre_approval_kpi_value is not None and baseline != 0:
+        if _is_opportunity:
+            pass  # flat by design, see above
+        elif request.pre_approval_monthly_slope is not None:
+            # Measured over the months before approval: "if the trend continued".
+            pre_slope = request.pre_approval_monthly_slope
+        elif request.pre_approval_kpi_value is not None and baseline != 0:
+            # Older callers: a single earlier value, treated as one month back.
             pre_slope = baseline - request.pre_approval_kpi_value  # negative = deteriorating
 
         inaction_trend = [baseline + pre_slope * m for m in range(inaction_horizon + 1)]

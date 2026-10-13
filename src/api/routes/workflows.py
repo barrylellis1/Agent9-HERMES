@@ -4,7 +4,6 @@ import asyncio
 import os
 import uuid
 from dataclasses import dataclass, field
-import re
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
@@ -92,52 +91,49 @@ _store_lock = asyncio.Lock()
 _SECRET_KEY_MARKERS = ("password", "secret", "private_key", "token", "api_key", "access_key")
 
 
-_CALENDAR_MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+def _situation_months_before_approval(
+    situation_payload: Dict[str, Any], kpi_id: str, today: Optional[str] = None
+) -> List[Tuple[str, float]]:
+    """Complete, trusted months of the situation's KPI before the approval month.
+
+    Empty when the solution targets a different KPI than the situation measured
+    (a reframed objective), or when the series is missing or cannot be trusted
+    -- see src/analysis/monthly_series.py for the two rules applied.
+    """
+    from src.analysis.monthly_series import complete_months_before, current_month
+
+    if not kpi_id or (situation_payload or {}).get("kpi_id") != kpi_id:
+        return []
+    series = ((situation_payload or {}).get("kpi_value") or {}).get("monthly_values")
+    return complete_months_before(series, current_month(today))
 
 
 def _baseline_from_situation(
     situation_payload: Dict[str, Any], kpi_id: str, today: Optional[str] = None
 ) -> Tuple[Optional[float], Optional[str]]:
-    """The KPI's value for the last COMPLETE month before approval, from the
-    monthly series Situation Awareness already measured -> (value, "YYYY-MM").
+    """The KPI's value for the last complete month before approval -> (value, "YYYY-MM").
 
-    Returns (None, None) rather than a guess when:
-    - the solution targets a different KPI than the situation measured (a
-      reframed objective) -- the series is for the wrong KPI;
-    - there is no monthly series, or no month earlier than the current one.
-
-    Months at or after the current month are ignored: the current month is
-    partial, and a warehouse may hold later-dated rows (the demo data does).
-
-    The series is used only when EVERY label is a distinct calendar month
-    ("YYYY-01".."YYYY-12"). Found live on Hess (SQL Server): the series came
-    back labelled ['2025-01', '2025-01', '2026-00', '2026-00', ...], because
-    3-digit fiscal periods are truncated when the label is built. Picking a
-    "latest month" out of that recorded period "2026-00" as the baseline. A
-    series whose labels cannot be trusted yields no baseline at all.
+    (None, None) rather than a guess when there is nothing usable.
     """
-    if not kpi_id or (situation_payload or {}).get("kpi_id") != kpi_id:
+    months = _situation_months_before_approval(situation_payload, kpi_id, today)
+    if not months:
         return None, None
-    series = ((situation_payload or {}).get("kpi_value") or {}).get("monthly_values") or []
-    labels = [str(p.get("period") or "") for p in series if isinstance(p, dict)]
-    if len(set(labels)) != len(labels) or not all(_CALENDAR_MONTH.match(lbl) for lbl in labels):
-        return None, None
-    current_month = (today or datetime.utcnow().strftime("%Y-%m-%d"))[:7]
-    best: Tuple[Optional[float], Optional[str]] = (None, None)
-    for point in series:
-        if not isinstance(point, dict):
-            continue
-        period = str(point.get("period") or "")
-        value = point.get("value")
-        if len(period) != 7 or period >= current_month or value is None:
-            continue
-        try:
-            value_f = float(value)
-        except (TypeError, ValueError):
-            continue
-        if best[1] is None or period > best[1]:
-            best = (value_f, period)
-    return best
+    period, value = months[-1]
+    return value, period
+
+
+def _trend_slope_from_situation(
+    situation_payload: Dict[str, Any], kpi_id: str, today: Optional[str] = None
+) -> Optional[float]:
+    """The KPI's change per month going into approval: the slope of the "No Action" line.
+
+    Least squares over the last six complete months; None with fewer than three.
+    Until Oct 2026 the slope was read from deep_analysis_output["aggregates"], a
+    field Deep Analysis has never returned, so every No Action line was flat.
+    """
+    from src.analysis.monthly_series import trend_slope_per_month
+
+    return trend_slope_per_month(_situation_months_before_approval(situation_payload, kpi_id, today))
 
 
 def _resolve_va_kpi_id_and_framing(
@@ -1141,6 +1137,7 @@ async def _record_solution_action(
 
             plan_value_at_approval = _situation_full_payload.get("plan_value")
             _baseline_value, _baseline_period = _baseline_from_situation(_situation_full_payload, kpi_id)
+            _trend_slope = _trend_slope_from_situation(_situation_full_payload, kpi_id)
             if _baseline_value is None:
                 _va_log.warning(
                     "[VA] No KPI value at approval could be recorded for kpi=%s situation=%s "
@@ -1228,6 +1225,7 @@ async def _record_solution_action(
                 plan_value_at_approval=plan_value_at_approval,
                 baseline_kpi_value=_baseline_value,
                 baseline_period=_baseline_period,
+                pre_approval_monthly_slope=_trend_slope,
                 client_id=_va_client_id,
                 bets_on_assumptions=bets_on_assumptions,
                 framing_snapshot=framing_snapshot,

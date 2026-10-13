@@ -472,3 +472,24 @@ SQL Server labels are fixed, solutions on that backend get no baseline and canno
 Also seen in that run, not fixed: within one process a newly approved solution is listed twice in
 the portfolio, once under its 32-character id and once under the dashed UUID Supabase returns for
 the same row. It clears on restart.
+
+## The three-line comparison, brought into line with the settled design (Oct 2026)
+
+The settled design: an outcome is judged by three monthly lines from acceptance. **Solution** (the
+projected value if the solution works), **No Action** (the projected value if the trend at acceptance
+continued) and **Actual** (measured values since acceptance). A regression check on 2026-10-13 found
+five places where the code did not do this. They are fixed one at a time below.
+
+Shared helper: `src/analysis/monthly_series.py` (pure functions over a `[{period, value}]` series;
+uses a series only when every label is a distinct calendar month, and only complete months).
+
+### 1. No Action line follows the measured trend
+
+The slope was read from `deep_analysis_output["aggregates"]`, a field `DeepAnalysisResponse` has never
+had, so every No Action line was flat. `workflows.py::_trend_slope_from_situation()` now takes a
+least-squares slope over the last six complete months before approval (none with fewer than three)
+from the situation's own monthly series, and passes it as
+`RegisterSolutionRequest.pre_approval_monthly_slope`. Opportunity solutions stay flat by design. The
+older single-value input (`pre_approval_kpi_value`) still works for callers that send it.
+
+Tests: `tests/unit/test_monthly_series.py`.
