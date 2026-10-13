@@ -90,6 +90,43 @@ def _citation_quality_outcome(
 _SYNTHESIS_TASK = A9TaskType.SYNTHESIS
 
 
+
+_MARKET_SHIFT_ASSESSMENTS = ("supported", "not_supported", "insufficient")
+
+
+def _record_market_shift(
+    extras_out: Optional[Dict[str, Any]],
+    request: "MarketAnalysisRequest",
+    parsed: Dict[str, Any],
+    signals: List["MarketSignal"],
+) -> None:
+    """Keep the model's answer to the market-shift question, in a known shape.
+
+    Only when the question was asked. An answer outside the three allowed values
+    becomes "insufficient": an unreadable answer is not a confirmation. `grounded`
+    records whether any signal carries a real source URL; without one the answer
+    rests on the model's own recollection and must be read that way.
+    """
+    if extras_out is None or not request.general_deviation:
+        return
+    raw = parsed.get("market_shift") if isinstance(parsed, dict) else None
+    if not isinstance(raw, dict):
+        return
+    assessment = str(raw.get("assessment") or "").strip().lower()
+    if assessment not in _MARKET_SHIFT_ASSESSMENTS:
+        assessment = "insufficient"
+    try:
+        confidence = max(0.0, min(1.0, float(raw.get("confidence"))))
+    except (TypeError, ValueError):
+        confidence = None
+    extras_out["market_shift"] = {
+        "assessment": assessment,
+        "confidence": confidence,
+        "summary": (str(raw.get("summary")).strip() or None) if raw.get("summary") else None,
+        "grounded": any(getattr(sig, "url", None) for sig in signals),
+    }
+
+
 class A9_Market_Analysis_Agent:
     """
     Market Analysis Agent.
@@ -252,7 +289,8 @@ class A9_Market_Analysis_Agent:
         # ------------------------------------------------------------------
         # Step 2 — LLM synthesis (also produces conflict assessment)
         # ------------------------------------------------------------------
-        synthesis, conflict = await self._synthesize(request, signals, raw_answer)
+        _extras: Dict[str, Any] = {}
+        synthesis, conflict = await self._synthesize(request, signals, raw_answer, extras_out=_extras)
 
         # ------------------------------------------------------------------
         # Step 3 — Confidence score heuristic
@@ -293,6 +331,7 @@ class A9_Market_Analysis_Agent:
             signals=signals,
             synthesis=synthesis,
             conflict=conflict,
+            market_shift=_extras.get("market_shift"),
             competitor_context=None,  # Reserved for future enrichment
             confidence=confidence,
             sources_queried=sources_queried,
@@ -765,9 +804,14 @@ class A9_Market_Analysis_Agent:
         request: MarketAnalysisRequest,
         signals: List[MarketSignal],
         raw_answer: str,
+        extras_out: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, Optional[Dict[str, Any]]]:
         """
         Build the synthesis narrative via A9_LLM_Service_Agent.
+
+        When `request.general_deviation` is set, also asks the confirming question
+        (do the signals support a market-level shift?) and puts the answer in
+        `extras_out["market_shift"]`.
 
         Also performs conflict detection: if analysis_mode is supplied, the LLM
         is asked whether the external signals confirm or contradict the internal
@@ -821,18 +865,40 @@ class A9_Market_Analysis_Agent:
             conflict_clause = ""
             conflict_json_schema = '"conflict": null'
 
+        # The confirming question for a general deviation (no IS NOT anywhere).
+        shift_clause = ""
+        shift_json_schema = ""
+        if request.general_deviation:
+            shift_clause = (
+                f"\n\nMARKET-SHIFT CHECK:\n"
+                f"The internal analysis found that the gap is general: {request.general_deviation}\n"
+                f"Judge ONLY from the market signals below whether a market-level shift is a credible cause.\n"
+                f"  - supported: the signals show the market itself moving the same way, by a plausible amount\n"
+                f"  - not_supported: the signals show the market steady or moving the other way, which points "
+                f"away from the market and toward the comparison itself or something company-wide\n"
+                f"  - insufficient: the signals do not say either way\n"
+                f"Do NOT infer a market shift from the internal gap itself. If the signals are thin, answer insufficient."
+            )
+            shift_json_schema = (
+                ',\n  "market_shift": {\n'
+                '    "assessment": "supported" | "not_supported" | "insufficient",\n'
+                '    "confidence": 0.0 to 1.0,\n'
+                '    "summary": "One plain sentence a CFO can read, naming the signal it rests on"\n'
+                '  }'
+            )
+
         prompt = (
             f"You are a market intelligence analyst. Analyse these external market signals about "
             f"'{request.kpi_name}' in the {industry_label}{bc_detail} industry.\n\n"
             f"Internal business context: {request.kpi_context}"
-            f"{conflict_clause}\n\n"
+            f"{conflict_clause}{shift_clause}\n\n"
             f"Market Signals:\n{formatted_signals}\n\n"
             f"Return a JSON object with exactly this structure:\n"
             f"{{\n"
             f'  "synthesis": "2-3 paragraph executive briefing covering: (1) key external factors '
             f'driving this KPI movement, (2) competitive context and industry benchmarks, '
             f'(3) implications for the business. Be specific and quantitative.",\n'
-            f"  {conflict_json_schema}\n"
+            f"  {conflict_json_schema}{shift_json_schema}\n"
             f"}}\n\n"
             f"Return only valid JSON. No markdown, no preamble."
         )
@@ -873,6 +939,7 @@ class A9_Market_Analysis_Agent:
                     )
                     # If analysis dict itself has "synthesis" key, it may already be parsed
                     if "synthesis" in analysis:
+                        _record_market_shift(extras_out, request, analysis, signals)
                         return str(analysis["synthesis"]), analysis.get("conflict")
                 else:
                     raw_text = str(analysis)
@@ -883,6 +950,7 @@ class A9_Market_Analysis_Agent:
                         parsed = json.loads(raw_text)
                         synthesis_text = parsed.get("synthesis") or raw_text
                         conflict_data = parsed.get("conflict")
+                        _record_market_shift(extras_out, request, parsed, signals)
                         return str(synthesis_text), conflict_data
                     except (json.JSONDecodeError, ValueError):
                         # LLM returned plain text despite instructions — use as-is

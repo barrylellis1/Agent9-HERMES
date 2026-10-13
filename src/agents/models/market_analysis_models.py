@@ -69,6 +69,15 @@ class MarketAnalysisRequest(BaseModel):
     max_signals: int = Field(
         default=5, ge=1, le=20, description="Maximum number of market signals to return"
     )
+    general_deviation: Optional[str] = Field(
+        None,
+        description=(
+            "Set when Deep Analysis found no IS NOT: every segment is off, so the cause is "
+            "common to all (src/analysis/deviation_scope.py). The reader's sentence describing "
+            "that. Used at SYNTHESIS only, to ask whether the signals support a market-level "
+            "shift. Never used to fetch signals: same conclusion firewall as analysis_mode."
+        ),
+    )
     analysis_mode: Optional[str] = Field(
         None,
         description="DA-determined analysis mode ('problem'|'opportunity'|'mixed') — used to detect signal conflicts"
@@ -114,6 +123,16 @@ class MarketAnalysisResponse(BaseModel):
     sources_queried: List[str] = Field(
         default_factory=list,
         description="List of source identifiers that were queried",
+    )
+    market_shift: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Answer to the confirming question asked when Deep Analysis found the gap is general "
+            "(no IS NOT): do the external signals support a market-level shift? assessment "
+            "('supported'|'not_supported'|'insufficient'), confidence (0-1), summary (str), and "
+            "grounded (bool: at least one signal carries a real source URL). None when the "
+            "question was not asked."
+        ),
     )
     conflict: Optional[Dict[str, Any]] = Field(
         None,

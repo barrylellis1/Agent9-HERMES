@@ -227,6 +227,35 @@ def _collect_text_entries(entries: Optional[List[Any]], limit: int = 4) -> List[
     return out
 
 
+# Given to the models when Deep Analysis found no IS NOT: every segment is off, so no
+# segment is the cause (Kepner-Tregoe: a cause common to all). Found live 2026-10-13:
+# all 60 lubricants segments were 16.3% below plan and the approved option targeted
+# "the Retail Partners decline", which was simply one of the larger segments.
+_GENERAL_DEVIATION_RULE = (
+    "THE GAP IS EVERYWHERE, SO NO SEGMENT IS ITS CAUSE. Do NOT build an option around an "
+    "individual segment as if the problem were located there, and do not describe any segment "
+    "as underperforming the others: the segment figures you were given are extent (how large "
+    "each one is), not where the problem is. Options must address a cause common to the whole "
+    "business. At least one option must be a CHECK that settles which of the two candidate "
+    "causes applies: a shift in the market (weigh the external market signals) or a comparison "
+    "that is itself off (for a plan gap, a plan set too high). If an option is scoped to a "
+    "segment for a practical reason (a pilot, the largest exposure), say that plainly, and size "
+    "its impact as that segment's share of the general gap."
+)
+
+
+def _general_deviation_note(ctx: Dict[str, Any], exec_ctx: Any) -> Optional[str]:
+    """The reader's sentence when the deviation is general and adverse, else None."""
+    try:
+        from src.analysis.deviation_scope import describe
+        exec_d = exec_ctx if isinstance(exec_ctx, dict) else {}
+        scope = ctx.get("deviation_scope") or exec_d.get("deviation_scope")
+        comparator = str(ctx.get("comparator") or exec_d.get("comparator") or "").lower()
+        return describe(scope, against_plan=(comparator == "budget"))
+    except Exception:
+        return None
+
+
 def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
     ctx = _model_to_dict(da_ctx)
     if not isinstance(ctx, dict):
@@ -348,6 +377,10 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
                 summary["confirmed_problem_segments"] = _limit(_confirmed, 5)
             if _basis_specific:
                 summary["basis_specific_segments"] = _limit(_basis_specific, 5)
+
+    _general_note = _general_deviation_note(ctx, exec_ctx)
+    if _general_note:
+        summary["deviation_is_general"] = _general_note
 
     when_started = _first_str(ctx.get("when_started"))
     if when_started:
@@ -1540,7 +1573,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         ps_parts.append(f"The leading IS segment is '{key}' within the {dim} dimension — the goal is to replicate its outperformance.")
                                 else:
                                     ps_parts.append(f"{kpi} {direction} by {delta_abs} (Current Level: {val_str}). [KPI_DIRECTION: {direction.upper()}]")
-                                    if dim and key:
+                                    if da_summary.get("deviation_is_general"):
+                                        ps_parts.append(da_summary["deviation_is_general"])
+                                    elif dim and key:
                                         ps_parts.append(f"This deviation is primarily driven by '{key}' within the {dim} segment.")
                             else:
                                 ps_parts.append(f"{kpi} is showing significant anomalous behavior deviating from historical trends.")
@@ -1552,7 +1587,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         
                         # Part 3: Signals
                         signals = da_summary.get("where_signals", [])
-                        if signals:
+                        if signals and da_summary.get("deviation_is_general"):
+                             ps_parts.append(f"Largest segments by size (extent, not cause): {', '.join(signals[:2])}.")
+                        elif signals:
                              ps_parts.append(f"Contributing factors identified: {', '.join(signals[:2])}.")
 
                         if ps_parts:
@@ -2169,6 +2206,19 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         if formatted_cps:
                             dataset_recap_lines.append("Change points: " + "; ".join(formatted_cps))
                     
+                    if da_summary.get("deviation_is_general"):
+                        dataset_recap_lines.append(f"DEVIATION IS GENERAL: {da_summary['deviation_is_general']}")
+                        dataset_recap_lines.append(_GENERAL_DEVIATION_RULE)
+
+                    _shift = da_ctx.get("market_shift") if isinstance(da_ctx, dict) else None
+                    if isinstance(_shift, dict) and _shift.get("assessment"):
+                        dataset_recap_lines.append(
+                            "MARKET-SHIFT CHECK (is the general gap a market-level shift?): "
+                            f"{_shift['assessment']}. {_shift.get('summary') or ''} "
+                            + ("Rests on cited sources." if _shift.get("grounded")
+                               else "Rests on the model's own recollection, not on cited sources: treat as unconfirmed.")
+                        )
+
                     # Add market conflict warning when external signals contradict DA conclusion
                     _s2_conflict = da_ctx.get("market_conflict") if isinstance(da_ctx, dict) else None
                     if _s2_conflict and _s2_conflict.get("detected") and _s2_conflict.get("summary"):
@@ -2804,6 +2854,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         }
                         if da_summary.get("benchmark_segments"):
                             da_compact_s1["internal_benchmarks"] = da_summary["benchmark_segments"]
+                        if da_summary.get("deviation_is_general"):
+                            da_compact_s1["deviation_is_general"] = da_summary["deviation_is_general"]
+                            da_compact_s1["how_to_read_the_segments"] = _GENERAL_DEVIATION_RULE
                         # Inject market conflict so personas factor in external headwinds/tailwinds
                         _s1_conflict = da_ctx.get("market_conflict") if isinstance(da_ctx, dict) else None
                         if _s1_conflict and _s1_conflict.get("detected") and _s1_conflict.get("summary"):

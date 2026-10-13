@@ -261,3 +261,31 @@ accepted processes directly to the `business_processes` registry (no template/ac
   already queries the real `business_process` provider and falls back to KPI-derived
   pseudo-processes only when the table is empty — once real rows exist for a client it upgrades
   automatically, no code changes needed there.
+
+## The market-shift check: the confirming question for a gap that is everywhere (Oct 2026)
+
+When Deep Analysis finds no IS NOT (every segment is off its own comparison, see
+`src/analysis/deviation_scope.py`), the cause is common to the whole business. One of the two
+candidates is a shift in the market, and this agent is asked whether its signals support that.
+
+- **Input:** `MarketAnalysisRequest.general_deviation` (the reader's sentence from
+  `deviation_scope.describe`). Set by the deep-analysis route in `workflows.py`. None on every
+  other request, and then nothing below runs.
+- **Firewall:** used at SYNTHESIS only, like `analysis_mode`. It never reaches the search query,
+  so the internal finding cannot shape which signals are fetched.
+- **Output:** `MarketAnalysisResponse.market_shift` =
+  `{"assessment": "supported" | "not_supported" | "insufficient", "confidence": 0-1 or None,
+  "summary": str or None, "grounded": bool}`. `grounded` is true only when at least one signal
+  carries a source URL; in LLM-only mode it is always false and readers must treat the answer as
+  unconfirmed.
+- **Fail-safe:** `_record_market_shift` turns any answer outside the three values into
+  `insufficient`. An unreadable answer is not a confirmation. If the model returns no
+  `market_shift`, the field stays None (not asked, or not answered).
+- **Must NOT:** infer a market shift from the internal gap itself (the prompt says so), and must
+  not decide between the two candidates. It answers one of them; the other (the plan or the
+  comparison itself is off) is not something market signals can settle.
+
+The route attaches the answer to the deep-analysis result as `market_shift`, next to
+`market_conflict`. Solution Finder reads it into its synthesis recap.
+
+Tests: `tests/unit/test_ma_market_shift_check.py`.

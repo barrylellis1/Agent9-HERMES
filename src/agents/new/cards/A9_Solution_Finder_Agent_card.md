@@ -972,3 +972,32 @@ carries the same instruction.
 This is an instruction to a model, so it reduces the jargon rather than guaranteeing its absence.
 
 Test: `test_sf_stage_d_causal_grounding.py::test_causal_context_tells_the_model_to_write_for_a_reader`.
+
+## A gap that is everywhere is not located in a segment (Oct 2026) 🔴
+
+Found live 2026-10-13: all 60 lubricants segments were 16.3% below plan, Deep Analysis had no
+IS NOT, and the approved option targeted "the Retail Partners decline". Retail Partners was one of
+the larger segments, short by the same 16.3% as every other.
+
+When the deep-analysis context carries a general, adverse `deviation_scope`
+(`src/analysis/deviation_scope.py`):
+
+- `_extract_deep_analysis_summary` sets `summary["deviation_is_general"]` to the reader's sentence
+  (`_general_deviation_note`).
+- The problem statement states that sentence in place of "primarily driven by '<segment>'", and
+  lists segments as "Largest segments by size (extent, not cause)".
+- Stage 1 gets `deviation_is_general` and `how_to_read_the_segments`; synthesis gets
+  "DEVIATION IS GENERAL: ..." followed by `_GENERAL_DEVIATION_RULE`. The rule: no option built
+  around a segment as if the problem were there; options address a cause common to the whole
+  business; at least one option is a check that settles which candidate cause applies (market
+  shift, or a comparison that is itself off); a segment-scoped option must say it is a pilot or
+  the largest exposure and size itself as that segment's share.
+- Synthesis also gets Market Analysis's answer when present: "MARKET-SHIFT CHECK: <assessment>.
+  <summary>", with a plain statement of whether it rests on cited sources (`market_shift.grounded`).
+
+A localised deviation, or one where nothing was counted (`deviation_scope` None), changes nothing.
+
+This is an instruction to a model: it steers the options, it does not guarantee them. Nothing
+rejects an option that ignores it.
+
+Test: `tests/unit/test_sf_general_deviation.py`.

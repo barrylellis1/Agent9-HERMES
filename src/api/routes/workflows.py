@@ -1473,6 +1473,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
         # Pass analysis_mode so the MA LLM can assess signal alignment vs internal conclusion
         market_signals = None
         market_conflict = None
+        market_shift = None
         market_synthesis = None
         _ma_resp = None
         try:
@@ -1541,6 +1542,16 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
                 _da_structural["change_point_segments"] = _cp_keys
 
             _analysis_mode = getattr(response, "analysis_mode", None) or request.analysis_mode or "problem"
+            # Deep Analysis found no IS NOT -> ask Market Analysis the confirming question.
+            _general_deviation = None
+            try:
+                from src.analysis.deviation_scope import describe as _describe_scope
+                _general_deviation = _describe_scope(
+                    getattr(response, "deviation_scope", None),
+                    against_plan=(str(getattr(response, "comparator", "") or "").lower() == "budget"),
+                )
+            except Exception:
+                _general_deviation = None
             _ma_req = MarketAnalysisRequest(
                 session_id=f"da-{request_id}",
                 request_id=response.request_id,
@@ -1551,6 +1562,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
                 principal_id=request.principal_id,
                 max_signals=4,
                 analysis_mode=_analysis_mode,
+                general_deviation=_general_deviation,
                 business_context=_business_context_dict,
                 da_structural_context=_da_structural if _da_structural else None,
             )
@@ -1563,6 +1575,8 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
                 market_signals = [s.model_dump() for s in _ma_resp.signals]
             if _ma_resp and hasattr(_ma_resp, "conflict") and _ma_resp.conflict:
                 market_conflict = _ma_resp.conflict
+            if _ma_resp and getattr(_ma_resp, "market_shift", None):
+                market_shift = _ma_resp.market_shift
             # Phase 20 §14 decision 6 — synthesis/confidence/sources_queried were
             # already computed by MA and silently dropped here before this fix:
             # never serialized into da_output, never typed on the frontend,
@@ -1591,6 +1605,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             "execution": execution_serialized,
             "market_signals": market_signals,
             "market_conflict": market_conflict,
+            "market_shift": market_shift,
             "market_synthesis": market_synthesis,
         }
         
