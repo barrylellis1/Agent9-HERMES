@@ -8,7 +8,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { AcceptedSolution, SolutionVerdict, SolutionPhase, VsPlanVerdict } from '../types/valueAssurance';
-import { useKpiNames } from '../hooks/useKpiNames';
+import { useKpiNames, useKpiUnits } from '../hooks/useKpiNames';
 
 interface PortfolioDashboardProps {
   solutions: AcceptedSolution[];
@@ -128,7 +128,7 @@ function SummaryCard({ label, value, subtext, valueClass = 'text-white', borderC
 
 export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
   solutions,
-  totalAttributableImpact,
+  totalAttributableImpact: _backendTotalMixesUnits,
   validatedCount,
   partialCount,
   failedCount,
@@ -139,16 +139,40 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
   const total = solutions.length;
   const kpiName = useKpiNames();
   const pct = (n: number) => (total > 0 ? `${Math.round((n / total) * 100)}%` : '0%');
-  // Compute total realized benefit — flip sign for cost KPIs so savings count positive
-  const dollarBenefit = solutions.reduce((sum, sol) => {
-    if (isPercentageKpi(sol.kpi_id)) return sum;
+  const kpiUnit = useKpiUnits();
+  // Headline: dollar KPIs only, and only decisions whose measurement counts
+  // toward ROI (the backend applies the confidence floor). Everything else in
+  // dollars is reported separately as not yet compared, never folded in.
+  // The backend's own total is not used: it adds dollars and percentage
+  // points together.
+  const isDollarKpi = (id?: string) => {
+    const u = kpiUnit(id);
+    return u ? u === '$' : !isPercentageKpi(id);
+  };
+  let countedImpact = 0;
+  let uncountedImpact = 0;
+  let uncountedN = 0;
+  for (const sol of solutions) {
+    if (!isDollarKpi(sol.kpi_id)) continue;
+    const ev = sol.impact_evaluation;
+    if (ev && ev.composite_verdict?.include_in_roi_totals) {
+      countedImpact += toBenefit(ev.attributable_impact, sol.kpi_id);
+      continue;
+    }
     let rawDelta: number | undefined;
-    if (sol.impact_evaluation?.attributable_impact != null) rawDelta = sol.impact_evaluation.attributable_impact;
+    if (ev?.attributable_impact != null) rawDelta = ev.attributable_impact;
     else if (sol.actual_trend.length > 1) rawDelta = sol.actual_trend[sol.actual_trend.length - 1] - sol.actual_trend[0];
-    if (rawDelta === undefined) return sum;
-    return sum + toBenefit(rawDelta, sol.kpi_id);
-  }, 0);
-  const computedImpact = totalAttributableImpact !== 0 ? totalAttributableImpact : dollarBenefit;
+    if (rawDelta === undefined) continue;
+    uncountedImpact += toBenefit(rawDelta, sol.kpi_id);
+    uncountedN += 1;
+  }
+  const computedImpact = countedImpact;
+  const uncountedText = uncountedN > 0
+    ? `${formatImpact(uncountedImpact)} across ${uncountedN} decision${uncountedN === 1 ? '' : 's'} is not yet compared.`
+    : '';
+  const roiSubtext = countedImpact === 0
+    ? `No decision has been measured against a comparison yet. ${uncountedText}`.trim()
+    : `Measured against a comparison. ${uncountedText}`.trim();
 
   return (
     <div className="space-y-6">
@@ -156,8 +180,8 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           label="Total ROI (est.)"
-          value={formatImpact(computedImpact)}
-          subtext="Estimated effect of the decisions that held up"
+          value={computedImpact === 0 ? '$0' : formatImpact(computedImpact)}
+          subtext={roiSubtext}
           valueClass={computedImpact >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'}
           borderClass="border-severity-opportunity/40"
         />
