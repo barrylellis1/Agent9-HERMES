@@ -34,34 +34,34 @@ FYP = {"type": "fiscal_year_period", "year_column": "fiscal_year", "period_colum
 
 class TestFiscalYearPeriodCurrent:
     def test_current_quarter(self):
-        # Q2 2026 = periods 4-6
-        assert cur(FYP, "current_quarter") == "fiscal_year = 2026 AND fiscal_period BETWEEN 4 AND 6"
+        # May is open: Q2 so far is its closed months only = period 4
+        assert cur(FYP, "current_quarter") == "fiscal_year = 2026 AND fiscal_period BETWEEN 4 AND 4"
 
     def test_this_quarter_alias(self):
         assert cur(FYP, "this_quarter") == cur(FYP, "current_quarter")
 
     def test_quarter_to_date(self):
-        # Q2 starts at period 4; today is period 5
-        assert cur(FYP, "quarter_to_date") == "fiscal_year = 2026 AND fiscal_period BETWEEN 4 AND 5"
+        # Q2 starts at period 4; period 5 is still open
+        assert cur(FYP, "quarter_to_date") == "fiscal_year = 2026 AND fiscal_period BETWEEN 4 AND 4"
 
     def test_current_year(self):
-        assert cur(FYP, "current_year") == "fiscal_year = 2026"
+        assert cur(FYP, "current_year") == "fiscal_year = 2026 AND fiscal_period <= 4"
 
     def test_this_year_alias(self):
-        assert cur(FYP, "this_year") == "fiscal_year = 2026"
+        assert cur(FYP, "this_year") == "fiscal_year = 2026 AND fiscal_period <= 4"
 
     def test_year_to_date(self):
-        # Up to period 5 (May)
-        assert cur(FYP, "year_to_date") == "fiscal_year = 2026 AND fiscal_period <= 5"
+        # Up to period 4: May is still open
+        assert cur(FYP, "year_to_date") == "fiscal_year = 2026 AND fiscal_period <= 4"
 
     def test_current_month(self):
-        assert cur(FYP, "current_month") == "fiscal_year = 2026 AND fiscal_period = 5"
+        assert cur(FYP, "current_month") == "fiscal_year = 2026 AND fiscal_period = 4"
 
     def test_this_month_alias(self):
         assert cur(FYP, "this_month") == cur(FYP, "current_month")
 
     def test_month_to_date(self):
-        assert cur(FYP, "month_to_date") == "fiscal_year = 2026 AND fiscal_period = 5"
+        assert cur(FYP, "month_to_date") == "fiscal_year = 2026 AND fiscal_period = 4"
 
     def test_last_quarter(self):
         # Q1 2026 = periods 1-3
@@ -79,33 +79,33 @@ class TestFiscalYearPeriodCurrent:
 
     def test_custom_column_names(self):
         spec = {"type": "fiscal_year_period", "year_column": "gjahr", "period_column": "monat"}
-        assert cur(spec, "current_year") == "gjahr = 2026"
-        assert cur(spec, "current_quarter") == "gjahr = 2026 AND monat BETWEEN 4 AND 6"
+        assert cur(spec, "current_year") == "gjahr = 2026 AND monat <= 4"
+        assert cur(spec, "current_quarter") == "gjahr = 2026 AND monat BETWEEN 4 AND 4"
 
 
 class TestFiscalYearPeriodPrevious:
     def test_prev_current_quarter(self):
-        # previous of Q2 = Q1 2026
-        assert prev(FYP, "current_quarter") == "fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 3"
+        # the same closed periods a year earlier
+        assert prev(FYP, "current_quarter") == "fiscal_year = 2025 AND fiscal_period BETWEEN 4 AND 4"
 
     def test_prev_quarter_to_date(self):
-        # YoY same window: Q2-to-date (periods 4-5) one year back
-        assert prev(FYP, "quarter_to_date") == "fiscal_year = 2025 AND fiscal_period BETWEEN 4 AND 5"
+        # YoY same window: Q2's closed periods (4) one year back
+        assert prev(FYP, "quarter_to_date") == "fiscal_year = 2025 AND fiscal_period BETWEEN 4 AND 4"
 
     def test_prev_current_year(self):
-        assert prev(FYP, "current_year") == "fiscal_year = 2025"
+        assert prev(FYP, "current_year") == "fiscal_year = 2025 AND fiscal_period <= 4"
 
     def test_prev_year_to_date(self):
-        # YoY same window: YTD through period 5 one year back (NOT full prior year)
-        assert prev(FYP, "year_to_date") == "fiscal_year = 2025 AND fiscal_period <= 5"
+        # YoY same window: YTD through closed period 4 one year back (NOT full prior year)
+        assert prev(FYP, "year_to_date") == "fiscal_year = 2025 AND fiscal_period <= 4"
 
     def test_prev_month_to_date(self):
-        # YoY same window: month 5 one year back
-        assert prev(FYP, "month_to_date") == "fiscal_year = 2025 AND fiscal_period = 5"
+        # YoY same window: the last closed month (4) one year back
+        assert prev(FYP, "month_to_date") == "fiscal_year = 2025 AND fiscal_period = 4"
 
     def test_prev_current_month(self):
-        # previous of May = April
-        assert prev(FYP, "current_month") == "fiscal_year = 2026 AND fiscal_period = 4"
+        # the last closed month (April) a year earlier
+        assert prev(FYP, "current_month") == "fiscal_year = 2025 AND fiscal_period = 4"
 
     def test_prev_last_quarter(self):
         # two quarters back from Q2 = Q4 2025
@@ -341,23 +341,23 @@ FYP_APR = {
 
 class TestAprilFiscalYearCurrent:
     def test_current_quarter_is_fiscal_q1(self):
-        # Calendar May → FY 2026 Q1 = periods 1-3
-        assert cur(FYP_APR, "current_quarter") == "fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 3"
+        # Calendar May is open → FY 2026 Q1's closed periods = period 1 (April)
+        assert cur(FYP_APR, "current_quarter") == "fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 1"
 
     def test_quarter_to_date(self):
-        # Q1 start = period 1; today = period 2
-        assert cur(FYP_APR, "quarter_to_date") == "fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 2"
+        # Q1 start = period 1; period 2 is still open
+        assert cur(FYP_APR, "quarter_to_date") == "fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 1"
 
     def test_current_year(self):
-        assert cur(FYP_APR, "current_year") == "fiscal_year = 2026"
+        assert cur(FYP_APR, "current_year") == "fiscal_year = 2026 AND fiscal_period <= 1"
 
     def test_year_to_date(self):
-        # Up to fiscal period 2 (May)
-        assert cur(FYP_APR, "year_to_date") == "fiscal_year = 2026 AND fiscal_period <= 2"
+        # Up to fiscal period 1 (April): May is still open
+        assert cur(FYP_APR, "year_to_date") == "fiscal_year = 2026 AND fiscal_period <= 1"
 
     def test_current_month(self):
-        # May = fiscal period 2
-        assert cur(FYP_APR, "current_month") == "fiscal_year = 2026 AND fiscal_period = 2"
+        # May (period 2) is open; the last closed month is April = fiscal period 1
+        assert cur(FYP_APR, "current_month") == "fiscal_year = 2026 AND fiscal_period = 1"
 
     def test_last_quarter(self):
         # fiscal Q4 of FY 2025 = periods 10-12 (Jan/Feb/Mar 2026)
@@ -373,16 +373,16 @@ class TestAprilFiscalYearCurrent:
 
 class TestAprilFiscalYearPrevious:
     def test_prev_current_quarter(self):
-        # prev of fiscal Q1 = fiscal Q4 of FY 2025
-        assert prev(FYP_APR, "current_quarter") == "fiscal_year = 2025 AND fiscal_period BETWEEN 10 AND 12"
+        # the same closed periods a year earlier
+        assert prev(FYP_APR, "current_quarter") == "fiscal_year = 2025 AND fiscal_period BETWEEN 1 AND 1"
 
     def test_prev_year_to_date(self):
-        # YoY same window: fiscal YTD through period 2 one year back
-        assert prev(FYP_APR, "year_to_date") == "fiscal_year = 2025 AND fiscal_period <= 2"
+        # YoY same window: fiscal YTD through closed period 1 one year back
+        assert prev(FYP_APR, "year_to_date") == "fiscal_year = 2025 AND fiscal_period <= 1"
 
     def test_prev_current_month(self):
-        # prev of fiscal period 2 = fiscal period 1
-        assert prev(FYP_APR, "current_month") == "fiscal_year = 2026 AND fiscal_period = 1"
+        # the last closed month (fiscal period 1) a year earlier
+        assert prev(FYP_APR, "current_month") == "fiscal_year = 2025 AND fiscal_period = 1"
 
     def test_prev_last_year(self):
         assert prev(FYP_APR, "last_year") == "fiscal_year = 2024"
@@ -396,13 +396,14 @@ class TestAprilFiscalYearJanuary:
     def test_current_month_jan_in_prev_fy(self):
         with patch(_PATCH, return_value=self._JAN):
             result = TimeFilter.current_condition(FYP_APR, "current_month")
-        assert result == "fiscal_year = 2025 AND fiscal_period = 10"
+        # January is open; the last closed month is December = FY 2025 period 9
+        assert result == "fiscal_year = 2025 AND fiscal_period = 9"
 
     def test_current_quarter_jan_is_fiscal_q4(self):
-        # Jan 2026 = FY 2025 Q4 = periods 10-12
+        # Jan 2026 opens FY 2025 Q4 with no closed month yet → the last closed quarter, Q3 = periods 7-9
         with patch(_PATCH, return_value=self._JAN):
             result = TimeFilter.current_condition(FYP_APR, "current_quarter")
-        assert result == "fiscal_year = 2025 AND fiscal_period BETWEEN 10 AND 12"
+        assert result == "fiscal_year = 2025 AND fiscal_period BETWEEN 7 AND 9"
 
 
 # ── Databricks dialect ────────────────────────────────────────────────────────
@@ -426,7 +427,7 @@ class TestDatabricksDialect:
         # fiscal_year_period is pure integer arithmetic — dialect has no effect
         result_db = cur(FYP, "year_to_date", dialect="databricks")
         result_bq = cur(FYP, "year_to_date", dialect="bigquery")
-        assert result_db == result_bq == "fiscal_year = 2026 AND fiscal_period <= 5"
+        assert result_db == result_bq == "fiscal_year = 2026 AND fiscal_period <= 4"
 
     def test_prev_date_no_backticks(self):
         result = prev(DATE_DB, "current_quarter", dialect="databricks")

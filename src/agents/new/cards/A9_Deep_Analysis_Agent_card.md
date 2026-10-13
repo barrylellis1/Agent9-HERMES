@@ -1215,7 +1215,8 @@ Still not aligned:
   `month_over_month` when "current month" is selected) compares the period so far with the WHOLE
   previous period. This agent now compares with the same days a year earlier. That Situation
   Awareness comparison is itself unequal (13 days against a full month) and is not fixed here.
-- Fiscal-period-keyed data products resolve `quarter_to_date` at period grain (the whole current
-  fiscal period), not to the day.
+- Resolved the same day: on fiscal-period-keyed data products both stages now read closed periods
+  only (`src/analysis/complete_periods.py`, applied in `TimeFilter`'s `fiscal_year_period` branch and
+  in Situation Awareness). See the Situation Awareness card.
 
 Tests: `tests/unit/test_da_period_alignment.py`.

@@ -661,7 +661,10 @@ class A9_Situation_Awareness_Agent:
                                 if _is_ratio:
                                     _monthly_budget = _budget_val
                                 else:
-                                    _n_months = self._timeframe_month_count(request.timeframe)
+                                    _n_months = self._timeframe_month_count(
+                                        request.timeframe,
+                                        as_of=await self._period_as_of(getattr(kpi_definition, 'data_product_id', None)),
+                                    )
                                     _monthly_budget = _budget_val / max(1, _n_months)
                                 _pb_tol = abs(float(_pb_cfg['red'])) / 100.0
                                 _pb_floor = _monthly_budget - abs(_monthly_budget) * _pb_tol
@@ -1277,11 +1280,16 @@ class A9_Situation_Awareness_Agent:
     # ──────────────────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _bq_get_period_dates(timeframe, is_comparison=False, comparison_type=None):
-        """Return (start_date_str, end_date_str) for a timeframe/comparison pair."""
+    def _bq_get_period_dates(timeframe, is_comparison=False, comparison_type=None, as_of=None):
+        """Return (start_date_str, end_date_str) for a timeframe/comparison pair.
+
+        `as_of`: the date to treat as today. Set to the last closed day for period-keyed
+        data products, so "the quarter so far" covers closed months only
+        (src/analysis/complete_periods.py). None = the real today.
+        """
         from datetime import date
         import calendar as _cal
-        today = date.today()
+        today = as_of or date.today()
         y, m = today.year, today.month
 
         def quarter_dates(yr, qtr):
@@ -1325,8 +1333,11 @@ class A9_Situation_Awareness_Agent:
 
         ct = str(comparison_type).strip().lower() if comparison_type else "year_over_year"
         if "year" in ct:
+            # same days a year earlier; 29 Feb has no such day, so it becomes the 28th
+            _py = base_end.year - 1
+            _pe_day = min(base_end.day, _cal.monthrange(_py, base_end.month)[1])
             return str(date(base_start.year - 1, base_start.month, base_start.day)), \
-                   str(date(base_end.year - 1, base_end.month, base_end.day))
+                   str(date(_py, base_end.month, _pe_day))
         elif "quarter" in ct:
             # Previous quarter
             pq = ((base_start.month - 1) // 3)  # 0-indexed quarter before current
@@ -1342,11 +1353,11 @@ class A9_Situation_Awareness_Agent:
             return str(cs), str(ce)
 
     @staticmethod
-    def _bq_apply_period(sql, timeframe, is_comparison=False, comparison_type=None, date_col="transaction_date"):
+    def _bq_apply_period(sql, timeframe, is_comparison=False, comparison_type=None, date_col="transaction_date", as_of=None):
         """Append a BigQuery-compatible date range filter to an existing KPI SQL."""
         import re as _re
         start, end = A9_Situation_Awareness_Agent._bq_get_period_dates(
-            timeframe, is_comparison=is_comparison, comparison_type=comparison_type
+            timeframe, is_comparison=is_comparison, comparison_type=comparison_type, as_of=as_of
         )
         cond = f"{date_col} BETWEEN '{start}' AND '{end}'"
         if _re.search(r'\bWHERE\b', sql, _re.IGNORECASE):
@@ -1523,6 +1534,25 @@ class A9_Situation_Awareness_Agent:
         )
 
     # ──────────────────────────────────────────────────────────────────────────
+
+    async def _period_as_of(self, data_product_id: Optional[str]):
+        """The date to treat as today for this data product's readings: the last closed
+        day when it is keyed by period, None (the real today) when keyed by date.
+        The declaration is read from the registry and remembered for a minute, so a
+        scan of many KPIs does not reload it for each one. On any failure: None."""
+        import time as _time
+        from src.analysis.complete_periods import as_of as _as_of_for
+        cache = self.__dict__.setdefault("_period_as_of_cache", {})
+        hit = cache.get(data_product_id)
+        if hit and (_time.monotonic() - hit[0]) < 60:
+            spec = hit[1]
+        else:
+            try:
+                spec = await self._resolve_time_spec_sa(data_product_id)
+            except Exception:
+                spec = None
+            cache[data_product_id] = (_time.monotonic(), spec)
+        return _as_of_for(spec)
 
     async def _resolve_time_spec_sa(self, data_product_id: Optional[str]) -> dict:
         """Return the TimeDimensionSpec dict for a data product (SA-side lookup).
@@ -2492,7 +2522,7 @@ class A9_Situation_Awareness_Agent:
 
     def _build_measurement_context(
         self, *, timeframe, comparison_type, merged_filters, source_system,
-        data_product_id, base_sql, kpi_definition,
+        data_product_id, base_sql, kpi_definition, as_of=None,
     ):
         """Stamp what this reading actually measured — resolved, not requested.
 
@@ -2513,7 +2543,7 @@ class A9_Situation_Awareness_Agent:
             cur = comp = (None, None)
             basis = None
             try:
-                cur = self._bq_get_period_dates(timeframe, is_comparison=False)
+                cur = self._bq_get_period_dates(timeframe, is_comparison=False, as_of=as_of)
 
                 # NOT every KPI comparison is current-vs-prior. `_bq_get_period_dates`
                 # has no concept of that — asked for a comparison window it returns a
@@ -2528,7 +2558,7 @@ class A9_Situation_Awareness_Agent:
                 if _ct in ("year_over_year", "quarter_over_quarter", "month_over_month"):
                     basis = "temporal"
                     comp = self._bq_get_period_dates(
-                        timeframe, is_comparison=True, comparison_type=comparison_type
+                        timeframe, is_comparison=True, comparison_type=comparison_type, as_of=as_of
                     )
                 elif _ct in ("budget_vs_actual", "target_vs_actual"):
                     # Same window, different version — the plan is measured over the
@@ -2677,14 +2707,14 @@ class A9_Situation_Awareness_Agent:
             return None
 
     @staticmethod
-    def _timeframe_month_count(timeframe) -> int:
+    def _timeframe_month_count(timeframe, as_of=None) -> int:
         """Number of whole months spanned by a timeframe — used to convert an aggregate
         budget into a monthly run-rate for budget-anchored projected_breach detection.
 
         Falls back to 12 if the timeframe can't be resolved (annual assumption).
         """
         try:
-            start, end = A9_Situation_Awareness_Agent._bq_get_period_dates(timeframe)
+            start, end = A9_Situation_Awareness_Agent._bq_get_period_dates(timeframe, as_of=as_of)
             from datetime import date as _date
             sy, sm, sd = (int(x) for x in str(start).split("-")[:3])
             ey, em, ed = (int(x) for x in str(end).split("-")[:3])
@@ -2762,6 +2792,8 @@ class A9_Situation_Awareness_Agent:
                 _is_bq_kpi = bool(re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', _raw_kpi_sql))
                 _is_ss_kpi = (not _is_bq_kpi) and bool(re.search(r'\[[A-Za-z][\w\s]*\]', _raw_kpi_sql))
                 _is_sf_kpi = False
+            # Period-keyed data is read as of the last closed period; date-keyed, to the day.
+            _as_of = await self._period_as_of(_gen_dp_id)
             _bq_date_col = (
                 (kpi_definition.metadata or {}).get('date_column', 'transaction_date')
                 if hasattr(kpi_definition, 'metadata') and isinstance(getattr(kpi_definition, 'metadata', None), dict)
@@ -2772,7 +2804,7 @@ class A9_Situation_Awareness_Agent:
             base_sql = ""
             _gen_dp_id = getattr(kpi_definition, 'data_product_id', None)
             if _is_bq_kpi:
-                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col)
+                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col, as_of=_as_of)
                 self.logger.info(f"[BQ path] base_sql for '{kpi_name}': {base_sql[:140]}")
                 if not base_sql:
                     self.logger.error(f"[BQ path] Failed to build base SQL for {kpi_name}")
@@ -2781,7 +2813,7 @@ class A9_Situation_Awareness_Agent:
                 # SQL Server path: apply ISO date filter directly (T-SQL accepts BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD').
                 # DPA's generate_sql_for_kpi_comparison cannot inject a date filter when the stored T-SQL
                 # has no pre-existing timeframe condition, so we mirror the BigQuery pattern here.
-                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col)
+                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col, as_of=_as_of)
                 self.logger.info(f"[SS path] base_sql for '{kpi_name}': {base_sql[:140]}")
                 if not base_sql:
                     self.logger.error(f"[SS path] Failed to build base SQL for {kpi_name}")
@@ -2790,7 +2822,7 @@ class A9_Situation_Awareness_Agent:
                 # Snowflake path: apply ISO date filter directly (Snowflake accepts BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD').
                 # Similar to SQL Server, we apply the date filter here since DPA's generate_sql_for_kpi
                 # is DuckDB-centric and cannot reliably inject filters into Snowflake SQL.
-                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col)
+                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col, as_of=_as_of)
                 self.logger.info(f"[SF path] base_sql for '{kpi_name}': {base_sql[:140]}")
                 if not base_sql:
                     self.logger.error(f"[SF path] Failed to build base SQL for {kpi_name}")
@@ -2884,7 +2916,7 @@ class A9_Situation_Awareness_Agent:
                     comp_sql = self._bq_apply_period(
                         _raw_kpi_sql, timeframe,
                         is_comparison=True, comparison_type=comparison_type,
-                        date_col=_bq_date_col
+                        date_col=_bq_date_col, as_of=_as_of
                     )
                     self.logger.info(f"[BQ path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
                 elif _is_ss_kpi:
@@ -2893,7 +2925,7 @@ class A9_Situation_Awareness_Agent:
                     comp_sql = self._bq_apply_period(
                         _raw_kpi_sql, timeframe,
                         is_comparison=True, comparison_type=comparison_type,
-                        date_col=_bq_date_col
+                        date_col=_bq_date_col, as_of=_as_of
                     )
                     self.logger.info(f"[SS path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
                 elif _is_sf_kpi:
@@ -2902,7 +2934,7 @@ class A9_Situation_Awareness_Agent:
                     comp_sql = self._bq_apply_period(
                         _raw_kpi_sql, timeframe,
                         is_comparison=True, comparison_type=comparison_type,
-                        date_col=_bq_date_col
+                        date_col=_bq_date_col, as_of=_as_of
                     )
                     self.logger.info(f"[SF path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
                 else:
@@ -3017,6 +3049,7 @@ class A9_Situation_Awareness_Agent:
                     percent_change=None,
                     monthly_values=monthly_values,
                     context=self._build_measurement_context(
+                        as_of=_as_of,
                         timeframe=timeframe, comparison_type=None,
                         merged_filters=merged_filters, source_system=_source_system,
                         data_product_id=_gen_dp_id, base_sql=base_sql,
@@ -3098,6 +3131,7 @@ class A9_Situation_Awareness_Agent:
                 monthly_values=monthly_values,
                 inverse_logic=_inverse_logic,
                 context=self._build_measurement_context(
+                        as_of=_as_of,
                     timeframe=timeframe, comparison_type=comparison_type,
                     merged_filters=merged_filters, source_system=_source_system,
                     data_product_id=_gen_dp_id, base_sql=base_sql,

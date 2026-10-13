@@ -335,6 +335,9 @@ class TimeFilter:
             spec_type = "fiscal_year_period"
 
         if spec_type == "fiscal_year_period":
+            # Period-keyed data: closed periods only (src/analysis/complete_periods.py).
+            from src.analysis.complete_periods import closed_view
+            tf, today = closed_view(tf, today)
             period_col = cls._cast_period_col(
                 spec.get("period_column", "fiscal_period"),
                 dialect,
@@ -364,6 +367,9 @@ class TimeFilter:
             spec_type = "fiscal_year_period"
 
         if spec_type == "fiscal_year_period":
+            # Period-keyed data: closed periods only (src/analysis/complete_periods.py).
+            from src.analysis.complete_periods import closed_view
+            tf, today = closed_view(tf, today)
             period_col = cls._cast_period_col(
                 spec.get("period_column", "fiscal_period"),
                 dialect,
