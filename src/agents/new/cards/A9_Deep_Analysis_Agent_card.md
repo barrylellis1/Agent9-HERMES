@@ -1163,3 +1163,16 @@ Not done in this agent: asking Market Analysis the confirming question, and tell
 See those agents' cards.
 
 Tests: `tests/unit/test_deviation_scope.py`.
+
+### "Everywhere" is not claimed on a partial count (Oct 2026) 🔴
+
+Found by a live run on lubricants Premium Product Mix %: three dimensions went down the dual-query
+path and were counted (5 members), seven went down the Top-N path and were not, and
+`deviation_scope` read `general_uneven` although the uncounted customers had moved both ways
+(Fleet Customer C down 5.4 points, Independent Service Centers up 6.3). The direction happened to
+be favourable, so nothing downstream acted on it; an adverse result would have told the reader the
+gap was across the board on 5 of 49 segments.
+
+The Top-N call site now records its dimension in `_spread_uncounted`, and
+`assess(..., dimensions_not_counted=n)` returns None for a general result when n > 0. A localised
+result stands on a partial count, and reports `dimensions_not_counted`.

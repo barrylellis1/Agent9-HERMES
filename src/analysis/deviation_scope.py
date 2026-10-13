@@ -53,8 +53,18 @@ def member_stats(diffs: Iterable[Diff], trend_positive: bool) -> Dict[str, Any]:
     }
 
 
-def assess(stats_by_dimension: Optional[Dict[str, Dict[str, Any]]]) -> Optional[Dict[str, Any]]:
+def assess(
+    stats_by_dimension: Optional[Dict[str, Dict[str, Any]]],
+    dimensions_not_counted: int = 0,
+) -> Optional[Dict[str, Any]]:
     """-> {"kind", "direction", ...counts and gap range...}, or None when nothing was counted.
+
+    `dimensions_not_counted`: analysed dimensions whose members could not all be counted
+    (the Top-N path sees only N). "Everywhere" cannot be claimed while any exist, so a
+    general result becomes None. A localised result stands: one member moving each way
+    is enough, wherever it was found. Found live 2026-10-13 on lubricants Premium Product
+    Mix %: 5 members in 3 dimensions were counted, 7 dimensions were not, and the result
+    read "general" although the uncounted customers had moved both ways.
 
     kind:
     - "localised":       some members moved one way and some the other. There is an IS NOT.
@@ -69,6 +79,7 @@ def assess(stats_by_dimension: Optional[Dict[str, Dict[str, Any]]]) -> Optional[
     adverse = sum(s["adverse"] for s in dims.values())
     favourable = sum(s["favourable"] for s in dims.values())
     base = {
+        "dimensions_not_counted": int(dimensions_not_counted or 0),
         "dimensions_checked": len(dims),
         "members_checked": members,
         "adverse_members": adverse,
@@ -76,6 +87,8 @@ def assess(stats_by_dimension: Optional[Dict[str, Dict[str, Any]]]) -> Optional[
     }
     if adverse and favourable:
         return {"kind": "localised", "direction": None, **base}
+    if dimensions_not_counted:
+        return None
     direction = "adverse" if adverse else "favourable"
     pcts = [p for s in dims.values() for p in (s["gap_pcts"] if adverse else s["gain_pcts"])]
     if not pcts:

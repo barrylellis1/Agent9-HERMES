@@ -60,6 +60,14 @@ class TestAssess:
     def test_nothing_counted_is_none_not_a_verdict(self):
         assert assess({}) is None and assess(None) is None and assess({"product": {}}) is None
 
+    def test_everywhere_is_not_claimed_while_any_dimension_went_uncounted(self):
+        # live: Premium Product Mix %, 5 members counted in 3 dimensions, 7 dimensions Top-N only
+        assert assess({"product": member_stats(UNIFORM, True)}, dimensions_not_counted=7) is None
+
+    def test_a_localised_result_stands_on_a_partial_count(self):
+        scope = assess({"region": member_stats(MIXED, True)}, dimensions_not_counted=7)
+        assert scope["kind"] == "localised" and scope["dimensions_not_counted"] == 7
+
     def test_everything_up_is_general_in_the_favourable_direction(self):
         up = _diffs([(100.0, 110.0), (200.0, 221.0)])
         scope = assess({"product": member_stats(up, True)})

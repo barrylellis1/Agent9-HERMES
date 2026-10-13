@@ -1677,6 +1677,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     _all_problem_items: list = []
                     _all_healthy_items: list = []
                     _spread_stats: Dict[str, Dict[str, Any]] = {}  # per dimension, every member counted
+                    _spread_uncounted: set = set()  # dimensions analysed from a Top-N list only
 
                     # Primary path: hierarchical drill per vector if hierarchies present
                     hmap = _hierarchies_from_contract()
@@ -1892,6 +1893,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     # Apply Hybrid Threshold + Adaptive N selection
                                     # Determine trend direction from KPI registry (inverse_logic)
                                     kpi_trend_positive = self._trend_positive(plan.kpi_name, kpi_def)
+                                    # Top-N rows only: this dimension's members cannot all be counted.
+                                    _spread_uncounted.add(dim)
                                     where_is_items, where_is_not_items = self._select_variance_items(
                                         diffs_topn,
                                         threshold_pct=0.05,  # 5% variance threshold
@@ -2487,7 +2490,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             deviation_scope: Optional[Dict[str, Any]] = None
             try:
                 from src.analysis.deviation_scope import assess as _assess_scope
-                deviation_scope = _assess_scope(locals().get("_spread_stats"))
+                _counted = locals().get("_spread_stats") or {}
+                _not_counted = {d for d in (locals().get("_spread_uncounted") or set()) if not (_counted.get(d) or {}).get("members")}
+                deviation_scope = _assess_scope(_counted, dimensions_not_counted=len(_not_counted))
                 if deviation_scope:
                     self.logger.info(f"[DEVIATION-SCOPE] {deviation_scope}")
             except Exception as e:
