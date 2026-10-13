@@ -240,8 +240,23 @@ _GENERAL_DEVIATION_RULE = (
     "causes applies: a shift in the market (weigh the external market signals) or a comparison "
     "that is itself off (for a plan gap, a plan set too high). If an option is scoped to a "
     "segment for a practical reason (a pilot, the largest exposure), say that plainly, and size "
-    "its impact as that segment's share of the general gap."
+    "its impact as that segment's share of the general gap. In that option's impact_estimate set "
+    "\"scope\": \"segment\", \"scope_label\" to the segment's name exactly as it appears in the data, "
+    "and \"scope_reason\": \"pilot\" or \"largest_exposure\". This is checked: a segment-scoped figure "
+    "with no scope_reason, or larger than that segment's own gap, is flagged to the reader."
 )
+
+
+def _da_change_points(da_ctx: Any) -> List[Any]:
+    """The segment figures Deep Analysis measured, wherever the payload carries them."""
+    ctx = _model_to_dict(da_ctx)
+    if not isinstance(ctx, dict):
+        return []
+    exec_ctx = _model_to_dict(ctx.get("execution"))
+    for holder in (exec_ctx, ctx):
+        if isinstance(holder, dict) and isinstance(holder.get("change_points"), list):
+            return holder["change_points"]
+    return []
 
 
 def _general_deviation_note(ctx: Dict[str, Any], exec_ctx: Any) -> Optional[str]:
@@ -595,6 +610,7 @@ _SF_EVENT_SEVERITY: Dict[str, str] = {
     "llm_debate_error": "error",
     "heuristic_stub_fallback": "warning",
     "impact_scope_contradiction": "warning",
+    "general_deviation_scope_finding": "warning",
 }
 
 
@@ -744,6 +760,7 @@ def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
             basis=raw.get("basis"),
             scope=_scope,
             scope_label=raw.get("scope_label"),
+            scope_reason=(raw.get("scope_reason") if raw.get("scope_reason") in ("pilot", "largest_exposure") else None),
             lever=lever,
         )
     except Exception:
@@ -3751,6 +3768,27 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         "resolution": "scope reset to None (unverified)",
                                     })
                                 _opt_impact_estimate = _parse_impact_estimate(o.get("impact_estimate"))
+
+                                # The gap is everywhere: check what this option's figure is
+                                # declared to cover (src/analysis/general_deviation_gate.py).
+                                # The prompt asks; this is what holds the model to it.
+                                if _opt_impact_estimate is not None and da_summary.get("deviation_is_general"):
+                                    from src.analysis.general_deviation_gate import check_impact_scope
+                                    _scope_findings = check_impact_scope(
+                                        o.get("impact_estimate"), _da_change_points(da_ctx),
+                                    )
+                                    if _scope_findings:
+                                        _opt_impact_estimate = _opt_impact_estimate.model_copy(
+                                            update={"scope_findings": _scope_findings}
+                                        )
+                                        audit_log.append({
+                                            "event": "general_deviation_scope_finding",
+                                            "option_id": str(o.get("id") or f"opt{idx+1}"),
+                                            "findings": _scope_findings,
+                                            "scope": (o.get("impact_estimate") or {}).get("scope"),
+                                            "scope_label": (o.get("impact_estimate") or {}).get("scope_label"),
+                                            "scope_reason": (o.get("impact_estimate") or {}).get("scope_reason"),
+                                        })
 
                                 # Phase 17 D2: when the model named a computable
                                 # lever, attempt to OVERRIDE its own recovery_range

@@ -250,6 +250,10 @@ export interface ImpactEstimate {
   // enterprise KPI's name, sized from a single segment's decline.
   scope?: 'enterprise' | 'segment' | null;
   scope_label?: string | null;
+  // Set only when the gap is everywhere: why a figure is sized to one segment.
+  scope_reason?: 'pilot' | 'largest_exposure' | null;
+  // Codes from the backend's scope check (general_deviation_gate.py). Empty = passed.
+  scope_findings?: string[];
 }
 
 // Stage H: theory-guided moderator verdict for one option. Present only when

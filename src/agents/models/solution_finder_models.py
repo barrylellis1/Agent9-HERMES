@@ -134,6 +134,13 @@ class ImpactEstimate(A9AgentBaseModel):
     scope: Optional[Literal["enterprise", "segment"]] = None
     scope_label: Optional[str] = None  # e.g. "National Auto Parts Chain A"
 
+    # Why a figure is sized to a segment. Asked for only when Deep Analysis found the
+    # gap is everywhere (no segment is the cause), where the only true reasons are a
+    # pilot or the largest exposure. See src/analysis/general_deviation_gate.py.
+    scope_reason: Optional[Literal["pilot", "largest_exposure"]] = None
+    # Findings of that check, as codes. Empty = passed, or the check did not apply.
+    scope_findings: List[str] = Field(default_factory=list)
+
     # Phase 17 D2. lever: the model's named operational lever (optional, see
     # ImpactLever). source: which produced recovery_range above — 'computed'
     # ONLY when src.analysis.decomposition arithmetic actually overrode the

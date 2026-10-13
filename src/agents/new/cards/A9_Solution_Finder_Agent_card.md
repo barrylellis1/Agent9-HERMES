@@ -1004,3 +1004,34 @@ This is an instruction to a model: it steers the options, it does not guarantee 
 rejects an option that ignores it.
 
 Test: `tests/unit/test_sf_general_deviation.py`.
+
+### The scope rule is checked, not only requested (Oct 2026) 🔴
+
+Three live runs on the same data produced three option sets; in one, an option sized itself
+against "the four largest-declining SKUs". The rule above is a prompt instruction, so nothing held
+the model to it.
+
+`src/analysis/general_deviation_gate.py::check_impact_scope` now runs on every option's raw
+`impact_estimate` when `deviation_is_general` is set. It reads only declared fields, never prose:
+
+| Finding | Meaning |
+|---|---|
+| `scope_not_stated` | `scope` is neither `enterprise` nor `segment` |
+| `segment_scope_without_reason` | `scope: segment` without `scope_reason` of `pilot` or `largest_exposure` |
+| `segment_not_recognised` | `scope_label` names no member in the analysis's `change_points` |
+| `impact_exceeds_segment_gap` | `recovery_range.high` is larger than the named segment's own gap |
+
+`ImpactEstimate.scope_reason` is new and asked for in `_GENERAL_DEVIATION_RULE`. Findings are
+stored on `ImpactEstimate.scope_findings` and written to the audit log as
+`general_deviation_scope_finding` (warning). **The check flags; it does not reject or re-run.**
+An option with findings is still returned and can still be recommended.
+
+Segment gap for a label naming several members: members of the same dimension are added, and
+across dimensions the largest total is taken (the same dollars can appear under two dimensions).
+`change_points` is the analysis's capped list, so a correctly named small segment that is not in
+it reads as `segment_not_recognised`.
+
+Not checked: whether at least one option is the check that settles the cause, and what the
+description and rationale say. Those are prose.
+
+Tests: `tests/unit/test_general_deviation_gate.py`.
