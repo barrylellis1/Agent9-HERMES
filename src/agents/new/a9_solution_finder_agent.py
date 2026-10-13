@@ -256,6 +256,22 @@ def _general_deviation_note(ctx: Dict[str, Any], exec_ctx: Any) -> Optional[str]
         return None
 
 
+def _market_shift_line(da_ctx: Any) -> Optional[str]:
+    """Market Analysis's answer to "is the general gap a market-level shift?", for the
+    synthesis recap. None when the question was not asked. An answer with no cited
+    source is passed on as unsettled, whatever the model behind it said."""
+    shift = da_ctx.get("market_shift") if isinstance(da_ctx, dict) else None
+    if not isinstance(shift, dict) or not shift.get("assessment"):
+        return None
+    head = "MARKET-SHIFT CHECK (is the general gap a market-level shift?): "
+    if not shift.get("grounded") or shift["assessment"] == "insufficient":
+        return (
+            head + "NOT SETTLED. " + (shift.get("summary") or "") + " Do not state that the market "
+            "moved, or that it did not. Keep the check that settles it among the options."
+        ).replace("  ", " ")
+    return head + f"{shift['assessment']}, on cited sources. {shift.get('summary') or ''}".rstrip()
+
+
 def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
     ctx = _model_to_dict(da_ctx)
     if not isinstance(ctx, dict):
@@ -2210,14 +2226,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         dataset_recap_lines.append(f"DEVIATION IS GENERAL: {da_summary['deviation_is_general']}")
                         dataset_recap_lines.append(_GENERAL_DEVIATION_RULE)
 
-                    _shift = da_ctx.get("market_shift") if isinstance(da_ctx, dict) else None
-                    if isinstance(_shift, dict) and _shift.get("assessment"):
-                        dataset_recap_lines.append(
-                            "MARKET-SHIFT CHECK (is the general gap a market-level shift?): "
-                            f"{_shift['assessment']}. {_shift.get('summary') or ''} "
-                            + ("Rests on cited sources." if _shift.get("grounded")
-                               else "Rests on the model's own recollection, not on cited sources: treat as unconfirmed.")
-                        )
+                    _shift_line = _market_shift_line(da_ctx)
+                    if _shift_line:
+                        dataset_recap_lines.append(_shift_line)
 
                     # Add market conflict warning when external signals contradict DA conclusion
                     _s2_conflict = da_ctx.get("market_conflict") if isinstance(da_ctx, dict) else None

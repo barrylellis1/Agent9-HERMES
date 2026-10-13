@@ -992,8 +992,11 @@ When the deep-analysis context carries a general, adverse `deviation_scope`
   business; at least one option is a check that settles which candidate cause applies (market
   shift, or a comparison that is itself off); a segment-scoped option must say it is a pilot or
   the largest exposure and size itself as that segment's share.
-- Synthesis also gets Market Analysis's answer when present: "MARKET-SHIFT CHECK: <assessment>.
-  <summary>", with a plain statement of whether it rests on cited sources (`market_shift.grounded`).
+- Synthesis also gets Market Analysis's answer when present (`_market_shift_line`, read from the
+  top-level `market_shift` of the deep-analysis payload, beside `market_conflict`). A sourced
+  answer is passed on as given. An answer with no cited source is passed on as "NOT SETTLED",
+  with an instruction not to state that the market moved or did not; the model's unsourced view
+  is not passed on at all.
 
 A localised deviation, or one where nothing was counted (`deviation_scope` None), changes nothing.
 

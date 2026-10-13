@@ -66,3 +66,24 @@ def test_the_rule_is_wired_into_both_prompt_stages():
     assert 'da_compact_s1["how_to_read_the_segments"] = _GENERAL_DEVIATION_RULE' in src
     assert "dataset_recap_lines.append(_GENERAL_DEVIATION_RULE)" in src
     assert "Largest segments by size (extent, not cause)" in src
+
+
+class TestMarketShiftLine:
+    def test_not_asked_says_nothing(self):
+        from src.agents.new.a9_solution_finder_agent import _market_shift_line
+        assert _market_shift_line({}) is None and _market_shift_line({"market_shift": None}) is None
+        assert _market_shift_line("text") is None
+
+    def test_an_unsourced_answer_is_passed_on_as_unsettled(self):
+        from src.agents.new.a9_solution_finder_agent import _market_shift_line
+        line = _market_shift_line({"market_shift": {
+            "assessment": "insufficient", "grounded": False, "summary": "No sourced market evidence was available.",
+            "unsourced_assessment": "supported", "unsourced_summary": "Demand fell."}})
+        assert "NOT SETTLED" in line and "No sourced market evidence" in line
+        assert "supported" not in line and "Demand fell" not in line
+
+    def test_a_sourced_answer_is_passed_on_as_given(self):
+        from src.agents.new.a9_solution_finder_agent import _market_shift_line
+        line = _market_shift_line({"market_shift": {
+            "assessment": "not_supported", "grounded": True, "summary": "Industry volumes were steady."}})
+        assert "not_supported, on cited sources. Industry volumes were steady." in line

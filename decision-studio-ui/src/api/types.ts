@@ -181,6 +181,8 @@ export interface DeepAnalysisResult {
   execution: DeepAnalysisExecution;
   market_signals?: MarketSignal[];
   market_conflict?: MarketConflict | null;
+  /** Asked only when the gap is everywhere (no IS NOT). null = not asked. */
+  market_shift?: MarketShift | null;
   /** Phase 20 §14 decision 6 */
   market_synthesis?: MarketSynthesis | null;
   replication_constraints?: string[];
@@ -489,6 +491,17 @@ export interface MarketSignal {
   relevance_score: number
   published_at?: string
   url?: string
+}
+
+/**
+ * Market Analysis's answer to "is a gap that is everywhere a market-wide shift?".
+ * Without a cited source the assessment is always 'insufficient'.
+ */
+export interface MarketShift {
+  assessment: 'supported' | 'not_supported' | 'insufficient';
+  confidence?: number | null;
+  summary?: string | null;
+  grounded: boolean;
 }
 
 export interface MarketConflict {

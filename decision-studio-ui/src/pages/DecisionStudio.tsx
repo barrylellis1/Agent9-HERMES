@@ -30,6 +30,7 @@ export function DecisionStudio() {
     refinementResult,
     marketSignals,
     marketConflict,
+    marketShift,
     marketSynthesis,
     framingRequired,
     framingDecision,
@@ -136,6 +137,7 @@ export function DecisionStudio() {
         principalId={selectedPrincipal}
         initialMarketSignals={marketSignals}
         initialMarketConflict={marketConflict}
+        initialMarketShift={marketShift}
         initialMarketSynthesis={marketSynthesis}
         principalContext={{
             principal_id: selectedPrincipal,

@@ -21,7 +21,7 @@ import {
   AVAILABLE_PERSONAS,
   COUNCIL_PRESET_PERSONAS
 } from '../config/uiConstants';
-import { Client, Principal, MarketSignal, MarketConflict, MarketSynthesis } from '../api/types';
+import { Client, Principal, MarketSignal, MarketConflict, MarketShift, MarketSynthesis } from '../api/types';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
 
 // ── Principal mapping helpers ─────────────────────────────────────────────────
@@ -100,6 +100,7 @@ export function useDecisionStudio() {
   const [refinementResult, setRefinementResult] = useState<ProblemRefinementResult | null>(null);
   const [marketSignals, setMarketSignals] = useState<MarketSignal[]>([]);
   const [marketConflict, setMarketConflict] = useState<MarketConflict | null>(null);
+  const [marketShift, setMarketShift] = useState<MarketShift | null>(null);
   // Phase 20 §14 decision 6 — synthesis/confidence/sources_queried, already
   // computed by MA but silently dropped before this fix.
   const [marketSynthesis, setMarketSynthesis] = useState<MarketSynthesis | null>(null);
@@ -419,6 +420,7 @@ export function useDecisionStudio() {
         const signals: MarketSignal[] = result.market_signals || [];
         setMarketSignals(signals);
         setMarketConflict(result.market_conflict?.detected ? result.market_conflict : null);
+        setMarketShift(result.market_shift ?? null);
         setMarketSynthesis(result.market_synthesis ?? null);
 
     } catch (err) {
@@ -491,6 +493,7 @@ export function useDecisionStudio() {
             execution: currentAnalysis,
             market_signals: marketSignals.length > 0 ? marketSignals : undefined,
             market_conflict: marketConflict ?? undefined,
+            market_shift: marketShift ?? undefined,
             situation_context: selectedSituation ? {
                 kpi_name: selectedSituation.kpi_name,
                 description: selectedSituation.description,
@@ -703,6 +706,7 @@ export function useDecisionStudio() {
     refinementResult,
     marketSignals,
     marketConflict,
+    marketShift,
     marketSynthesis,
     framingRequired,
     framingDecision,

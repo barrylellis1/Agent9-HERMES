@@ -18,7 +18,7 @@ import {
   ExternalLink,
   ShieldAlert
 } from 'lucide-react';
-import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict, MarketSynthesis, FramingDecision, FramingPrompt } from '../../api/types';
+import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict, MarketShift, MarketSynthesis, FramingDecision, FramingPrompt } from '../../api/types';
 import { runDeepAnalysis } from '../../api/client';
 import { COUNCIL_PRESET_PERSONAS } from '../../config/uiConstants';
 import { formatExecutive } from '../../utils/formatExecutive';
@@ -166,6 +166,7 @@ interface DeepFocusViewProps {
   principalId: string;
   initialMarketSignals?: MarketSignal[];
   initialMarketConflict?: MarketConflict | null;
+  initialMarketShift?: MarketShift | null;
   // Phase 20 §14 decision 6
   initialMarketSynthesis?: MarketSynthesis | null;
   // Phase 11I-D on-demand comparator drill
@@ -206,6 +207,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   principalId,
   initialMarketSignals,
   initialMarketConflict,
+  initialMarketShift,
   initialMarketSynthesis,
   clientId,
   timeframe,
@@ -859,7 +861,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                 })()}
 
                 {/* Market Intelligence — separate accordion section */}
-                {(initialMarketSignals && initialMarketSignals.length > 0 || initialMarketConflict?.detected) && (
+                {(initialMarketSignals && initialMarketSignals.length > 0 || initialMarketConflict?.detected || initialMarketShift) && (
                     <AccordionSection
                         id="market-intelligence"
                         title="Market Intelligence"
@@ -867,6 +869,29 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                         summary={initialMarketSignals && initialMarketSignals.length > 0 ? `${initialMarketSignals.length} signal${initialMarketSignals.length === 1 ? '' : 's'}` : 'conflict detected'}
                     >
                         <div className="space-y-3">
+                            {/* Asked only when the gap is everywhere: is it the market? */}
+                            {initialMarketShift && (
+                              <div className="bg-slate-950 border border-slate-800 rounded-lg p-4" data-testid="market-shift-check">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                                  Is this a market-wide shift?
+                                </span>
+                                <p className="text-sm font-medium text-slate-200">
+                                  {initialMarketShift.assessment === 'supported'
+                                    ? 'The market evidence supports it.'
+                                    : initialMarketShift.assessment === 'not_supported'
+                                      ? 'The market evidence does not support it.'
+                                      : 'Not settled.'}
+                                </p>
+                                {initialMarketShift.summary && (
+                                  <p className="text-xs text-slate-400 leading-relaxed mt-1">{initialMarketShift.summary}</p>
+                                )}
+                                {!initialMarketShift.grounded && (
+                                  <p className="text-[11px] text-slate-500 mt-2">
+                                    The signals below come from the model's general knowledge, not from cited sources.
+                                  </p>
+                                )}
+                              </div>
+                            )}
                             {/* Phase 20 §14 decision 6 — MA's executive-narrative synthesis, already
                                 computed but silently dropped before this fix. Answer-first, same
                                 pattern as the SCQA Recommendation block. */}
@@ -1195,6 +1220,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                  execution: currentAnalysis,
                                  market_signals: initialMarketSignals && initialMarketSignals.length > 0 ? initialMarketSignals : undefined,
                                  market_conflict: initialMarketConflict ?? undefined,
+                                 market_shift: initialMarketShift ?? undefined,
                                  situation_context: {
                                      kpi_name: situation.kpi_name,
                                      description: situation.description,

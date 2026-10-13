@@ -120,6 +120,11 @@ def _parse_synthesis_reply(text: str) -> Optional[Dict[str, Any]]:
 
 _MARKET_SHIFT_ASSESSMENTS = ("supported", "not_supported", "insufficient")
 
+UNSOURCED_MARKET_SHIFT_SUMMARY = (
+    "No sourced market evidence was available, so a market-wide shift is neither "
+    "confirmed nor ruled out."
+)
+
 
 def _record_market_shift(
     extras_out: Optional[Dict[str, Any]],
@@ -132,7 +137,7 @@ def _record_market_shift(
     Only when the question was asked. An answer outside the three allowed values
     becomes "insufficient": an unreadable answer is not a confirmation. `grounded`
     records whether any signal carries a real source URL; without one the answer
-    rests on the model's own recollection and must be read that way.
+    rests on the model's own recollection and is recorded as "insufficient".
     """
     if extras_out is None or not request.general_deviation:
         return
@@ -146,12 +151,27 @@ def _record_market_shift(
         confidence = max(0.0, min(1.0, float(raw.get("confidence"))))
     except (TypeError, ValueError):
         confidence = None
-    extras_out["market_shift"] = {
+    summary = (str(raw.get("summary")).strip() or None) if raw.get("summary") else None
+    grounded = any(getattr(sig, "url", None) for sig in signals)
+    result: Dict[str, Any] = {
         "assessment": assessment,
         "confidence": confidence,
-        "summary": (str(raw.get("summary")).strip() or None) if raw.get("summary") else None,
-        "grounded": any(getattr(sig, "url", None) for sig in signals),
+        "summary": summary,
+        "grounded": grounded,
     }
+    if not grounded:
+        # No cited source: the answer is the model's recollection. Two live runs on the
+        # same data on 2026-10-13 answered "not_supported" then "supported". That is not
+        # a confirmation either way, so it is recorded as insufficient. What the model
+        # said is kept for the audit trail, never as the assessment.
+        result.update({
+            "assessment": "insufficient",
+            "confidence": None,
+            "summary": UNSOURCED_MARKET_SHIFT_SUMMARY,
+            "unsourced_assessment": assessment,
+            "unsourced_summary": summary,
+        })
+    extras_out["market_shift"] = result
 
 
 class A9_Market_Analysis_Agent:

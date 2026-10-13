@@ -19,6 +19,7 @@ from src.agents.models.market_analysis_models import (
 )
 from src.agents.new.a9_market_analysis_agent import (
     A9_Market_Analysis_Agent,
+    UNSOURCED_MARKET_SHIFT_SUMMARY,
     _parse_synthesis_reply,
     _record_market_shift,
 )
@@ -73,23 +74,38 @@ class TestRecordMarketShift:
             "assessment": "supported", "confidence": 0.7, "summary": "Demand fell 12%.", "grounded": True,
         }
 
-    def test_without_a_source_url_the_answer_is_marked_ungrounded(self):
+    def test_without_a_source_the_answer_is_insufficient_whatever_the_model_said(self):
+        for said in ("supported", "not_supported"):
+            out: dict = {}
+            _record_market_shift(out, _request(general_deviation=GENERAL),
+                                 {"market_shift": {"assessment": said, "confidence": 0.9, "summary": "Recalled."}},
+                                 [_signal()])
+            shift = out["market_shift"]
+            assert shift["assessment"] == "insufficient" and shift["grounded"] is False
+            assert shift["confidence"] is None and shift["summary"] == UNSOURCED_MARKET_SHIFT_SUMMARY
+            assert shift["unsourced_assessment"] == said and shift["unsourced_summary"] == "Recalled."
+
+    def test_with_a_source_the_answer_stands_and_nothing_unsourced_is_kept(self):
         out: dict = {}
         _record_market_shift(out, _request(general_deviation=GENERAL),
-                             {"market_shift": {"assessment": "supported", "confidence": 0.9}}, [_signal()])
-        assert out["market_shift"]["grounded"] is False and out["market_shift"]["summary"] is None
+                             {"market_shift": {"assessment": "not_supported", "confidence": 0.6, "summary": "Steady."}},
+                             [_signal(url="https://example.com/r")])
+        assert out["market_shift"]["assessment"] == "not_supported"
+        assert "unsourced_assessment" not in out["market_shift"]
 
     def test_an_answer_outside_the_three_values_is_not_a_confirmation(self):
         out: dict = {}
         _record_market_shift(out, _request(general_deviation=GENERAL),
-                             {"market_shift": {"assessment": "probably", "confidence": "high"}}, [])
+                             {"market_shift": {"assessment": "probably", "confidence": "high"}},
+                             [_signal(url="https://example.com/r")])
         assert out["market_shift"]["assessment"] == "insufficient"
         assert out["market_shift"]["confidence"] is None
 
     def test_confidence_is_held_between_zero_and_one(self):
         out: dict = {}
         _record_market_shift(out, _request(general_deviation=GENERAL),
-                             {"market_shift": {"assessment": "not_supported", "confidence": 7}}, [])
+                             {"market_shift": {"assessment": "not_supported", "confidence": 7}},
+                             [_signal(url="https://example.com/r")])
         assert out["market_shift"]["confidence"] == 1.0
 
     def test_nothing_is_recorded_when_the_question_was_not_asked(self):
@@ -161,7 +177,8 @@ class TestReadingTheReply:
         out: dict = {}
         text, conflict = await agent._synthesize(_request(general_deviation=GENERAL), [_signal()], "raw", extras_out=out)
         assert text == "Second attempt." and conflict is None
-        assert out["market_shift"]["assessment"] == "not_supported" and out["market_shift"]["grounded"] is False
+        assert out["market_shift"]["unsourced_assessment"] == "not_supported"
+        assert out["market_shift"]["assessment"] == "insufficient" and out["market_shift"]["grounded"] is False
 
     @pytest.mark.asyncio
     async def test_an_unreadable_reply_never_reaches_the_reader_as_a_payload(self):

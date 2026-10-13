@@ -276,8 +276,12 @@ candidates is a shift in the market, and this agent is asked whether its signals
 - **Output:** `MarketAnalysisResponse.market_shift` =
   `{"assessment": "supported" | "not_supported" | "insufficient", "confidence": 0-1 or None,
   "summary": str or None, "grounded": bool}`. `grounded` is true only when at least one signal
-  carries a source URL; in LLM-only mode it is always false and readers must treat the answer as
-  unconfirmed.
+  carries a source URL.
+- **No source, no answer 🔴:** when `grounded` is false (always, in LLM-only mode) the assessment
+  is recorded as `insufficient`, confidence None, with the fixed summary
+  `UNSOURCED_MARKET_SHIFT_SUMMARY`. What the model said is kept as `unsourced_assessment` /
+  `unsourced_summary` for the audit trail only; no surface may show it as the answer. Reason: two
+  live runs on the same data (2026-10-13) answered "not_supported" then "supported".
 - **Fail-safe:** `_record_market_shift` turns any answer outside the three values into
   `insufficient`. An unreadable answer is not a confirmation. If the model returns no
   `market_shift`, the field stays None (not asked, or not answered).

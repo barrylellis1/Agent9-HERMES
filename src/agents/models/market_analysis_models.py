@@ -130,8 +130,9 @@ class MarketAnalysisResponse(BaseModel):
             "Answer to the confirming question asked when Deep Analysis found the gap is general "
             "(no IS NOT): do the external signals support a market-level shift? assessment "
             "('supported'|'not_supported'|'insufficient'), confidence (0-1), summary (str), and "
-            "grounded (bool: at least one signal carries a real source URL). None when the "
-            "question was not asked."
+            "grounded (bool: at least one signal carries a real source URL). Without a source the "
+            "assessment is always 'insufficient' and the model's own answer is kept only as "
+            "unsourced_assessment / unsourced_summary. None when the question was not asked."
         ),
     )
     conflict: Optional[Dict[str, Any]] = Field(
