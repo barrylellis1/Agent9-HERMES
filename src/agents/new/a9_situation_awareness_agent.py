@@ -72,6 +72,22 @@ def _kpi_coverage_outcome(registered: int, evaluated: int) -> Optional[str]:
     return "fail" if evaluated == 0 else "pass"
 
 
+def _severity_for_band(evaluation: str) -> "SituationSeverity":
+    """Severity follows how far the actual sits from the target.
+
+    The bands are ordered by that distance: `yellow` missed the green target only,
+    `amber` missed yellow as well, `red` is past the red line. Until 2026-10-13 `yellow`
+    mapped to HIGH and `amber` to MEDIUM, so the smaller miss outranked the larger: live,
+    B2B Revenue (+3.1% against a 5% target) was HIGH while E-Commerce Revenue (+3.0%
+    against a 15% target) was MEDIUM.
+    """
+    if evaluation == "yellow":
+        return SituationSeverity.MEDIUM
+    if evaluation == "amber":
+        return SituationSeverity.HIGH
+    return SituationSeverity.CRITICAL
+
+
 def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: Any, window: str = "") -> str:
     """The card sentence for a KPI that moved against the prior year and is outside its green band.
 
@@ -3824,8 +3840,8 @@ class A9_Situation_Awareness_Agent:
                 # and BOTH mapped to SituationSeverity.CRITICAL. Observed live:
                 # 14 of 15 KPIs flagged CRITICAL on a single scan. 'amber' is
                 # the real, distinct signal for "missed yellow but still
-                # within the red band" and maps to MEDIUM, not CRITICAL — kept
-                # in sync with KPI.evaluate() in src/registry/models/kpi.py.
+                # within the red band" — kept in sync with KPI.evaluate() in
+                # src/registry/models/kpi.py. Severity per band: _severity_for_band().
                 evaluation = 'red'
                 if not inv:
                     if g is not None and percent_change >= g:
@@ -3847,11 +3863,7 @@ class A9_Situation_Awareness_Agent:
                         evaluation = 'red'
 
                 if evaluation in ('yellow', 'amber', 'red'):
-                    severity = (
-                        SituationSeverity.HIGH if evaluation == 'yellow'
-                        else SituationSeverity.MEDIUM if evaluation == 'amber'
-                        else SituationSeverity.CRITICAL
-                    )
+                    severity = _severity_for_band(evaluation)
                     situations.append(self._create_threshold_situation(
                         kpi_definition,
                         kpi_value,

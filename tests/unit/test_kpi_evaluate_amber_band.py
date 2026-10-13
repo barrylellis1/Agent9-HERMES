@@ -88,12 +88,13 @@ class TestKPIEvaluateNoRedThresholdConfigured:
 
 class TestSAAgentEmulationMatchesModel:
     """The inline emulation in a9_situation_awareness_agent.py must classify
-    identically to KPI.evaluate() and map 'amber' to MEDIUM severity, not
-    CRITICAL — same live case as above, exercised through the SA agent's own
-    threshold-breach detection path."""
+    identically to KPI.evaluate() and keep 'amber' distinct from 'red' — same
+    live case as above. Severity follows the distance from target: yellow
+    (missed green only) is MEDIUM, amber (missed yellow too) is HIGH, red is
+    CRITICAL."""
 
     @pytest.mark.asyncio
-    async def test_amber_band_maps_to_medium_not_critical(self):
+    async def test_amber_band_is_high_not_critical(self):
         from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent
         from src.agents.models.situation_awareness_models import SituationSeverity
 
@@ -119,9 +120,12 @@ class TestSAAgentEmulationMatchesModel:
                 evaluation = "red"
 
         assert evaluation == "amber"
-        severity = (
-            SituationSeverity.HIGH if evaluation == "yellow"
-            else SituationSeverity.MEDIUM if evaluation == "amber"
-            else SituationSeverity.CRITICAL
-        )
-        assert severity == SituationSeverity.MEDIUM
+        from src.agents.new.a9_situation_awareness_agent import _severity_for_band
+        assert _severity_for_band(evaluation) == SituationSeverity.HIGH
+
+    def test_the_larger_miss_never_ranks_below_the_smaller(self):
+        from src.agents.new.a9_situation_awareness_agent import _severity_for_band
+        from src.agents.models.situation_awareness_models import SituationSeverity
+        assert _severity_for_band("yellow") == SituationSeverity.MEDIUM
+        assert _severity_for_band("amber") == SituationSeverity.HIGH
+        assert _severity_for_band("red") == SituationSeverity.CRITICAL

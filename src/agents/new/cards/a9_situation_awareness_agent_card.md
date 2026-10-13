@@ -600,5 +600,8 @@ reason and read as an error. Found live 2026-10-13 on five lubricants KPIs.
 the mirror for a cost that fell by too little, or rose past its limit). With no green threshold the
 sentence is unchanged. Test: `tests/unit/test_sa_threshold_sentence.py`.
 
-Not changed, and worth a decision: in the `variance_thresholds` path a `yellow` evaluation (missed
-green only) maps to severity HIGH while `amber` (missed yellow too, a worse result) maps to MEDIUM.
+**Severity follows the distance from target (decided 2026-10-13).** `_severity_for_band()`: `yellow`
+(missed green only) is MEDIUM, `amber` (missed yellow too) is HIGH, `red` is CRITICAL. Before this,
+`yellow` was HIGH and `amber` MEDIUM, so the smaller miss outranked the larger (live: B2B Revenue
++3.1% against a 5% target was HIGH; E-Commerce Revenue +3.0% against a 15% target was MEDIUM). This
+supersedes the "amber maps to MEDIUM" statement in the Aug 2026 amber-band section above.
