@@ -5145,7 +5145,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     return {"sql": bq_sql, "kpi_name": kpi_name, "transaction_id": transaction_id, "success": True, "message": f"BigQuery SQL generated for {kpi_name}"}
 
             elif _source_system in ('sqlserver', 'sql_server', 'mssql'):
-                if breakdown and override_group_by:
+                # The builder is asked for EVERY shape, grouped or not. Until 2026-10-13 an
+                # un-grouped request skipped it and got the stored SQL back with no period
+                # filter at all, for the current AND the prior period: Deep Analysis's
+                # overall total for Hess read 1,996.9M vs 1,996.9M (all-time, delta 0)
+                # beside a card showing 73.6M vs 214.8M for the quarter.
+                if True:
                     ss_sql = self._build_ss_dimensional_sql(
                         _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by,
                         comparison_period, time_spec=_time_spec,

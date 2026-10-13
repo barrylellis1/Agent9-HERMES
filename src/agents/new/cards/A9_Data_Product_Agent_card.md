@@ -409,3 +409,18 @@ code path the guard runs in.
 **Not fixed here**: `tests/integration/test_nlp_interface_agent.py` has 3 pre-existing failures from
 `Data Governance Agent not initialized` in the integration fixture (`_wire_governance_dependencies`
 not called). Unrelated, unchanged by this work, and verified identical before and after.
+
+## SQL Server: an un-grouped request is period-filtered too (Oct 2026) 🔴
+
+`generate_sql_for_kpi` routed a SQL Server KPI through `_build_ss_dimensional_sql` only when
+`breakdown and override_group_by`. An un-grouped (scalar) request fell through to "Using stored
+T-SQL" and returned the registry SQL with no period condition, for `comparison_period=False` and
+`True` alike. Found live 2026-10-13 on Hess: Deep Analysis's overall total read 1,996.9M vs
+1,996.9M (all-time, delta 0) beside a situation card of 73.6M vs 214.8M for the quarter.
+
+The builder already had the un-grouped branch (`TimeFilter.current_condition` /
+`previous_condition` appended to the stored SQL); the router now calls it for every shape. The
+stored SQL is still returned unfiltered when the builder yields nothing or no timeframe is given.
+BigQuery, Snowflake and Databricks already routed every shape through their builders.
+
+Test: `tests/unit/test_ss_scalar_period_filter.py`.
