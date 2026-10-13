@@ -249,6 +249,12 @@ def run_cycle(client: httpx.Client, scenario: Scenario) -> CycleResult:
         "solution_id": result.va_solution_id,
         "current_kpi_value": current,
     })
+    if resp.status_code == 409:
+        # No verdict before the measurement window closes (or without a recorded
+        # baseline). An outcome can no longer be produced the moment after approval.
+        result.error = f"evaluation refused: {resp.json().get('detail')}"
+        print(f"  SKIP: {result.error}")
+        return result
     resp.raise_for_status()
     eval_data = resp.json()
     # SolutionVerdict serializes uppercase ("VALIDATED"/"PARTIAL"/"FAILED").

@@ -123,7 +123,7 @@ def register_request(strategy_snapshot) -> RegisterSolutionRequest:
         solution_description="Renegotiate supplier contracts to reduce COGS",
         expected_impact_lower=2.0,
         expected_impact_upper=4.5,
-        measurement_window_days=30,
+        measurement_window_days=0,  # window already closed: these tests evaluate straight after approval
         benchmark_segments=[{"dimension": "product_line", "key": "lubricants", "delta": -2.1, "delta_pct": -4.5, "benchmark_type": "control_group"}],
         ma_market_signals=[
             "Global oil prices dropped 12% in Feb 2026",

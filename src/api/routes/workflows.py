@@ -1138,6 +1138,12 @@ async def _record_solution_action(
             plan_value_at_approval = _situation_full_payload.get("plan_value")
             _baseline_value, _baseline_period = _baseline_from_situation(_situation_full_payload, kpi_id)
             _trend_slope = _trend_slope_from_situation(_situation_full_payload, kpi_id)
+            # Whether a lower value is the better outcome, as Situation Awareness
+            # recorded it for this KPI. Only when the solution targets that same KPI.
+            _lower_is_better = None
+            if kpi_id and _situation_full_payload.get("kpi_id") == kpi_id:
+                _inv = (_situation_full_payload.get("kpi_value") or {}).get("inverse_logic")
+                _lower_is_better = bool(_inv) if _inv is not None else None
             if _baseline_value is None:
                 _va_log.warning(
                     "[VA] No KPI value at approval could be recorded for kpi=%s situation=%s "
@@ -1226,6 +1232,7 @@ async def _record_solution_action(
                 baseline_kpi_value=_baseline_value,
                 baseline_period=_baseline_period,
                 pre_approval_monthly_slope=_trend_slope,
+                kpi_lower_is_better=_lower_is_better,
                 client_id=_va_client_id,
                 bets_on_assumptions=bets_on_assumptions,
                 framing_snapshot=framing_snapshot,

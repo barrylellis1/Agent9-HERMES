@@ -37,6 +37,7 @@ def _register(**over) -> RegisterSolutionRequest:
     base = dict(
         request_id="r1", principal_id="cfo_001", situation_id="sit1", kpi_id="net_revenue",
         solution_description="win-back", expected_impact_lower=2.0, expected_impact_upper=6.0,
+        measurement_window_days=0,  # window already closed
         strategy_snapshot=_snapshot(),
     )
     base.update(over)

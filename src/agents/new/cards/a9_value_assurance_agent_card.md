@@ -514,3 +514,35 @@ tenant-scoped.
   on manual entry.
 
 Tests: `tests/unit/test_va_actuals_from_warehouse.py`.
+
+### 3. The verdict is read from the three lines, at window close
+
+`evaluate_solution_impact()` compared one caller-supplied number with the baseline and the expected
+range. It never looked at the No Action line, and it produced a verdict whenever it was called: a
+solution with a 90-day window, evaluated the instant after approval, came back VALIDATED and
+COMPLETE.
+
+- `_actual_at_window_close()` picks the value to judge. If the Actual line holds the closing month
+  (month `window_days // 30`, minimum 1) that point is used and any supplied number is ignored. If
+  it does not, but the window has closed by the calendar and the caller supplied a reading, the
+  reading is used. Otherwise it raises `MeasurementWindowOpenError` (route: 409) and nothing about
+  the solution changes.
+- `_verdict_from_three_lines()` is the rule:
+  - VALIDATED: Actual reached the Solution line's lower bound (change since acceptance, less any
+    adjustment, is at least `expected_impact_lower`).
+  - PARTIAL: it did not, but Actual is better than No Action at that month.
+  - FAILED: Actual is no better than No Action.
+- `attributable_impact` is now Actual minus No Action at the closing month, less the adjustments
+  (untouched segments, market, seasonal). `total_kpi_change` is still Actual minus the baseline.
+- Direction: `StrategySnapshot.kpi_lower_is_better` is recorded at approval from the situation's
+  `inverse_logic`. For a cost the Solution line points down and "better" means lower. When it was not
+  recorded, higher is treated as better, as before.
+- `EvaluateSolutionRequest.current_kpi_value` is now optional.
+
+With a flat No Action line and a window that has closed, results are the same as before; the
+existing verdict tests pass unchanged apart from their fixture declaring the window closed.
+
+Not changed here: the adjustments are still supplied by the caller and still subtracted as raw
+numbers (see items 4 and 5).
+
+Tests: `tests/unit/test_va_three_line_verdict.py`.

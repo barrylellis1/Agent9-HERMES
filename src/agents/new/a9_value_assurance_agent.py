@@ -232,6 +232,83 @@ def _actuals_are_stale(solution: "AcceptedSolution", today: Optional[str] = None
     return month_index(current_month(today)) - 1 > month_index(last)
 
 
+class MeasurementWindowOpenError(ValueError):
+    """The measurement window has not closed, so there is no verdict yet."""
+
+
+def _window_months(measurement_window_days: int) -> int:
+    return max(int(measurement_window_days) // 30, 1)
+
+
+def _days_since(iso_timestamp: str, now_iso: str) -> float:
+    def _parse(value: str) -> datetime:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+    return (_parse(now_iso) - _parse(iso_timestamp)).total_seconds() / 86400.0
+
+
+def _actual_at_window_close(
+    solution: "AcceptedSolution", supplied_value: Optional[float], now_iso: str
+) -> Tuple[float, int, str]:
+    """The Actual value to judge, the month it belongs to, and where it came from.
+
+    1. The Actual line holds the closing month -> that point ("actual_line").
+    2. It does not, but the window has closed by the calendar and the caller
+       supplied a reading -> that reading ("supplied").
+    3. Otherwise the window is still open -> MeasurementWindowOpenError.
+
+    Until Oct 2026 a verdict was produced whenever evaluation was called. A
+    solution with a 90-day window, evaluated the instant after approval, came
+    back "held up" and was marked complete.
+    """
+    months = _window_months(solution.measurement_window_days)
+    measured = len(solution.actual_trend or []) - 1
+    if measured >= months:
+        return float(solution.actual_trend[months]), months, "actual_line"
+    elapsed = _days_since(solution.approved_at, now_iso)
+    if elapsed >= solution.measurement_window_days and supplied_value is not None:
+        return float(supplied_value), months, "supplied"
+    raise MeasurementWindowOpenError(
+        f"The measurement window for solution '{solution.solution_id}' has not closed: "
+        f"{max(measured, 0)} of {months} month(s) measured, {max(elapsed, 0):.0f} of "
+        f"{solution.measurement_window_days} days elapsed."
+    )
+
+
+def _verdict_from_three_lines(
+    actual: float,
+    baseline: float,
+    no_action: float,
+    expected_lower: float,
+    adjustment: float,
+    lower_is_better: bool,
+) -> Tuple["SolutionVerdict", float, float]:
+    """Judge Actual against the Solution and No Action lines at window close.
+
+    -> (verdict, change since acceptance, change credited to the decision), the
+    two changes in the KPI's own units and direction.
+
+    `adjustment` is the part of the movement put down to something other than
+    the decision (untouched segments, market, seasonal), in the same units.
+
+    - Held up: Actual reached the Solution line's lower bound.
+    - Partly held up: it did not, but Actual is better than No Action. The
+      decision beat doing nothing, without delivering what was expected.
+    - Did not hold: Actual is no better than No Action.
+
+    "Better" follows the KPI: for a cost, lower is better.
+    """
+    sign = -1.0 if lower_is_better else 1.0
+    total_change = actual - baseline
+    credited = actual - no_action - adjustment
+    gain_on_baseline = sign * (total_change - adjustment)
+    gain_on_no_action = sign * credited
+    if gain_on_baseline >= expected_lower and gain_on_baseline > 0:
+        return SolutionVerdict.VALIDATED, total_change, credited
+    if gain_on_no_action > 0:
+        return SolutionVerdict.PARTIAL, total_change, credited
+    return SolutionVerdict.FAILED, total_change, credited
+
+
 class BaselineNotRecordedError(ValueError):
     """The KPI's value at approval was never recorded, so no change can be measured."""
 
@@ -650,6 +727,11 @@ class A9_Value_Assurance_Agent:
                 "kpi_value_at_approval": request.baseline_kpi_value,
                 "kpi_value_period": request.baseline_period,
             })
+        if request.kpi_lower_is_better is not None:
+            snapshot = StrategySnapshot(**{
+                **snapshot.model_dump(),
+                "kpi_lower_is_better": request.kpi_lower_is_better,
+            })
 
         # --- Compute three-trajectory projections ---
         approved_at = _utcnow()
@@ -682,7 +764,10 @@ class A9_Value_Assurance_Agent:
         inaction_trend = [baseline + pre_slope * m for m in range(inaction_horizon + 1)]
 
         # Expected trend: linear interpolation from baseline to baseline + midpoint recovery
-        midpoint_recovery = (request.expected_impact_lower + request.expected_impact_upper) / 2.0
+        # The expected range is stated as an improvement. For a cost, improving
+        # means the value falls, so the Solution line points down.
+        _direction = -1.0 if snapshot.kpi_lower_is_better else 1.0
+        midpoint_recovery = _direction * (request.expected_impact_lower + request.expected_impact_upper) / 2.0
         expected_trend = [
             baseline + midpoint_recovery * (m / window_months) if window_months > 0 else baseline
             for m in range(window_months + 1)
@@ -776,10 +861,18 @@ class A9_Value_Assurance_Agent:
                 f"Solution '{request.solution_id}' has no KPI value recorded at approval, "
                 "so its outcome cannot be measured."
             )
-        current_kpi_value = request.current_kpi_value
+        # Bring the Actual line up to date, then take the value at window close.
+        solution = await self._refresh_actuals(solution)
+        current_kpi_value, close_month, actual_source = _actual_at_window_close(
+            solution, request.current_kpi_value, _utcnow(),
+        )
+        no_action_series = solution.inaction_trend or []
+        no_action_value = (
+            float(no_action_series[close_month])
+            if len(no_action_series) > close_month else float(baseline_kpi_value)
+        )
 
-        # DiD components
-        total_change = current_kpi_value - baseline_kpi_value
+        # Movement put down to something other than the decision.
         control_change = (
             mean(request.control_group_kpi_values)
             if request.control_group_kpi_values
@@ -788,18 +881,23 @@ class A9_Value_Assurance_Agent:
         market_recovery = request.market_recovery_estimate or 0.0
         seasonal = request.seasonal_estimate or 0.0
 
-        attributable = total_change - control_change - market_recovery - seasonal
-
-        # Verdict
         expected_lower = solution.expected_impact_lower
         expected_upper = solution.expected_impact_upper
 
-        if attributable >= expected_lower and attributable > 0:
-            verdict = SolutionVerdict.VALIDATED
-        elif attributable > 0:
-            verdict = SolutionVerdict.PARTIAL
-        else:
-            verdict = SolutionVerdict.FAILED
+        # Settled design: judge Actual against the Solution and No Action lines.
+        verdict, total_change, attributable = _verdict_from_three_lines(
+            actual=current_kpi_value,
+            baseline=float(baseline_kpi_value),
+            no_action=no_action_value,
+            expected_lower=expected_lower,
+            adjustment=control_change + market_recovery + seasonal,
+            lower_is_better=bool(solution.strategy_snapshot.kpi_lower_is_better),
+        )
+        self.logger.info(
+            "%s: verdict %s -- actual=%.4f (%s, month %d) baseline=%.4f no_action=%.4f",
+            self.name, verdict.value, current_kpi_value, actual_source, close_month,
+            float(baseline_kpi_value), no_action_value,
+        )
 
         # Confidence
         signals_present = sum([

@@ -357,8 +357,10 @@ async def evaluate_solution(
         return response
     except ValueError as exc:
         # A missing baseline is a state of the record, not a missing record.
-        from src.agents.new.a9_value_assurance_agent import BaselineNotRecordedError
-        status = 409 if isinstance(exc, BaselineNotRecordedError) else 404
+        from src.agents.new.a9_value_assurance_agent import (
+            BaselineNotRecordedError, MeasurementWindowOpenError,
+        )
+        status = 409 if isinstance(exc, (BaselineNotRecordedError, MeasurementWindowOpenError)) else 404
         raise HTTPException(status_code=status, detail=str(exc)) from exc
     except Exception as exc:
         logger.error("VA evaluate_solution_impact failed: %s", exc)

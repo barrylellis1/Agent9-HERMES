@@ -133,6 +133,10 @@ class StrategySnapshot(BaseModel):
     # number the caller supplied.
     kpi_value_at_approval: Optional[float] = None
     kpi_value_period: Optional[str] = None
+    # True when a LOWER value of this KPI is the better outcome (a cost). Decides
+    # which way the Solution line points and how a change is judged. None = not
+    # recorded; higher is then treated as better, as it always was before.
+    kpi_lower_is_better: Optional[bool] = None
 
     @field_validator("key_assumptions", mode="before")
     @classmethod
@@ -309,6 +313,7 @@ class RegisterSolutionRequest(BaseModel):
     # before it. This is the slope of the "No Action" line. None = not measured,
     # and the line is then flat.
     pre_approval_monthly_slope: Optional[float] = None
+    kpi_lower_is_better: Optional[bool] = None            # threaded into StrategySnapshot
     # Phase 15 Stage F: the approved option's "bets on" assumptions (SolutionOption.
     # key_assumptions from SF's synthesis, Stage B) — threaded into the
     # StrategySnapshot VA measures against, whichever path builds it. Previously
@@ -348,7 +353,10 @@ class EvaluateSolutionRequest(BaseModel):
     request_id: str
     principal_id: str
     solution_id: str
-    current_kpi_value: float
+    # The KPI's value at the close of the measurement window. Used only when the
+    # Actual line does not yet hold that month (backends with no monthly series).
+    # When the line does hold it, the line is used and this is ignored.
+    current_kpi_value: Optional[float] = None
     control_group_kpi_values: Optional[List[float]] = None
     market_recovery_estimate: Optional[float] = None
     seasonal_estimate: Optional[float] = None

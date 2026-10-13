@@ -129,7 +129,14 @@ def test_plan_variance_full_pipeline(e2e_client) -> None:
             "No KPI value was recorded at approval, so the outcome cannot be measured. "
             "Cause: the SQL Server monthly series has unusable period labels."
         )
-    eval_result = evaluate_va_solution(api_client, PRINCIPAL_ID, va_solution_id, current_actual)
+    # A verdict is given only once the measurement window has closed. Straight after
+    # go-live it has not, and the correct response is a refusal that says so.
+    try:
+        eval_result = evaluate_va_solution(api_client, PRINCIPAL_ID, va_solution_id, current_actual)
+    except httpx.HTTPStatusError as exc:
+        assert exc.response.status_code == 409, exc.response.text
+        assert "has not closed" in exc.response.text, exc.response.text
+        return
     vs_plan_verdict = eval_result["evaluation"].get("vs_plan_verdict")
     assert vs_plan_verdict is not None and vs_plan_verdict != "no_plan_data", (
         f"Expected a real vs_plan_verdict (ahead/on/behind) given plan_value_at_approval="
