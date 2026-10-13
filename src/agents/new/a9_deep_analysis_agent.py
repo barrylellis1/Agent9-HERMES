@@ -394,6 +394,12 @@ def _situation_period(timeframe: Any) -> Any:
     return _SITUATION_PERIOD_TOKEN.get(key, timeframe)
 
 
+def _total_comparison_basis(comparator: Any) -> str:
+    """Which comparison the overall total is measured on: "budget" (the plan over the
+    same period) or "previous" (the prior period). Anything unrecognised is "previous"."""
+    return "budget" if str(comparator or "").strip().lower() == "budget" else "previous"
+
+
 def _keep_primary_totals(totals: Dict[str, Any]) -> Dict[str, Any]:
     """A copy of the totals recorded so far, taken before the second-basis pass."""
     return dict(totals)
@@ -2709,11 +2715,27 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         if isinstance(i, dict) and i.get("dimension")
                     }
                     if _dims_present:
+                        # The total must be measured on the SAME basis as the segments. Against
+                        # plan, the comparison is the plan over the same period, not the prior
+                        # period. Found live 2026-10-13 on Net Revenue (lubricants and Apex):
+                        # every segment was measured against plan (16.1% below) while the total
+                        # beside them read 42.68M vs 41.42M, which is the prior year (+3.0%).
+                        _total_basis = _total_comparison_basis(locals().get("comparator_main"))
+                        _plan_kpi = self._budget_variant_kpi(kpi_def) if _total_basis == "budget" else None
+
                         async def _scalar(comparison: bool):
-                            g = await self.data_product_agent.generate_sql_for_kpi(
-                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None),
-                                breakdown=False, comparison_period=comparison,
-                            )
+                            if comparison and _total_basis == "budget":
+                                if _plan_kpi is None:
+                                    return None  # no plan figure: say nothing, not the prior year
+                                g = await self.data_product_agent.generate_sql_for_kpi(
+                                    _plan_kpi, timeframe=cur_tf, filters=getattr(plan, "filters", None),
+                                    breakdown=False, comparison_period=False,
+                                )
+                            else:
+                                g = await self.data_product_agent.generate_sql_for_kpi(
+                                    kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None),
+                                    breakdown=False, comparison_period=comparison,
+                                )
                             if not g.get("success"):
                                 return None
                             ex = await self.data_product_agent.execute_sql(g.get("sql"), data_product_id=dp_id)
@@ -2725,7 +2747,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             return float(v) if v is not None else None
 
                         _ov_cur = await _scalar(False)
-                        _ov_prev = await _scalar(True) if prev_tf else None
+                        _ov_prev = await _scalar(True) if (prev_tf or _total_basis == "budget") else None
                         if _ov_cur is not None or _ov_prev is not None:
                             _ov = DimensionTotal(
                                 current=_ov_cur, previous=_ov_prev,

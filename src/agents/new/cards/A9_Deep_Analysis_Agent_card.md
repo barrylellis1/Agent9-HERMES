@@ -1232,3 +1232,14 @@ labelled `rollup`.
 
 `_keep_primary_totals` / `_restore_primary_totals` now snapshot `_dimension_totals` before the
 second-basis pass and restore it in a `finally`. Tests: `tests/unit/test_da_primary_totals.py`.
+
+### Against plan, the fallback total is the plan, not the prior year (Oct 2026) 🔴
+
+When no path recorded a rolled-up total, the scalar fallback asked for the current period and the
+PRIOR period whatever the comparator was. For a plan gap that put a prior-year total beside
+segments measured against plan. Found live on Net Revenue (lubricants BigQuery and Apex Snowflake):
+all segments 16.1% below plan, total reading 42.68M vs 41.42M (+3.0%, the prior year).
+
+The fallback now reads `comparator_main`: on `budget` the comparison figure comes from
+`_budget_variant_kpi` over the same period. If no plan query can be derived, the comparison is left
+empty. Test: `tests/unit/test_da_primary_totals.py`.

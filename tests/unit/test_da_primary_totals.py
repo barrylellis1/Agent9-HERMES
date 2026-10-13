@@ -32,3 +32,10 @@ def test_the_same_dict_object_is_restored_in_place():
     totals["x"] = 2
     _restore_primary_totals(totals, kept)
     assert alias is totals and alias == {"region": 1}
+
+
+def test_the_total_is_measured_on_the_same_basis_as_the_segments():
+    from src.agents.new.a9_deep_analysis_agent import _total_comparison_basis
+    assert _total_comparison_basis("budget") == "budget" and _total_comparison_basis(" Budget ") == "budget"
+    assert _total_comparison_basis("previous") == "previous"
+    assert _total_comparison_basis(None) == "previous" and _total_comparison_basis("other") == "previous"
