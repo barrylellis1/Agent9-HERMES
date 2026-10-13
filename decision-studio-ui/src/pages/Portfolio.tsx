@@ -8,7 +8,7 @@ import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { TrajectoryChart } from '../components/visualizations/TrajectoryChart';
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel';
 import { AttributionBreakdown } from '../components/AttributionBreakdown';
-import { useKpiNames } from '../hooks/useKpiNames';
+import { useKpiNames, useKpiUnits, formatKpiChange } from '../hooks/useKpiNames';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -98,6 +98,8 @@ interface DetailPanelProps {
 
 function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpdated }: DetailPanelProps) {
   const kpiName = useKpiNames();
+  const kpiUnit = useKpiUnits();
+  const fmtChange = (v: number) => formatKpiChange(v, kpiUnit(solution.kpi_id));
   const [measurementValue, setMeasurementValue] = useState('');
   const [recording, setRecording] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
@@ -309,6 +311,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
             evaluation={solution.impact_evaluation}
             compositeVerdict={solution.impact_evaluation.composite_verdict ?? undefined}
             onViewAttribution={() => setShowAttribution(!showAttribution)}
+            formatValue={fmtChange}
           />
           {showAttribution && (
             <AttributionBreakdown
@@ -320,6 +323,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
               expectedLower={solution.impact_evaluation.expected_impact_lower}
               expectedUpper={solution.impact_evaluation.expected_impact_upper}
               controlGroupDescription={solution.impact_evaluation.control_group_description ?? undefined}
+              formatValue={fmtChange}
             />
           )}
         </>

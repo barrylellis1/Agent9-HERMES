@@ -24,6 +24,8 @@ interface ValueAssurancePanelProps {
   evaluation?: ImpactEvaluation;
   compositeVerdict?: CompositeVerdict;
   onViewAttribution?: () => void;
+  /** Formats a KPI change with its real unit. Without it figures fall back to a bare number. */
+  formatValue?: (value: number) => string;
   onViewNarrative?: () => void;
 }
 
@@ -117,9 +119,11 @@ function AlignmentBadge({ verdict }: { verdict: StrategyAlignment }) {
   );
 }
 
-function formatDelta(value: number, unit = '%'): string {
+// No unit is assumed. This used to append "%" to every figure, which rendered a
+// $575K revenue change as "+575000.0%".
+function bareDelta(value: number): string {
   const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(1)}${unit}`;
+  return `${sign}${value.toFixed(1)}`;
 }
 
 function formatDate(iso: string): string {
@@ -172,7 +176,9 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
   compositeVerdict,
   onViewAttribution,
   onViewNarrative,
+  formatValue,
 }) => {
+  const formatDelta = formatValue ?? bareDelta;
   const alignmentVerdict = evaluation?.strategy_check?.alignment_verdict;
   const driftSummary = evaluation?.strategy_check?.drift_summary;
 
@@ -344,7 +350,7 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
                 >
                   <BarChart2 className="w-3.5 h-3.5" />
-                  View Attribution
+                  View breakdown
                 </button>
               )}
               {onViewNarrative && (

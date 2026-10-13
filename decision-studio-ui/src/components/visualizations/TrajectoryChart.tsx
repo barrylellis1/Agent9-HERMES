@@ -461,6 +461,7 @@ export const TrajectoryChart: React.FC<TrajectoryChartProps> = (props) => {
         <div className="flex items-center justify-center h-40 text-slate-500 text-sm">
           {props.phase === 'APPROVED' ? 'Awaiting implementation start' :
            props.phase === 'IMPLEMENTING' ? 'Solution being deployed — go live to begin measurement' :
+           props.phase === 'COMPLETE' ? 'No monthly measurements were recorded for this decision' :
            'First measurement period in progress'}
         </div>
       ) : (

@@ -10,6 +10,7 @@ import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefing
 import { projectKpiTrend, truncateProse, endsSentence, axisDiscrimination } from '../utils/briefingUtils'
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
 import { AttributionBreakdown } from '../components/AttributionBreakdown'
+import { useKpiUnits, formatKpiChange } from '../hooks/useKpiNames'
 import { BrandLogo } from '../components/BrandLogo'
 import { DecisionAskBlock } from '../components/briefing/DecisionAskBlock'
 import { ImmediateActionsChecklist } from '../components/briefing/ImmediateActionsChecklist'
@@ -486,6 +487,7 @@ export function ExecutiveBriefing() {
   const [vaSolutionId, setVaSolutionId] = useState<string | null>(null)
   const [vaData, setVaData] = useState<VASolution | null>(null)
   const [showAttribution, setShowAttribution] = useState(false)
+  const kpiUnitFor = useKpiUnits()
   // Index into data.options; null = closed. Held as an index rather than the
   // option object so a re-fetch cannot leave a stale copy open.
   const [drawerIdx, setDrawerIdx] = useState<number | null>(null)
@@ -1484,6 +1486,7 @@ export function ExecutiveBriefing() {
                             evaluation={vaData.impact_evaluation ?? undefined}
                             compositeVerdict={vaData.impact_evaluation?.composite_verdict ?? undefined}
                             onViewAttribution={() => setShowAttribution(!showAttribution)}
+                            formatValue={(v: number) => formatKpiChange(v, kpiUnitFor((vaData as any).kpi_id))}
                           />
                           {showAttribution && vaData.impact_evaluation && (
                             <div className="mt-3">
@@ -1496,6 +1499,7 @@ export function ExecutiveBriefing() {
                                 expectedLower={vaData.impact_evaluation.expected_impact_lower}
                                 expectedUpper={vaData.impact_evaluation.expected_impact_upper}
                                 controlGroupDescription={vaData.impact_evaluation.control_group_description ?? undefined}
+                                formatValue={(v: number) => formatKpiChange(v, kpiUnitFor((vaData as any).kpi_id))}
                               />
                             </div>
                           )}

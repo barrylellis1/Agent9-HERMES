@@ -11,8 +11,8 @@ interface AttributionBreakdownProps {
   expectedUpper: number;
   /** Control group description for the confidence note. Pass undefined when no control group. */
   controlGroupDescription?: string;
-  /** e.g. "%" or "$M" — defaults to "%" */
-  kpiUnit?: string;
+  /** Formats a KPI change with its real unit. Without it figures are bare numbers. */
+  formatValue?: (value: number) => string;
 }
 
 // ─── Internal types ───────────────────────────────────────────────────────────
@@ -27,10 +27,10 @@ interface SegmentDef {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatValue(value: number, unit: string): string {
+// No unit is assumed; see ValueAssurancePanel for the bug this avoids.
+function bareValue(value: number): string {
   const sign = value >= 0 ? '+' : '';
-  const formatted = Math.abs(value) < 10 ? value.toFixed(1) : value.toFixed(0);
-  return `${sign}${formatted}${unit}`;
+  return `${sign}${Math.abs(value) < 10 ? value.toFixed(1) : value.toFixed(0)}`;
 }
 
 /**
@@ -79,22 +79,17 @@ interface RangeAnnotationProps {
   expectedLower: number;
   expectedUpper: number;
   totalChange: number;
-  kpiUnit: string;
+  fmt: (value: number) => string;
 }
 
-function RangeAnnotation({ expectedLower, expectedUpper, totalChange, kpiUnit }: RangeAnnotationProps) {
+function RangeAnnotation({ expectedLower, expectedUpper, totalChange, fmt }: RangeAnnotationProps) {
   // We render a simple bracket description rather than pixel-positioned overlays,
   // which keeps the component pure CSS / no external libs.
-  const sign = (v: number) => (v >= 0 ? '+' : '');
   return (
     <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mb-1">
       <span className="font-medium text-slate-400">Expected range:</span>
       <span>
-        {sign(expectedLower)}
-        {expectedLower.toFixed(1)}
-        {kpiUnit} to {sign(expectedUpper)}
-        {expectedUpper.toFixed(1)}
-        {kpiUnit}
+        {fmt(expectedLower)} to {fmt(expectedUpper)}
       </span>
       {totalChange >= expectedLower && totalChange <= expectedUpper ? (
         <span className="text-severity-opportunity font-semibold">(within range)</span>
@@ -112,9 +107,10 @@ function RangeAnnotation({ expectedLower, expectedUpper, totalChange, kpiUnit }:
 interface StackedBarProps {
   segments: SegmentDef[];
   totalAbsSum: number;
+  fmt: (value: number) => string;
 }
 
-function StackedBar({ segments, totalAbsSum }: StackedBarProps) {
+function StackedBar({ segments, totalAbsSum, fmt }: StackedBarProps) {
   if (totalAbsSum === 0) {
     return (
       <div className="h-6 w-full bg-slate-800 rounded-full flex items-center justify-center">
@@ -131,7 +127,7 @@ function StackedBar({ segments, totalAbsSum }: StackedBarProps) {
         return (
           <div
             key={seg.key}
-            title={`${seg.label}: ${seg.value >= 0 ? '+' : ''}${seg.value.toFixed(2)}`}
+            title={`${seg.label}: ${fmt(seg.value)}`}
             className={`${seg.barClass} transition-all`}
             style={{ width: `${widthPct}%`, minWidth: widthPct > 0 ? '2px' : 0 }}
           />
@@ -145,10 +141,10 @@ function StackedBar({ segments, totalAbsSum }: StackedBarProps) {
 
 interface LegendProps {
   segments: SegmentDef[];
-  kpiUnit: string;
+  fmt: (value: number) => string;
 }
 
-function Legend({ segments, kpiUnit }: LegendProps) {
+function Legend({ segments, fmt }: LegendProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
       {segments.map((seg) => (
@@ -158,7 +154,7 @@ function Legend({ segments, kpiUnit }: LegendProps) {
             <span className="text-[10px] text-slate-500 uppercase tracking-wide">{seg.label}</span>
           </div>
           <span className={`text-sm font-semibold font-mono ${seg.valueClass}`}>
-            {formatValue(seg.value, kpiUnit)}
+            {fmt(seg.value)}
           </span>
         </div>
       ))}
@@ -169,13 +165,12 @@ function Legend({ segments, kpiUnit }: LegendProps) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export const AttributionBreakdown: React.FC<AttributionBreakdownProps> = (props) => {
-  const unit = props.kpiUnit ?? '%';
+  const fmt = props.formatValue ?? bareValue;
   const segments = buildSegments(props);
 
   // Sum of absolute values drives bar width proportions.
   const totalAbsSum = segments.reduce((acc, s) => acc + Math.abs(s.value), 0);
 
-  const totalSign = props.totalChange >= 0 ? '+' : '';
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
@@ -189,9 +184,7 @@ export const AttributionBreakdown: React.FC<AttributionBreakdownProps> = (props)
             props.totalChange >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'
           }`}
         >
-          Total KPI change: {totalSign}
-          {props.totalChange.toFixed(1)}
-          {unit}
+          Total KPI change: {fmt(props.totalChange)}
         </span>
       </div>
 
@@ -200,14 +193,14 @@ export const AttributionBreakdown: React.FC<AttributionBreakdownProps> = (props)
         expectedLower={props.expectedLower}
         expectedUpper={props.expectedUpper}
         totalChange={props.totalChange}
-        kpiUnit={unit}
+        fmt={fmt}
       />
 
       {/* Stacked bar */}
-      <StackedBar segments={segments} totalAbsSum={totalAbsSum} />
+      <StackedBar segments={segments} totalAbsSum={totalAbsSum} fmt={fmt} />
 
       {/* Legend */}
-      <Legend segments={segments} kpiUnit={unit} />
+      <Legend segments={segments} fmt={fmt} />
 
       {/* Confidence / attribution note */}
       <div className="flex items-start gap-2 text-xs text-slate-500 pt-2 border-t border-slate-800">
