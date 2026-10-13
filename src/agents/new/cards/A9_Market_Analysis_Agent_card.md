@@ -289,3 +289,14 @@ The route attaches the answer to the deep-analysis result as `market_shift`, nex
 `market_conflict`. Solution Finder reads it into its synthesis recap.
 
 Tests: `tests/unit/test_ma_market_shift_check.py`.
+
+### Reading the synthesis reply (Oct 2026) 🔴
+
+Found by the first live run of the check above: the model wrote one JSON object, a sentence saying
+a compliant one followed, then a second object. The LLM service could not parse it and returned
+`{"raw_response": ..., "_parse_error": ...}`; `_synthesize` then returned `str(analysis)`, so the
+market briefing shown to the reader was a Python dict repr and the market-shift answer was lost.
+
+`_parse_synthesis_reply` reads every JSON object in the reply and uses the last one that has a
+`synthesis`. `raw_response` is now read as reply text. A reply with no readable object and a brace
+in it falls to `_plain_text_fallback`: a raw payload is never returned as the synthesis.

@@ -91,6 +91,33 @@ _SYNTHESIS_TASK = A9TaskType.SYNTHESIS
 
 
 
+
+def _parse_synthesis_reply(text: str) -> Optional[Dict[str, Any]]:
+    """The synthesis object from a model reply, or None when there is none.
+
+    Found live 2026-10-13: the model wrote one JSON object, a sentence saying a
+    compliant one followed, then a second object. `json.loads` fails on that
+    ("Extra data"), and the reader was shown a Python dict repr as the market
+    briefing. Every object in the reply is read; the LAST one with a "synthesis"
+    is used, since a model that restates its answer means the restatement.
+    """
+    if not text or not isinstance(text, str):
+        return None
+    decoder = json.JSONDecoder()
+    found: Optional[Dict[str, Any]] = None
+    pos = text.find("{")
+    while pos != -1:
+        try:
+            obj, end = decoder.raw_decode(text, pos)
+        except ValueError:
+            pos = text.find("{", pos + 1)
+            continue
+        if isinstance(obj, dict) and obj.get("synthesis"):
+            found = obj
+        pos = text.find("{", end)
+    return found
+
+
 _MARKET_SHIFT_ASSESSMENTS = ("supported", "not_supported", "insufficient")
 
 
@@ -935,6 +962,7 @@ class A9_Market_Analysis_Agent:
                         analysis.get("text")
                         or analysis.get("content")
                         or analysis.get("response")
+                        or analysis.get("raw_response")  # LLM service could not parse the reply
                         or ""
                     )
                     # If analysis dict itself has "synthesis" key, it may already be parsed
@@ -946,17 +974,17 @@ class A9_Market_Analysis_Agent:
 
                 # Parse the JSON response
                 if raw_text:
-                    try:
-                        parsed = json.loads(raw_text)
-                        synthesis_text = parsed.get("synthesis") or raw_text
-                        conflict_data = parsed.get("conflict")
+                    parsed = _parse_synthesis_reply(str(raw_text))
+                    if parsed is not None:
                         _record_market_shift(extras_out, request, parsed, signals)
-                        return str(synthesis_text), conflict_data
-                    except (json.JSONDecodeError, ValueError):
+                        return str(parsed["synthesis"]), parsed.get("conflict")
+                    if "{" not in str(raw_text):
                         # LLM returned plain text despite instructions — use as-is
-                        return raw_text, None
+                        return str(raw_text), None
 
-                return str(analysis), None
+                # Nothing readable came back. Never show the reader a raw payload.
+                logger.error("%s: synthesis reply could not be read; using the plain-text fallback", self.name)
+                return self._plain_text_fallback(request, signals, raw_answer), None
 
             logger.warning(
                 "%s: LLM synthesis returned non-success status: %s",
