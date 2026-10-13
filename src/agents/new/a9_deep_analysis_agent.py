@@ -394,6 +394,19 @@ def _situation_period(timeframe: Any) -> Any:
     return _SITUATION_PERIOD_TOKEN.get(key, timeframe)
 
 
+def _keep_primary_totals(totals: Dict[str, Any]) -> Dict[str, Any]:
+    """A copy of the totals recorded so far, taken before the second-basis pass."""
+    return dict(totals)
+
+
+def _restore_primary_totals(totals: Dict[str, Any], kept: Dict[str, Any]) -> None:
+    """Put the totals back exactly as they were before the second-basis pass, in place.
+    Anything that pass recorded is dropped, including for dimensions that had no primary
+    total: an absent total is asked of the warehouse afterwards on the primary basis."""
+    totals.clear()
+    totals.update(kept)
+
+
 class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
     """Deep Analysis Agent MVP implementation (skeleton)."""
 
@@ -2200,6 +2213,12 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # no second KT table, no LLM cross-table fusion. Degrades to primary-only on any error.
                     comparator_secondary: Optional[str] = None
                     matrix_ran = False
+                    # The second-basis pass reuses _maps_for_level, which records a total for
+                    # whatever basis it is run on. Those totals belong to the SECOND basis and
+                    # must not replace the primary ones. Found live 2026-10-13 on lubricants
+                    # Gross Profit (fired on prior year AND plan): segments were measured
+                    # against prior year (14.80M) while the total read 17.76M, the plan.
+                    _primary_totals = _keep_primary_totals(_dimension_totals)
                     try:
                         if self._is_matrix_eligible(plan, kpi_def, comparator_main) and self.data_product_agent:
                             comparator_secondary = "budget" if comparator_main == "previous" else "previous"
@@ -2231,6 +2250,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         self.logger.warning("[DA] segment matrix secondary pass failed, degrading to primary-only: %s", _mx_exc)
                         comparator_secondary = None
                         matrix_ran = False
+                    finally:
+                        _restore_primary_totals(_dimension_totals, _primary_totals)
                     # --- End segment matrix ---
 
                     # WHEN (time buckets with greatest variance)

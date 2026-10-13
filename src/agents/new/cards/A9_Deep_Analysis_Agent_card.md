@@ -1220,3 +1220,15 @@ Still not aligned:
   in Situation Awareness). See the Situation Awareness card.
 
 Tests: `tests/unit/test_da_period_alignment.py`.
+
+### The totals belong to the primary basis (Oct 2026) 🔴
+
+When a card fired on two bases (for example prior year and plan), the second-basis pass reused
+`_maps_for_level`, which records a dimension total for whatever basis it runs on. Those totals
+replaced the primary ones, or filled them in when the primary path (Top-N) had recorded none, which
+also stopped the scalar fallback from running. Found live on lubricants Gross Profit: segments
+against prior year summed to 14.80M while `dimension_totals.previous` read 17.76M, the plan,
+labelled `rollup`.
+
+`_keep_primary_totals` / `_restore_primary_totals` now snapshot `_dimension_totals` before the
+second-basis pass and restore it in a `finally`. Tests: `tests/unit/test_da_primary_totals.py`.
