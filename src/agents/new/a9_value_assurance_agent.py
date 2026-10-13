@@ -232,6 +232,19 @@ def _actuals_are_stale(solution: "AcceptedSolution", today: Optional[str] = None
     return month_index(current_month(today)) - 1 > month_index(last)
 
 
+def _solution_id_from(hex32: str) -> str:
+    """A solution id in the spelling the database returns: a dashed uuid.
+
+    The id used to be handed out as 32 bare hex characters and came back from Supabase
+    (a uuid column) with dashes. `_SolutionStore` made the two find the same solution,
+    but callers still held two spellings: approval answered with the bare one and the
+    portfolio listed the dashed one, so anything matching them by equality missed.
+    Found live 2026-10-13 by the regression run ("not found in portfolio" straight after
+    approval). The id is now dashed from the moment it is created.
+    """
+    return str(uuid.UUID(hex=hex32))
+
+
 class _SolutionStore(dict):
     """The in-memory solutions, keyed by solution id in ONE spelling.
 
@@ -718,7 +731,7 @@ class A9_Value_Assurance_Agent:
         # (e.g. dev re-runs or retry paths). The upsert on `id` then merges rather than inserts.
         import hashlib as _hashlib
         _dedup_key = f"{request.kpi_id}:{request.situation_id or ''}"
-        solution_id = _hashlib.sha256(_dedup_key.encode()).hexdigest()[:32]
+        solution_id = _solution_id_from(_hashlib.sha256(_dedup_key.encode()).hexdigest()[:32])
 
         # Build strategy snapshot if not supplied
         snapshot = request.strategy_snapshot or await self._build_strategy_snapshot(

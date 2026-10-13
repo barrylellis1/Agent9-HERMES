@@ -557,3 +557,15 @@ Tests: `tests/unit/test_va_three_line_verdict.py`.
 spellings of a solution id as the same key. A solution approved in the running process was being
 listed twice in the portfolio (once as registered, once as reloaded from Supabase) until the next
 restart. Test: `test_va_evaluation_readback.py::TestOneSolutionOneEntry`.
+
+## One id spelling from creation (Oct 2026)
+
+`register_solution` created the solution id as 32 bare hex characters; Supabase returns the same
+id as a dashed uuid. `_SolutionStore` made both find the same in-memory solution, but approval
+still answered with the bare spelling while the portfolio listed the dashed one, so a caller
+matching by equality missed (the regression run failed with "not found in portfolio" straight
+after approval; the briefing-to-portfolio link uses the same match).
+
+`_solution_id_from()` now spells the id as a dashed uuid when it is created. The value is the same
+hash as before, so re-approving the same option still resolves to the same solution.
+Test: `tests/unit/test_va_solution_id_spelling.py`.
