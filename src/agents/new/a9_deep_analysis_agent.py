@@ -818,6 +818,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         min_items: int = 3,
         max_items: int = 10,
         trend_positive: bool = True,  # True if higher is better (revenue), False if lower is better (cost)
+        stats_out: Optional[Dict[str, Any]] = None,
     ) -> tuple:
         """
         Hybrid Threshold + Adaptive N approach for selecting variance items.
@@ -837,7 +838,13 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         """
         if not diffs:
             return [], []
-        
+
+        # Counted over EVERY member, before any threshold or cap below. This is what
+        # lets the analysis say "all of them" and mean it (deviation_scope).
+        if stats_out is not None:
+            from src.analysis.deviation_scope import member_stats
+            stats_out.update(member_stats(diffs, trend_positive))
+
         # Separate by variance direction
         problem_items = []  # Underperforming
         healthy_items = []  # Outperforming
@@ -1669,6 +1676,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # Accumulators for post-loop mode inference (populated by both hierarchical and flat paths)
                     _all_problem_items: list = []
                     _all_healthy_items: list = []
+                    _spread_stats: Dict[str, Dict[str, Any]] = {}  # per dimension, every member counted
 
                     # Primary path: hierarchical drill per vector if hierarchies present
                     hmap = _hierarchies_from_contract()
@@ -1983,7 +1991,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             threshold_pct=0.05,  # 5% variance threshold
                                             min_items=3,
                                             max_items=10,
-                                            trend_positive=kpi_trend_positive
+                                            trend_positive=kpi_trend_positive,
+                                            stats_out=_spread_stats.setdefault(dim, {}),
                                         )
 
                                         # Extend accumulators for post-loop mode inference
@@ -2474,6 +2483,16 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # and problem_framing_design.md §1b ("SCQA is the OUTPUT of framing,
             # not an input to it"). Flag off is byte-identical to pre-Phase-19
             # behavior; this is a full backend reorder, not a UI-only mitigation.
+            # Somewhere, or everywhere? Counted, never inferred from the capped lists.
+            deviation_scope: Optional[Dict[str, Any]] = None
+            try:
+                from src.analysis.deviation_scope import assess as _assess_scope
+                deviation_scope = _assess_scope(locals().get("_spread_stats"))
+                if deviation_scope:
+                    self.logger.info(f"[DEVIATION-SCOPE] {deviation_scope}")
+            except Exception as e:
+                self.logger.info(f"[DEVIATION-SCOPE] assessment failed (non-fatal): {e}")
+
             scqa_deferred = bool(getattr(self.config, "enable_framing_gate", False))
             scqa_inputs: Optional[Dict[str, Any]] = None
             situation_complication_summary: Optional[str] = None
@@ -2499,6 +2518,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         matrix_ran=matrix_ran,
                         comparator_secondary=comparator_secondary,
                         kpi_unit=getattr(kpi_def, "unit", None),
+                        deviation_scope=deviation_scope,
                     )
                 except Exception as e:
                     self.logger.info(f"[FRAMING] situation_complication_summary build failed (non-fatal): {e}")
@@ -2516,6 +2536,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     matrix_ran=matrix_ran,
                     comparator_secondary=comparator_secondary,
                     kpi_unit=getattr(kpi_def, "unit", None),
+                    deviation_scope=deviation_scope,
                 )
                 # 11I-D: append bounded secondary-fact flags for the alert types that are NOT columns in
                 # the matrix (temporal/relational: projected_breach, acceleration, compound). When the
@@ -2732,6 +2753,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 dimensions_suggested=getattr(plan, "dimensions", []),
                 dimensions_analyzed=dimensions_analyzed,
                 dimensions_excluded=_dimensions_excluded,
+                deviation_scope=deviation_scope,
                 analysis_mode=getattr(plan, "analysis_mode", "problem"),
                 mixed_framing=(_effective_mode_final == "mixed"),
                 # 11I-D: surface which alert basis was diagnosed so SF/PIB can label it and the
@@ -4328,6 +4350,7 @@ If nothing relevant is found for a category, use an empty list."""
                 comparator_secondary=comparator_secondary,
                 kpi_unit=kpi_unit,
                 frame=frame,
+                deviation_scope=execution.get("deviation_scope"),
             )
             if not scqa:
                 return None
@@ -4369,6 +4392,7 @@ If nothing relevant is found for a category, use an empty list."""
         matrix_ran: bool = False,
         comparator_secondary: Optional[str] = None,
         kpi_unit: Optional[str] = None,
+        deviation_scope: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Deterministic, facts-only Situation+Complication narrative.
 
@@ -4515,6 +4539,13 @@ If nothing relevant is found for a category, use an empty list."""
         else:
             situation_prefix = f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}."
 
+        # No IS NOT anywhere: the deviation is general. Say so, and stop calling the
+        # largest segments drivers. They are extent, not cause.
+        from src.analysis.deviation_scope import describe as _describe_scope
+        _general = _describe_scope(deviation_scope, against_plan=(str(comparator).lower() in ("budget", "plan_variance")))
+        if _general and not compound_pattern:
+            return f"{situation_prefix} Complication: {_general} Largest segments by size (extent, not cause): {cp_str}."
+
         return (
             f"{situation_prefix} "
             f"{complication} "
@@ -4535,6 +4566,7 @@ If nothing relevant is found for a category, use an empty list."""
         comparator_secondary: Optional[str] = None,
         kpi_unit: Optional[str] = None,
         frame: Optional["FramingDecision"] = None,
+        deviation_scope: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate a Situation-Complication-Question-Answer narrative via LLM.
 
@@ -4728,6 +4760,14 @@ If nothing relevant is found for a category, use an empty list."""
                 situation_prefix = f"Situation: {plan.kpi_name} is tracking below plan."
             else:
                 situation_prefix = f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}."
+            from src.analysis.deviation_scope import describe as _describe_scope
+            _general = _describe_scope(deviation_scope, against_plan=(str(comparator).lower() in ("budget", "plan_variance")))
+            if _general and not compound_pattern:
+                return (
+                    f"{situation_prefix} Complication: {_general} "
+                    f"Largest segments by size (extent, not cause): {cp_str}. "
+                    f"{_question_line('Question: Is this a market-level shift, or is the comparison itself off?')}"
+                )
             return (
                 f"{situation_prefix} "
                 f"{complication} "
@@ -4845,6 +4885,18 @@ If nothing relevant is found for a category, use an empty list."""
                         f"\n\nCRITICAL FRAMING — ACCELERATION: The rate of deterioration is increasing, not just "
                         f"the level. The Complication must note that the decline is accelerating, not just present."
                     )
+                from src.analysis.deviation_scope import describe as _describe_scope
+                _general = _describe_scope(deviation_scope, against_plan=(str(comparator).lower() in ("budget", "plan_variance")))
+                _scope_context = ""
+                if _general and not compound_pattern:
+                    _scope_context = (
+                        f"\n\nCRITICAL — THE DEVIATION IS GENERAL, AND THIS OVERRIDES ANY INSTRUCTION ABOVE TO NAME "
+                        f"RESPONSIBLE SEGMENTS: {_general} The Complication must say the gap is across the board and "
+                        f"that no segment stands out. Do NOT describe any segment as driving, causing or being "
+                        f"responsible for the gap: the segments listed above are simply the largest, and each is "
+                        f"off by about the same proportion as every other. You may mention them only as extent. "
+                        f"The Answer must name the two candidate causes and say which should be checked first."
+                    )
                 prompt = (
                     f"Write a concise SCQA (Situation-Complication-Question-Answer) narrative for a CFO "
                     f"investigating the KPI '{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
@@ -4855,7 +4907,7 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Top problem segments (IS): {', '.join(is_items) or 'see change points'}\n"
                     f"Healthy segments (IS NOT): {', '.join(is_not_items) or 'none identified'}\n"
                     f"Largest change-points: {'; '.join(top_cps) or 'none'}"
-                    f"{_alert_context}\n\n"
+                    f"{_alert_context}{_scope_context}\n\n"
                     f"Output exactly 4 labelled sentences: 'Situation: ...', 'Complication: ...', "
                     f"'Question: ...', 'Answer: ...'. Be specific and quantitative. No bullet points."
                 )

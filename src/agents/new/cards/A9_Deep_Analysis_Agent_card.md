@@ -1128,3 +1128,38 @@ duplicate paths (`_build_situation_complication_facts` and `_generate_scqa_summa
 `_build_situation_complication_facts` gained an optional `kpi_unit`.
 
 Tests: four new cases in `test_da_scqa_deferral.py::TestSituationComplicationFacts`.
+
+## No IS NOT: the deviation is general, and the analysis says so (Oct 2026)
+
+**Kepner-Tregoe, as applied here.** Each segment is tested against its own "should" (its own
+comparison). Off it: IS. Comparable but not off it: IS NOT. `_select_variance_items` does exactly
+that and is unchanged. Segments are not judged against each other or against the whole.
+
+**The case that was mishandled.** Sometimes there is no IS NOT: every segment that could be off, is.
+KT reads that as a cause common to all of them, with two candidates: a shift outside the business,
+or a "should" that is itself wrong. Found live on lubricants Net Revenue against plan: all 60
+segments in all ten dimensions were exactly 16.3% below budget (the demo budget is spread in the
+same proportions as actuals). The analysis read "the budget gap is driven by Synthetic Blend Engine
+Oil, Automatic Transmission Fluid, ...". Those are the largest products, each 16.3% short like every
+other. Solution Finder then built options around them.
+
+**What changed.**
+- `src/analysis/deviation_scope.py`: `member_stats()` counts every member of a dimension by which way
+  it moved; `assess()` returns `localised`, `general_uniform` (same direction, proportional gaps
+  within 2 points of each other) or `general_uneven`; `describe()` writes the reader's sentence.
+- `_select_variance_items(..., stats_out=)` fills those counts over EVERY member, before its own
+  threshold and the 10-item cap, so "all of them" is a count and not an inference from a truncated
+  list. Only the dual-query path passes it. The Top-N path sees only N members, cannot count, and
+  leaves the assessment absent.
+- New `DeepAnalysisResponse.deviation_scope`. `None` means not counted. It must never be read as
+  localised or as general.
+- Both narrative builders and the LLM prompt: when the deviation is general (and adverse), the
+  Complication states the count and the gap, says no segment stands out, and names the two candidate
+  causes. "Key drivers" becomes "Largest segments by size (extent, not cause)". The prompt tells the
+  model not to describe any segment as driving the gap, overriding the plan-variance instruction to
+  name responsible segments.
+
+Not done in this agent: asking Market Analysis the confirming question, and telling Solution Finder.
+See those agents' cards.
+
+Tests: `tests/unit/test_deviation_scope.py`.

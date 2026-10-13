@@ -227,6 +227,16 @@ class DeepAnalysisResponse(A9AgentBaseResponse):
             "field existed nothing recorded which 10."
         ),
     )
+    deviation_scope: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Whether the deviation is somewhere or everywhere, counted over EVERY member of "
+            "each dimension analysed (src/analysis/deviation_scope.py). kind: 'localised' "
+            "(there is an IS NOT), 'general_uniform' or 'general_uneven' (every member moved "
+            "the same way; no IS NOT exists). None when no dimension was counted, which must "
+            "never be read as 'localised' or as 'general'."
+        ),
+    )
     dimensions_excluded: List[Dict[str, Any]] = Field(
         default_factory=list,
         description=(
