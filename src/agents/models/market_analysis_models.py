@@ -117,8 +117,12 @@ class MarketAnalysisResponse(BaseModel):
     competitor_context: Optional[str] = Field(
         None, description="Additional competitor or benchmarking context if available"
     )
-    confidence: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="Agent confidence in the synthesis (0–1)"
+    confidence: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0,
+        description=(
+            "Agent confidence in the synthesis (0–1). None when no signal carries a source URL: "
+            "a figure is not given for text that rests on the model's own recollection."
+        ),
     )
     sources_queried: List[str] = Field(
         default_factory=list,

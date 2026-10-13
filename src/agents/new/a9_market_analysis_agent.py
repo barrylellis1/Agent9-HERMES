@@ -1074,15 +1074,24 @@ class A9_Market_Analysis_Agent:
             )
         return "\n".join(lines)
 
-    def _compute_confidence(self, signals: List[MarketSignal], synthesis: str) -> float:
+    def _compute_confidence(self, signals: List[MarketSignal], synthesis: str) -> Optional[float]:
         """
-        Heuristic confidence score.
+        Heuristic confidence score, or None when nothing is sourced.
 
-        - Base: 0.3 (LLM-only, no signals)
-        - Each signal adds 0.1 (capped at 0.5 total signal contribution)
+        - Base: 0.3
+        - Each SOURCED signal (one with a URL) adds 0.1 (capped at 0.5)
         - Non-empty synthesis adds 0.2
+
+        Signals the model wrote from its own recollection used to count the same as
+        cited ones, so four invented signals plus a synthesis scored 0.9. Found live
+        2026-10-13: the analysis screen showed "90% confidence" directly under the note
+        that the signals were not from cited sources. With no sourced signal there is
+        no figure at all.
         """
-        signal_contribution = min(len(signals) * 0.1, 0.5)
+        sourced = [sig for sig in signals if getattr(sig, "url", None)]
+        if not sourced:
+            return None
+        signal_contribution = min(len(sourced) * 0.1, 0.5)
         synthesis_contribution = 0.2 if synthesis and len(synthesis) > 50 else 0.0
         return round(min(0.3 + signal_contribution + synthesis_contribution, 1.0), 2)
 

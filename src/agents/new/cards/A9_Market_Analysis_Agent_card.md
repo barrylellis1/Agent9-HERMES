@@ -305,3 +305,11 @@ market briefing shown to the reader was a Python dict repr and the market-shift 
 `_parse_synthesis_reply` reads every JSON object in the reply and uses the last one that has a
 `synthesis`. `raw_response` is now read as reply text. A reply with no readable object and a brace
 in it falls to `_plain_text_fallback`: a raw payload is never returned as the synthesis.
+
+### Synthesis confidence counts sourced signals only (Oct 2026)
+
+`_compute_confidence` scored 0.3 + 0.1 per signal + 0.2 for a synthesis, whether or not a signal
+had a source. In LLM-only mode four model-written signals gave 0.9, shown on the analysis screen as
+"90% confidence" under the note that nothing was cited. Only signals with a URL count now, and with
+none the confidence is None (`MarketAnalysisResponse.confidence` is Optional, default None), so no
+figure is shown.

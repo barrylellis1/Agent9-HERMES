@@ -208,3 +208,20 @@ class TestAskedButNotAnswered:
         agent, _ = _agent({"synthesis": "Market text.", "conflict": None})
         resp = await agent.analyze_market(_request())
         assert resp.market_shift is None
+
+
+class TestSynthesisConfidence:
+    """No sourced signal, no confidence figure."""
+
+    def test_unsourced_signals_give_no_figure(self):
+        agent = A9_Market_Analysis_Agent(config={"enable_perplexity": False})
+        assert agent._compute_confidence([_signal(), _signal(), _signal(), _signal()], "x" * 80) is None
+        assert agent._compute_confidence([], "x" * 80) is None
+
+    def test_only_sourced_signals_count(self):
+        agent = A9_Market_Analysis_Agent(config={"enable_perplexity": False})
+        mixed = [_signal(url="https://example.com/a"), _signal(), _signal()]
+        assert agent._compute_confidence(mixed, "x" * 80) == 0.6          # 0.3 + 0.1 + 0.2
+
+    def test_the_response_accepts_no_figure(self):
+        assert MarketAnalysisResponse.model_fields["confidence"].default is None
