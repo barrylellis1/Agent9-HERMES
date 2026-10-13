@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 POLL_INTERVAL = 3    # seconds between status polls
-POLL_TIMEOUT = 180   # seconds — SF's multi-call architecture (3 personas + synthesis) is the slow step
+POLL_TIMEOUT = 480   # seconds. Solution Finder alone now runs 4-6 minutes (measured Oct 2026); 180 no longer completes.
 
 
 def _poll(client: httpx.Client, status_url: str, label: str) -> Dict[str, Any]:
