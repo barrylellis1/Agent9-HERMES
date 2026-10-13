@@ -21,6 +21,7 @@ Rules, for a general deviation only:
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, Iterable, List, Optional
 
 ALLOWED_SEGMENT_REASONS = ("pilot", "largest_exposure")
@@ -61,7 +62,8 @@ def segment_gap(scope_label: Optional[str], change_points: Iterable[Any]) -> Opt
         delta = get("delta")
         if not key or len(key) < 3 or not isinstance(delta, (int, float)):
             continue
-        if key in label:
+        # whole words only: "Premium" the product tier is not "premium mix"... but is "Premium tier"
+        if re.search(r"(?<![a-z0-9])" + re.escape(key) + r"(?![a-z0-9])", label):
             dim = str(get("dimension") or "")
             by_dimension[dim] = by_dimension.get(dim, 0.0) + abs(float(delta))
     return max(by_dimension.values()) if by_dimension else None

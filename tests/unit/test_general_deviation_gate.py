@@ -51,6 +51,12 @@ class TestSegmentGap:
         assert segment_gap("Top four largest-declining SKUs", CPS) is None
         assert segment_gap(None, CPS) is None and segment_gap("Retail Partners", []) is None
 
+    def test_a_member_name_matches_as_whole_words_only(self):
+        cps = [{"dimension": "tier", "key": "Value", "delta": -100.0}]
+        assert segment_gap("Value tier pilot", cps) == 100.0
+        assert segment_gap("Value-based pricing", cps) == 100.0      # still a whole word
+        assert segment_gap("Revalued accounts", cps) is None
+
 
 class TestCheck:
     def test_an_enterprise_figure_passes(self):
@@ -100,3 +106,17 @@ class TestSolutionFinderWiring:
         assert _da_change_points({"execution": {"change_points": CPS}}) == CPS
         assert _da_change_points({"change_points": CPS}) == CPS
         assert _da_change_points({}) == [] and _da_change_points("text") == []
+
+    def test_the_is_is_not_rows_are_read_too_once_each(self):
+        # live: change_points held 5 rows and no products; where_is held all 60 members
+        payload = {"execution": {
+            "change_points": CPS[:2],
+            "kt_is_is_not": {"where_is": [CPS[1], {"dimension": "product_name", "key": "Automatic Transmission Fluid",
+                                                    "delta": -720069.23}]},
+        }}
+        rows = _da_change_points(payload)
+        assert [r["key"] for r in rows] == ["North America", "Retail Partners", "Automatic Transmission Fluid"]
+        ie = _ie(scope="segment", scope_label="Automatic Transmission Fluid", scope_reason="pilot",
+                 recovery_range={"low": 300000.0, "high": 750000.0})
+        assert check_impact_scope(ie, rows) == [IMPACT_EXCEEDS_SEGMENT_GAP]
+        assert check_impact_scope({**ie, "recovery_range": {"low": 1.0, "high": 700000.0}}, rows) == []

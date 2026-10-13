@@ -248,15 +248,38 @@ _GENERAL_DEVIATION_RULE = (
 
 
 def _da_change_points(da_ctx: Any) -> List[Any]:
-    """The segment figures Deep Analysis measured, wherever the payload carries them."""
+    """Every segment figure Deep Analysis measured, wherever the payload carries them.
+
+    `change_points` is a short capped list (5 in the live lubricants case, none of them
+    products); the Is/Is Not `where_is` rows carry the rest (60). Both are read, one row
+    per (dimension, member). The first five live runs of the scope check flagged four
+    correctly named product segments as unrecognised because only the short list was read.
+    """
     ctx = _model_to_dict(da_ctx)
     if not isinstance(ctx, dict):
         return []
     exec_ctx = _model_to_dict(ctx.get("execution"))
-    for holder in (exec_ctx, ctx):
-        if isinstance(holder, dict) and isinstance(holder.get("change_points"), list):
-            return holder["change_points"]
-    return []
+    holder = next(
+        (h for h in (exec_ctx, ctx) if isinstance(h, dict) and (h.get("change_points") or h.get("kt_is_is_not"))),
+        None,
+    )
+    if holder is None:
+        return []
+    kt = _model_to_dict(holder.get("kt_is_is_not"))
+    rows = list(holder.get("change_points") or [])
+    if isinstance(kt, dict):
+        rows += list(kt.get("where_is") or []) + list(kt.get("where_is_not") or [])
+    seen, out = set(), []
+    for row in rows:
+        r = _model_to_dict(row)
+        if not isinstance(r, dict):
+            continue
+        ident = (str(r.get("dimension")), str(r.get("key")))
+        if ident in seen:
+            continue
+        seen.add(ident)
+        out.append(r)
+    return out
 
 
 def _general_deviation_note(ctx: Dict[str, Any], exec_ctx: Any) -> Optional[str]:

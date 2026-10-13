@@ -1028,8 +1028,10 @@ An option with findings is still returned and can still be recommended.
 
 Segment gap for a label naming several members: members of the same dimension are added, and
 across dimensions the largest total is taken (the same dollars can appear under two dimensions).
-`change_points` is the analysis's capped list, so a correctly named small segment that is not in
-it reads as `segment_not_recognised`.
+Segment figures come from `_da_change_points`, which reads `change_points` AND the Is/Is Not
+`where_is` / `where_is_not` rows. The first five live runs read only `change_points` (5 rows, no
+products) and flagged four correctly named product segments as unrecognised. Member names match
+as whole words.
 
 Not checked: whether at least one option is the check that settles the cause, and what the
 description and rationale say. Those are prose.
