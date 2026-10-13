@@ -3,6 +3,12 @@ import { ArrowRight, MessageSquare } from 'lucide-react';
 import { Situation } from '../../api/types';
 import { getTriggeringComparison } from '../../utils/triggeringComparison';
 
+/** The card's stated reason without the bracketed date range ("… vs prior year, short of …"). */
+export function cardReason(description?: string | null): string {
+  return (description || '').replace(/\s*\(\d{4}-\d{2}-\d{2}[^)]*\)/g, '').trim();
+}
+
+
 interface KPITileProps {
   situation: Situation;
   onClick: () => void;
@@ -289,15 +295,25 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
 
       {/* ── Lead finding + sparkline (always together at bottom) ── */}
       <div className="mt-auto">
-        {situation.trend_note ? (
-          <p className="text-[11px] text-severity-warning/80 leading-snug px-0 pb-2 line-clamp-2">
-            {situation.trend_note}
+        {/* Why this card was raised, in the agent's own stated terms (for example
+            "grew 3.1% vs prior year, short of the 5.0% growth target"). It used to be
+            absent: the tile showed only a model-written observation, so a KPI that rose
+            sat under a problem label with no reason given. The dates in brackets are
+            dropped here because the comparison label above already names the period. */}
+        {cardReason(situation.description) ? (
+          <p className="text-[11px] text-slate-300 leading-snug px-0 pb-1 line-clamp-2" data-testid="tile-reason">
+            {cardReason(situation.description)}
           </p>
         ) : situation.key_observations && situation.key_observations.length > 0 ? (
           <p className="text-[11px] text-slate-400 leading-snug px-0 pb-2 line-clamp-2">
             {situation.key_observations[0]}
           </p>
         ) : null}
+        {situation.trend_note && (
+          <p className="text-[11px] text-severity-warning/80 leading-snug px-0 pb-2 line-clamp-2">
+            {situation.trend_note}
+          </p>
+        )}
         {sparkline && (
           <div className="-mx-5">
             {sparkline}
