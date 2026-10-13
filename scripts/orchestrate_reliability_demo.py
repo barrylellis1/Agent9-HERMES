@@ -217,7 +217,13 @@ def run_cycle(client: httpx.Client, scenario: Scenario) -> CycleResult:
         return result
     snapshot = solution["strategy_snapshot"]
     result.claimed_causal_edge = snapshot.get("claimed_causal_edge")
-    result.baseline_kpi_value = snapshot.get("kpi_threshold_at_approval")
+    # The KPI's actual value at approval (last complete month). Evaluation measures
+    # against this; it refuses when none was recorded.
+    result.baseline_kpi_value = snapshot.get("kpi_value_at_approval")
+    if result.baseline_kpi_value is None:
+        result.error = "no KPI value was recorded at approval, so this solution cannot be evaluated"
+        print(f"  SKIP: {result.error}")
+        return result
     result.expected_impact_lower = solution.get("expected_impact_lower")
     result.expected_impact_upper = solution.get("expected_impact_upper")
     print(f"  claimed_causal_edge: {result.claimed_causal_edge}")
@@ -226,7 +232,7 @@ def run_cycle(client: httpx.Client, scenario: Scenario) -> CycleResult:
     # 6. Craft an outcome KPI value that drives the intended verdict through
     #    the REAL DiD formula (attributable = total_change, no control/market/
     #    seasonal adjustments supplied -- the simplest honest case).
-    baseline = result.baseline_kpi_value or 0.0
+    baseline = result.baseline_kpi_value
     lower = result.expected_impact_lower or 0.0
     if scenario.target_verdict == "validated":
         current = baseline + abs(lower) * 1.15  # clears the lower bound with margin

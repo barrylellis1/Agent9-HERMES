@@ -195,6 +195,10 @@ def _apply_roi_confidence_floor(
     return composite
 
 
+class BaselineNotRecordedError(ValueError):
+    """The KPI's value at approval was never recorded, so no change can be measured."""
+
+
 def _utcnow() -> str:
     return datetime.utcnow().isoformat() + "Z"
 
@@ -601,9 +605,25 @@ class A9_Value_Assurance_Agent:
                 "claimed_causal_edge": request.claimed_causal_edge,
             })
 
+        # The KPI's actual value at approval -- same threading pattern. Only a
+        # value the caller actually measured is recorded; nothing is inferred.
+        if request.baseline_kpi_value is not None:
+            snapshot = StrategySnapshot(**{
+                **snapshot.model_dump(),
+                "kpi_value_at_approval": request.baseline_kpi_value,
+                "kpi_value_period": request.baseline_period,
+            })
+
         # --- Compute three-trajectory projections ---
         approved_at = _utcnow()
-        baseline = snapshot.kpi_threshold_at_approval
+        # Projections start from the recorded KPI value. When none was recorded
+        # they fall back to the threshold, as before; that only shapes the
+        # projection lines. evaluate_solution_impact() does NOT fall back.
+        baseline = (
+            snapshot.kpi_value_at_approval
+            if snapshot.kpi_value_at_approval is not None
+            else snapshot.kpi_threshold_at_approval
+        )
         window_months = max(request.measurement_window_days // 30, 1)
         inaction_horizon = max(window_months * 2, 12)
 
@@ -704,7 +724,15 @@ class A9_Value_Assurance_Agent:
                 f"Solution '{request.solution_id}' not found in store."
             )
 
-        baseline_kpi_value = solution.strategy_snapshot.kpi_threshold_at_approval
+        # Baseline = the KPI's actual value at approval. Never the threshold, and
+        # never zero by default: with either, "total change" is just the number
+        # the caller typed in.
+        baseline_kpi_value = solution.strategy_snapshot.kpi_value_at_approval
+        if baseline_kpi_value is None:
+            raise BaselineNotRecordedError(
+                f"Solution '{request.solution_id}' has no KPI value recorded at approval, "
+                "so its outcome cannot be measured."
+            )
         current_kpi_value = request.current_kpi_value
 
         # DiD components

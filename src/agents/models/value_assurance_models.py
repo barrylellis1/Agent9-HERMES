@@ -124,6 +124,15 @@ class StrategySnapshot(BaseModel):
     # later VALIDATED verdict traces back to the mechanism actually claimed,
     # never a speculative confirmation of whichever edge happens to exist.
     claimed_causal_edge: Optional[str] = None
+    # The KPI's ACTUAL value at approval, for the last complete month before
+    # approval, and which month that was ("YYYY-MM"). This is the baseline an
+    # outcome is measured against. None means it was not recorded, and a
+    # solution without it cannot be evaluated. It is deliberately separate from
+    # kpi_threshold_at_approval above: until Oct 2026 the THRESHOLD was used as
+    # the baseline (0 when the KPI had none), so "total change" was whatever
+    # number the caller supplied.
+    kpi_value_at_approval: Optional[float] = None
+    kpi_value_period: Optional[str] = None
 
     @field_validator("key_assumptions", mode="before")
     @classmethod
@@ -292,6 +301,10 @@ class RegisterSolutionRequest(BaseModel):
     pre_approval_kpi_value: Optional[float] = None        # comparison-period KPI value for slope calc
     analysis_mode: str = "problem"                        # "problem" | "opportunity" — controls inaction trend direction
     plan_value_at_approval: Optional[float] = None        # Phase 11I-C: budget/plan baseline, if the KPI has one
+    # The KPI's actual value for the last complete month before approval, and that
+    # month ("YYYY-MM"). Threaded into StrategySnapshot.kpi_value_at_approval.
+    baseline_kpi_value: Optional[float] = None
+    baseline_period: Optional[str] = None
     # Phase 15 Stage F: the approved option's "bets on" assumptions (SolutionOption.
     # key_assumptions from SF's synthesis, Stage B) — threaded into the
     # StrategySnapshot VA measures against, whichever path builds it. Previously

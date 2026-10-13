@@ -91,6 +91,41 @@ _store_lock = asyncio.Lock()
 _SECRET_KEY_MARKERS = ("password", "secret", "private_key", "token", "api_key", "access_key")
 
 
+def _baseline_from_situation(
+    situation_payload: Dict[str, Any], kpi_id: str, today: Optional[str] = None
+) -> Tuple[Optional[float], Optional[str]]:
+    """The KPI's value for the last COMPLETE month before approval, from the
+    monthly series Situation Awareness already measured -> (value, "YYYY-MM").
+
+    Returns (None, None) rather than a guess when:
+    - the solution targets a different KPI than the situation measured (a
+      reframed objective) -- the series is for the wrong KPI;
+    - there is no monthly series, or no month earlier than the current one.
+
+    Months at or after the current month are ignored: the current month is
+    partial, and a warehouse may hold later-dated rows (the demo data does).
+    """
+    if not kpi_id or (situation_payload or {}).get("kpi_id") != kpi_id:
+        return None, None
+    series = ((situation_payload or {}).get("kpi_value") or {}).get("monthly_values") or []
+    current_month = (today or datetime.utcnow().strftime("%Y-%m-%d"))[:7]
+    best: Tuple[Optional[float], Optional[str]] = (None, None)
+    for point in series:
+        if not isinstance(point, dict):
+            continue
+        period = str(point.get("period") or "")
+        value = point.get("value")
+        if len(period) != 7 or period >= current_month or value is None:
+            continue
+        try:
+            value_f = float(value)
+        except (TypeError, ValueError):
+            continue
+        if best[1] is None or period > best[1]:
+            best = (value_f, period)
+    return best
+
+
 def _resolve_va_kpi_id_and_framing(
     wf_payload: Dict[str, Any], stated_kpi_id: str
 ) -> Tuple[str, Optional[Any]]:
@@ -1091,6 +1126,12 @@ async def _record_solution_action(
             kpi_id, framing_snapshot = _resolve_va_kpi_id_and_framing(wf_payload, _stated_kpi_id)
 
             plan_value_at_approval = _situation_full_payload.get("plan_value")
+            _baseline_value, _baseline_period = _baseline_from_situation(_situation_full_payload, kpi_id)
+            if _baseline_value is None:
+                _va_log.warning(
+                    "[VA] No KPI value at approval could be recorded for kpi=%s situation=%s "
+                    "-- this solution cannot be evaluated until one is.", kpi_id, situation_id,
+                )
 
             # DA benchmark segments for DiD control group (Phase 7C)
             kt = da_output.get("kt_is_is_not") or {}
@@ -1171,6 +1212,8 @@ async def _record_solution_action(
                 pre_approval_kpi_value=pre_approval_kpi_value,
                 ma_market_signals=ma_signals,
                 plan_value_at_approval=plan_value_at_approval,
+                baseline_kpi_value=_baseline_value,
+                baseline_period=_baseline_period,
                 client_id=_va_client_id,
                 bets_on_assumptions=bets_on_assumptions,
                 framing_snapshot=framing_snapshot,

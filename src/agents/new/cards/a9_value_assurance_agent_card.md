@@ -423,3 +423,37 @@ passes.
 Tests: `test_a9_value_assurance_agent_unit.py::test_low_confidence_result_is_not_counted_in_roi`,
 `::test_roi_floor_applies_to_evaluations_stored_before_it_existed`,
 `test_va_causal_edge_confirmation.py::TestWeakVerdictNeverConfirms`.
+
+## The baseline is the KPI's actual value at approval (Oct 2026)
+
+**Defect.** `evaluate_solution_impact()` used `strategy_snapshot.kpi_threshold_at_approval` as the
+baseline: the KPI's warning threshold, or 0 when it had none. The KPI's own value was never
+recorded. Found live: every locally "measured" solution had a baseline of 0, so `total_kpi_change`
+was simply the number the caller supplied. The stored outcomes (+$575K, +1.725pp) were the demo
+script's `expected_lower x 1.15`, written within 150 ms of approval. A real Net Revenue of $35M
+would have read as a +$35M change.
+
+**Fix.**
+- `StrategySnapshot` gains `kpi_value_at_approval` and `kpi_value_period` ("YYYY-MM"), separate from
+  the threshold. They live in the existing `strategy_snapshot` JSONB, so there is no migration.
+- `RegisterSolutionRequest` gains `baseline_kpi_value` / `baseline_period`, threaded into the
+  snapshot the same way as `claimed_causal_edge`.
+- `workflows.py::_baseline_from_situation()` (module-level, pure) takes the value from the monthly
+  series Situation Awareness already measured: the latest month strictly before the current one.
+  The current month is partial, and a warehouse may hold later-dated rows (the demo data does). It
+  returns `(None, None)` when the solution targets a different KPI than the situation measured (a
+  reframed objective), or when no earlier month exists. It never guesses.
+- `evaluate_solution_impact()` raises `BaselineNotRecordedError` (a `ValueError`; the route returns
+  409) when no value was recorded. It does not fall back to the threshold or to zero.
+- Projection lines (`inaction_trend`, `expected_trend`, `actual_trend[0]`) start from the recorded
+  value when there is one, and from the threshold otherwise, as before.
+
+**Still open, deliberately not built here** (each is a method decision, not a wiring fix):
+- `current_kpi_value` and `control_group_kpi_values` are still supplied by the caller. Nothing pulls
+  them from the warehouse.
+- `control_change = mean(control_group_kpi_values)` is subtracted directly from the enterprise-level
+  change. For a dollar KPI that mixes scales (an enterprise total minus an average segment change).
+- The expected range from Solution Finder states no period, while the baseline is monthly.
+- A reframed objective gets no baseline.
+
+Tests: `tests/unit/test_va_baseline_at_approval.py` (12).

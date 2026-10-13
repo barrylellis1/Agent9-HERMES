@@ -60,6 +60,8 @@ def _strategy_snapshot():
         business_process_domain="Finance",
         data_product_id="lubricants_fi",
         kpi_threshold_at_approval=45.0,
+        kpi_value_at_approval=45.0,
+        kpi_value_period="2026-09",
         key_assumptions=["Control group is comparable cohort"],
         business_context_name="Q2 2026 margin opportunity",
         captured_at="2026-05-20T00:00:00Z",

@@ -356,7 +356,10 @@ async def evaluate_solution(
         )
         return response
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        # A missing baseline is a state of the record, not a missing record.
+        from src.agents.new.a9_value_assurance_agent import BaselineNotRecordedError
+        status = 409 if isinstance(exc, BaselineNotRecordedError) else 404
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
     except Exception as exc:
         logger.error("VA evaluate_solution_impact failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

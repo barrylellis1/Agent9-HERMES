@@ -104,6 +104,8 @@ def strategy_snapshot() -> StrategySnapshot:
         business_process_domain="Finance",
         data_product_id="lubricants_fi",
         kpi_threshold_at_approval=45.0,
+        kpi_value_at_approval=45.0,
+        kpi_value_period="2026-09",
         key_assumptions=["Control group represents same cohort"],
         business_context_name="Q1 2026 margin recovery",
         captured_at=datetime.utcnow().isoformat() + "Z",
@@ -997,6 +999,7 @@ async def test_evaluate_solution_with_zero_baseline(agent, register_request, str
     """Evaluation handles zero baseline gracefully."""
     # Set baseline to 0
     strategy_snapshot.kpi_threshold_at_approval = 0.0
+    strategy_snapshot.kpi_value_at_approval = 0.0
     register_request.strategy_snapshot = strategy_snapshot
 
     reg_resp = await agent.register_solution(register_request)

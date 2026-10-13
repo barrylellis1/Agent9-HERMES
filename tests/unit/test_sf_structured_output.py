@@ -122,6 +122,8 @@ def _snapshot(key_assumptions):
         business_process_domain="Finance",
         data_product_id="fi",
         kpi_threshold_at_approval=45.0,
+        kpi_value_at_approval=45.0,
+        kpi_value_period="2026-09",
         key_assumptions=key_assumptions,
         business_context_name="ctx",
         captured_at=datetime.utcnow().isoformat(),
