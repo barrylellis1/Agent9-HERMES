@@ -13,7 +13,7 @@ import pytest
 
 from src.agents.models.deep_analysis_models import ChangePoint, DeepAnalysisResponse
 from src.agents.new.a9_deep_analysis_agent import A9_Deep_Analysis_Agent
-from src.analysis.deviation_scope import assess, describe, is_general, member_stats
+from src.analysis.deviation_scope import assess, describe, is_general, member_stats, shortlist_is_complete
 
 
 def _diffs(pairs):
@@ -136,3 +136,30 @@ class TestDeepAnalysisUsesIt:
 
     def test_the_response_carries_the_assessment(self):
         assert "deviation_scope" in DeepAnalysisResponse.model_fields
+
+
+class TestShortlistIsComplete:
+    """A "top 50 movers" result that came back short of 50 is the whole dimension."""
+
+    def test_fewer_rows_than_asked_for_is_the_whole_dimension(self):
+        assert shortlist_is_complete(16, 50, 0, trend_positive=True)
+
+    def test_a_full_page_may_have_been_cut_off(self):
+        assert not shortlist_is_complete(50, 50, 0, trend_positive=True)
+
+    def test_a_dropped_row_is_a_member_not_seen(self):
+        assert not shortlist_is_complete(16, 50, 1, trend_positive=True)
+
+    def test_no_rows_is_nothing_to_count(self):
+        assert not shortlist_is_complete(0, 50, 0, trend_positive=True)
+
+    def test_a_cost_is_never_counted_from_a_shortlist(self):
+        # a member with a value last period and none now is missing from the query;
+        # for a cost that member improved, and leaving it out could fake "everywhere"
+        assert not shortlist_is_complete(16, 50, 0, trend_positive=False)
+
+    def test_the_live_case_now_reads_localised(self):
+        # Premium Product Mix %: Fleet Customer C down, Independent Service Centers up
+        customers = [("Independent Service Centers", 14.03, 7.71, 6.32), ("Fleet Customer C", 17.81, 23.23, -5.42)]
+        scope = assess({"customer_name": member_stats(customers, True)}, dimensions_not_counted=0)
+        assert scope["kind"] == "localised"

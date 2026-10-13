@@ -53,6 +53,22 @@ def member_stats(diffs: Iterable[Diff], trend_positive: bool) -> Dict[str, Any]:
     }
 
 
+def shortlist_is_complete(rows_returned: int, limit: int, rows_dropped: int, trend_positive: bool) -> bool:
+    """Can a "top N movers" result be counted as the whole dimension?
+
+    Yes only when all three hold:
+    - fewer rows came back than were asked for, so nothing was cut off;
+    - no row was dropped as unreadable;
+    - higher is better for this KPI. The query starts from members that have a value
+      in the CURRENT period (curr LEFT JOIN prev), so a member that had a value before
+      and has none now is not in it. For a higher-is-better KPI such a member fell, and
+      leaving out a member that fell can never turn a localised gap into "everywhere".
+      For a cost it is the reverse: the missing member improved, and leaving it out
+      could. So a cost KPI's shortlist is never counted.
+    """
+    return bool(trend_positive) and not rows_dropped and 0 < int(rows_returned) < int(limit)
+
+
 def assess(
     stats_by_dimension: Optional[Dict[str, Dict[str, Any]]],
     dimensions_not_counted: int = 0,

@@ -1176,3 +1176,17 @@ gap was across the board on 5 of 49 segments.
 The Top-N call site now records its dimension in `_spread_uncounted`, and
 `assess(..., dimensions_not_counted=n)` returns None for a general result when n > 0. A localised
 result stands on a partial count, and reports `dimensions_not_counted`.
+
+### A short "top N" result is counted (Oct 2026)
+
+The period-over-period path asks for the top 50 movers per dimension. Fewer than 50 rows back
+means the whole dimension came back, so it is now counted like the dual-query path
+(`deviation_scope.shortlist_is_complete`). It stays uncounted when a full 50 came back, when any
+row was dropped as unreadable, or when the KPI is lower-is-better.
+
+The last condition exists because the query is `curr LEFT JOIN prev`: a member with a value last
+period and none now is absent from the result. For a higher-is-better KPI that member fell, and
+omitting a member that fell cannot turn a localised gap into "everywhere". For a cost it improved,
+and omitting it could. So a cost KPI measured against the prior period still gets no scope verdict.
+Changing the Data Product Agent's query to a full join would lift that; it was left alone because
+every caller of that query would see different rows.

@@ -1677,7 +1677,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     _all_problem_items: list = []
                     _all_healthy_items: list = []
                     _spread_stats: Dict[str, Dict[str, Any]] = {}  # per dimension, every member counted
-                    _spread_uncounted: set = set()  # dimensions analysed from a Top-N list only
+                    _spread_uncounted: set = set()  # dimensions analysed from a cut-off Top-N list
+                    _TOPN_FETCH = 50  # rows asked for per dimension on the period-over-period path
 
                     # Primary path: hierarchical drill per vector if hierarchies present
                     hmap = _hierarchies_from_contract()
@@ -1841,7 +1842,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         filters=getattr(plan, "filters", None),
                                         breakdown=True,
                                         override_group_by=[dim],
-                                        topn={"type": "top", "n": 50, "metric": "delta_prev"}  # Fetch more for threshold analysis
+                                        topn={"type": "top", "n": _TOPN_FETCH, "metric": "delta_prev"}  # Fetch more for threshold analysis
                                     )
                                 if all_req.get("success"):
                                     all_exec = await self.data_product_agent.execute_sql(all_req.get("sql"), data_product_id=dp_id)
@@ -1893,14 +1894,22 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     # Apply Hybrid Threshold + Adaptive N selection
                                     # Determine trend direction from KPI registry (inverse_logic)
                                     kpi_trend_positive = self._trend_positive(plan.kpi_name, kpi_def)
-                                    # Top-N rows only: this dimension's members cannot all be counted.
-                                    _spread_uncounted.add(dim)
+                                    # A "top N" result that came back short of N is the whole
+                                    # dimension and is counted; otherwise it stays uncounted and no
+                                    # "everywhere" verdict is given (deviation_scope.shortlist_is_complete).
+                                    from src.analysis.deviation_scope import shortlist_is_complete
+                                    _dim_counted = shortlist_is_complete(
+                                        len(rows), _TOPN_FETCH, _diff_dropped, kpi_trend_positive,
+                                    )
+                                    if not _dim_counted:
+                                        _spread_uncounted.add(dim)
                                     where_is_items, where_is_not_items = self._select_variance_items(
                                         diffs_topn,
                                         threshold_pct=0.05,  # 5% variance threshold
                                         min_items=3,
                                         max_items=10,
-                                        trend_positive=kpi_trend_positive
+                                        trend_positive=kpi_trend_positive,
+                                        stats_out=_spread_stats.setdefault(dim, {}) if _dim_counted else None,
                                     )
 
                                     # Extend accumulators for post-loop mode inference
