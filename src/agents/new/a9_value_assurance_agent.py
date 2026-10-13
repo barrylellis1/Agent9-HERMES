@@ -232,6 +232,36 @@ def _actuals_are_stale(solution: "AcceptedSolution", today: Optional[str] = None
     return month_index(current_month(today)) - 1 > month_index(last)
 
 
+class _SolutionStore(dict):
+    """The in-memory solutions, keyed by solution id in ONE spelling.
+
+    A solution id is 32 hex characters when this process registers it, and the
+    same id with dashes when Supabase returns the row (its column is a uuid).
+    As plain dict keys those are two entries, so a solution approved in this
+    process was listed twice in the portfolio until the next restart, and an
+    evaluate call could miss a solution depending on which spelling it used.
+    """
+
+    @staticmethod
+    def _key(key: Any) -> Any:
+        return key.replace("-", "").lower() if isinstance(key, str) else key
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        super().__setitem__(self._key(key), value)
+
+    def __getitem__(self, key: Any) -> Any:
+        return super().__getitem__(self._key(key))
+
+    def __contains__(self, key: Any) -> bool:
+        return super().__contains__(self._key(key))
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        return super().get(self._key(key), default)
+
+    def pop(self, key: Any, *args: Any) -> Any:
+        return super().pop(self._key(key), *args)
+
+
 class MeasurementWindowOpenError(ValueError):
     """The measurement window has not closed, so there is no verdict yet."""
 
@@ -559,7 +589,7 @@ class A9_Value_Assurance_Agent:
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # In-memory store backed by Supabase persistence (Phase 7C).
-        self._solutions_store: Dict[str, AcceptedSolution] = {}
+        self._solutions_store: Dict[str, AcceptedSolution] = _SolutionStore()
         self._va_store: Optional[Any] = None  # VASolutionsStore — initialized in connect()
 
         # Injected by orchestrator during connect()

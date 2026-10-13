@@ -136,3 +136,19 @@ class TestAttachEvaluation:
             sol = _attach_evaluation(_solution(), {"solution_id": "s1", "verdict": "VALIDATED"}, None, logging.getLogger("t"))
         assert sol.impact_evaluation is None
         assert "did not parse" in caplog.text
+
+
+class TestOneSolutionOneEntry:
+    """Found live 2026-10-13: a solution approved in the running process was listed
+    twice, once under its 32-character id and once under the dashed form Supabase
+    returns for the same row."""
+
+    def test_both_spellings_of_an_id_are_the_same_entry(self):
+        from src.agents.new.a9_value_assurance_agent import _SolutionStore
+        store = _SolutionStore()
+        store["d8c123494a57d2f8bf3423442b599a2e"] = "registered"
+        store["d8c12349-4a57-d2f8-bf34-23442b599a2e"] = "reloaded"
+        assert len(store) == 1 and list(store.values()) == ["reloaded"]
+        assert store.get("D8C12349-4A57-D2F8-BF34-23442B599A2E") == "reloaded"
+        assert "d8c123494a57d2f8bf3423442b599a2e" in store
+        assert store.pop("d8c12349-4a57-d2f8-bf34-23442b599a2e") == "reloaded" and len(store) == 0

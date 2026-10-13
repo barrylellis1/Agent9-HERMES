@@ -550,3 +550,10 @@ Not changed here: the adjustments are still supplied by the caller and still sub
 numbers (see items 4 and 5).
 
 Tests: `tests/unit/test_va_three_line_verdict.py`.
+
+### One solution, one entry
+
+`_solutions_store` is now a `_SolutionStore`, a dict that treats the 32-character and dashed
+spellings of a solution id as the same key. A solution approved in the running process was being
+listed twice in the portfolio (once as registered, once as reloaded from Supabase) until the next
+restart. Test: `test_va_evaluation_readback.py::TestOneSolutionOneEntry`.
