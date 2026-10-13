@@ -587,3 +587,18 @@ Consequences to know:
   starts in January.
 
 Tests: `tests/unit/test_complete_periods.py`, `tests/unit/test_time_filter.py`.
+
+## A KPI that moved the right way but fell short says so (Oct 2026)
+
+Whether a rise is favourable is recorded on the KPI: `inverse_logic` on each threshold row (true =
+lower is better), mirrored by `metadata.positive_trend_is_good`. A higher-is-better KPI is still
+flagged when its growth is under the green threshold (B2B Revenue: +3.1% against a 5% growth
+target). The card was correct; its sentence, "B2B Revenue increased by 3.1% vs prior year", gave no
+reason and read as an error. Found live 2026-10-13 on five lubricants KPIs.
+
+`_threshold_sentence()` now writes "grew 3.1% vs prior year, short of the 5.0% growth target" (and
+the mirror for a cost that fell by too little, or rose past its limit). With no green threshold the
+sentence is unchanged. Test: `tests/unit/test_sa_threshold_sentence.py`.
+
+Not changed, and worth a decision: in the `variance_thresholds` path a `yellow` evaluation (missed
+green only) maps to severity HIGH while `amber` (missed yellow too, a worse result) maps to MEDIUM.

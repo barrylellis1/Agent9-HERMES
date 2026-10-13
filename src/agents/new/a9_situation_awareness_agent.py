@@ -72,6 +72,32 @@ def _kpi_coverage_outcome(registered: int, evaluated: int) -> Optional[str]:
     return "fail" if evaluated == 0 else "pass"
 
 
+def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: Any, window: str = "") -> str:
+    """The card sentence for a KPI that moved against the prior year and is outside its green band.
+
+    A KPI can move the RIGHT way and still be flagged: revenue that grew 3.1% against a
+    5% growth target has fallen short. The sentence used to read "B2B Revenue increased by
+    3.1% vs prior year" under a problem card, which reads as a system error. Found live
+    2026-10-13: five lubricants KPIs that rose were listed as problems with no reason given.
+    The KPI's direction comes from the threshold row's `inverse_logic` (lower is better).
+    """
+    amount = abs(percent_change)
+    try:
+        g = float(green) if green is not None else None
+    except (TypeError, ValueError):
+        g = None
+    moved_the_right_way = (percent_change < 0) if inverse else (percent_change > 0)
+    if g is not None and moved_the_right_way:
+        if not inverse:
+            return f"{name} grew {amount:.1f}% vs prior year{window}, short of the {g:.1f}% growth target"
+        return f"{name} fell {amount:.1f}% vs prior year{window}, short of the {abs(g):.1f}% reduction target"
+    direction = "increased" if percent_change > 0 else "decreased"
+    sentence = f"{name} {direction} by {amount:.1f}% vs prior year{window}"
+    if inverse and g is not None and g >= 0 and percent_change > 0:
+        sentence += f", above the {g:.1f}% limit"
+    return sentence
+
+
 class A9_Situation_Awareness_Agent:
     """
     Agent9 Situation Awareness Agent
@@ -3826,13 +3852,13 @@ class A9_Situation_Awareness_Agent:
                         else SituationSeverity.MEDIUM if evaluation == 'amber'
                         else SituationSeverity.CRITICAL
                     )
-                    change_direction = "increased" if percent_change > 0 else "decreased"
                     situations.append(self._create_threshold_situation(
                         kpi_definition,
                         kpi_value,
                         severity,
-                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}%"
-                        f" vs prior year{self._window_suffix(kpi_value)}",
+                        _threshold_sentence(
+                            kpi_definition.name, percent_change, inv, g, self._window_suffix(kpi_value),
+                        ),
                         principal_context
                     ))
                 # Green-band: KPI is performing within or better than threshold — not a problem.
