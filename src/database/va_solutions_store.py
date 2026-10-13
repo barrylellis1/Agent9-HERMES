@@ -403,6 +403,51 @@ class VASolutionsStore:
     # Evaluations
     # ------------------------------------------------------------------
 
+    async def get_evaluations_for_solutions(
+        self, solution_ids: List[str]
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Return the stored evaluation for each given solution, keyed by solution_id,
+        shaped for ``ImpactEvaluation(**row)``.
+
+        ``upsert_evaluation`` has always written these rows; until this method
+        existed nothing read them back, so a solution loaded from Supabase came
+        back with a verdict and no evaluation behind it.
+
+        Solutions with no evaluation are simply absent from the result.
+        Returns an empty dict on any error.
+        """
+        if not self.enabled or not solution_ids:
+            return {}
+        try:
+            params: Dict[str, Any] = {
+                "solution_id": "in.(" + ",".join(f'"{sid}"' for sid in solution_ids) + ")",
+                "select": "*",
+            }
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    self.evaluations_endpoint, headers=self.headers, params=params,
+                )
+                response.raise_for_status()
+                rows = json.loads(response.content) if response.content else []
+            out: Dict[str, Dict[str, Any]] = {}
+            for row in rows:
+                sid = str(row.get("solution_id"))
+                shaped = {k: v for k, v in row.items() if k not in ("id", "created_at", "include_in_roi")}
+                shaped["solution_id"] = sid
+                # Stored under the column name `strategy_alignment`; the model field is `strategy_check`.
+                shaped["strategy_check"] = shaped.pop("strategy_alignment", None)
+                for key in ("strategy_check", "composite_verdict"):
+                    if isinstance(shaped.get(key), str):
+                        shaped[key] = json.loads(shaped[key])
+                out[sid] = shaped
+            return out
+        except Exception as exc:
+            logger.warning(
+                "VASolutionsStore.get_evaluations_for_solutions failed (non-fatal): %s", exc
+            )
+            return {}
+
     async def upsert_evaluation(
         self, evaluation: ImpactEvaluation, solution_id: str
     ) -> bool:

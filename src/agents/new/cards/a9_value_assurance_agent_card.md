@@ -377,3 +377,25 @@ with no control group, still passes. Requiring a control group specifically is t
 and has not been applied.
 
 Tests: `test_va_causal_edge_confirmation.py::TestWeakVerdictNeverConfirms`.
+
+## Evaluations are read back with their solutions (Oct 2026)
+
+`VASolutionsStore.upsert_evaluation` has always written to `value_assurance_evaluations`, but nothing
+read those rows. `get_portfolio_summary()` rebuilds each solution from its `value_assurance_solutions`
+row on every call, so every solution came back with a verdict and `impact_evaluation=None`: lost on
+restart, and also lost in the same process the first time the portfolio was read after an
+evaluation. Found live: the portfolio API returned no evaluation for any of 12 lubricants solutions,
+including ones with a full row stored. The Value Assurance panel and the breakdown chart could
+never render, and the trajectory chart said "first measurement period in progress" beside a final
+verdict.
+
+- New `VASolutionsStore.get_evaluations_for_solutions(solution_ids)` returns rows keyed by
+  `solution_id`, shaped for `ImpactEvaluation(**row)` (the `strategy_alignment` column maps to the
+  `strategy_check` field).
+- New module-level `_attach_evaluation(solution, stored_row, previous, logger)` in the agent. It
+  prefers the stored row, then the evaluation this process already held for that solution (its
+  persist may have failed), then none. A row that does not parse is logged and treated as absent,
+  never replaced by a default.
+- `get_portfolio_summary()` calls both when it reloads from Supabase.
+
+Tests: `tests/unit/test_va_evaluation_readback.py` (7).

@@ -516,7 +516,7 @@ async def test_evaluate_solution_confidence_high(agent, register_request):
     resp = await agent.evaluate_solution_impact(eval_req)
 
     assert resp.evaluation.confidence == ConfidenceLevel.HIGH
-    assert "Control group, market recovery, and seasonal" in resp.evaluation.confidence_rationale
+    assert "segments the decision did not touch" in resp.evaluation.confidence_rationale
 
 
 @pytest.mark.asyncio
@@ -537,7 +537,7 @@ async def test_evaluate_solution_confidence_moderate(agent, register_request):
     resp = await agent.evaluate_solution_impact(eval_req)
 
     assert resp.evaluation.confidence == ConfidenceLevel.MODERATE
-    assert "1/3" in resp.evaluation.confidence_rationale or "some confounders" in resp.evaluation.confidence_rationale.lower()
+    assert "1 of 3" in resp.evaluation.confidence_rationale
 
 
 @pytest.mark.asyncio
@@ -557,7 +557,7 @@ async def test_evaluate_solution_confidence_low_no_controls(agent, register_requ
     resp = await agent.evaluate_solution_impact(eval_req)
 
     assert resp.evaluation.confidence == ConfidenceLevel.LOW
-    assert "No control group" in resp.evaluation.confidence_rationale
+    assert "before-and-after reading" in resp.evaluation.confidence_rationale
 
 
 @pytest.mark.asyncio

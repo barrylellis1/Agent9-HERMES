@@ -239,6 +239,32 @@ async def _grade_assumptions_from_verdict(
         )
 
 
+def _attach_evaluation(
+    solution: "AcceptedSolution",
+    stored_row: Optional[Dict[str, Any]],
+    previous: Optional["AcceptedSolution"],
+    logger_: logging.Logger,
+) -> "AcceptedSolution":
+    """Give a solution reloaded from Supabase its evaluation back.
+
+    Order of preference: the stored evaluation row; failing that, the evaluation
+    this process already held for the same solution (its persist may have
+    failed); failing that, none. A row that does not parse is logged and treated
+    as absent. It is never replaced with a partial or default evaluation.
+    """
+    if stored_row:
+        try:
+            return solution.model_copy(update={"impact_evaluation": ImpactEvaluation(**stored_row)})
+        except Exception as exc:
+            logger_.warning(
+                "[VA] stored evaluation for solution %s did not parse (shown without detail): %s",
+                solution.solution_id, exc,
+            )
+    if previous is not None and previous.impact_evaluation is not None:
+        return solution.model_copy(update={"impact_evaluation": previous.impact_evaluation})
+    return solution
+
+
 async def _confirm_causal_edge_from_verdict(
     client_id: Optional[str],
     claimed_causal_edge: Optional[str],
@@ -684,18 +710,20 @@ class A9_Value_Assurance_Agent:
         if signals_present == 3:
             confidence = ConfidenceLevel.HIGH
             confidence_rationale = (
-                "Control group, market recovery, and seasonal estimates all provided."
+                "Compared against segments the decision did not touch, with market "
+                "and seasonal effects accounted for."
             )
         elif signals_present >= 1:
             confidence = ConfidenceLevel.MODERATE
             confidence_rationale = (
-                f"{signals_present}/3 attribution inputs provided; some confounders unaccounted."
+                f"{signals_present} of 3 adjustments were available (untouched segments, "
+                "market, seasonal). Other influences on the KPI are not ruled out."
             )
         else:
             confidence = ConfidenceLevel.LOW
             confidence_rationale = (
-                "No control group or external estimates provided; "
-                "attributable impact equals total KPI change."
+                "Nothing was available to compare against, so the whole change in the "
+                "KPI is counted as the effect of the decision. This is a before-and-after reading."
             )
 
         # Strategy alignment
@@ -1249,9 +1277,21 @@ class A9_Value_Assurance_Agent:
                 rows = await self._va_store.get_solutions_by_principal(
                     request.principal_id, client_id=getattr(request, "client_id", None)
                 )
+                # Evaluations live in their own table. Read them back alongside
+                # the solutions; without this every reloaded solution carried a
+                # verdict with no measurement behind it.
+                evaluations = await self._va_store.get_evaluations_for_solutions(
+                    [str(r.get("solution_id")) for r in rows if r.get("solution_id")]
+                )
                 for row in rows:
                     try:
                         sol = AcceptedSolution(**row)
+                        sol = _attach_evaluation(
+                            sol,
+                            evaluations.get(str(sol.solution_id)),
+                            self._solutions_store.get(sol.solution_id),
+                            self.logger,
+                        )
                         self._solutions_store[sol.solution_id] = sol
                     except Exception as parse_exc:
                         self.logger.warning(
