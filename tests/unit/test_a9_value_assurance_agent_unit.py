@@ -778,6 +778,7 @@ async def test_get_portfolio_summary_aggregates_roi(agent, register_request):
         principal_id="cfo_001",
         solution_id=solution_id,
         current_kpi_value=49.0,  # +4 attributable → VALIDATED
+        market_recovery_estimate=0.0,  # one adjustment supplied → MODERATE confidence
     )
     await agent.evaluate_solution_impact(eval_req)
 
@@ -792,6 +793,40 @@ async def test_get_portfolio_summary_aggregates_roi(agent, register_request):
     assert resp.validated_count == 1
     assert resp.total_attributable_impact == 4.0
     assert resp.roi_eligible_solutions == 1
+
+
+@pytest.mark.asyncio
+async def test_low_confidence_result_is_not_counted_in_roi(agent, register_request):
+    """`min_confidence_for_roi` (default MODERATE) was declared and never read, so a
+    before-and-after reading counted toward the ROI total. Found live 2026-10-12."""
+    reg_resp = await agent.register_solution(register_request)
+    eval_resp = await agent.evaluate_solution_impact(EvaluateSolutionRequest(
+        request_id="eval-low",
+        principal_id="cfo_001",
+        solution_id=reg_resp.solution_id,
+        current_kpi_value=49.0,  # VALIDATED, but nothing to compare against → LOW
+    ))
+    assert eval_resp.evaluation.confidence == ConfidenceLevel.LOW
+    assert eval_resp.evaluation.composite_verdict.include_in_roi_totals is False
+
+    resp = await agent.get_portfolio_summary(PortfolioSummaryRequest(
+        request_id="port-low", principal_id="cfo_001", include_superseded=False,
+    ))
+    assert resp.validated_count == 1          # the verdict itself is unchanged
+    assert resp.total_attributable_impact == 0.0
+    assert resp.roi_eligible_solutions == 0
+    # the solutions the page renders carry the same answer as the total
+    assert all(not x.impact_evaluation.composite_verdict.include_in_roi_totals for x in resp.solutions)
+
+
+def test_roi_floor_applies_to_evaluations_stored_before_it_existed():
+    from src.agents.new.a9_value_assurance_agent import _apply_roi_confidence_floor, _build_composite_verdict
+    from src.agents.models.value_assurance_models import SolutionVerdict, StrategyAlignment
+    stored = _build_composite_verdict(SolutionVerdict.VALIDATED, StrategyAlignment.ALIGNED)
+    assert stored.include_in_roi_totals is True
+    assert _apply_roi_confidence_floor(stored, "LOW", "MODERATE").include_in_roi_totals is False
+    assert _apply_roi_confidence_floor(stored, "MODERATE", "MODERATE").include_in_roi_totals is True
+    assert _apply_roi_confidence_floor(stored, None, "MODERATE").include_in_roi_totals is False
 
 
 @pytest.mark.asyncio

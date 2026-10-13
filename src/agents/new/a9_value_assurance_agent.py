@@ -171,6 +171,30 @@ def _build_composite_verdict(
     )
 
 
+_CONFIDENCE_RANK = {"LOW": 0, "MODERATE": 1, "HIGH": 2}
+
+
+def _meets_confidence(confidence: Any, minimum: Any) -> bool:
+    """True when `confidence` is at least `minimum`. Unknown values never pass."""
+    have = _CONFIDENCE_RANK.get(str(getattr(confidence, "value", confidence)).upper())
+    need = _CONFIDENCE_RANK.get(str(getattr(minimum, "value", minimum)).upper())
+    return have is not None and need is not None and have >= need
+
+
+def _apply_roi_confidence_floor(
+    composite: "CompositeVerdict", confidence: Any, minimum: Any
+) -> "CompositeVerdict":
+    """A result below the configured confidence floor is not counted in ROI.
+
+    `min_confidence_for_roi` was declared on the config and never read: every
+    VALIDATED or PARTIAL result counted toward the ROI total, including
+    before-and-after readings with nothing to compare against.
+    """
+    if composite.include_in_roi_totals and not _meets_confidence(confidence, minimum):
+        return composite.model_copy(update={"include_in_roi_totals": False})
+    return composite
+
+
 def _utcnow() -> str:
     return datetime.utcnow().isoformat() + "Z"
 
@@ -272,6 +296,7 @@ async def _confirm_causal_edge_from_verdict(
     logger_: logging.Logger,
     *,
     confidence: Optional["ConfidenceLevel"],
+    has_control_group: bool,
 ) -> None:
     """Density-gate write-back infrastructure (Phase 17 T2/T3 follow-on,
     DEVELOPMENT_PLAN.md's Causal Edges density gate).
@@ -308,17 +333,21 @@ async def _confirm_causal_edge_from_verdict(
       reading, which cannot support "held up when measured". `confidence` is a
       required keyword so a caller cannot skip this check by omission; None
       (unknown) is treated as not good enough.
+    - `has_control_group` must be True. MODERATE confidence is reached with any
+      one adjustment, so a single market or seasonal number supplied by the
+      caller would otherwise pass. "Tested" means the result was compared with
+      segments the decision did not touch; without that comparison it was not.
 
     Non-fatal: a persistence failure must never break the VA response that
     triggered it, same posture as the assumption grading write-back above.
     """
     if verdict != SolutionVerdict.VALIDATED:
         return
-    if confidence not in (ConfidenceLevel.MODERATE, ConfidenceLevel.HIGH):
+    if not has_control_group or confidence not in (ConfidenceLevel.MODERATE, ConfidenceLevel.HIGH):
         logger_.info(
-            "[VA] verdict VALIDATED at confidence %s for claimed_causal_edge '%s' -- not confirming "
-            "(a before-and-after reading with nothing to compare against does not test a link)",
-            getattr(confidence, "value", confidence), claimed_causal_edge,
+            "[VA] verdict VALIDATED at confidence %s (control group: %s) for claimed_causal_edge '%s' "
+            "-- not confirming (a link is tested only when the result was compared with untouched segments)",
+            getattr(confidence, "value", confidence), has_control_group, claimed_causal_edge,
         )
         return
     if not client_id or not claimed_causal_edge or claimed_causal_edge in ("ungrounded", "insufficient_data"):
@@ -736,7 +765,10 @@ class A9_Value_Assurance_Agent:
         strategy_check = alignment_resp.alignment
 
         # Composite verdict
-        composite = _build_composite_verdict(verdict, strategy_check.alignment_verdict)
+        composite = _apply_roi_confidence_floor(
+            _build_composite_verdict(verdict, strategy_check.alignment_verdict),
+            confidence, self.config.min_confidence_for_roi,
+        )
 
         # Plan/budget trajectory verdict (Phase 11I-C). Literal (actual - plan) / abs(plan) —
         # this describes numeric position relative to plan, not a good/bad framing, so no
@@ -827,6 +859,7 @@ class A9_Value_Assurance_Agent:
         await _confirm_causal_edge_from_verdict(
             solution.client_id, solution.strategy_snapshot.claimed_causal_edge, verdict, self.logger,
             confidence=confidence,
+            has_control_group=bool(request.control_group_kpi_values),
         )
 
         return EvaluateSolutionResponse(
@@ -1319,7 +1352,7 @@ class A9_Value_Assurance_Agent:
         exec_attention: List[str] = []
         ahead_of_plan = on_plan = behind_plan = no_plan_data = 0
 
-        for sol in all_solutions:
+        for _i, sol in enumerate(all_solutions):
             total += 1
 
             if sol.status == SolutionVerdict.VALIDATED:
@@ -1333,6 +1366,14 @@ class A9_Value_Assurance_Agent:
 
             if sol.impact_evaluation is not None:
                 ev = sol.impact_evaluation
+                floored = _apply_roi_confidence_floor(
+                    ev.composite_verdict, ev.confidence, self.config.min_confidence_for_roi,
+                )
+                if floored is not ev.composite_verdict:
+                    ev = ev.model_copy(update={"composite_verdict": floored})
+                    sol = sol.model_copy(update={"impact_evaluation": ev})
+                    self._solutions_store[sol.solution_id] = sol
+                    all_solutions[_i] = sol  # the response returns this list
                 strategy_v = ev.strategy_check.alignment_verdict
                 if strategy_v == StrategyAlignment.ALIGNED:
                     aligned += 1

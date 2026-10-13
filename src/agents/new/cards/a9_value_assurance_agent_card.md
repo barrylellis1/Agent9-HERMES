@@ -399,3 +399,27 @@ verdict.
 - `get_portfolio_summary()` calls both when it reloads from Supabase.
 
 Tests: `tests/unit/test_va_evaluation_readback.py` (7).
+
+## Two gates tightened: ROI counting and "tested" (Oct 2026)
+
+**ROI.** `A9ValueAssuranceAgentConfig.min_confidence_for_roi` (default `MODERATE`) was declared and
+never read. `include_in_roi_totals` came from the verdict x alignment matrix alone, so a `LOW`
+confidence, before-and-after result counted toward the ROI total and showed "Include in ROI".
+`_apply_roi_confidence_floor()` now clears the flag below the floor, in two places:
+`evaluate_solution_impact()` for new evaluations, and `get_portfolio_summary()` for evaluations
+stored before the floor existed, so the total and the per-solution flag agree. The verdict and the
+composite label are unchanged; only ROI eligibility moves.
+
+Known and not fixed here: `total_attributable_impact` adds raw figures across KPIs, so dollars and
+percentage points are summed together. The Portfolio page no longer uses it and computes a
+dollar-only figure from the solutions list.
+
+**Tested.** `_confirm_causal_edge_from_verdict()` gained a second required keyword,
+`has_control_group`. A link is marked tested only when the verdict is `VALIDATED`, confidence is
+`MODERATE` or `HIGH`, and the evaluation was compared with segments the decision did not touch.
+This closes the limit recorded in the entry above: a single market or seasonal number no longer
+passes.
+
+Tests: `test_a9_value_assurance_agent_unit.py::test_low_confidence_result_is_not_counted_in_roi`,
+`::test_roi_floor_applies_to_evaluations_stored_before_it_existed`,
+`test_va_causal_edge_confirmation.py::TestWeakVerdictNeverConfirms`.
