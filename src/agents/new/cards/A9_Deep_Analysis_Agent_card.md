@@ -1190,3 +1190,32 @@ omitting a member that fell cannot turn a localised gap into "everywhere". For a
 and omitting it could. So a cost KPI measured against the prior period still gets no scope verdict.
 Changing the Data Product Agent's query to a full join would lift that; it was left alone because
 every caller of that query would see different rows.
+
+## Deep Analysis analyses the period the situation card was measured over (Oct 2026) 🔴
+
+Situation Awareness and the shared period helper read the same token differently:
+
+| Token | Situation Awareness (year over year) | `TimeFilter`, untranslated |
+|---|---|---|
+| `current_quarter` | quarter so far vs the same days last year | whole quarter vs whole previous quarter |
+| `current_month` | month so far vs the same days last year | whole month vs whole previous month |
+| `current_year` | year so far vs the same days last year | whole year vs whole previous year |
+| `year_to_date` | year so far vs the same days last year | the same |
+
+Found live 2026-10-13: the B2B Revenue card said "up 1.8% vs prior year" and this agent found all
+36 segments down by 4% to 26%. The whole-quarter window also took in rows dated after today.
+
+`_situation_period()` translates the token once, where `cur_tf` is resolved in
+`execute_deep_analysis`, to the helper's `*_to_date` form, which gives exactly Situation
+Awareness's two windows. `plan.timeframe` is set to the translated token so the dimensional
+queries, totals, neighbour evidence and narrative all use one period.
+
+Still not aligned:
+- Situation Awareness run with `quarter_over_quarter` or `month_over_month` (the screen sends
+  `month_over_month` when "current month" is selected) compares the period so far with the WHOLE
+  previous period. This agent now compares with the same days a year earlier. That Situation
+  Awareness comparison is itself unequal (13 days against a full month) and is not fixed here.
+- Fiscal-period-keyed data products resolve `quarter_to_date` at period grain (the whole current
+  fiscal period), not to the day.
+
+Tests: `tests/unit/test_da_period_alignment.py`.

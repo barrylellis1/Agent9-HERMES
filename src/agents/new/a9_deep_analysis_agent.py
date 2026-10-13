@@ -368,6 +368,32 @@ COUNCIL_ROUTING = {
 }
 
 
+# The period Situation Awareness actually measured, as a token the shared period helper
+# (src/database/time_filter.py) reads the same way.
+#
+# SA reads "current_quarter" as the quarter SO FAR and compares it with the same days a
+# year earlier (2026-10-01..13 vs 2025-10-01..13). The shared helper reads the same token
+# as the WHOLE quarter against the WHOLE previous quarter (2026-10-01..12-31 vs
+# 2026-07-01..09-30). Found live 2026-10-13: the B2B Revenue card said "up 1.8% vs prior
+# year" and this agent, analysing that card, found all 36 segments down by 4% to 26%.
+# The helper's "*_to_date" tokens give exactly SA's windows, so the token is translated
+# once, on the way in, and everything downstream uses the translated one.
+_SITUATION_PERIOD_TOKEN: Dict[str, str] = {
+    "current_quarter": "quarter_to_date",
+    "this_quarter": "quarter_to_date",
+    "current_month": "month_to_date",
+    "this_month": "month_to_date",
+    "current_year": "year_to_date",
+    "this_year": "year_to_date",
+}
+
+
+def _situation_period(timeframe: Any) -> Any:
+    """The token for the period the situation card was measured over."""
+    key = str(getattr(timeframe, "value", timeframe) or "").strip().lower()
+    return _SITUATION_PERIOD_TOKEN.get(key, timeframe)
+
+
 class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
     """Deep Analysis Agent MVP implementation (skeleton)."""
 
@@ -1154,11 +1180,16 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # Default to current_quarter if no timeframe specified
                     if not cur_tf:
                         cur_tf = "current_quarter"
-                        try:
-                            if hasattr(plan, "timeframe"):
-                                plan.timeframe = cur_tf
-                        except Exception:
-                            pass
+                    # Analyse the period the situation card was measured over.
+                    _aligned_tf = _situation_period(cur_tf)
+                    if _aligned_tf != cur_tf:
+                        self.logger.info(f"[PERIOD] {cur_tf} -> {_aligned_tf} (the period Situation Awareness measured)")
+                    cur_tf = _aligned_tf
+                    try:
+                        if hasattr(plan, "timeframe"):
+                            plan.timeframe = cur_tf
+                    except Exception:
+                        pass
                     prev_tf = self._prev_timeframe(cur_tf)
 
                     # §4.5: index the deny list once, before any dimension list is built,
