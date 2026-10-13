@@ -72,6 +72,11 @@ def _kpi_coverage_outcome(registered: int, evaluated: int) -> Optional[str]:
     return "fail" if evaluated == 0 else "pass"
 
 
+# Months asked for per KPI series. More than the 9 shown, because the most recent rows can be
+# the open month or later-dated rows, which closed_months_only() removes.
+_SERIES_FETCH_MONTHS = 13
+
+
 def _severity_for_band(evaluation: str) -> "SituationSeverity":
     """Severity follows how far the actual sits from the target.
 
@@ -2949,16 +2954,16 @@ class A9_Situation_Awareness_Agent:
                         _pr = _ts.get("period_column", "fiscal_period")
                         if _is_ss_kpi:
                             monthly_sql = self._ss_monthly_series_sql(
-                                monthly_source, year_col=_yr, period_col=_pr, num_months=9,
+                                monthly_source, year_col=_yr, period_col=_pr, num_months=_SERIES_FETCH_MONTHS,
                             )
                         else:
                             monthly_sql = self._sf_monthly_series_sql(
-                                monthly_source, year_col=_yr, period_col=_pr, num_months=9,
+                                monthly_source, year_col=_yr, period_col=_pr, num_months=_SERIES_FETCH_MONTHS,
                             )
                     if not monthly_sql:
-                        monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=9)
+                        monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=_SERIES_FETCH_MONTHS)
                 else:
-                    monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=9)
+                    monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=_SERIES_FETCH_MONTHS)
 
             # ── Build comparison SQL (sync for BQ/SS-native, async for DPA-path) ──
             comp_sql = ""
@@ -3058,7 +3063,13 @@ class A9_Situation_Awareness_Agent:
                             "trend/acceleration signals are computed on the remainder",
                             kpi_name, _dropped, len(vals) + _dropped,
                         )
-                    self.logger.info(f"[Monthly] Got {len(vals)} monthly values for {kpi_name}")
+                    # Closed months only: drop the open month and anything dated after it.
+                    from src.analysis.monthly_series import closed_months_only
+                    _fetched = len(vals)
+                    vals = closed_months_only(vals, keep=9)
+                    self.logger.info(
+                        f"[Monthly] Got {_fetched} monthly values for {kpi_name}, {len(vals)} closed and kept"
+                    )
                     return vals or None
                 except Exception as _me:
                     self.logger.warning(f"[Monthly] Failed to get monthly series for {kpi_name}: {_me}")

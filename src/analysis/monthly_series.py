@@ -137,3 +137,24 @@ def recent_trend_slope(months: Sequence[Month]) -> Optional[float]:
         if fit >= MIN_TREND_FIT:
             return trend_slope_per_month(recent, lookback=window, min_points=3)
     return None
+
+
+def closed_months_only(rows: Any, today: Optional[str] = None, keep: int = 9) -> Any:
+    """The series without the open month or anything dated after it, last `keep` months.
+
+    The month we are in is not finished, and a demo warehouse can hold rows dated in
+    months that have not happened. Either one bends everything read off the end of the
+    series: the tile's sparkline, the "last three months" note, the projected breach,
+    the acceleration signal. Found live 2026-10-13 on lubricants: tiles said revenue was
+    "declining 7.6% over the last three months", and those three months were October
+    (13 days in), November and December.
+
+    Rows whose labels are not distinct calendar months are returned unchanged: this
+    function cannot tell which of them are closed, and does not guess.
+    """
+    if trusted_months(rows) is None:
+        return rows
+    cutoff = current_month(today)
+    closed = sorted((r for r in rows if isinstance(r, dict) and str(r.get("period")) < cutoff),
+                    key=lambda r: str(r.get("period")))
+    return closed[-keep:] if keep else closed

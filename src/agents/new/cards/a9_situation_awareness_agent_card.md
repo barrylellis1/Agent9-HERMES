@@ -616,3 +616,16 @@ Snowflake builder had the same cut waiting (`LPAD(text, 2)` truncates).
 
 Both now convert the period to a number first (`TRY_CAST(... AS INT)` / `TRY_TO_NUMBER`).
 Test: `tests/unit/test_sa_monthly_series_labels.py`.
+
+## The card's monthly series holds closed months only (Oct 2026) 🔴
+
+The series fetched for each KPI took the 9 most recent periods as they came. On lubricants that
+included October (13 days in) and rows dated November and December. Everything read off the end
+of the series inherited them: the tile sparkline, `_generate_trend_note` ("declining 7.6% over the
+last three months" described Oct to Dec), `_project_trend`, `_compute_acceleration`, and the
+baseline read at approval.
+
+`_fetch_monthly` now asks for `_SERIES_FETCH_MONTHS` (13) and passes the result through
+`monthly_series.closed_months_only(keep=9)`, which drops the open month and anything later. A
+series whose labels are not distinct calendar months is returned unchanged.
+Test: `tests/unit/test_monthly_series.py::TestClosedMonthsOnly`.

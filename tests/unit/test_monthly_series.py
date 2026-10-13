@@ -164,3 +164,28 @@ class TestNoActionLine:
     async def test_an_opportunity_stays_flat_whatever_the_trend(self, agent):
         r = await agent.register_solution(_register(pre_approval_monthly_slope=80.0, analysis_mode="opportunity"))
         assert set(agent._solutions_store[r.solution_id].inaction_trend) == {1000.0}
+
+
+class TestClosedMonthsOnly:
+    ROWS = [{"period": f"2026-{m:02d}", "value": float(m)} for m in range(1, 13)]
+
+    def test_the_open_month_and_later_dated_rows_are_dropped(self):
+        from src.analysis.monthly_series import closed_months_only
+        out = closed_months_only(self.ROWS, today="2026-10-13")
+        assert [r["period"] for r in out] == [f"2026-{m:02d}" for m in range(1, 10)]
+
+    def test_only_the_most_recent_closed_months_are_kept(self):
+        from src.analysis.monthly_series import closed_months_only
+        out = closed_months_only(self.ROWS, today="2026-10-13", keep=3)
+        assert [r["period"] for r in out] == ["2026-07", "2026-08", "2026-09"]
+
+    def test_labels_that_are_not_calendar_months_are_left_alone(self):
+        from src.analysis.monthly_series import closed_months_only
+        rows = [{"period": "2026-00", "value": 1.0}, {"period": "2026-00", "value": 2.0}]
+        assert closed_months_only(rows, today="2026-10-13") is rows
+        assert closed_months_only(None) is None
+
+    def test_a_series_that_ends_early_is_not_padded(self):
+        from src.analysis.monthly_series import closed_months_only
+        out = closed_months_only(self.ROWS[:7], today="2026-10-13")
+        assert out[-1]["period"] == "2026-07" and len(out) == 7
