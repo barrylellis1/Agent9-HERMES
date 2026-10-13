@@ -119,6 +119,18 @@ class TestBaselineFromSituation:
     def test_nothing_usable_means_none_not_a_guess(self, payload):
         assert _baseline_from_situation(payload, "net_revenue", today="2026-10-07") == (None, None)
 
-    def test_malformed_points_are_skipped(self):
+    def test_an_unparseable_value_is_skipped(self):
         series = [{"period": "2026-09", "value": "n/a"}, "junk", {"period": "2026-08", "value": 5.0}]
         assert _baseline_from_situation(_situation(series=series), "net_revenue", today="2026-10-07") == (5.0, "2026-08")
+
+    def test_a_series_with_untrustworthy_month_labels_gives_no_baseline(self):
+        """The Hess (SQL Server) series as returned live on 2026-10-13."""
+        hess = [{"period": p, "value": v} for p, v in [
+            ("2025-01", -17188774), ("2025-01", -17579428), ("2026-00", -23740041),
+            ("2026-00", -23136480), ("2026-00", -21728173)]]
+        assert _baseline_from_situation(_situation(series=hess), "net_revenue", today="2026-10-13") == (None, None)
+
+    @pytest.mark.parametrize("bad", ["2026-00", "2026-13", "2026-9", "2026-Q3"])
+    def test_one_bad_label_discredits_the_whole_series(self, bad):
+        series = [{"period": "2026-08", "value": 5.0}, {"period": bad, "value": 6.0}]
+        assert _baseline_from_situation(_situation(series=series), "net_revenue", today="2026-10-13") == (None, None)

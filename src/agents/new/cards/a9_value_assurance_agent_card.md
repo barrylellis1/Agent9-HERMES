@@ -457,3 +457,18 @@ would have read as a +$35M change.
 - A reframed objective gets no baseline.
 
 Tests: `tests/unit/test_va_baseline_at_approval.py` (12).
+
+### Follow-up the same day: the baseline helper rejects a series it cannot trust
+
+The end-to-end regression run on Hess (SQL Server) recorded a baseline for period "2026-00". The
+monthly series Situation Awareness returns for that backend is labelled
+`['2025-01', '2025-01', '2026-00', '2026-00', ...]`: 3-digit fiscal periods are truncated when the
+label is built (the SQL Server copy of the monthly-series builder, already listed as a known
+duplicate in `A9_Data_Product_Agent_card.md`, Phase 25). `_baseline_from_situation()` now uses a
+series only when every label is a distinct calendar month; otherwise it records nothing. Until the
+SQL Server labels are fixed, solutions on that backend get no baseline and cannot be evaluated.
+`tests/regression/test_plan_variance_e2e.py` reports this as an expected failure.
+
+Also seen in that run, not fixed: within one process a newly approved solution is listed twice in
+the portfolio, once under its 32-character id and once under the dashed UUID Supabase returns for
+the same row. It clears on restart.

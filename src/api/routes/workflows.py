@@ -4,6 +4,7 @@ import asyncio
 import os
 import uuid
 from dataclasses import dataclass, field
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
@@ -91,6 +92,9 @@ _store_lock = asyncio.Lock()
 _SECRET_KEY_MARKERS = ("password", "secret", "private_key", "token", "api_key", "access_key")
 
 
+_CALENDAR_MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+
+
 def _baseline_from_situation(
     situation_payload: Dict[str, Any], kpi_id: str, today: Optional[str] = None
 ) -> Tuple[Optional[float], Optional[str]]:
@@ -104,10 +108,20 @@ def _baseline_from_situation(
 
     Months at or after the current month are ignored: the current month is
     partial, and a warehouse may hold later-dated rows (the demo data does).
+
+    The series is used only when EVERY label is a distinct calendar month
+    ("YYYY-01".."YYYY-12"). Found live on Hess (SQL Server): the series came
+    back labelled ['2025-01', '2025-01', '2026-00', '2026-00', ...], because
+    3-digit fiscal periods are truncated when the label is built. Picking a
+    "latest month" out of that recorded period "2026-00" as the baseline. A
+    series whose labels cannot be trusted yields no baseline at all.
     """
     if not kpi_id or (situation_payload or {}).get("kpi_id") != kpi_id:
         return None, None
     series = ((situation_payload or {}).get("kpi_value") or {}).get("monthly_values") or []
+    labels = [str(p.get("period") or "") for p in series if isinstance(p, dict)]
+    if len(set(labels)) != len(labels) or not all(_CALENDAR_MONTH.match(lbl) for lbl in labels):
+        return None, None
     current_month = (today or datetime.utcnow().strftime("%Y-%m-%d"))[:7]
     best: Tuple[Optional[float], Optional[str]] = (None, None)
     for point in series:
