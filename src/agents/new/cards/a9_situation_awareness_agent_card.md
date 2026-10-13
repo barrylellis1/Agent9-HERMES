@@ -550,3 +550,40 @@ flagged CRITICAL, several with small positive percent changes.
 mapped to `SituationSeverity.MEDIUM` (not CRITICAL). Kept in sync with the canonical model's own
 `KPIEvaluationStatus.AMBER`. Verified live: CRITICAL count on the same scan dropped to 5 of 12, with
 2 correctly landing in the new MEDIUM tier. Tests: `tests/unit/test_kpi_evaluate_amber_band.py` (11).
+
+## Complete periods only, for period-keyed data products (Oct 2026) 🔴
+
+A data product declares how it keys time in `time_dimensions[0].type`. The declaration now decides
+what "the current period" means for a reading (`src/analysis/complete_periods.py`):
+
+| Declared type | Reading taken |
+|---|---|
+| `fiscal_year_period`, `fiscal_year` (or `date` with a year column and no date column) | as of the last closed month: closed periods only |
+| `date` | to the day, as before |
+
+On 13 October, for a period-keyed product: "year to date" is January to September, "current
+quarter" is July to September (no month of Q4 has closed), "current month" is September. Each is
+compared with the same periods a year earlier. `month_over_month` and `quarter_over_quarter` now
+compare whole periods with whole periods.
+
+Before this, the card sliced period-keyed data to the day (1-13 Oct against 1-13 Oct) using a
+hard-coded date column, while Deep Analysis read the declared period key. Found live 2026-10-13 on
+lubricants Premium Product Mix %: the card said it fell, the analysis said it rose.
+
+How: `_period_as_of(data_product_id)` reads the declaration (remembered for 60 seconds) and returns
+the last closed day or None. `_get_kpi_value` passes it as `as_of` to `_bq_apply_period`,
+`_bq_get_period_dates` and `_build_measurement_context`; the projected-breach month count uses it
+too. The shared `TimeFilter` applies the same rule to its `fiscal_year_period` branch, so Deep
+Analysis and the Data Product Agent path resolve the same periods.
+
+Consequences to know:
+- Cards for period-keyed products change once a month, when a period closes, not daily.
+- A problem that starts in the open month is not flagged until that month closes.
+- "Closed" means the calendar month has ended. There is no posting-close calendar; a client whose
+  books close on working day 5 will see the prior month before it is final.
+- The card still filters on a date column (`metadata.date_column`, default `transaction_date`) with
+  whole-month date ranges, while the analysis filters on the year and period columns. They name the
+  same periods only where postings are dated inside their own fiscal period and the fiscal year
+  starts in January.
+
+Tests: `tests/unit/test_complete_periods.py`, `tests/unit/test_time_filter.py`.
