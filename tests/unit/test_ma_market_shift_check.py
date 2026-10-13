@@ -19,6 +19,7 @@ from src.agents.models.market_analysis_models import (
 )
 from src.agents.new.a9_market_analysis_agent import (
     A9_Market_Analysis_Agent,
+    UNANSWERED_MARKET_SHIFT_SUMMARY,
     UNSOURCED_MARKET_SHIFT_SUMMARY,
     _parse_synthesis_reply,
     _record_market_shift,
@@ -192,3 +193,18 @@ class TestReadingTheReply:
         agent, _ = _agent({"text": "Synthesised."})
         text, _c = await agent._synthesize(_request(), [_signal()], "raw")
         assert text == "Synthesised."
+
+
+class TestAskedButNotAnswered:
+    @pytest.mark.asyncio
+    async def test_a_reply_without_the_answer_is_recorded_as_unanswered(self):
+        agent, _ = _agent({"synthesis": "Market text.", "conflict": None})
+        resp = await agent.analyze_market(_request(general_deviation=GENERAL))
+        assert resp.market_shift["assessment"] == "insufficient" and resp.market_shift["unanswered"] is True
+        assert resp.market_shift["summary"] == UNANSWERED_MARKET_SHIFT_SUMMARY
+
+    @pytest.mark.asyncio
+    async def test_when_the_question_was_not_asked_there_is_still_nothing(self):
+        agent, _ = _agent({"synthesis": "Market text.", "conflict": None})
+        resp = await agent.analyze_market(_request())
+        assert resp.market_shift is None

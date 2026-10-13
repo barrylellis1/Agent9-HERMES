@@ -283,8 +283,9 @@ candidates is a shift in the market, and this agent is asked whether its signals
   `unsourced_summary` for the audit trail only; no surface may show it as the answer. Reason: two
   live runs on the same data (2026-10-13) answered "not_supported" then "supported".
 - **Fail-safe:** `_record_market_shift` turns any answer outside the three values into
-  `insufficient`. An unreadable answer is not a confirmation. If the model returns no
-  `market_shift`, the field stays None (not asked, or not answered).
+  `insufficient`. An unreadable answer is not a confirmation. If the question was asked and the
+  model returns no `market_shift` (seen live once), `analyze_market` records `insufficient` with
+  `unanswered: true` and `UNANSWERED_MARKET_SHIFT_SUMMARY`. None now means only "not asked".
 - **Must NOT:** infer a market shift from the internal gap itself (the prompt says so), and must
   not decide between the two candidates. It answers one of them; the other (the plan or the
   comparison itself is off) is not something market signals can settle.

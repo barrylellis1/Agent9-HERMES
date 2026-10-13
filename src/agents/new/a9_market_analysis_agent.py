@@ -120,6 +120,11 @@ def _parse_synthesis_reply(text: str) -> Optional[Dict[str, Any]]:
 
 _MARKET_SHIFT_ASSESSMENTS = ("supported", "not_supported", "insufficient")
 
+UNANSWERED_MARKET_SHIFT_SUMMARY = (
+    "The market check did not return an answer, so a market-wide shift is neither "
+    "confirmed nor ruled out."
+)
+
 UNSOURCED_MARKET_SHIFT_SUMMARY = (
     "No sourced market evidence was available, so a market-wide shift is neither "
     "confirmed nor ruled out."
@@ -338,6 +343,17 @@ class A9_Market_Analysis_Agent:
         # ------------------------------------------------------------------
         _extras: Dict[str, Any] = {}
         synthesis, conflict = await self._synthesize(request, signals, raw_answer, extras_out=_extras)
+        # Asked but not answered (the model left the object out, or synthesis fell back to
+        # plain text) is recorded as such. Found live 2026-10-13: one Net Revenue run came
+        # back with no market_shift at all, which reads downstream as "never asked".
+        if request.general_deviation and not _extras.get("market_shift"):
+            _extras["market_shift"] = {
+                "assessment": "insufficient",
+                "confidence": None,
+                "summary": UNANSWERED_MARKET_SHIFT_SUMMARY,
+                "grounded": any(getattr(sig, "url", None) for sig in signals),
+                "unanswered": True,
+            }
 
         # ------------------------------------------------------------------
         # Step 3 — Confidence score heuristic
