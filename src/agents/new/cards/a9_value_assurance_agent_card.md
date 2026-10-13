@@ -493,3 +493,24 @@ from the situation's own monthly series, and passes it as
 older single-value input (`pre_approval_kpi_value`) still works for callers that send it.
 
 Tests: `tests/unit/test_monthly_series.py`.
+
+### 2. Actual line comes from the warehouse
+
+The only source of actual values was `record_kpi_measurement()`, called by the manual entry box on
+the Portfolio page. `_refresh_actuals()` now rebuilds the line from the KPI's monthly values: the
+baseline month, then every complete month since. The series comes through
+`A9_Data_Product_Agent` (`get_kpi_definition(kpi_id, client_id=...)` then
+`generate_monthly_series_sql` and `execute_sql`), so SQL stays with that agent and the lookup is
+tenant-scoped.
+
+- `_actuals_are_stale()` decides from dates alone whether a new month has closed, so
+  `get_portfolio_summary()` costs a warehouse query only for a solution whose line is behind the
+  calendar. Once current, it does not query again until the next month closes.
+- Warehouse points are dated by period ("2026-10"), not by timestamp.
+- Nothing usable (no series for the backend, untrusted labels, an error) leaves the line as it was.
+- A warehouse refresh replaces manually entered points. Manual entry still works for a solution with
+  no recorded baseline or no series.
+- `generate_monthly_series_sql` covers BigQuery-backed KPIs only today, so other backends still rely
+  on manual entry.
+
+Tests: `tests/unit/test_va_actuals_from_warehouse.py`.

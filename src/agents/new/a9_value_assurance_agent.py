@@ -23,7 +23,7 @@ import logging
 import uuid
 from datetime import datetime
 from statistics import mean
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.agents.agent_config_models import A9ValueAssuranceAgentConfig
 from src.agents.models.value_assurance_models import (
@@ -193,6 +193,43 @@ def _apply_roi_confidence_floor(
     if composite.include_in_roi_totals and not _meets_confidence(confidence, minimum):
         return composite.model_copy(update={"include_in_roi_totals": False})
     return composite
+
+
+def _actuals_since_acceptance(
+    baseline: float, baseline_period: str, series: Any, today: Optional[str] = None
+) -> Optional[Tuple[List[float], List[str]]]:
+    """The Actual line: the baseline month, then every complete month since.
+
+    -> (values, periods), both starting with the baseline. None when the series
+    cannot be trusted (see src/analysis/monthly_series.py). The month of
+    acceptance is partly before and partly after the decision; it counts as the
+    first month once it is complete.
+    """
+    from src.analysis.monthly_series import complete_months_between, current_month, trusted_months
+
+    if trusted_months(series) is None:
+        return None
+    since = complete_months_between(series, baseline_period, current_month(today))
+    return [baseline] + [v for _, v in since], [baseline_period] + [p for p, _ in since]
+
+
+def _actuals_are_stale(solution: "AcceptedSolution", today: Optional[str] = None) -> bool:
+    """True when a complete month exists that the Actual line does not yet hold.
+
+    Decided from dates alone, so a portfolio read costs no warehouse query
+    unless a new month has actually closed.
+    """
+    from src.analysis.monthly_series import current_month, month_index
+
+    period = solution.strategy_snapshot.kpi_value_period
+    if solution.strategy_snapshot.kpi_value_at_approval is None or not period:
+        return False
+    last = period
+    for d in reversed(solution.actual_trend_dates or []):
+        if isinstance(d, str) and len(d) == 7 and d[4] == "-":
+            last = max(last, d)
+            break
+    return month_index(current_month(today)) - 1 > month_index(last)
 
 
 class BaselineNotRecordedError(ValueError):
@@ -1136,6 +1173,68 @@ class A9_Value_Assurance_Agent:
         )
 
     # ------------------------------------------------------------------
+    # Actual line from the warehouse
+    # ------------------------------------------------------------------
+
+    async def _fetch_monthly_series(self, kpi_id: str, client_id: Optional[str]) -> Optional[List[Dict[str, Any]]]:
+        """The KPI's monthly values, through the Data Product Agent (which owns
+        the SQL). None on any failure, or when that agent cannot build a monthly
+        series for the KPI's backend."""
+        if not self.orchestrator:
+            return None
+        try:
+            dpa = await self.orchestrator.get_agent("A9_Data_Product_Agent")
+            kpi_def = await dpa.get_kpi_definition(kpi_id, client_id=client_id)
+            if kpi_def is None:
+                return None
+            gen = dpa.generate_monthly_series_sql(kpi_def, num_months=24)
+            if not gen.get("success"):
+                return None
+            result = await dpa.execute_sql(gen["sql"], data_product_id=getattr(kpi_def, "data_product_id", None))
+            out: List[Dict[str, Any]] = []
+            for row in (result or {}).get("rows") or []:
+                if isinstance(row, dict):
+                    low = {str(k).lower(): v for k, v in row.items()}
+                    period, value = low.get("period"), low.get("value")
+                elif isinstance(row, (list, tuple)) and len(row) >= 2:
+                    period, value = row[0], row[1]
+                else:
+                    continue
+                if period is not None and value is not None:
+                    out.append({"period": str(period), "value": value})
+            return out or None
+        except Exception as exc:
+            self.logger.warning("%s: monthly series fetch for '%s' failed (non-fatal): %s", self.name, kpi_id, exc)
+            return None
+
+    async def _refresh_actuals(self, solution: AcceptedSolution, today: Optional[str] = None) -> AcceptedSolution:
+        """Bring the solution's Actual line up to the last complete month, from
+        the warehouse. Returns the solution unchanged when there is nothing new,
+        no recorded baseline, or no trustworthy series. Until Oct 2026 the only
+        source of actual values was the manual entry box on the Portfolio page.
+        """
+        if not _actuals_are_stale(solution, today):
+            return solution
+        series = await self._fetch_monthly_series(solution.kpi_id, solution.client_id)
+        snap = solution.strategy_snapshot
+        built = _actuals_since_acceptance(snap.kpi_value_at_approval, snap.kpi_value_period, series, today)
+        if built is None or len(built[0]) <= 1:
+            return solution
+        values, periods = built
+        updated = solution.model_copy(update={"actual_trend": values, "actual_trend_dates": periods})
+        self._solutions_store[solution.solution_id] = updated
+        if self._va_store and self._va_store.enabled:
+            try:
+                await self._va_store.upsert_solution(updated)
+            except Exception as exc:
+                self.logger.warning("%s: Supabase actuals persist failed (non-fatal): %s", self.name, exc)
+        self.logger.info(
+            "%s: actuals refreshed from the warehouse -- sol=%s months=%s",
+            self.name, solution.solution_id, periods[1:],
+        )
+        return updated
+
+    # ------------------------------------------------------------------
     # Entrypoint 3c — update_solution_phase
     # ------------------------------------------------------------------
 
@@ -1378,6 +1477,12 @@ class A9_Value_Assurance_Agent:
             all_solutions = [s for s in all_solutions if getattr(s, "client_id", None) == _req_client]
         if _req_principal:
             all_solutions = [s for s in all_solutions if getattr(s, "principal_id", None) == _req_principal]
+
+        # Actual line: pull any newly completed month from the warehouse. Costs a
+        # query only for a solution whose line is behind the calendar.
+        for _j, _sol in enumerate(all_solutions):
+            if _actuals_are_stale(_sol):
+                all_solutions[_j] = await self._refresh_actuals(_sol)
 
         total = validated = partial = failed = measuring = 0
         total_attributable = 0.0
