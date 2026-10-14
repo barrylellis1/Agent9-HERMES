@@ -204,6 +204,9 @@ class SolutionOption(A9AgentBaseModel):
     # Enhanced Decision Briefing Fields
     time_to_value: Optional[str] = None
     reversibility: Optional[str] = None  # high/medium/low
+    # True when the option's main action is a diagnostic or analysis, not an operational
+    # change. Offered, never recommended on its own (src/analysis/recommendation_choice.py).
+    is_check: bool = False
     # Renamed from `perspectives` (2026-08-16) — see LensView. The alias is NOT
     # decoration: briefing snapshots are persisted to Supabase and replayed by the
     # Portfolio view, and localStorage holds more of them, so payloads written

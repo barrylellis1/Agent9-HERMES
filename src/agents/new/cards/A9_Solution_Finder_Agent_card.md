@@ -1037,3 +1037,27 @@ Not checked: whether at least one option is the check that settles the cause, an
 description and rationale say. Those are prose.
 
 Tests: `tests/unit/test_general_deviation_gate.py`.
+
+## The recommendation follows the weights; the rationale follows the recommendation (Oct 2026) 🔴
+
+Found in a production briefing 2026-10-14: Option A (a COGS audit) carried the Recommended badge
+while the rationale argued for Option B. The badge came from `_rank_options` (Stage J: the
+business's stated trade-off weights decide); the rationale was the model's own paragraph, written
+for the option the model preferred (`parsed["recommendation"]["id"]`, which was read by nothing).
+
+Owner's decision (2026-10-14, "Option C to keep the HITL"): the weights keep deciding, and the
+human approves. `src/analysis/recommendation_choice.py::choose()`:
+
+- the recommendation is the first option in the weighted ranking that is **not a check**
+  (`SolutionOption.is_check`, asked for in every option template; the general-deviation rule tells
+  the model to set it on its check option). A check may be offered, never recommended on its own.
+  If every option is a check, the first stands. Skips are logged as `check_not_recommended`.
+- when the model named a different option, or a check was skipped, `_rationale_for()` makes one
+  small call (CRITIC route, 600 tokens) to write the paragraph for the weighted choice, using the
+  draft's facts but not its conclusion. On failure the plain `fallback_rationale()` is used. The
+  draft that argued for another option is never shown; it is kept in the audit event
+  `recommendation_follows_weighting`.
+- a disagreement becomes an `UnresolvedTension` naming both options, so the reader sees that the
+  analysis preferred another option and can choose it at approval.
+
+Tests: `tests/unit/test_recommendation_choice.py`.

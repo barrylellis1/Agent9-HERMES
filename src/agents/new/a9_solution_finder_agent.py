@@ -236,7 +236,7 @@ _GENERAL_DEVIATION_RULE = (
     "individual segment as if the problem were located there, and do not describe any segment "
     "as underperforming the others: the segment figures you were given are extent (how large "
     "each one is), not where the problem is. Options must address a cause common to the whole "
-    "business. At least one option must be a CHECK that settles which of the two candidate "
+    "business. At least one option must be a CHECK (set \"is_check\": true on it) that settles which of the two candidate "
     "causes applies: a shift in the market (weigh the external market signals) or a comparison "
     "that is itself off (for a plan gap, a plan set too high). If an option is scoped to a "
     "segment for a practical reason (a pilot, the largest exposure), say that plainly, and size "
@@ -1512,6 +1512,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             # Initialize briefing variables
             problem_reframe: Optional[Dict[str, Any]] = None
             unresolved_tensions_list: List[UnresolvedTension] = []
+            _model_pick_id: Optional[str] = None  # the option the model itself named
             blind_spots_list: List[str] = []
             next_steps_list: List[str] = []
             cross_review: Optional[Dict[str, Any]] = None
@@ -2063,6 +2064,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"rationale\": \"...\",\n"
                         "      \"time_to_value\": \"...\",\n"
                         "      \"reversibility\": \"high|medium|low\",\n"
+                        "      \"is_check\": <true only when the option's main action is a diagnostic or analysis rather than an operational change, else false>,\n"
                         "      \"lens_views\": [\n"
                         "        {\n"
                         "          \"lens\": \"Financial\",\n"
@@ -2094,6 +2096,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"rationale\": \"...\",\n"
                         "      \"time_to_value\": \"...\",\n"
                         "      \"reversibility\": \"high|medium|low\",\n"
+                        "      \"is_check\": <true only when the option's main action is a diagnostic or analysis rather than an operational change, else false>,\n"
                         "      \"lens_views\": [\n"
                         "        {\n"
                         "          \"lens\": \"Financial\",\n"
@@ -2125,6 +2128,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"rationale\": \"...\",\n"
                         "      \"time_to_value\": \"...\",\n"
                         "      \"reversibility\": \"high|medium|low\",\n"
+                        "      \"is_check\": <true only when the option's main action is a diagnostic or analysis rather than an operational change, else false>,\n"
                         "      \"lens_views\": [\n"
                         "        {\n"
                         "          \"lens\": \"Financial\",\n"
@@ -3872,6 +3876,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         # New Fields
                                         time_to_value=o.get("time_to_value"),
                                         reversibility=o.get("reversibility"),
+                                        is_check=(o.get("is_check") is True),
                                         lens_views=pers_list,
                                         implementation_triggers=o.get("implementation_triggers", []),
                                         prerequisites=o.get("prerequisites", []),
@@ -3948,6 +3953,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
 
                         # Use LLM-generated rationale if available
                         rationale = parsed.get("recommendation_rationale") or "Options generated via Decision Briefing analysis."
+                        _rec_ref = parsed.get("recommendation")
+                        if isinstance(_rec_ref, dict) and _rec_ref.get("id"):
+                            _model_pick_id = str(_rec_ref.get("id"))
 
                         # Add briefing dump to audit log
                         audit_log.append({
@@ -4162,7 +4170,40 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     TradeOffCriterion(name="risk", weight=self.config.weight_risk),
                 ]
             ranked = self._rank_options(options, criteria)
-            recommendation = ranked[0] if ranked else None
+            # The weights choose; a check is never recommended on its own; when the model
+            # preferred another option, the rationale is rewritten for the weighted choice and
+            # the disagreement becomes a tension the reader sees (src/analysis/recommendation_choice.py).
+            from src.analysis.recommendation_choice import (
+                choose as _choose_recommendation, disagreement_tension, fallback_rationale,
+            )
+            _choice = _choose_recommendation(ranked, _model_pick_id)
+            recommendation = _choice["recommended"]
+            if _choice["skipped_checks"]:
+                audit_log.append({
+                    "event": "check_not_recommended",
+                    "skipped": [str(getattr(o, "id", "")) for o in _choice["skipped_checks"]],
+                    "recommended": str(getattr(recommendation, "id", "")),
+                })
+            if recommendation is not None and (_choice["disagrees"] or _choice["skipped_checks"]):
+                _draft = rationale
+                rationale = await self._rationale_for(
+                    recommendation, ranked, _choice["model_pick"], _draft, request, req_id,
+                ) or fallback_rationale(recommendation)
+                if _choice["disagrees"]:
+                    try:
+                        unresolved_tensions_list.append(UnresolvedTension(
+                            **disagreement_tension(recommendation, _choice["model_pick"])
+                        ))
+                    except Exception:
+                        pass
+                audit_log.append({
+                    "event": "recommendation_follows_weighting",
+                    "recommended": str(getattr(recommendation, "id", "")),
+                    "model_pick": str(getattr(_choice["model_pick"], "id", "")) if _choice["model_pick"] else None,
+                    "score_top": str(getattr(_choice["score_top"], "id", "")),
+                    "rationale_rewritten": True,
+                    "draft_rationale": _draft,
+                })
 
             # Deterministic Pareto-dominance flag — mutates .dominated_by on
             # each dominated option in place, before the dict payload below is
@@ -4479,6 +4520,62 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             pass
 
         return None
+
+    async def _rationale_for(
+        self, recommended: Any, ranked: List[Any], model_pick: Any, draft: str, request: Any, req_id: str,
+    ) -> Optional[str]:
+        """Rewrite the recommendation paragraph for the option the weights chose.
+
+        Returns None on any failure; the caller then uses a plain fallback, never the draft
+        that argued for a different option (found in production 2026-10-14).
+        """
+        try:
+            def _line(o: Any) -> str:
+                ie = getattr(o, "impact_estimate", None)
+                rr = getattr(ie, "recovery_range", None) if ie is not None else None
+                rng = f" (expected effect {rr.low} to {rr.high})" if rr is not None and rr.low is not None else ""
+                return f"- {o.title}{rng}: {str(o.description or '')[:600]}"
+            others = "\n".join(_line(o) for o in ranked if o is not recommended)
+            earlier = ""
+            if model_pick is not None and model_pick is not recommended:
+                earlier = (f"\nAn earlier draft argued for \"{model_pick.title}\" instead:\n{str(draft or '')[:1200]}\n"
+                           "Use its facts where they apply, but do not argue for that option.\n")
+            prompt = (
+                "You are writing the recommendation paragraph of a decision briefing for a senior executive.\n"
+                "The recommended option is fixed: it ranks first on the business's own stated weighting of "
+                "impact, cost and risk. Do not argue for a different option.\n\n"
+                f"RECOMMENDED:\n{_line(recommended)}\n\nOTHER OPTIONS:\n{others}\n{earlier}\n"
+                "Write 2-3 sentences explaining why the recommended option is the right first move, grounded in "
+                "the specific figures and mechanisms above. If another option should run alongside it, say so in "
+                "one clause. Plain business language. Never write internal ids such as opt_1, and do not mention "
+                "weights, scores or rankings.\n"
+                # analyze() always asks the model for JSON, so the paragraph is requested as a field.
+                "Return JSON only: {\"rationale\": \"<the paragraph>\"}"
+            )
+            req = A9_LLM_AnalysisRequest(
+                request_id=f"{req_id}_rationale",
+                principal_id=getattr(request, "principal_id", None),
+                content=prompt,
+                analysis_type="custom",
+                context="",
+                task_type=A9TaskType.CRITIC,
+                max_tokens=600,
+            )
+            if self.orchestrator is not None:
+                resp = await self.orchestrator.execute_agent_method("A9_LLM_Service_Agent", "analyze", {"request": req})
+            else:
+                resp = await self.llm_service_agent.analyze(req)  # type: ignore
+            if getattr(resp, "status", "error") != "success":
+                return None
+            a = getattr(resp, "analysis", None)
+            text = (a.get("rationale") or a.get("text") or a.get("content") or a.get("response") or "") if isinstance(a, dict) else str(a or "")
+            text = str(text).strip().strip('"')
+            if not text or text.startswith("{") or "opt_" in text:
+                return None
+            return text
+        except Exception as exc:
+            self.logger.info(f"[SF] recommendation rationale rewrite unavailable (non-fatal): {exc}")
+            return None
 
     def _rank_options(self, options: List[SolutionOption], criteria: List[TradeOffCriterion]) -> List[SolutionOption]:
         # Simple weighted score: impact positive, cost and risk negative
