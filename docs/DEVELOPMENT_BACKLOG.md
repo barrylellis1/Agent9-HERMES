@@ -3442,3 +3442,121 @@ so it would require teaching DiD attribution to shift its window by `lag_periods
 Step 1 is roughly a day and is pure consolidation of logic that already exists in three hand-rolled
 copies. Steps 2–3 are the requirement as stated. Step 3 should not be started before its open
 question above is answered.
+
+---
+
+### Phase 26: Named Period Comparisons — say which two periods are being compared (proposed, 2026-10-13)
+
+**Status:** Proposed, unscheduled. Split out on 2026-10-13 from the reliability-threshold work, at
+the owner's direction, once it was clear the fix is a registry and onboarding change and not a patch.
+
+**Requirement, in the owner's words (2026-10-13):**
+
+> *"quarter vs quarter and year vs year comparisons are complete period, equal length comparisons.
+> QTD vs Previous QTD and YTD vs PYTD are different."*
+>
+> *"there is a distinction between Previous QTD and Previous Year QTD"*
+>
+> *"Eventually, every data product for every customer will have a different rhythm and so this may
+> become the default with a new UI feature to override that to toggle between various comparison
+> basis"*
+
+**Naming.** This phase says **period comparison**. It does not say "comparison basis": Phase 25
+step 2 already uses `comparison_basis` on `TimeDimensionSpec` for something else (which business
+event a date recognises: revenue recognition, delivery, invoice). The two must not share a name.
+
+#### The ten comparisons
+
+To date: two partial spans of equal elapsed length.
+
+| Name | Current span | Compared against |
+|---|---|---|
+| MTD vs previous MTD | this month so far | last month to the same point |
+| MTD vs previous year MTD | this month so far | same month last year to the same point |
+| QTD vs previous QTD | this quarter so far | last quarter to the same point |
+| QTD vs previous year QTD | this quarter so far | same quarter last year to the same point |
+| YTD vs previous year YTD | this year so far | last year to the same point |
+
+Complete period: two finished periods of equal length.
+
+| Name | Current period | Compared against |
+|---|---|---|
+| Month vs previous month | last finished month | the month before |
+| Month vs same month previous year | last finished month | that month a year earlier |
+| Quarter vs previous quarter | last finished quarter | the quarter before |
+| Quarter vs same quarter previous year | last finished quarter | that quarter a year earlier |
+| Year vs previous year | last finished year | the year before |
+
+A plan comparison is actual against plan over whichever current span or period is chosen. It is a
+second axis, not an eleventh entry.
+
+#### What the code does today (verified 2026-10-13)
+
+| Where | What it says | What it compares |
+|---|---|---|
+| `TimeFrame` (`situation_awareness_models.py`) | has `current_quarter` and `quarter_to_date` as separate tokens | Situation Awareness's `_bq_get_period_dates` treats them as the same: the quarter so far |
+| `ComparisonType` (same file) | `year_over_year`, `quarter_over_quarter`, `month_over_month` | no way to say "to date against prior to date"; that is implied by the timeframe token |
+| `TimeFilter._date_previous` / `_fyp_previous` | `*_to_date` tokens | always the same span one YEAR back. Previous QTD and previous MTD cannot be expressed |
+| Screen (`useDecisionStudio.ts`) | always sends `year_to_date` + `year_over_year`; `onSelectTimeframe` is wired to nothing | YTD vs previous year YTD |
+| Tile label (`KPITile.tsx`) | "YoY · 2026 vs 2025" | the same YTD comparison. "YoY" covers three of the ten |
+| `run_enterprise_assessment.py` | a KPI monitored `YoY` | timeframe `YEAR_TO_DATE`: YTD vs previous year YTD |
+| `run_enterprise_assessment.py` | a KPI monitored `QoQ` | timeframe `CURRENT_QUARTER` with the comparison hard-coded to `YEAR_OVER_YEAR`: not quarter over quarter at all |
+| `_situation_period()` in Deep Analysis (added 2026-10-13) | `current_quarter` | translated to `quarter_to_date` so the analysis matches the card |
+| `complete_periods.closed_view()` (added 2026-10-13) | `current_*` on period-keyed data | answered as to-date through the last closed month |
+
+The two 2026-10-13 changes made Situation Awareness and Deep Analysis agree with each other, which
+was their purpose. They did it by settling on the to-date reading for every request. **A request for
+a complete quarter is still answered as a to-date span.** This phase is what corrects that.
+
+What the registry holds:
+
+- `KPIMonitoringProfile.comparison_period` (`src/registry/models/kpi.py`): `'MoM' | 'QoQ' | 'YoY'`,
+  default `QoQ`. Read only by the offline assessment. **No seed file sets it and no screen edits it**,
+  so replacing it loses nothing.
+- `KPIThreshold.comparison_type`: one row per kind (`yoy`, `qoq`, `mom`, `budget`, `plan_variance`…)
+  with green / yellow / red. Edited in `RegistryExplorer.tsx` and `ThresholdEditorModal.tsx`. A
+  threshold number only means something against a named comparison, so the comparison belongs on the
+  threshold row as well as on the KPI.
+- `DataProduct.time_dimensions[0].type`: period-keyed or date-keyed. Guessed at onboarding by
+  `_synthesize_time_dimensions` from column names and written with no review step.
+
+#### Two rules that sit underneath all ten
+
+1. **Period-keyed data stops at the last closed month** (decided 2026-10-13, built:
+   `src/analysis/complete_periods.py`). On such data the two month-to-date comparisons collapse into
+   "last closed month" and should not be offered.
+2. **A period with no actuals is not finished, whatever the calendar says.** Found live on Hess:
+   actuals stop at July 2026 and August to December hold plan rows only, so the calendar-closed third
+   quarter compared one month of 2026 with three of 2025 and every card read 61 to 66% down while
+   monthly revenue was rising. Not built. Needs one lookup per data product (latest period with
+   actuals), and the card must say when the period shown is older than the calendar implies, or a
+   feed that has stopped looks like a current reading.
+
+#### Steps
+
+| Step | What | Changes behaviour? | Needs |
+|---|---|---|---|
+| 1 | One shared definition of the ten comparisons: given a day, a data product's time key and its latest period with actuals, return the two spans. Lives beside `complete_periods.py`. Unit tests for every comparison on a period-keyed and a date-keyed product, including quarter and year boundaries | No | nothing |
+| 2 | Registry: a `period_comparison` value (one of the ten, or inherit) on the data product (default) and on the KPI; the threshold row's comparison uses the same ten names plus plan. Migration of existing rows | Yes | **schema migration: owner go-ahead**; every `scripts/clients/*.py` seed file changes |
+| 3 | Situation Awareness, Deep Analysis and the Data Product Agent resolve periods through step 1 only. Remove `_bq_get_period_dates`, `_situation_period`, and the token aliasing in `closed_view`. Each reading records which comparison it used | Yes | step 2 |
+| 4 | Registry editor: the choice grouped as "To date" / "Complete period", with a live preview from step 1 ("Today this compares Jul–Sep 2026 with Jul–Sep 2025"). Save-time checks: only comparisons the data product can support; warn when the chosen comparison has no threshold row, because the KPI would then never raise a card | UI | step 2 |
+| 5 | Onboarding: a review step after schema inspection that shows the detected time key, the fiscal year start month and the latest period with actuals, and sets the data product's default comparison. KPI Assistant proposes a comparison with its thresholds, limited to the ten names | UI | step 2 |
+| 6 | Dashboard: a control to switch the comparison for the session; tile and card labels name the comparison in use in place of "YoY" | UI | step 3 |
+
+#### Migration rule for existing thresholds (proposed, not yet confirmed by the owner)
+
+Every threshold row today says `yoy`, `qoq` or `mom`, and its numbers were tuned against what the
+system actually ran, which is not what the label says. Lubricants' `yoy 5%` rows have been
+evaluated against YTD growth on screen.
+
+Proposed: **preserve behaviour.** `yoy` becomes "YTD vs previous year YTD"; each KPI is then reviewed
+in the editor. The literal reading ("year vs previous year") would change every card on the day of
+the migration. `qoq` and `mom` need a per-client look before a rule is fixed, because the offline
+assessment ran `QoQ` as a quarter against the same quarter last year.
+
+#### Not in this phase
+
+- A posting-close calendar ("books close on working day 5"). The owner accepted the calendar rule
+  on 2026-10-13. Rule 2 above covers the case that actually bit (no actuals at all).
+- Rolling windows (last 12 months, last 90 days) and custom date ranges.
+- Aligning two KPIs on different recognition events: that is Phase 25.
