@@ -707,8 +707,16 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       // chip, so the scope signal survives even where the full roi string
       // isn't rendered (e.g. a compact table cell).
       scopeQualifier: opt?.impact_estimate?.scope
-        ? { scope: opt.impact_estimate.scope as 'enterprise' | 'segment', label: opt.impact_estimate.scope_label ?? null }
+        ? {
+            scope: opt.impact_estimate.scope as 'enterprise' | 'segment',
+            label: opt.impact_estimate.scope_label ?? null,
+            reason: opt.impact_estimate.scope_reason ?? null,
+          }
         : null,
+      // Findings of the backend's scope check (general_deviation_gate.py), in plain words.
+      // Until 2026-10-13 they reached only the audit log, so a reader never saw that an
+      // option claimed more than its segment had lost.
+      scopeFindings: scopeFindingTexts(opt?.impact_estimate?.scope_findings),
     }))
 
     const buildTitle = (): string => {
@@ -986,3 +994,18 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
 
     return { ...transformed, statusQuo }
   }
+
+// Plain-language text for the backend scope-check codes. Mirrors EXPLANATIONS in
+// src/analysis/general_deviation_gate.py; an unknown code is shown as-is, never dropped.
+const SCOPE_FINDING_TEXT: Record<string, string> = {
+  scope_not_stated: 'Does not say whether its figure covers the whole business or one segment.',
+  segment_scope_without_reason:
+    'The gap is across the board, but this is sized to one segment without saying whether that is a pilot or simply the largest exposure.',
+  segment_not_recognised: 'Names a segment the analysis did not measure, so its figure cannot be checked.',
+  impact_exceeds_segment_gap: "Claims to recover more than the named segment's own share of the gap.",
+};
+
+export function scopeFindingTexts(codes: unknown): string[] {
+  if (!Array.isArray(codes)) return [];
+  return codes.filter((c) => typeof c === 'string' && c).map((c) => SCOPE_FINDING_TEXT[c as string] ?? String(c));
+}

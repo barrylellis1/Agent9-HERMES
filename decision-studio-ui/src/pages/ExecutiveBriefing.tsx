@@ -353,6 +353,11 @@ function DecisionChat({
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-severity-warning/20 text-severity-warning/90">Scope unverified</span>
                   )}
                 </div>
+                {Array.isArray(selected.scopeFindings) && selected.scopeFindings.length > 0 && (
+                  <p className="mt-1.5 text-[10px] text-severity-warning leading-snug">
+                    Scope check: {selected.scopeFindings.join(' ')}
+                  </p>
+                )}
               </div>
 
               {(owner || deadline) && (

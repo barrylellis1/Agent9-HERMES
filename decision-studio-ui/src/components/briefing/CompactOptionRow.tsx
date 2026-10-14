@@ -61,7 +61,8 @@ function ScopeChip({ scopeQualifier }: { scopeQualifier: any }) {
   if (scopeQualifier?.scope === 'segment') {
     return (
       <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-900/40 text-indigo-300 print:bg-indigo-100 print:text-indigo-700">
-        Segment{scopeQualifier.label ? `: ${scopeQualifier.label}` : ''}
+        Segment{scopeQualifier.reason === 'pilot' ? ' pilot' : scopeQualifier.reason === 'largest_exposure' ? ' (largest exposure)' : ''}
+        {scopeQualifier.label ? `: ${scopeQualifier.label}` : ''}
       </span>
     );
   }
@@ -124,6 +125,15 @@ export function CompactOptionRow({ option, letter, dominatorLetter, maxRange, on
               </span>
               <ScopeChip scopeQualifier={option.scopeQualifier} />
             </div>
+            {Array.isArray(option.scopeFindings) && option.scopeFindings.length > 0 && (
+              <ul className="mt-1.5 space-y-0.5" data-testid="option-scope-findings">
+                {option.scopeFindings.map((text: string, i: number) => (
+                  <li key={i} className="text-[11px] text-severity-warning leading-snug print:text-amber-700">
+                    Scope check: {text}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Measure panel */}
