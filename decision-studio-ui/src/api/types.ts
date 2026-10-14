@@ -101,6 +101,8 @@ export interface SituationDetectionResult {
   situations: Situation[];
   opportunities: OpportunitySignal[];
   kpi_evaluated_count?: number | null;
+  /** KPIs in scope that could not be read. No card for them means "not looked at", not "healthy". */
+  kpis_unread?: string[];
 }
 
 export interface ChangePoint {

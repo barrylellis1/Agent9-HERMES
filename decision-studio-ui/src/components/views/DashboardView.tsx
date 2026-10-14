@@ -18,6 +18,7 @@ interface DashboardViewProps {
   situations: Situation[];
   opportunities?: OpportunitySignal[];
   kpisScanned: number;
+  kpisUnread?: string[];
   breachCount: number;
   impactLevel: string;
   impactColor: string;
@@ -67,6 +68,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   situations,
   opportunities = [],
   kpisScanned,
+  kpisUnread = [],
   breachCount,
   impactLevel,
   impactColor,
@@ -144,6 +146,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {scanComplete && (
         <SummaryStrip
           kpisScanned={kpisScanned}
+          kpisUnread={kpisUnread}
           breachCount={breachCount}
           impactLevel={impactLevel}
           impactColor={impactColor}

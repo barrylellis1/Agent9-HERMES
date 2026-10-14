@@ -629,3 +629,25 @@ baseline read at approval.
 `monthly_series.closed_months_only(keep=9)`, which drops the open month and anything later. A
 series whose labels are not distinct calendar months is returned unchanged.
 Test: `tests/unit/test_monthly_series.py::TestClosedMonthsOnly`.
+
+## A scan reports the KPIs it could not read (Oct 2026) 🔴
+
+`detect_situations` dropped a KPI whose value could not be read (warehouse unreachable, query
+error, no rows) without trace. Found live 2026-10-13: Apex's Snowflake key was missing, every KPI
+failed, and the dashboard showed "0 cards", identical to a business with nothing to flag. The
+screen's "N KPIs evaluated" was also the number of CARDS, because the UI client dropped
+`kpi_evaluated_count`.
+
+`SituationDetectionResponse.kpis_unread` now lists every in-scope KPI with no value (falsy result,
+`value is None`, or an exception). The UI client passes it and `kpi_evaluated_count` through; the
+summary strip shows "N KPIs could not be read" or, when nothing was read, "No KPI could be read from
+the data source … not a clean result". Test: `tests/unit/test_sa_unread_kpis.py`.
+
+**A failed or empty read is not zero.** `_get_kpi_value` turned a failed query, no rows, or a NULL
+total into `current_value = 0.0`. With Snowflake unreachable every Apex KPI read 0.0 against a
+prior-year 0.0 and nothing was flagged. It now returns None (the KPI is reported in `kpis_unread`).
+Live check with the Snowflake key made unreachable: Apex 7 of 7 unread with the "No KPI could be
+read" warning on screen; lubricants 2 unread (Gross Revenue, Sales Tax Collected) and Hess 5 unread,
+all of which had been reading as 0.0. The orchestrator now passes `kpi_evaluated_count` and
+`kpis_unread` through, and the `/situations/run` route marks an orchestrator "error" as a failed
+workflow.

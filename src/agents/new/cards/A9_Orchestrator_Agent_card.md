@@ -84,8 +84,12 @@ await orchestrator.execute_agent_method(
 await orchestrator.orchestrate_situation_detection(
     request: SituationDetectionRequest
 ) -> Dict[str, Any]
-# Returns: {"status": "success"|"error", "situations": [...], "metadata": {...}, "logs": [...]}
+# Returns: {"status": "success"|"error", "situations": [...], "metadata": {...}, "logs": [...],
+#           "kpi_evaluated_count": int|None, "kpis_unread": [...]}
 # Delegates to: A9_Situation_Awareness_Agent.detect_situations()
+# kpi_evaluated_count / kpis_unread carried through since 2026-10-13: dropping them made the
+# screen count cards as "KPIs evaluated" and an unreadable warehouse look like a clean scan.
+# The /situations/run route now marks an "error" result as a FAILED workflow, not completed.
 
 # 2. Deep Analysis — Is/Is Not dimensional analysis on a specific KPI breach
 await orchestrator.orchestrate_deep_analysis(

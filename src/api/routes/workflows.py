@@ -1352,6 +1352,16 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
 
         detection_request = SituationDetectionRequest(**detection_request_payload)
         response = await orchestrator.orchestrate_situation_detection(detection_request)
+
+        # A scan that failed is reported as failed. It used to be stored as "completed"
+        # with no cards, which the screen showed as a business with nothing to flag.
+        if isinstance(response, dict) and response.get("status") == "error":
+            await _update_record(
+                request_id,
+                state="failed",
+                error=f"Situation scan failed: {response.get('message') or 'unknown error'}",
+            )
+            return
         
         await _update_record(
             request_id,

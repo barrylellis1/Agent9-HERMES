@@ -82,6 +82,7 @@ export function useDecisionStudio() {
   const [scanComplete, setScanComplete] = useState(false);
   const [selectedSituation, setSelectedSituation] = useState<Situation | null>(null);
   const [kpisScanned, setKpisScanned] = useState<number>(0);
+  const [kpisUnread, setKpisUnread] = useState<string[]>([]);
   // Delegated KPI names — used to badge tiles in the dashboard
   const [delegatedKpiNames, setDelegatedKpiNames] = useState<Set<string>>(new Set());
   
@@ -320,7 +321,8 @@ export function useDecisionStudio() {
 
       setSituations(result.situations);
       setOpportunities(result.opportunities);
-      setKpisScanned(result.kpi_evaluated_count ?? result.situations?.length ?? 0);
+      setKpisScanned(result.kpi_evaluated_count ?? 0);
+      setKpisUnread(result.kpis_unread ?? []);
       setScanComplete(true);
 
       if (result.situations.length > 0 || result.opportunities.length > 0) {
@@ -694,6 +696,7 @@ export function useDecisionStudio() {
     opportunities,
     scanComplete,
     kpisScanned,
+    kpisUnread,
     selectedSituation,
     delegatedKpiNames,
     analyzing,

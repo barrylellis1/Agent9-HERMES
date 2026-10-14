@@ -2,13 +2,15 @@ import { Situation } from '../../api/types';
 
 interface SummaryStripProps {
   kpisScanned: number;
+  /** KPIs that could not be read. Shown, because no card for them is not the same as healthy. */
+  kpisUnread?: string[];
   breachCount: number;
   impactLevel: string;
   impactColor: string;
   situations: Situation[];
 }
 
-export function SummaryStrip({ kpisScanned, breachCount, situations }: SummaryStripProps) {
+export function SummaryStrip({ kpisScanned, kpisUnread = [], breachCount, situations }: SummaryStripProps) {
   // 'critical' means only genuinely critical situations — it previously also
   // counted 'high', which overstated the critical count (observed live:
   // strip read "9 critical" against 5 tiles actually badged CRITICAL, the
@@ -31,8 +33,34 @@ export function SummaryStrip({ kpisScanned, breachCount, situations }: SummarySt
     (a, b) => Math.abs(b.kpi_value?.percent_change ?? 0) - Math.abs(a.kpi_value?.percent_change ?? 0)
   )[0];
 
+  const unread = kpisUnread.length;
+  const nothingRead = unread > 0 && kpisScanned === 0;
+
   return (
     <div className="mb-6 animate-in slide-in-from-top-4 fade-in duration-500">
+      {unread > 0 && (
+        <div
+          className="mb-3 rounded-lg border border-severity-warning/40 bg-severity-warning/10 px-5 py-3 text-xs text-severity-warning"
+          data-testid="scan-unread-warning"
+          role="status"
+        >
+          {nothingRead ? (
+            <>
+              <span className="font-semibold">No KPI could be read from the data source.</span>{' '}
+              This scan judged nothing, so the absence of findings below is not a clean result. Check the
+              data connection and scan again.
+            </>
+          ) : (
+            <>
+              <span className="font-semibold">
+                {unread} {unread === 1 ? 'KPI' : 'KPIs'} could not be read
+              </span>{' '}
+              and {unread === 1 ? 'was' : 'were'} not judged: {kpisUnread.slice(0, 4).join(', ')}
+              {unread > 4 ? ` and ${unread - 4} more` : ''}.
+            </>
+          )}
+        </div>
+      )}
       <div className="bg-slate-900/40 border border-slate-800 rounded-lg px-5 py-3 flex flex-wrap items-center gap-0 text-xs divide-x divide-slate-800">
         <span className="pr-4 text-white font-semibold">{kpisScanned} KPIs evaluated</span>
         <span className="px-4 text-slate-400">

@@ -560,6 +560,10 @@ class A9_Situation_Awareness_Agent:
             situations = []
             kpi_values = []
             
+            # KPIs that could not be read. Reported, so an unreachable warehouse is not
+            # mistaken for a business with nothing to flag (seen live 2026-10-13: Apex's
+            # Snowflake key was missing and the scan showed "0 cards").
+            kpis_unread: List[str] = []
             # Process each relevant KPI to fetch actual values from database (no cap)
             opportunities: List[OpportunitySignal] = []
             for kpi_name, kpi_definition in relevant_kpis.items():
@@ -573,6 +577,8 @@ class A9_Situation_Awareness_Agent:
                         request.principal_context
                     )
 
+                    if not kpi_value or getattr(kpi_value, "value", None) is None:
+                        kpis_unread.append(str(getattr(kpi_definition, "name", None) or kpi_name))
                     if kpi_value:
                         kpi_values.append(kpi_value)
                         # Provenance in the log line. Without it, an assessment that
@@ -814,6 +820,11 @@ class A9_Situation_Awareness_Agent:
 
                 except Exception as kpi_error:
                     self.logger.warning(f"Error processing KPI {kpi_name}: {str(kpi_error)}")
+                    _unread_name = str(getattr(kpi_definition, "name", None) or kpi_name)
+                    if _unread_name not in kpis_unread and not any(
+                        getattr(kv, "kpi_name", None) == _unread_name for kv in kpi_values
+                    ):
+                        kpis_unread.append(_unread_name)
                     # Continue with other KPIs
 
             # ── 11I-B: compound cross-KPI alert detection ─────────────────
@@ -895,6 +906,7 @@ class A9_Situation_Awareness_Agent:
                 sql_query=sample_sql,
                 kpi_evaluated_count=len(kpi_values),
                 kpis_evaluated=[kv.kpi_name for kv in kpi_values],
+                kpis_unread=kpis_unread,
                 kpi_details=kpi_values  # Return full KPIValue objects for debugging
             )
         
@@ -2914,6 +2926,15 @@ class A9_Situation_Awareness_Agent:
             current_value = None
             try:
                 exec_resp = await self.data_product_agent.execute_sql(base_sql, parameters=None, principal_context=principal_context, data_product_id=_gen_dp_id)
+                # A query that failed is not a reading. Until 2026-10-13 it fell through to
+                # `current_value = 0.0` below: with Snowflake unreachable every Apex KPI read
+                # as 0.0 against a prior-year 0.0, nothing was flagged, and the scan looked
+                # clean. Returning None lets the scan report the KPI as unread.
+                if isinstance(exec_resp, dict) and (exec_resp.get('success') is False or exec_resp.get('error')):
+                    self.logger.warning(
+                        f"KPI {kpi_name} could not be read: {str(exec_resp.get('error') or exec_resp.get('message') or 'query failed')[:200]}"
+                    )
+                    return None
                 rows = exec_resp.get('rows') or exec_resp.get('data') or []
                 if rows:
                     first = rows[0]
@@ -2929,7 +2950,10 @@ class A9_Situation_Awareness_Agent:
                             v = list(first.values())[0]
                             current_value = float(v) if v is not None else None
                 if current_value is None:
-                    current_value = 0.0
+                    # No value for the period (no rows, or a NULL total). Not a zero: a
+                    # reading of 0 would be judged against the comparison as a real result.
+                    self.logger.warning(f"KPI {kpi_name} returned no value for the period; reported as unread")
+                    return None
                 # sql_hash identifies WHICH query produced this, so two readings of the
                 # same KPI name are separable in the log without dumping full SQL.
                 _pv = getattr(kpi_definition, "plan_version_value", None)

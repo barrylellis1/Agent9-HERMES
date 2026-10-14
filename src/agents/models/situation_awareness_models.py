@@ -429,6 +429,14 @@ class SituationDetectionResponse(BaseResponse):
     sql_query: Optional[str] = Field(None, description="Sample SQL query used for detection")
     kpi_evaluated_count: Optional[int] = Field(None, description="Number of KPIs evaluated")
     kpis_evaluated: Optional[List[str]] = Field(None, description="Names of KPIs evaluated")
+    kpis_unread: List[str] = Field(
+        default_factory=list,
+        description=(
+            "KPIs in scope whose value could not be read (warehouse unreachable, query error, no "
+            "rows). A scan with unread KPIs is not a clean result: no card for them means 'not "
+            "looked at', not 'healthy'."
+        ),
+    )
     kpi_details: Optional[List[KPIValue]] = Field(None, description="Detailed values of evaluated KPIs")
     
 # NLP Query Request/Response

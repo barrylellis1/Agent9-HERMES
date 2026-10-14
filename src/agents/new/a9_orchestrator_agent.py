@@ -844,11 +844,15 @@ class A9_Orchestrator_Agent:
                 situations = result.get("situations", [])
                 metadata = result.get("metadata", {})
                 logs = result.get("logs", [])
+                _evaluated = result.get("kpi_evaluated_count")
+                _unread = result.get("kpis_unread") or []
             else:
                 # Assume Pydantic model
                 situations = getattr(result, "situations", [])
                 metadata = getattr(result, "metadata", {}) if hasattr(result, "metadata") else {}
                 logs = getattr(result, "logs", []) if hasattr(result, "logs") else []
+                _evaluated = getattr(result, "kpi_evaluated_count", None)
+                _unread = getattr(result, "kpis_unread", None) or []
 
             situation_count = len(situations)
             self.logger.info(f"Situation detection completed. Surfaced {situation_count} situations.")
@@ -857,7 +861,11 @@ class A9_Orchestrator_Agent:
                 "status": "success",
                 "situations": situations,
                 "metadata": metadata,
-                "logs": logs
+                "logs": logs,
+                # Carried through, not dropped: without them the screen counted CARDS as
+                # "KPIs evaluated" and a scan that read nothing looked clean (2026-10-13).
+                "kpi_evaluated_count": _evaluated,
+                "kpis_unread": list(_unread),
             }
             
         except Exception as e:

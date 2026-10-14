@@ -20,6 +20,7 @@ export function DecisionStudio() {
     opportunities,
     scanComplete,
     kpisScanned,
+    kpisUnread,
     selectedSituation,
     delegatedKpiNames,
     analyzing,
@@ -165,6 +166,7 @@ export function DecisionStudio() {
       situations={situations}
       opportunities={opportunities}
       kpisScanned={kpisScanned}
+      kpisUnread={kpisUnread}
       breachCount={situations.length}
       impactLevel={situations.length > 3 ? 'High' : situations.length > 0 ? 'Medium' : 'Low'}
       impactColor={situations.length > 3 ? 'text-severity-critical' : situations.length > 0 ? 'text-severity-warning' : 'text-severity-healthy'}

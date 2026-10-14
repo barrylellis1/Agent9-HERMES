@@ -428,6 +428,10 @@ export async function detectSituations(
       return {
         situations: (output.situations || []) as Situation[],
         opportunities: (output.opportunities || []) as OpportunitySignal[],
+        // Both were dropped here, so the strip's "N KPIs evaluated" fell back to the
+        // number of CARDS, and a scan that could read nothing looked like a clean one.
+        kpi_evaluated_count: typeof output.kpi_evaluated_count === 'number' ? output.kpi_evaluated_count : null,
+        kpis_unread: Array.isArray(output.kpis_unread) ? (output.kpis_unread as string[]) : [],
       };
     }
     if (data.state === 'failed') {
