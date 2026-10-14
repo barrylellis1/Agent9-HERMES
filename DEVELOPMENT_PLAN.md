@@ -32,7 +32,29 @@ inside the backlog disagrees, **this table wins** — the prose predates the swe
 
 ---
 
-## Where you are — 2026-09-17
+## Where you are — 2026-10-13
+
+**Update 2026-10-13: reliability-threshold work.** About 90 commits since 2026-10-01, **none pushed**.
+Unit suite `2060 passed, 3 skipped`; regression `tests/regression/test_plan_variance_e2e.py` passes on
+Hess for the first time (it previously ended in an expected failure).
+
+What this work settled:
+
+- **One trust vocabulary** (Calculated / Tested / Assumed; "held up", never "proved") on every surface.
+- **Value Assurance measures the three lines** (Solution, No Action, Actual) from a baseline recorded at
+  approval, refuses a verdict until the window closes, and counts ROI only above its confidence floor.
+- **A gap that is everywhere is recognised** (Kepner-Tregoe: no IS NOT). Deep Analysis says so; Market
+  Analysis is asked whether the market moved and answers "not settled" without a cited source; Solution
+  Finder's options are checked against the segment figures and the findings are shown to the reader.
+- **Period-keyed data products are read in complete periods** (`src/analysis/complete_periods.py`).
+  Card and analysis now agree on BigQuery (lubricants), Snowflake (Apex) and SQL Server (Hess).
+- **A KPI that cannot be read is reported, not scored as zero**, and a failed scan is reported as failed.
+
+**Release is pending.** Three `audit_events` migrations (one uses pg_cron) must be applied to
+production before the push; the lubricants seed then needs syncing. **Next build: Phase 26** (named
+period comparisons), which also fixes the Hess cards below.
+
+### As of 2026-09-17
 
 **Health:** `1688 passed, 3 skipped` (unit suite, 9.06s, exit 0). Tree is green.
 
@@ -281,6 +303,11 @@ These came from driving the app, not from tests — the suite is green and these
 
 | Defect | Note |
 |---|---|
+| **Hess cards compare one month with three** (2026-10-13) | Hess actuals stop at July 2026; August–December hold plan rows only. The calendar-closed Q3 therefore reads 61–66% down on every line while monthly revenue rose every month to July, and Deep Analysis calls Production Revenue "across the board". **Do not demo Hess** until Phase 26 rule 2 (a period with no actuals is not finished) is built. |
+| **KPIs that return no value for the period** (2026-10-13) | Lubricants Gross Revenue and Sales Tax Collected, and five Hess KPIs (Capital Expenditure, Free Cash Flow, Operating Cash Flow, Exploration Expense, Lifting Cost). Until 2026-10-13 they were silently scored 0.0; they are now listed as unread on the scan. Their SQL or seed data needs checking. |
+| **Net Revenue is a critical problem and an opportunity on one screen** (2026-10-13) | 16% below plan, and above its 3% growth target against prior year. Both true; a product decision about how two bases for one KPI are presented. |
+| **Apex plan gap counts 12 segments; lubricants counts 75 for the same KPI** (2026-10-13) | Not investigated. Possibly coarser plan data on Apex. |
+| **Two `briefing-render.spec.ts` tests are stale** (2026-10-13) | They look for a "Moderator Verdicts" heading renamed in the 2026-08-28 briefing restructure; failing since. Test fix, not a product defect. |
 | **Causal Neighbourhood chart plots only the primary KPI** (2026-09-17) | ✅ **Fixed 2026-09-18 via Phase 25 step 1.** `generate_monthly_series_sql` guessed `transaction_date`, which the sales view doesn't have; Net Revenue rendered **by accident**. Now resolves the data product's declared `TimeDimensionSpec` and emits a canonical `YYYY-MM` key. A dropped series now says so in the UI instead of vanishing. **Live-verified 2026-09-18**: `sales_order_count` returns 9 trend rows; the old `display_expr` was observed emitting `"2026-012"` against the date path's `"2026-05"`. |
 | **Per-lens arguments dropped from the briefing** (2026-09-17) | ✅ **Fixed 2026-09-17.** `briefingUtils.ts` read `views[0]` only, so 1 of 3 lenses' `arguments_for`/`arguments_against` reached the page under a heading that reads as the council's consensus — verified against a captured payload: 3 of 3 lenses now, was 1 of 3. `decision_quality.py` reads the raw payload and was never affected, which is why it survived: the scorer saw what the reader could not. |
 | **SA severity calibration** — 14 of 15 KPIs flagged CRITICAL | Red carries no information. The "N KPIs within normal range" collapse never engages. Related: **the number shown on the tile is not the number that triggered the alert.** Threshold calibration + a tile data contract, not a UI fix. |

@@ -3560,3 +3560,27 @@ assessment ran `QoQ` as a quarter against the same quarter last year.
   on 2026-10-13. Rule 2 above covers the case that actually bit (no actuals at all).
 - Rolling windows (last 12 months, last 90 days) and custom date ranges.
 - Aligning two KPIs on different recognition events: that is Phase 25.
+
+---
+
+### Value Assurance: compare the segments a decision touched with those it did not (agreed in principle, 2026-10-13)
+
+**Status:** Agreed in principle, not scheduled. Split out of the 2026-10-13 reliability work.
+
+Value Assurance's comparison against untouched segments (difference-in-differences) checks whether
+the Actual line beat the No Action line for a reason the decision can claim. Today the caller
+supplies the targeted and untouched segments and the figures are subtracted unscaled. Nothing
+records, at approval, which segments the decision was meant to move.
+
+What it needs:
+
+1. **Record the targeted segments at approval.** Solution Finder already declares each option's
+   scope as data (`impact_estimate.scope`, `scope_label`, and since 2026-10-13 `scope_reason`), but
+   `scope_label` is prose. It needs a structured (dimension, member) list.
+2. **Read both groups from the warehouse.** `generate_monthly_series_sql` has no segment filter, so
+   the targeted and untouched series cannot be fetched today.
+3. **Compare like with like.** Scale the two groups before differencing, so a large untouched group
+   does not swamp a small targeted one.
+
+Related: `src/analysis/general_deviation_gate.py` already resolves a segment label against the
+analysis's measured members; the same resolution would turn `scope_label` into (dimension, member).
