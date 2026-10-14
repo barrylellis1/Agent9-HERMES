@@ -1243,3 +1243,19 @@ all segments 16.1% below plan, total reading 42.68M vs 41.42M (+3.0%, the prior 
 The fallback now reads `comparator_main`: on `budget` the comparison figure comes from
 `_budget_variant_kpi` over the same period. If no plan query can be derived, the comparison is left
 empty. Test: `tests/unit/test_da_primary_totals.py`.
+
+### The hierarchical path counts segments too (Oct 2026)
+
+`deviation_scope` was fed only by the flat dual-query and Top-N paths. A client whose contract
+declares hierarchies (Hess) takes the hierarchical `_maps_for_level` path and never got a
+somewhere-or-everywhere verdict, so the general-deviation narrative, the market-shift question and
+Solution Finder's scope rules never engaged for it. That path holds every member of each level (one
+GROUP BY per period, no LIMIT), so each level is now counted with `member_stats`; a level that
+returns nothing is recorded as not counted. Live after the change: Hess Production Revenue
+`general_uneven` 8/8, Gross Profit `localised` 5/8, Gross Margin % `localised` 2/15.
+
+Caution for Hess specifically: its actuals stop at July 2026, so the calendar-closed third quarter
+compares one month with three and every segment reads down. The "across the board" verdict on
+Production Revenue is that artefact, not a finding. Phase 26 rule 2 (a period with no actuals is not
+finished) is what removes it.
+

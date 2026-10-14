@@ -1773,7 +1773,22 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     continue
                                 grp = await _maps_for_level(lvl, comparator)
                                 if not grp:
+                                    # Nothing came back for this level, so it was not counted.
+                                    _spread_uncounted.add(lvl)
                                     continue
+                                # The hierarchical path holds every member of the level (one
+                                # GROUP BY per period, no LIMIT), so it is counted for the
+                                # somewhere-or-everywhere verdict. It was never wired, so a
+                                # client on this path (Hess) never got one (found 2026-10-13).
+                                try:
+                                    from src.analysis.deviation_scope import member_stats as _member_stats
+                                    _spread_stats[lvl] = _member_stats(
+                                        [(g.get("key"), g.get("current"), g.get("previous"), g.get("delta")) for g in grp
+                                         if isinstance(g.get("delta"), (int, float))],
+                                        self._trend_positive(plan.kpi_name, kpi_def),
+                                    )
+                                except Exception:
+                                    _spread_uncounted.add(lvl)
                                 breaches, within = _classify(grp, spec)
                                 try:
                                     ratios = [float(g.get("ratio", 0.0)) for g in grp]
