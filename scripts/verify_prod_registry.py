@@ -17,6 +17,7 @@ Exit codes:
 """
 
 import argparse
+import asyncio
 import importlib
 import json
 import os
@@ -289,6 +290,8 @@ def verify_scheduled_jobs(dsn: str) -> List[str]:
     matters is verified live, not assumed from the migration file.
     """
     issues: List[str] = []
+
+    import asyncpg  # imported where used, as verify_rls does; it was never imported here
 
     async def _run() -> List[str]:
         from urllib.parse import urlparse
