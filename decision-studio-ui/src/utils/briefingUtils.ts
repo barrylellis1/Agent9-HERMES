@@ -299,16 +299,45 @@ export function deriveStatusQuo(
   return { ...base, roi: `${formatValue(delta)} by day 90`, riskLevel: 'Deterioration continues', caveat: null }
 }
 
+/** The value a situation card was raised against: the plan for a plan-variance card,
+ *  else the KPI's comparison value, else a Deep Analysis aggregate if one exists. */
+export function cardComparisonValue(situation: any, analysis: any): number | null {
+  if (situation?.alert_type === 'plan_variance' && typeof situation?.plan_value === 'number') return situation.plan_value
+  const kv = situation?.kpi_value?.comparison_value
+  if (typeof kv === 'number') return kv
+  const agg = analysis?.aggregates?.comparison_value ?? analysis?.aggregates?.previous_value
+  return typeof agg === 'number' ? agg : null
+}
+
+/** True when the KPI as a whole moved the unfavourable way against that comparison. */
+export function aggregateIsAdverse(situation: any, comparison: number | null): boolean {
+  const current = situation?.kpi_value?.value
+  if (typeof current !== 'number' || comparison == null || current === comparison) return false
+  const lowerIsBetter = situation?.kpi_value?.inverse_logic === true
+  return lowerIsBetter ? current > comparison : current < comparison
+}
+
 export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, marketSignals?: any[]) => {
     const kpiName = situation?.kpi_name || analysis?.kpi_name || sol?.problem_reframe?.situation || 'KPI'
     const kpiUnit: string = situation?.kpi_value?.unit || ''
     const topOptions = Array.isArray(sol?.options_ranked) ? sol.options_ranked : []
 
+    // The value the card was raised against: the plan for a plan-variance card,
+    // otherwise the KPI's own comparison value. Until 2026-10-14 this read only
+    // `analysis.aggregates`, which Deep Analysis does not produce, so it was always
+    // empty: no option's enterprise range was ever shown as a share of the decline
+    // (a live briefing claimed +2.1 to +4.8pp against a 4.48pp fall, unflagged), and
+    // the headline fell back to a segment. `aggregates` stays as the last resort.
+    const _cardComparison: number | null = cardComparisonValue(situation, analysis)
+    // Did the business as a whole move the wrong way? Decides below whether the
+    // headline may be a segment's figure.
+    const _aggregateAdverse: boolean = aggregateIsAdverse(situation, _cardComparison)
+
     // Headline KPI movement — the denominator for an enterprise-scoped claim.
     // Null when either side is missing, which suppresses the ratio rather than
     // inventing a baseline to divide by.
     const _kpiCurrent = situation?.kpi_value?.value
-    const _kpiPrior = analysis?.aggregates?.comparison_value ?? analysis?.aggregates?.previous_value ?? null
+    const _kpiPrior = _cardComparison
     const enterpriseDelta: number | null =
       (typeof _kpiCurrent === 'number' && typeof _kpiPrior === 'number' && _kpiPrior !== _kpiCurrent)
         ? Math.abs(_kpiCurrent - _kpiPrior)
@@ -923,7 +952,13 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
           if (delta == null || delta >= 0) return worst
           return (!worst || delta < worst.delta) ? cp : worst
         }, null)
-        if (worstDecliner) {
+        // A segment stands in for the KPI ONLY in the mixed case this was built for:
+        // the business as a whole is not declining but one segment is. When the
+        // business itself declined, the headline is the business. Found live
+        // 2026-10-14: the header read "Gross Margin % — Product Name: Synthetic Blend
+        // Engine Oil" with -7.1pp while the business fell 4.48pp, and the model turned
+        // the mismatch into an FP&A task to "reconcile" the two figures.
+        if (worstDecliner && !_aggregateAdverse) {
           const prev = worstDecliner.previous ?? worstDecliner.previous_value ?? null
           const curr = worstDecliner.current ?? worstDecliner.current_value ?? null
           if (curr == null) return null
@@ -956,7 +991,7 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
         return situation?.kpi_value?.value != null ? {
           kpi_name: kpiName,
           current_value: situation.kpi_value.value as number,
-          comparison_value: (analysis?.aggregates?.comparison_value ?? analysis?.aggregates?.previous_value ?? null) as number | null,
+          comparison_value: _cardComparison,
           // CONSUME the backend's typed value; never recompute it. SA already
           // resolved this correctly (inverse_logic handling included) and stamps
           // its provenance in KPIValue.context — re-deriving here is what put a

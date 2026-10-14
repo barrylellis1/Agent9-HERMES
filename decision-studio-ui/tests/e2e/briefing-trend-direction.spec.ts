@@ -38,7 +38,12 @@ function analysisWithDecliningSegment() {
       current: CHAIN_A_CURRENT, previous: CHAIN_A_PRIOR, delta: CHAIN_A_DELTA,
     }],
     kt_is_is_not: { where_is: [] },
-    aggregates: { comparison_value: 50_800_000 },
+    // The MIXED case: the business as a whole is UP (34.1M against 30.0M) while one
+    // segment declines. Only then does the briefing head with the segment; since
+    // 2026-10-14 a business-wide decline heads with the business itself
+    // (briefing-headline-scope.spec.ts). Was 50.8M, i.e. the business down, which
+    // these segment-projection tests did not intend to exercise.
+    aggregates: { comparison_value: 30_000_000 },
   };
 }
 
