@@ -651,3 +651,9 @@ read" warning on screen; lubricants 2 unread (Gross Revenue, Sales Tax Collected
 all of which had been reading as 0.0. The orchestrator now passes `kpi_evaluated_count` and
 `kpis_unread` through, and the `/situations/run` route marks an orchestrator "error" as a failed
 workflow.
+
+**A percentage KPI's change is stated in points (2026-10-14).** "Gross Margin % decreased by 13.0%"
+read as 13 points; the fall was 4.48 points (34.43% to 29.95%), seen in a production briefing.
+`_point_change()` detects a percentage KPI (unit or name ends in "%") and `_threshold_sentence` /
+the opportunity headline now say "decreased by 4.5 points (13.0%)". Targets stay in relative %
+because the thresholds are relative growth rates.

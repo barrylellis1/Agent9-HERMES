@@ -93,7 +93,34 @@ def _severity_for_band(evaluation: str) -> "SituationSeverity":
     return SituationSeverity.CRITICAL
 
 
-def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: Any, window: str = "") -> str:
+def _point_change(kpi_definition: Any, kpi_value: Any) -> Optional[float]:
+    """The change in percentage POINTS for a KPI that is itself a percentage, else None.
+
+    "Gross Margin % decreased by 13.0%" reads as 13 points; the fall was 4.48 points
+    (34.43% to 29.95%). Found live 2026-10-14 in a production briefing. A percentage
+    KPI's change is stated in points, with the relative change after it.
+    """
+    unit = str(getattr(kpi_definition, "unit", None) or getattr(kpi_value, "unit", None) or "")
+    name = str(getattr(kpi_definition, "name", None) or "")
+    if "%" not in unit and not name.rstrip().endswith("%"):
+        return None
+    cur, prev = getattr(kpi_value, "value", None), getattr(kpi_value, "comparison_value", None)
+    if not isinstance(cur, (int, float)) or not isinstance(prev, (int, float)):
+        return None
+    return float(cur) - float(prev)
+
+
+def _change_amount(percent_change: float, points: Optional[float]) -> str:
+    """'4.5 points (13.0%)' for a percentage KPI, '13.0%' otherwise."""
+    if points is None:
+        return f"{abs(percent_change):.1f}%"
+    # a change under a tenth of a point keeps two decimals, so it never reads "0.0 points"
+    p = f"{abs(points):.2f}" if abs(points) < 0.1 else f"{abs(points):.1f}"
+    return f"{p} points ({abs(percent_change):.1f}%)"
+
+
+def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: Any, window: str = "",
+                        points: Optional[float] = None) -> str:
     """The card sentence for a KPI that moved against the prior year and is outside its green band.
 
     A KPI can move the RIGHT way and still be flagged: revenue that grew 3.1% against a
@@ -102,7 +129,7 @@ def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: 
     2026-10-13: five lubricants KPIs that rose were listed as problems with no reason given.
     The KPI's direction comes from the threshold row's `inverse_logic` (lower is better).
     """
-    amount = abs(percent_change)
+    amount = _change_amount(percent_change, points)
     try:
         g = float(green) if green is not None else None
     except (TypeError, ValueError):
@@ -110,10 +137,10 @@ def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: 
     moved_the_right_way = (percent_change < 0) if inverse else (percent_change > 0)
     if g is not None and moved_the_right_way:
         if not inverse:
-            return f"{name} grew {amount:.1f}% vs prior year{window}, short of the {g:.1f}% growth target"
-        return f"{name} fell {amount:.1f}% vs prior year{window}, short of the {abs(g):.1f}% reduction target"
+            return f"{name} grew {amount} vs prior year{window}, short of the {g:.1f}% growth target"
+        return f"{name} fell {amount} vs prior year{window}, short of the {abs(g):.1f}% reduction target"
     direction = "increased" if percent_change > 0 else "decreased"
-    sentence = f"{name} {direction} by {amount:.1f}% vs prior year{window}"
+    sentence = f"{name} {direction} by {amount} vs prior year{window}"
     if inverse and g is not None and g >= 0 and percent_change > 0:
         sentence += f", above the {g:.1f}% limit"
     return sentence
@@ -3659,8 +3686,8 @@ class A9_Situation_Awareness_Agent:
                         signals.append(_make_signal(
                             opportunity_type="outperformance",
                             headline=(
-                                f"{kpi_name} grew {pct:.1f}% vs prior year "
-                                f"— above {_green:.1f}% target"
+                                f"{kpi_name} grew {_change_amount(pct, _point_change(kpi_definition, kpi_value))} "
+                                f"vs prior year — above {_green:.1f}% target"
                             ),
                             delta_pct=pct,
                             baseline=kpi_value.comparison_value or kpi_value.value,
@@ -3914,6 +3941,7 @@ class A9_Situation_Awareness_Agent:
                         severity,
                         _threshold_sentence(
                             kpi_definition.name, percent_change, inv, g, self._window_suffix(kpi_value),
+                            points=_point_change(kpi_definition, kpi_value),
                         ),
                         principal_context
                     ))
