@@ -74,3 +74,20 @@ test.describe('the comparison the card was raised against', () => {
     expect(roi).toContain('exceeds the loss');
   });
 });
+
+test.describe('market context is labelled for what it rests on', () => {
+  test('signals without a source are flagged; the market-shift answer is carried', () => {
+    const shift = { assessment: 'insufficient', summary: 'No sourced market evidence was available.', grounded: false };
+    const b: any = buildExecutiveBriefing(gmSituation(), { change_points: [] }, { options_ranked: [] },
+                                          [{ title: 'Base oil tight', summary: 's', url: null }], shift);
+    expect(b.market_signals_sourced).toBe(false);
+    expect(b.market_shift.assessment).toBe('insufficient');
+  });
+
+  test('a signal with a source URL counts as sourced', () => {
+    const b: any = buildExecutiveBriefing(gmSituation(), { change_points: [] }, { options_ranked: [] },
+                                          [{ title: 't', summary: 's', url: 'https://example.com' }]);
+    expect(b.market_signals_sourced).toBe(true);
+    expect(b.market_shift).toBeNull();
+  });
+});

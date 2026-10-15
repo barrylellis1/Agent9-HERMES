@@ -1074,6 +1074,22 @@ export function ExecutiveBriefing() {
                 <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono mb-2 border-b border-slate-200 pb-1">
                   Market Context
                 </div>
+                {data.market_shift && (
+                  <p className="text-xs text-slate-700 mb-2" data-testid="briefing-market-shift">
+                    <span className="font-semibold">Is this a market-wide shift? </span>
+                    {data.market_shift.assessment === 'supported'
+                      ? 'The market evidence supports it.'
+                      : data.market_shift.assessment === 'not_supported'
+                        ? 'The market evidence does not support it.'
+                        : 'Not settled.'}
+                    {data.market_shift.summary ? ` ${data.market_shift.summary}` : ''}
+                  </p>
+                )}
+                {!data.market_signals_sourced && (
+                  <p className="text-[10px] text-slate-500 italic mb-2" data-testid="briefing-market-unsourced">
+                    These signals come from the model's general knowledge, not from cited sources.
+                  </p>
+                )}
                 <div className="space-y-2">
                   {data.market_signals.slice(0, 4).map((signal: any, i: number) => (
                     <div key={i} className="text-xs text-slate-700">

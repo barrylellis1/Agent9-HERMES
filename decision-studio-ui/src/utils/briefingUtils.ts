@@ -317,7 +317,7 @@ export function aggregateIsAdverse(situation: any, comparison: number | null): b
   return lowerIsBetter ? current > comparison : current < comparison
 }
 
-export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, marketSignals?: any[]) => {
+export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, marketSignals?: any[], marketShift?: any) => {
     const kpiName = situation?.kpi_name || analysis?.kpi_name || sol?.problem_reframe?.situation || 'KPI'
     const kpiUnit: string = situation?.kpi_value?.unit || ''
     const topOptions = Array.isArray(sol?.options_ranked) ? sol.options_ranked : []
@@ -939,6 +939,11 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       unresolved_tensions: sol?.unresolved_tensions || [],
       // Market Intelligence from DA/MA agent
       market_signals: (marketSignals && marketSignals.length > 0) ? marketSignals : null,
+      // Whether any signal cites a source, and Market Analysis's answer to "is this a
+      // market-wide shift?". Until 2026-10-15 the briefing printed model-written signals
+      // as plain fact, with neither.
+      market_signals_sourced: (marketSignals || []).some((s: any) => !!s?.url),
+      market_shift: marketShift ?? null,
       // Raw KPI data for Cost of Inaction banner (pre-approval).
       // Prefer the SPECIFIC underperforming segment the recommendation targets
       // over the parent KPI's blended aggregate — a "mixed" situation (aggregate

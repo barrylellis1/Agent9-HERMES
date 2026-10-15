@@ -623,7 +623,7 @@ export function useDecisionStudio() {
         try {
           if (enrichedSolutions && selectedSituation?.situation_id) {
             localStorage.setItem(`solutions_${selectedSituation.situation_id}`, JSON.stringify(enrichedSolutions));
-            const briefingPayload = buildExecutiveBriefing(selectedSituation, currentAnalysis, enrichedSolutions, marketSignals);
+            const briefingPayload = buildExecutiveBriefing(selectedSituation, currentAnalysis, enrichedSolutions, marketSignals, marketShift);
             localStorage.setItem(`briefing_${selectedSituation.situation_id}`, JSON.stringify(briefingPayload));
             if (lastSolutionRequestId) {
               localStorage.setItem(`solution_request_${selectedSituation.situation_id}`, lastSolutionRequestId);
