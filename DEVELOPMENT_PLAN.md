@@ -252,6 +252,7 @@ tree is what makes `git status` unreadable on restart.
 |---|---|---|
 | **25 step 1** — canonical `period_key` | **SHIPPED** (2026-09-18) | `TimeFilter.period_key_expr`/`period_key_grain`; DPA resolves via `_resolve_time_spec`; 4 new tests, 1692 passing. **Live-verified against BigQuery**: both products emit identical `YYYY-MM` keys; `sales_order_count` returns 9 trend rows where it returned none. SA's 3 hand-rolled copies deliberately untouched (live sparkline path) |
 | **26** — Named period comparisons | **OPEN** | Verified 2026-10-13: `ComparisonType` has only yoy/qoq/mom; `KPIMonitoringProfile.comparison_period` is MoM/QoQ/YoY, set by no seed file and edited by no screen; the tile label "YoY" covers YTD vs prior-year YTD. Design in the backlog → Phase 26. Step 1 changes no behaviour; step 2 needs a migration (owner go-ahead) |
+| **27** — Quantified trade-off analysis | **OPEN** | Verified 2026-10-15: option impact/cost/risk are 0–1 scores mapped from Low/Medium/High labels and the prompt REQUIRES them to differ; `_rank_options` ranks on them, not on the option's own impact in KPI units; cost has no amount; trade-off weights cannot be viewed or edited anywhere in the UI. Design in the backlog → Phase 27. Owner asked for it 2026-10-15 |
 | **18** — Council de-branding + Lens Council UI | **OPEN** | MBB names present in 14 files |
 | **11I-D** — PIB alert-type differentiation | **PARTIAL** | 11I-A/B/C shipped; D remaining |
 | **11H** — DA seasonal decomposition | **PARTIAL** | effect size + outlier shipped; decomposition absent |

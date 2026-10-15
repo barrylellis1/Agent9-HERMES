@@ -3584,3 +3584,107 @@ What it needs:
 
 Related: `src/analysis/general_deviation_gate.py` already resolves a segment label against the
 analysis's measured members; the same resolution would turn `scope_label` into (dimension, member).
+
+---
+
+### Phase 27: Quantified trade-off analysis — real amounts with their sources, not abstract scores (proposed, 2026-10-15)
+
+**Status:** Proposed, unscheduled. Asked for by the owner on 2026-10-15:
+
+> *"honestly, the rating of the options seem invented by the model without understanding their
+> basis. I'm curious if whether quantified assumptions should be placed in a classic tradeoff
+> analysis table to include Impact amounts, Cost amounts, risk assumptions, resources needed, time to
+> deliver, etc is better than an abstract score"*
+
+Folds in the trade-off weight gaps recorded when Stage J shipped (2026-08-16) and never scheduled.
+
+#### How options are scored today (verified in code, 2026-10-15)
+
+- **The scores are relabelled adjectives.** Each Stage 1 lens proposes an option with a Low / Medium /
+  High cost and risk signal. The synthesis prompt maps them: "Low→0.25, Medium→0.50, High→0.80"
+  (`a9_solution_finder_agent.py`, NUMERIC DIFFERENTIATION REQUIREMENT).
+- **Differences are required.** The same instruction says each option's `expected_impact`, `cost`,
+  `risk` and `recovery_range` "MUST differ from the others" and forbids 0.0. Options that are genuinely
+  alike are told to look different, and `_rank_options` then decides on that difference. Stage J's
+  measurement found winning margins of +0.0035 to +0.045 in 4 of 11 runs, and one exact 0.0000 tie
+  settled by list order.
+- **The ranking ignores the one real quantity.** `impact_estimate.recovery_range` is in the KPI's own
+  units with a declared scope (the briefing's "+1.8 to +3.6pp · 40–80% of the enterprise decline").
+  `_rank_options` uses the separate 0–1 `expected_impact` instead.
+- **Computed impact exists and is off.** `enable_computed_impact` (Phase 17 D2) can replace the model's
+  impact with one calculated from `kpi_decompositions` when the option names a computable lever. It
+  defaults to False and nothing enables it.
+- **Cost has no amount.** Only the 0–1 `cost` score, rendered as "Low Effort" / "Moderate Effort" /
+  "$$$" (`briefingUtils.ts`, `TradeOffAnalysis.tsx`). No money, no people, no duration.
+- **Risk is one number.** The real risk content (`key_assumptions` with confidence and source,
+  `flagged_side_effects`, critic findings) is separate text that never informs `risk`.
+- **Time and reversibility** exist as free text (`time_to_value`) and high/medium/low (`reversibility`).
+
+#### The trade-off weights (Stage J) — gaps recorded, never scheduled
+
+- No screen shows or edits `strategic_posture` / `tradeoff_weights`; the routes are the seed file, the
+  registry API, or SQL. Onboarding does not ask for them, so a new customer runs on the system default
+  (0.5 / 0.25 / 0.25) without knowing.
+- The Company Profile page has a **Risk Posture** (low / medium / high) field that no agent reads; it
+  looks like the setting that matters and is not.
+- No tie band: near-equal options are presented as a confident recommendation.
+- The reader cannot see the weighting. Since 2026-10-14 the weights decide every recommendation (owner
+  decision "Option C", `src/analysis/recommendation_choice.py`), and the disagreement tension says an
+  option "ranks first on the business's stated weighting", which is shown nowhere.
+- Dead code: `A9_PS_DecisionCriteria` (`a9_debate_protocol_models.py`) requires weights to sum to 1.0;
+  `_rank_options` does not normalise. Remove it.
+
+#### The table
+
+| Column | What it holds | Source |
+|---|---|---|
+| Impact | Recovery in KPI units and as a share of the gap, with scope | Calculated where the decomposition supports it (`enable_computed_impact`); otherwise Assumed, with basis |
+| Cost | One-time and ongoing, as ranges | **Needs input** by default: Agent9 holds no cost data. The model may state what drives cost; it does not invent amounts |
+| Resources | Roles and effort ("2 pricing analysts, 6 weeks") | Assumed (model proposes), confirmed by a person |
+| Time | To first effect and to full effect, in weeks | Assumed, structured (replaces free-text `time_to_value`) |
+| Reversibility | High / medium / low, with what undoing costs | Assumed |
+| Risks | Named adverse consequences, each with likelihood and seriousness | Assumed; drawn from the option's assumptions, side effects and critic findings |
+| Constraints | Pass / fail per known constraint | Existing constraint check (`constraint_survival`, `compute_constraint_exposure`) |
+
+Every cell carries one of the product's trust labels: **Calculated**, **Assumed** (with its basis), or
+**Needs input**. "Unknown" is an allowed value and must not be penalised by the ranking: an invented
+dollar figure is worse than an honest blank, because it reads as knowledge.
+
+#### How a choice is made: Kepner-Tregoe Decision Analysis, not one score
+
+Dollars, weeks, people and likelihoods do not add up honestly. The method that fits is the one the
+product already uses for diagnosis (Deep Analysis) and measurement (Value Assurance), and that
+`docs/architecture/decision_quality_rubric.md` already names under link 4:
+
+1. **MUSTs** screen: an option that fails a known constraint is out (or shown as failing).
+2. **WANTs** are weighted by the business's stated priorities: the trade-off weights become editable
+   WANT weights. Options are compared column by column, relative to each other, with the real figures
+   visible.
+3. **Adverse consequences** are assessed separately: likelihood × seriousness per named risk, not folded
+   into a single risk score.
+4. **The human chooses.** When two options are close on the weighted WANTs, the briefing says so
+   ("these options are close; the choice is yours") instead of badging one.
+
+#### Steps
+
+| Step | What | Needs |
+|---|---|---|
+| 1 | Remove the NUMERIC DIFFERENTIATION requirement and the Low/Medium/High → number mapping; allow ties and "unknown". Rank impact on `impact_estimate` (share of the gap), not `expected_impact`. Add a tie band. | nothing |
+| 2 | Structured option fields for cost (ranges or Needs input), resources, time to first and full effect, and named risks with likelihood and seriousness; each with its trust label. Measure the synthesis output size before and after (last measured ~20k tokens of a 64k budget). | step 1 |
+| 3 | Enable computed impact where the decomposition supports it, so the impact column is Calculated where it can be. | step 2; live check per client |
+| 4 | KT selection: MUST screen, weighted WANTs over the table, adverse consequences separately, near-tie stated. Replaces `_rank_options`; `recommendation_choice.choose()` keeps the "a check is never recommended on its own" rule. | step 2 |
+| 5 | Briefing and PDF: the table as the centre of the options section, with trust labels and "Needs input" cells; the posture and weights shown beside the recommendation. | step 4 |
+| 6 | Weights in the product: posture and WANT weights editable on Company Profile and asked for in onboarding; Risk Posture removed or made the risk weight; `A9_PS_DecisionCriteria` deleted. | none for the UI; decide Risk Posture |
+| 7 | Decision quality: re-score link 4 ("clear values and trade-offs") on saved and new runs. | step 5 |
+
+#### Open questions for the owner
+
+- **Cost when nobody supplies it.** Leave the cell as Needs input and rank without it, or block
+  approval until it is filled?
+- **Risk Posture.** Remove the field, or make it set the risk weight?
+- **Tie band width.** What gap between two options' weighted scores counts as "close"?
+
+#### Not in this phase
+
+- Portfolio-level trade-offs across decisions (Business Optimization, planned for later).
+- Pricing the options from a client cost model or ERP; this phase only records who must supply cost.
