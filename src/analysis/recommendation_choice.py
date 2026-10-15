@@ -44,15 +44,34 @@ def choose(ranked: List[Any], model_pick_id: Optional[str]) -> Dict[str, Any]:
     }
 
 
-def disagreement_tension(recommended: Any, model_pick: Any) -> Dict[str, Any]:
-    """The unresolved tension shown to the reader when the analysis preferred another option."""
+def disagreement_tension(recommended: Any, model_pick: Any, check_skipped: bool = False) -> Dict[str, Any]:
+    """The unresolved tension shown to the reader when the analysis preferred another option.
+
+    The reason given must be the true one. When the weighted ranking put a check first and it
+    was skipped, the recommendation is the highest-ranked option that acts, not "first on the
+    weighting" (the first wording said so wrongly, seen in production 2026-10-15).
+    """
     rec_title = str(getattr(recommended, "title", "") or "the recommended option")
     pick_title = str(getattr(model_pick, "title", "") or "another option")
-    return {
-        "tension": (
+    if check_skipped and _is_check(model_pick):
+        reason = (
+            f"The analysis favoured \"{pick_title}\", a check on the cause. A check is offered but not "
+            f"recommended on its own, so \"{rec_title}\", the highest-ranked option that acts on the "
+            f"business's stated weighting of impact, cost and risk, is the recommendation."
+        )
+    elif check_skipped:
+        reason = (
+            f"The analysis favoured \"{pick_title}\", but \"{rec_title}\" is the highest-ranked option "
+            f"that acts on the business's stated weighting of impact, cost and risk (a check ranked above "
+            f"it and is not recommended on its own), so it is the recommendation."
+        )
+    else:
+        reason = (
             f"The analysis favoured \"{pick_title}\", but \"{rec_title}\" ranks first on the business's "
             f"stated weighting of impact, cost and risk, so it is the recommendation."
-        ),
+        )
+    return {
+        "tension": reason,
         "options_affected": [str(getattr(recommended, "id", "")), str(getattr(model_pick, "id", ""))],
         "requires": (
             f"Decision owner to confirm \"{rec_title}\" or choose \"{pick_title}\" instead at approval."
@@ -60,10 +79,11 @@ def disagreement_tension(recommended: Any, model_pick: Any) -> Dict[str, Any]:
     }
 
 
-def fallback_rationale(recommended: Any) -> str:
+def fallback_rationale(recommended: Any, check_skipped: bool = False) -> str:
     """Used when the rationale cannot be rewritten: never the draft that argued for another option."""
     title = str(getattr(recommended, "title", "") or "This option")
+    rank = ("is the highest-ranked option that acts" if check_skipped else "ranks first")
     return (
-        f"\"{title}\" ranks first on the business's stated weighting of impact, cost and risk. "
+        f"\"{title}\" {rank} on the business's stated weighting of impact, cost and risk. "
         f"See the options for its expected effect and the tensions below for what remains open."
     )

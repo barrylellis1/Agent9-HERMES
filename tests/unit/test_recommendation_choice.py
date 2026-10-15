@@ -56,3 +56,16 @@ def test_options_carry_the_check_flag_default_false():
     o = SolutionOption(id="opt_1", title="t")
     assert o.is_check is False
     assert SolutionOption(id="opt_1", title="t", is_check=True).is_check is True
+
+
+def test_when_the_check_ranked_first_the_tension_gives_the_true_reason():
+    # production 2026-10-15: the tension claimed the recommendation "ranks first on the weighting",
+    # but the check ranked first and was skipped
+    t = disagreement_tension(ESCALATORS, AUDIT, check_skipped=True)
+    assert "a check on the cause" in t["tension"] and "not recommended on its own" in t["tension"]
+    assert "ranks first" not in t["tension"] and "highest-ranked option that acts" in t["tension"]
+
+
+def test_the_fallback_does_not_claim_first_place_when_a_check_was_skipped():
+    assert "ranks first" not in fallback_rationale(ESCALATORS, check_skipped=True)
+    assert "ranks first" in fallback_rationale(ESCALATORS)

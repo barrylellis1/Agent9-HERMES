@@ -4188,11 +4188,12 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 _draft = rationale
                 rationale = await self._rationale_for(
                     recommendation, ranked, _choice["model_pick"], _draft, request, req_id,
-                ) or fallback_rationale(recommendation)
+                ) or fallback_rationale(recommendation, check_skipped=bool(_choice["skipped_checks"]))
                 if _choice["disagrees"]:
                     try:
                         unresolved_tensions_list.append(UnresolvedTension(
-                            **disagreement_tension(recommendation, _choice["model_pick"])
+                            **disagreement_tension(recommendation, _choice["model_pick"],
+                                                   check_skipped=bool(_choice["skipped_checks"]))
                         ))
                     except Exception:
                         pass

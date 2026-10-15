@@ -1061,3 +1061,9 @@ human approves. `src/analysis/recommendation_choice.py::choose()`:
   analysis preferred another option and can choose it at approval.
 
 Tests: `tests/unit/test_recommendation_choice.py`.
+
+**The tension states the true reason (2026-10-15).** The first wording said the recommended option
+"ranks first on the business's stated weighting" even when the check ranked first and was skipped
+(seen in a production run). `disagreement_tension(..., check_skipped=True)` and
+`fallback_rationale(..., check_skipped=True)` now say "the highest-ranked option that acts".
+
