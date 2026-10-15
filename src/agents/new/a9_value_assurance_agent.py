@@ -245,6 +245,31 @@ def _solution_id_from(hex32: str) -> str:
     return str(uuid.UUID(hex=hex32))
 
 
+def projection_lines(
+    baseline: float,
+    pre_slope: float,
+    measurement_window_days: int,
+    expected_impact_lower: float,
+    expected_impact_upper: float,
+    lower_is_better: bool,
+) -> Tuple[List[float], List[float], int]:
+    """The No Action and Solution lines drawn at approval -> (inaction, expected, horizon_months).
+
+    No Action: the recorded value continued at the pre-approval monthly slope.
+    Solution: from the recorded value to value + the midpoint of the expected range by the end
+    of the measurement window. The range is stated as an improvement, so for a cost (lower is
+    better) the Solution line points down. Shared with scripts/seed_va_demo_data.py so demo
+    decisions are drawn exactly as real ones are.
+    """
+    window_months = max(int(measurement_window_days) // 30, 1)
+    horizon = max(window_months * 2, 12)
+    inaction = [baseline + pre_slope * m for m in range(horizon + 1)]
+    direction = -1.0 if lower_is_better else 1.0
+    midpoint = direction * (expected_impact_lower + expected_impact_upper) / 2.0
+    expected = [baseline + midpoint * (m / window_months) for m in range(window_months + 1)]
+    return inaction, expected, horizon
+
+
 class _SolutionStore(dict):
     """The in-memory solutions, keyed by solution id in ONE spelling.
 
@@ -786,8 +811,6 @@ class A9_Value_Assurance_Agent:
             if snapshot.kpi_value_at_approval is not None
             else snapshot.kpi_threshold_at_approval
         )
-        window_months = max(request.measurement_window_days // 30, 1)
-        inaction_horizon = max(window_months * 2, 12)
 
         _is_opportunity = getattr(request, "analysis_mode", "problem") == "opportunity"
 
@@ -804,17 +827,11 @@ class A9_Value_Assurance_Agent:
             # Older callers: a single earlier value, treated as one month back.
             pre_slope = baseline - request.pre_approval_kpi_value  # negative = deteriorating
 
-        inaction_trend = [baseline + pre_slope * m for m in range(inaction_horizon + 1)]
-
-        # Expected trend: linear interpolation from baseline to baseline + midpoint recovery
-        # The expected range is stated as an improvement. For a cost, improving
-        # means the value falls, so the Solution line points down.
-        _direction = -1.0 if snapshot.kpi_lower_is_better else 1.0
-        midpoint_recovery = _direction * (request.expected_impact_lower + request.expected_impact_upper) / 2.0
-        expected_trend = [
-            baseline + midpoint_recovery * (m / window_months) if window_months > 0 else baseline
-            for m in range(window_months + 1)
-        ]
+        inaction_trend, expected_trend, inaction_horizon = projection_lines(
+            baseline, pre_slope, request.measurement_window_days,
+            request.expected_impact_lower, request.expected_impact_upper,
+            bool(snapshot.kpi_lower_is_better),
+        )
 
         # Actual trend: starts with baseline at approval
         actual_trend = [baseline]

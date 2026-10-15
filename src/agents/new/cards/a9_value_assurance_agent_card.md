@@ -569,3 +569,17 @@ after approval; the briefing-to-portfolio link uses the same match).
 `_solution_id_from()` now spells the id as a dashed uuid when it is created. The value is the same
 hash as before, so re-approving the same option still resolves to the same solution.
 Test: `tests/unit/test_va_solution_id_spelling.py`.
+
+## One function draws the No Action and Solution lines (Oct 2026)
+
+`projection_lines()` (module level in the agent) is what `register_solution` uses to draw the two
+lines from the recorded value, and what `scripts/seed_va_demo_data.py` uses for the demo decisions,
+so demo and real decisions are drawn identically. Behaviour unchanged. Test:
+`tests/unit/test_va_projection_lines.py`.
+
+**Demo decisions reseeded from the warehouse (2026-10-15).** The seed used to hard-code baselines
+on the wrong scale (Gross Margin 45.2% against ~30% in the warehouse), invented actual lines and
+fixed verdicts, with no value recorded at approval. Production's Portfolio therefore showed one
+validated, one partial and one failed decision that were never measured. The seed now reads each
+KPI's monthly values from the warehouse, records the last complete month before approval, draws the
+lines with `projection_lines()`, and leaves the verdict to the live evaluate endpoint.
