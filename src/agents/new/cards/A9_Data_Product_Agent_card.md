@@ -424,3 +424,15 @@ stored SQL is still returned unfiltered when the builder yields nothing or no ti
 BigQuery, Snowflake and Databricks already routed every shape through their builders.
 
 Test: `tests/unit/test_ss_scalar_period_filter.py`.
+
+## Named period comparisons as timeframes (Phase 26 step 3a, Oct 2026)
+
+A `timeframe` may be one of the ten named period comparisons (`src/analysis/period_comparisons.py`),
+optionally with the reference day it was read at: `"ytd_vs_pytd"` or `"ytd_vs_pytd@2026-07-31"`.
+The BigQuery, Snowflake, SQL Server and Databricks builders need no change: they hand the timeframe
+to `TimeFilter.current_condition` / `previous_condition`, which resolve a token through the shared
+spans (period-keyed: `fiscal_year = Y AND period BETWEEN a AND b`; date-keyed: a date range; annual:
+years only). The reference day is what lets Deep Analysis measure exactly the spans the situation card
+did. The DuckDB builder (`_generate_sql_for_kpi`) only knows the old words, so `generate_sql_for_kpi`
+gives it `period_comparisons.legacy_word()` (the nearest one, approximate). Old words are still
+answered as before for callers that send them. Test: `tests/unit/test_period_tokens.py`.

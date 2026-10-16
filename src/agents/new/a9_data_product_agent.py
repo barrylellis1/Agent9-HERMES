@@ -5223,9 +5223,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     "source_system": "databricks",
                 }
 
+            # The DuckDB builder only knows the old words; a named comparison (Phase 26) is
+            # given its nearest one. The other backends resolve it through TimeFilter.
+            from src.analysis.period_comparisons import legacy_word as _legacy_word
             sql = await self._generate_sql_for_kpi(
                 kpi_definition,
-                timeframe=timeframe,
+                timeframe=_legacy_word(timeframe),
                 filters=filters,
                 topn=topn,
                 breakdown=breakdown,

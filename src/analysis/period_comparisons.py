@@ -186,6 +186,12 @@ def spans(
     fy_start: int = 1,
 ) -> ComparisonSpans:
     """The two spans `comparison` sets side by side, as of `today` for this data product."""
+    return spans_at(comparison, reference_day(today, period_keyed, latest_actual), period_keyed, fy_start)
+
+
+def spans_at(comparison: str, ref: date, period_keyed: bool, fy_start: int = 1) -> ComparisonSpans:
+    """The two spans, from a reference day already decided (by `reference_day`, or carried
+    from an earlier reading so a later stage measures exactly the same spans)."""
     if comparison not in COMPARISONS:
         raise ValueError(f"unknown comparison {comparison!r}; expected one of {', '.join(COMPARISONS)}")
     if period_keyed and comparison in ("mtd_vs_prev_mtd", "mtd_vs_py_mtd"):
@@ -197,7 +203,6 @@ def spans(
         raise ValueError("fy_start must be a month number, 1 to 12")
 
     grain, back = _GRAIN[comparison]
-    ref = reference_day(today, period_keyed, latest_actual)
     length = _period_len(grain)
 
     if comparison in TO_DATE:
@@ -214,6 +219,93 @@ def spans(
         previous = Span(_month_start(prev_start), _month_end(prev_start + length - 1))
 
     return ComparisonSpans(comparison, LABELS[comparison], ref, current, previous)
+
+
+# ── a comparison as a timeframe token (Phase 26, step 3) ─────────────────────────────────
+#
+# Stages pass a period to the Data Product Agent as a "timeframe" string, through some thirty
+# call sites in Deep Analysis alone. A comparison travels the same way: its name, optionally
+# with the reference day it was read at ("ytd_vs_pytd@2026-07-31"), so a later stage measures
+# the spans an earlier one did. src/database/time_filter.py resolves it through this module.
+
+def token(comparison: str, ref: Optional[date] = None) -> str:
+    if comparison not in COMPARISONS:
+        raise ValueError(f"unknown comparison {comparison!r}")
+    return f"{comparison}@{ref.isoformat()}" if ref else comparison
+
+
+def parse_token(value: object) -> Optional[Tuple[str, Optional[date]]]:
+    """(comparison, reference day or None) when `value` is a comparison token, else None.
+    Only the ten names are tokens; old request words (year_to_date, yoy) are not."""
+    s = str(getattr(value, "value", value) or "").strip().lower()
+    name, _, day = s.partition("@")
+    if name not in COMPARISONS:
+        return None
+    try:
+        return name, (date.fromisoformat(day) if day else None)
+    except ValueError:
+        return None
+
+
+_YEAR_REQUESTS = ("year_to_date", "current_year", "this_year")
+_QUARTER_REQUESTS = ("current_quarter", "this_quarter", "quarter_to_date")
+_MONTH_REQUESTS = ("current_month", "this_month", "month_to_date")
+
+
+def from_request(timeframe: object, comparison_type: object = None, period_keyed: bool = False) -> str:
+    """The comparison an old-style request (a timeframe word and a comparison type) asks for.
+
+    The dashboard sends year_to_date with year_over_year: YTD vs previous year YTD, as every
+    scan has read it. "The current quarter" is the quarter so far (Situation Awareness never
+    read it as the whole quarter). A month-to-date request on period-keyed data is the last
+    closed month, as complete_periods.closed_view answered it. A comparison type that is not a
+    period shift (budget, target, benchmark) only says which version to compare; the period
+    is then the timeframe's year-over-year reading.
+    """
+    if parse_token(timeframe):
+        return parse_token(timeframe)[0]
+    tf = str(getattr(timeframe, "value", timeframe) or "").strip().lower()
+    ct = str(getattr(comparison_type, "value", comparison_type) or "year_over_year").strip().lower()
+    sequential = ("quarter" in ct) or ("month" in ct)  # else a year back
+    if tf in _YEAR_REQUESTS:
+        return "ytd_vs_pytd"
+    if tf in _QUARTER_REQUESTS:
+        return "qtd_vs_prev_qtd" if sequential else "qtd_vs_py_qtd"
+    if tf in _MONTH_REQUESTS:
+        if period_keyed:
+            return "month_vs_prev_month" if sequential else "month_vs_py_month"
+        return "mtd_vs_prev_mtd" if sequential else "mtd_vs_py_mtd"
+    if tf == "last_year":
+        return "year_vs_prev_year"
+    if tf == "last_month":
+        return "month_vs_prev_month" if sequential else "month_vs_py_month"
+    # last_quarter, and anything unrecognised (the old default was the last quarter)
+    return "quarter_vs_prev_quarter" if sequential else "quarter_vs_py_quarter"
+
+
+_LEGACY_WORD = {
+    "ytd_vs_pytd": "year_to_date", "qtd_vs_prev_qtd": "quarter_to_date", "qtd_vs_py_qtd": "quarter_to_date",
+    "mtd_vs_prev_mtd": "month_to_date", "mtd_vs_py_mtd": "month_to_date",
+    "quarter_vs_prev_quarter": "last_quarter", "quarter_vs_py_quarter": "last_quarter",
+    "month_vs_prev_month": "last_month", "month_vs_py_month": "last_month", "year_vs_prev_year": "last_year",
+}
+
+
+def legacy_word(value: object) -> object:
+    """For a path that only knows the old words (the DuckDB SQL builder): the nearest one.
+    Approximate: the old words cannot say "previous quarter to date". Anything that is not a
+    comparison token is returned unchanged."""
+    parsed = parse_token(value)
+    return _LEGACY_WORD[parsed[0]] if parsed else value
+
+
+def basis_key(comparison: str) -> str:
+    """What the current span is set against, as the short key the agents' wording uses:
+    "yoy" (the same span a year earlier), "qoq" (the previous quarter), "mom" (the previous month)."""
+    _, back = _GRAIN[comparison]
+    if back == 12:
+        return "yoy"
+    return "qoq" if back == 3 else "mom"
 
 
 def available(period_keyed: bool) -> Tuple[str, ...]:

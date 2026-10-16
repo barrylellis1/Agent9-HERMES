@@ -14,6 +14,12 @@ Supported spec types (set ``type`` key in the TimeDimensionSpec dict):
   date               — single DATE/TIMESTAMP column; emits BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
   fiscal_year_period — two integer columns (year + period); emits fiscal_year=Y AND fiscal_period=P
   fiscal_year        — one integer column; emits fiscal_year=Y
+
+A timeframe may also be one of the ten named period comparisons (Phase 26), optionally with
+the reference day it was read at: "ytd_vs_pytd" or "ytd_vs_pytd@2026-07-31". Its spans come
+from src/analysis/period_comparisons.py, so every stage that passes one measures the same
+periods. The older words (year_to_date, current_quarter…) are still answered as before for
+callers that send them.
 """
 
 import calendar
@@ -313,6 +319,52 @@ class TimeFilter:
         quoted = f"`{col}`" if dialect == "bigquery" else col
         return f"{quoted} BETWEEN '{start}' AND '{end}'"
 
+    # ── named period comparisons (Phase 26, step 3) ────────────────────────
+
+    @classmethod
+    def comparison_spans(cls, spec: dict, timeframe):
+        """The ComparisonSpans for a comparison token on this data product, or None when
+        `timeframe` is not one. Raises when the comparison has no meaning for it (month to
+        date on period-keyed data)."""
+        from src.analysis import period_comparisons as pc
+        from src.analysis.complete_periods import is_period_keyed
+        parsed = pc.parse_token(timeframe)
+        if not parsed:
+            return None
+        comparison, ref = parsed
+        keyed = is_period_keyed(spec)
+        fy_start = int(spec.get("fiscal_year_start_month") or 1)
+        if ref is None:
+            ref = pc.reference_day(cls._today(), keyed)
+        return pc.spans_at(comparison, ref, keyed, fy_start)
+
+    @classmethod
+    def _comparison_condition(cls, spec: dict, timeframe, dialect: str, previous: bool) -> Optional[str]:
+        from src.analysis import period_comparisons as pc
+        sp = cls.comparison_spans(spec, timeframe)
+        span = sp.previous if previous else sp.current
+        spec_type = (spec.get("type") or "date").lower()
+        if spec_type == "date" and not spec.get("column") and spec.get("year_column"):
+            spec_type = "fiscal_year_period"
+        fy_start = int(spec.get("fiscal_year_start_month") or 1)
+
+        if spec_type == "fiscal_year_period":
+            fy, first, last = pc.fiscal_periods(span, fy_start)
+            year_col = spec.get("year_column", "fiscal_year")
+            period_col = cls._cast_period_col(
+                spec.get("period_column", "fiscal_period"), dialect, spec.get("period_column_type", "integer"),
+            )
+            return f"{year_col} = {fy} AND {period_col} BETWEEN {first} AND {last}"
+        if spec_type == "fiscal_year":
+            # Annual data can only answer a comparison of years (a year to date is its year).
+            if sp.comparison not in ("ytd_vs_pytd", "year_vs_prev_year"):
+                return None
+            fy = span.start.year if span.start.month >= fy_start else span.start.year - 1
+            return f"{spec.get('year_column', 'fiscal_year')} = {fy}"
+        col = spec.get("column") or "transaction_date"
+        quoted = f"`{col}`" if dialect == "bigquery" else col
+        return f"{quoted} BETWEEN '{span.start.isoformat()}' AND '{span.end.isoformat()}'"
+
     # ── Public API ──────────────────────────────────────────────────────────
 
     @classmethod
@@ -325,6 +377,9 @@ class TimeFilter:
             dialect:   'bigquery' | 'snowflake' | 'sqlserver' | 'duckdb'.
                        Only affects column quoting for date type.
         """
+        from src.analysis.period_comparisons import parse_token
+        if parse_token(timeframe):
+            return cls._comparison_condition(spec, timeframe, dialect, previous=False)
         tf = cls._normalize(timeframe)
         today = cls._today()
         spec_type = (spec.get("type") or "date").lower()
@@ -359,6 +414,9 @@ class TimeFilter:
     @classmethod
     def previous_condition(cls, spec: dict, timeframe, dialect: str = "bigquery") -> Optional[str]:
         """Return a SQL WHERE fragment for the prior comparison period."""
+        from src.analysis.period_comparisons import parse_token
+        if parse_token(timeframe):
+            return cls._comparison_condition(spec, timeframe, dialect, previous=True)
         tf = cls._normalize(timeframe)
         today = cls._today()
         spec_type = (spec.get("type") or "date").lower()
@@ -523,6 +581,10 @@ class TimeFilter:
         Version comparisons (budget/plan) are a different case: they hold the
         window fixed and vary the version.
         """
+        from src.analysis.period_comparisons import parse_token
+        if parse_token(timeframe):
+            # A named comparison always has its previous span (Phase 26).
+            return f"previous {cls._normalize(timeframe)}"
         tf = cls._normalize(timeframe)
         prev_map = {
             "current_quarter": "last_quarter",
