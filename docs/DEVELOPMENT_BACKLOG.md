@@ -3447,7 +3447,7 @@ question above is answered.
 
 ### Phase 26: Named Period Comparisons — say which two periods are being compared (in progress, 2026-10-15)
 
-**Status:** In progress. Steps 1 and 2 built 2026-10-15 (step 1 `649d2bc`). Split out on 2026-10-13 from the
+**Status:** In progress. Steps 1–3 built 2026-10-15/16; steps 4–6 (screens) remain. Split out on 2026-10-13 from the
 reliability-threshold work, at the owner's direction, once it was clear the fix is a registry and
 onboarding change and not a patch.
 
@@ -3629,10 +3629,22 @@ production registry is synced.
 |---|---|---|---|
 | 1 ✅ | One shared definition of the ten comparisons: given a day, a data product's time key, its fiscal year start and its latest period with actuals, return the two spans. `src/analysis/period_comparisons.py`, `tests/unit/test_period_comparisons.py` (`649d2bc`) | No | nothing |
 | 2 ✅ | The settings above (`src/analysis/period_settings.py`); the threshold row's comparison takes the ten names and `raises_card`; old names read as new ones (`period_comparisons.canonical()`, used by Situation Awareness `_threshold_key` and Deep Analysis `_threshold_spec`); the four client seed files renamed; both threshold editors list the ten names, grouped. Local registry re-seeded 2026-10-15: lubricants and Apex scans identical before and after | No (verified live) | production: deploy the code first, then sync the registry for all four clients (owner go-ahead). The KPI Assistant still proposes the old names until step 5; they read correctly |
-| 3 | Situation Awareness, Deep Analysis and the Data Product Agent resolve periods through step 1 only, with the latest period with actuals looked up per data product (rule 2), and apply the card settings. Remove `_bq_get_period_dates`, `_situation_period`, the token aliasing in `closed_view`, and `KPIMonitoringProfile.comparison_period`. Each reading records which comparison it used | Yes | step 2 |
+| 3 ✅ | Built 2026-10-16 in five commits. (3a) A comparison travels as a timeframe token with its reference day (`ytd_vs_pytd@2026-07-31`); `TimeFilter` resolves it for period-keyed, date-keyed and annual data, so the Data Product Agent's warehouse builders take it unchanged. (3b) Situation Awareness resolves each reading's comparison (request `period_comparison`, else the old words mapped by `from_request`), runs the monthly series first so the spans stop at the latest month with actuals (rule 2), reads the plan over the actuals' spans, and records comparison, reference day and where actuals end; the card says "actuals end Jul 2026". (3c) The card settings decide which readings may raise a card; held readings are listed with the reason in `readings_held`. (3d) Deep Analysis is handed the card's comparison and reference day and names periods in words. (3e) The offline assessment reads each KPI's setting. Removed `_bq_get_period_dates`, `_bq_apply_period`, `_period_as_of`, `_timeframe_month_count`, the `_situation_period` translation table and `comparison_period`. **Kept**, unlike the plan: `closed_view` in `TimeFilter`, because callers that still send the old words (natural-language queries, the DuckDB path) rely on it. Live: lubricants and Apex cards unchanged; Hess reads Jan–Jul 2026 and Deep Analysis reproduces the card's numbers | Yes | step 2 |
 | 4 | Registry editor: the choice grouped as "To date" / "Complete period", with a live preview from step 1 ("Today this compares Jul–Sep 2026 with Jul–Sep 2025"); the card settings on the data product, and `raises_card` on each threshold row. Save-time checks: only comparisons the data product can support; warn when a card comparison has no threshold row, because the KPI would then be judged by the built-in magnitude rule | UI | step 2 |
 | 5 | Onboarding: a review step after schema inspection that shows the detected time key, the fiscal year start month and the latest period with actuals, and sets the data product's settings. KPI Assistant proposes a comparison with its thresholds, limited to the ten names | UI | step 2 |
 | 6 | Dashboard: a control to switch the comparison for the session; tile and card labels name the comparison in use in place of "YoY" | UI | step 3 |
+
+#### Found while building step 3 (2026-10-16), not fixed
+
+- **The two unread lubricants KPIs have a cause now.** Gross Revenue and Sales Tax Collected read the
+  sales data product, whose view has no `transaction_date` column; Situation Awareness filters every
+  warehouse reading on a date column, so BigQuery rejects the query. For a period-keyed product the
+  filter should be the fiscal year and period columns, which `TimeFilter` already produces for a
+  comparison token. Changing it touches every period-keyed reading's SQL, so it needs its own before
+  and after check.
+- The dashboard still sends year to date: a data product's `reading` only applies through the
+  offline assessment or a request that names `period_comparison`, until step 6 adds the control.
+- `readings_held` is in the API response but not yet on screen (step 6).
 
 #### Not in this phase
 
