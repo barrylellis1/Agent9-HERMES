@@ -187,7 +187,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"account_type": "Revenue", "version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 10.0, "red_threshold": 15.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
@@ -213,7 +213,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"segment_name": "E&P", "account_type": "Revenue", "version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 10.0, "red_threshold": 15.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
@@ -239,7 +239,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"segment_name": "Midstream", "account_type": "Revenue", "version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 10.0, "red_threshold": 15.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
@@ -265,7 +265,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"account_type": "Revenue", "version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 10.0, "red_threshold": 15.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
@@ -301,7 +301,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "plan_variance", "green_threshold": 3.0, "yellow_threshold": 8.0, "red_threshold": 12.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
@@ -333,7 +333,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 1.0, "yellow_threshold": 0.0, "red_threshold": -1.5, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 1.0, "yellow_threshold": 0.0, "red_threshold": -1.5, "inverse_logic": False},
             {"comparison_type": "plan_variance", "green_threshold": 2.0, "yellow_threshold": 5.0, "red_threshold": 8.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
@@ -366,7 +366,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "plan_variance", "green_threshold": 3.0, "yellow_threshold": 8.0, "red_threshold": 12.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
@@ -407,7 +407,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "plan_variance", "green_threshold": 3.0, "yellow_threshold": 8.0, "red_threshold": 12.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
@@ -441,7 +441,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"account_type": "COGS", "version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
             {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 15.0, "red_threshold": 25.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
@@ -467,7 +467,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"account_type": "SGA", "version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
             {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 15.0, "red_threshold": 25.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
@@ -477,7 +477,7 @@ KPIS: List[Dict[str, Any]] = [
         "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false"},
     },
     # -----------------------------------------------------------------------
-    # Cost / operating-efficiency KPIs (restored 2026-07 - no Budget data, yoy only)
+    # Cost / operating-efficiency KPIs (restored 2026-07 - no Budget data, YTD vs previous year YTD only)
     # -----------------------------------------------------------------------
     {
         "id": "lifting_cost",
@@ -498,7 +498,7 @@ KPIS: List[Dict[str, Any]] = [
         ),
         "filters": {"account_category": "Lifting Costs", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cost", "lifting-cost", "production-opex", "hess"],
@@ -525,7 +525,7 @@ KPIS: List[Dict[str, Any]] = [
         ),
         "filters": {"account_category": "Exploration", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cost", "exploration", "ep", "hess"],
@@ -552,7 +552,7 @@ KPIS: List[Dict[str, Any]] = [
         ),
         "filters": {"account_type": "CapEx", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "capex", "investment", "development", "hess"],
@@ -579,7 +579,7 @@ KPIS: List[Dict[str, Any]] = [
         ),
         "filters": {"account_type": "OperatingCF", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cash-flow", "operating", "liquidity", "hess"],
@@ -607,7 +607,7 @@ KPIS: List[Dict[str, Any]] = [
         ),
         "filters": {"version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cash-flow", "free-cash-flow", "fcf", "hess"],
@@ -642,7 +642,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "plan_variance", "green_threshold": 2.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,

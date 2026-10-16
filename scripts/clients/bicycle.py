@@ -200,7 +200,7 @@ KPIS: List[Dict[str, Any]] = [
         "filters": {"Account Hierarchy Desc": "Gross Revenue", "Version": "Actual"},
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -240,7 +240,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -280,7 +280,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -326,7 +326,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -366,7 +366,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -414,7 +414,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -465,7 +465,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -516,7 +516,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -562,7 +562,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -599,7 +599,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -636,7 +636,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -676,7 +676,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -713,7 +713,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -753,7 +753,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -790,7 +790,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -830,7 +830,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -867,7 +867,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -904,7 +904,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -947,7 +947,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,
@@ -985,7 +985,7 @@ KPIS: List[Dict[str, Any]] = [
         },
         "thresholds": [
             {
-                "comparison_type": "yoy",
+                "comparison_type": "ytd_vs_pytd",
                 "green_threshold": 5.0,
                 "yellow_threshold": 0.0,
                 "red_threshold": -5.0,

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
 import { replaceKpi } from '../api/client';
+import { ThresholdComparisonSelect } from './shared/ThresholdComparisonSelect';
+import { DEFAULT_THRESHOLD_COMPARISON } from '../utils/periodComparisons';
 
 interface Threshold {
   comparison_type: string;
@@ -20,7 +22,7 @@ export function ThresholdEditorModal({ kpi, clientId, onClose, onSaved }: Thresh
   const [thresholds, setThresholds] = useState<Threshold[]>(
     (kpi.thresholds || []).length > 0
       ? kpi.thresholds
-      : [{ comparison_type: 'yoy', green_threshold: null, yellow_threshold: null, red_threshold: null }]
+      : [{ comparison_type: DEFAULT_THRESHOLD_COMPARISON, green_threshold: null, yellow_threshold: null, red_threshold: null }]
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +39,6 @@ export function ThresholdEditorModal({ kpi, clientId, onClose, onSaved }: Thresh
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  const COMPARISON_TYPES = ['yoy', 'qoq', 'mom', 'target', 'budget', 'greater_than', 'less_than'];
-
   const updateThreshold = (i: number, field: keyof Threshold, value: any) => {
     setThresholds(prev => prev.map((t, idx) => idx === i ? { ...t, [field]: value } : t));
   };
@@ -46,7 +46,7 @@ export function ThresholdEditorModal({ kpi, clientId, onClose, onSaved }: Thresh
   const addThreshold = () => {
     setThresholds(prev => [
       ...prev,
-      { comparison_type: 'yoy', green_threshold: null, yellow_threshold: null, red_threshold: null },
+      { comparison_type: DEFAULT_THRESHOLD_COMPARISON, green_threshold: null, yellow_threshold: null, red_threshold: null },
     ]);
   };
 
@@ -100,15 +100,11 @@ export function ThresholdEditorModal({ kpi, clientId, onClose, onSaved }: Thresh
               className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 space-y-3"
             >
               <div className="flex items-center gap-2">
-                <select
+                <ThresholdComparisonSelect
                   value={t.comparison_type}
-                  onChange={e => updateThreshold(i, 'comparison_type', e.target.value)}
+                  onChange={v => updateThreshold(i, 'comparison_type', v)}
                   className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                >
-                  {COMPARISON_TYPES.map(ct => (
-                    <option key={ct} value={ct}>{ct}</option>
-                  ))}
-                </select>
+                />
                 <button
                   onClick={() => removeThreshold(i)}
                   className="p-1.5 text-slate-600 hover:text-severity-critical ml-auto transition-colors"

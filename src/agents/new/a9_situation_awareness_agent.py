@@ -93,6 +93,28 @@ def _severity_for_band(evaluation: str) -> "SituationSeverity":
     return SituationSeverity.CRITICAL
 
 
+def _threshold_key(name: Any) -> Optional[str]:
+    """The key a threshold row is filed under in variance_thresholds, and looked up by.
+
+    Phase 26 renamed the period comparisons: a row written as "yoy" and one written as
+    "ytd_vs_pytd" are the same comparison and file under "ytd_vs_pytd", which is also what a
+    year_over_year request looks up (every such request has read YTD vs previous year YTD).
+    Budget and target keep their substring match; any other name (plan_variance,
+    projected_breach, acceleration) is its own key.
+    """
+    from src.analysis.period_comparisons import COMPARISONS, canonical
+    c = canonical(name)
+    if not c:
+        return None
+    if c in COMPARISONS:
+        return c
+    if "budget" in c:
+        return "budget"
+    if "target" in c:
+        return "target"
+    return c
+
+
 def _point_change(kpi_definition: Any, kpi_value: Any) -> Optional[float]:
     """The change in percentage POINTS for a KPI that is itself a percentage, else None.
 
@@ -2049,20 +2071,7 @@ class A9_Situation_Awareness_Agent:
                             comp_val = comp.value if hasattr(comp, 'value') else (str(comp) if comp is not None else None)
                             if not comp_val:
                                 continue
-                            ct = str(comp_val).strip().lower()
-                            # Normalize keys commonly used in registry
-                            if ct in ("qoq", "quarter_over_quarter", "quarter-over-quarter"):
-                                key = "qoq"
-                            elif ct in ("yoy", "year_over_year", "year-over-year"):
-                                key = "yoy"
-                            elif ct in ("mom", "month_over_month", "month-over-month"):
-                                key = "mom"
-                            elif "budget" in ct:
-                                key = "budget"
-                            elif "target" in ct:
-                                key = "target"
-                            else:
-                                key = ct
+                            key = _threshold_key(comp_val)
                             entry = {}
                             gv = getattr(t, 'green_threshold', None)
                             yv = getattr(t, 'yellow_threshold', None)
@@ -3880,18 +3889,7 @@ class A9_Situation_Awareness_Agent:
                 comp_key = None
                 ct = getattr(kpi_value, 'comparison_type', None)
                 if ct is not None:
-                    ct_val = ct.value if hasattr(ct, 'value') else str(ct)
-                    ct_l = str(ct_val).lower()
-                    if 'year' in ct_l or ct_l == 'yoy':
-                        comp_key = 'yoy'
-                    elif 'quarter' in ct_l or ct_l == 'qoq':
-                        comp_key = 'qoq'
-                    elif 'month' in ct_l or ct_l == 'mom':
-                        comp_key = 'mom'
-                    elif 'budget' in ct_l:
-                        comp_key = 'budget'
-                    elif 'target' in ct_l:
-                        comp_key = 'target'
+                    comp_key = _threshold_key(ct)
                 vt_cfg = vt_all.get(comp_key) if comp_key else None
             except Exception:
                 vt_cfg = None

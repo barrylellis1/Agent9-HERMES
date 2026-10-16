@@ -3447,7 +3447,7 @@ question above is answered.
 
 ### Phase 26: Named Period Comparisons — say which two periods are being compared (in progress, 2026-10-15)
 
-**Status:** In progress. Step 1 built 2026-10-15 (`649d2bc`). Split out on 2026-10-13 from the
+**Status:** In progress. Steps 1 and 2 built 2026-10-15 (step 1 `649d2bc`). Split out on 2026-10-13 from the
 reliability-threshold work, at the owner's direction, once it was clear the fix is a registry and
 onboarding change and not a patch.
 
@@ -3628,7 +3628,7 @@ production registry is synced.
 | Step | What | Changes behaviour? | Needs |
 |---|---|---|---|
 | 1 ✅ | One shared definition of the ten comparisons: given a day, a data product's time key, its fiscal year start and its latest period with actuals, return the two spans. `src/analysis/period_comparisons.py`, `tests/unit/test_period_comparisons.py` (`649d2bc`) | No | nothing |
-| 2 | The settings above; the threshold row's comparison takes the ten names; old names read as new ones; seed files migrated | Only through the migration, which keeps behaviour | production registry sync (owner go-ahead) after the code is deployed |
+| 2 ✅ | The settings above (`src/analysis/period_settings.py`); the threshold row's comparison takes the ten names and `raises_card`; old names read as new ones (`period_comparisons.canonical()`, used by Situation Awareness `_threshold_key` and Deep Analysis `_threshold_spec`); the four client seed files renamed; both threshold editors list the ten names, grouped. Local registry re-seeded 2026-10-15: lubricants and Apex scans identical before and after | No (verified live) | production: deploy the code first, then sync the registry for all four clients (owner go-ahead). The KPI Assistant still proposes the old names until step 5; they read correctly |
 | 3 | Situation Awareness, Deep Analysis and the Data Product Agent resolve periods through step 1 only, with the latest period with actuals looked up per data product (rule 2), and apply the card settings. Remove `_bq_get_period_dates`, `_situation_period`, the token aliasing in `closed_view`, and `KPIMonitoringProfile.comparison_period`. Each reading records which comparison it used | Yes | step 2 |
 | 4 | Registry editor: the choice grouped as "To date" / "Complete period", with a live preview from step 1 ("Today this compares Jul–Sep 2026 with Jul–Sep 2025"); the card settings on the data product, and `raises_card` on each threshold row. Save-time checks: only comparisons the data product can support; warn when a card comparison has no threshold row, because the KPI would then be judged by the built-in magnitude rule | UI | step 2 |
 | 5 | Onboarding: a review step after schema inspection that shows the detected time key, the fiscal year start month and the latest period with actuals, and sets the data product's settings. KPI Assistant proposes a comparison with its thresholds, limited to the ten names | UI | step 2 |

@@ -596,7 +596,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         Checks `plan_version_value` (the field SA/DPA use to derive plan SQL) first,
         then any threshold whose comparison_type is 'budget' or 'plan_variance'. Note
         SA's plan_variance alert uses ComparisonType.PLAN_VARIANCE — a different enum
-        member than the narrow 'budget' scan _pick_threshold_spec does — so both must
+        member than the narrow 'budget' scan _threshold_spec does — so both must
         be checked here or a plan_variance-only KPI would look budget-less.
         """
         if getattr(kpi_def, "plan_version_value", None):
@@ -607,6 +607,63 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             if ct_str in ("budget", "plan_variance"):
                 return True
         return False
+
+    @staticmethod
+    def _threshold_spec(kpi_def: Any, timeframe: Any) -> Dict[str, Any]:
+        """Pick the KPI's threshold row for the analysis's comparison.
+
+        The comparison follows the timeframe (yoy / qoq / mom); a row for it is matched
+        first, a "budget" row only when none is found, so SA→DA stay aligned (SA detects a
+        YoY breach → DA drills YoY). Rows are matched by canonical name (Phase 26): one
+        renamed from "yoy" to "ytd_vs_pytd" is the same comparison. The spec keeps the short
+        key downstream (reader wording, basis reconciliation). Lifted out of the per-run
+        closure on 2026-10-15 so the match can be tested.
+        """
+        from src.analysis.period_comparisons import canonical as _canonical
+        tf = str(timeframe or "").lower()
+        comp = "mom"
+        if "quarter" in tf:
+            comp = "qoq"
+        elif "year" in tf:
+            comp = "yoy"
+        spec: Dict[str, Any] = {"comparison_type": comp, "inverse_logic": False, "yellow_threshold": 0.0}
+        try:
+            thrs = getattr(kpi_def, "thresholds", None)
+            if isinstance(thrs, list) and thrs:
+                chosen = None
+                for t in thrs:
+                    try:
+                        ct = getattr(t, "comparison_type", None) or (t.get("comparison_type") if isinstance(t, dict) else None)
+                        ct_str = str(getattr(ct, "value", ct)).lower() if ct is not None else ""
+                        if ct_str and _canonical(ct_str) == _canonical(comp):
+                            chosen = (comp, t)
+                            break
+                    except Exception:
+                        continue
+                if chosen is None:
+                    for t in thrs:
+                        try:
+                            ct = getattr(t, "comparison_type", None) or (t.get("comparison_type") if isinstance(t, dict) else None)
+                            ct_str = str(getattr(ct, "value", ct)).lower() if ct is not None else ""
+                            if ct_str == "budget":
+                                chosen = (ct_str, t)
+                                break
+                        except Exception:
+                            continue
+                if chosen is not None:
+                    comp, t = chosen
+                    spec["comparison_type"] = comp
+                    try:
+                        inv = getattr(t, "inverse_logic", False) if not isinstance(t, dict) else bool(t.get("inverse_logic", False))
+                        yt = getattr(t, "yellow_threshold", None) if not isinstance(t, dict) else t.get("yellow_threshold")
+                        spec["inverse_logic"] = bool(inv)
+                        if yt is not None:
+                            spec["yellow_threshold"] = float(yt)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return spec
 
     @staticmethod
     def _derive_budget_sql(sql_query: Optional[str], plan_version_value: Optional[str]) -> Optional[str]:
@@ -1331,58 +1388,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
                     # Helper: pick a threshold spec from KPI registry (default to timeframe comparator)
                     def _pick_threshold_spec() -> Dict[str, Any]:
-                        # Default mapping from timeframe to comparison type
-                        tf = str(cur_tf or "").lower()
-                        comp = "mom"
-                        if "quarter" in tf:
-                            comp = "qoq"
-                        elif "year" in tf:
-                            comp = "yoy"
-                        # Extract from KPI registry if available
-                        spec = {"comparison_type": comp, "inverse_logic": False, "yellow_threshold": 0.0}
-                        try:
-                            thrs = getattr(kpi_def, "thresholds", None)
-                            if isinstance(thrs, list) and thrs:
-                                # Match timeframe-derived comparison FIRST (yoy/qoq/mom),
-                                # fall back to budget only if no timeframe match found.
-                                # This keeps SA→DA alignment: SA detects YoY breach → DA drills YoY.
-                                chosen = None
-                                for t in thrs:
-                                    try:
-                                        ct = getattr(t, "comparison_type", None) or (t.get("comparison_type") if isinstance(t, dict) else None)
-                                        ct_str = str(getattr(ct, "value", ct)).lower() if ct is not None else ""
-                                        if ct_str == comp:
-                                            chosen = (ct_str, t)
-                                            break
-                                    except Exception:
-                                        continue
-                                # Fallback: use budget threshold if no timeframe match
-                                if chosen is None:
-                                    for t in thrs:
-                                        try:
-                                            ct = getattr(t, "comparison_type", None) or (t.get("comparison_type") if isinstance(t, dict) else None)
-                                            ct_str = str(getattr(ct, "value", ct)).lower() if ct is not None else ""
-                                            if ct_str == "budget":
-                                                chosen = (ct_str, t)
-                                                break
-                                        except Exception:
-                                            continue
-                                # Apply chosen threshold settings
-                                if chosen is not None:
-                                    comp, t = chosen
-                                    spec["comparison_type"] = comp
-                                    try:
-                                        inv = getattr(t, "inverse_logic", False) if not isinstance(t, dict) else bool(t.get("inverse_logic", False))
-                                        yt = getattr(t, "yellow_threshold", None) if not isinstance(t, dict) else t.get("yellow_threshold")
-                                        spec["inverse_logic"] = bool(inv)
-                                        if yt is not None:
-                                            spec["yellow_threshold"] = float(yt)
-                                    except Exception:
-                                        pass
-                                # If budget is explicitly requested later we will compute dynamically
-                        except Exception:
-                            pass
-                        return spec
+                        return A9_Deep_Analysis_Agent._threshold_spec(kpi_def, cur_tf)
 
                     # Helper: compute grouped maps for a level using DP Agent
                     async def _maps_for_level(level_label: str, comparator: str) -> List[Dict[str, Any]]:

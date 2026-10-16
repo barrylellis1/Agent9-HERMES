@@ -301,8 +301,8 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
-            {"comparison_type": "qoq", "green_threshold": 3.0, "yellow_threshold": -2.0, "red_threshold": -8.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "quarter_vs_prev_quarter", "green_threshold": 3.0, "yellow_threshold": -2.0, "red_threshold": -8.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "top-line", "lubricants"],
@@ -323,7 +323,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Product Sales' AND version = 'Actual'",
         "filters": {"account_category": "Product Sales", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "product-sales", "lubricants"],
@@ -344,7 +344,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Service Revenue' AND version = 'Actual'",
         "filters": {"account_category": "Service Revenue", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 8.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 8.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "services", "lubricants"],
@@ -367,7 +367,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE channel_name = 'B2B Direct Sales' AND account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"channel": "B2B Direct Sales", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "b2b", "lubricants"],
@@ -388,7 +388,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE channel_name = 'E-Commerce' AND account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"channel": "E-Commerce", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 15.0, "yellow_threshold": 5.0, "red_threshold": 0.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 15.0, "yellow_threshold": 5.0, "red_threshold": 0.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "ecommerce", "lubricants"],
@@ -409,7 +409,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT AVG(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"account_type": "Revenue", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 3.0, "yellow_threshold": 0.0, "red_threshold": -3.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 3.0, "yellow_threshold": 0.0, "red_threshold": -3.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "transaction-value", "lubricants"],
@@ -430,7 +430,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT ROUND(100.0 * SUM(CASE WHEN product_category = 'Premium' THEN amount ELSE 0 END) / NULLIF(SUM(amount), 0), 2) AS value FROM {_BQ_PREFIX} WHERE account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"account_type": "Revenue", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 2.0, "yellow_threshold": 0.0, "red_threshold": -2.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 2.0, "yellow_threshold": 0.0, "red_threshold": -2.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "premium-mix", "lubricants"],
@@ -464,7 +464,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "profitability", "gross-profit", "lubricants"],
@@ -500,7 +500,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 1.0, "yellow_threshold": 0.0, "red_threshold": -1.5, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 1.0, "yellow_threshold": 0.0, "red_threshold": -1.5, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "margin", "gross-margin", "lubricants"],
@@ -545,7 +545,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE (account_type IN ('Revenue', 'COGS', 'SGA') OR account_category = 'D&A') AND version = 'Actual'",
         "filters": {"version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "profitability", "operating-income", "lubricants"],
@@ -572,7 +572,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type IN ('Revenue', 'COGS', 'SGA') AND version = 'Actual'",
         "filters": {"version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "profitability", "ebitda", "lubricants"],
@@ -613,7 +613,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": True,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cost", "cogs", "lubricants"],
@@ -659,7 +659,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": True,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -5.0, "yellow_threshold": 5.0, "red_threshold": 15.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -5.0, "yellow_threshold": 5.0, "red_threshold": 15.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cost", "raw-materials", "base-oil", "lubricants"],
@@ -690,7 +690,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": True,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cost", "distribution", "logistics", "lubricants"],
@@ -727,7 +727,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": True,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cost", "manufacturing", "overhead", "lubricants"],
@@ -754,7 +754,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": True,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "cost", "packaging", "lubricants"],
@@ -775,7 +775,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'SGA' AND version = 'Actual'",
         "filters": {"account_type": "SGA", "version": "Actual"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -2.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -2.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "expense", "sga", "opex", "lubricants"],
@@ -812,7 +812,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "orders", "volume", "lubricants"],
@@ -844,7 +844,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "volume", "units", "lubricants"],
@@ -880,7 +880,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "order-value", "lubricants"],
@@ -933,7 +933,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "revenue", "gross", "lubricants"],
@@ -965,7 +965,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "tax", "lubricants"],
@@ -986,7 +986,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SAFE_DIVIDE(COUNTIF(delivery_status = 'C'), COUNT(*)) * 100 AS value FROM {_SALES_BQ_PREFIX}",
         "filters": {"delivery_status": "C"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 2.0, "yellow_threshold": 0.0, "red_threshold": -2.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 2.0, "yellow_threshold": 0.0, "red_threshold": -2.0, "inverse_logic": False},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "fulfillment", "operations", "lubricants"],
@@ -1015,7 +1015,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SAFE_DIVIDE(COUNTIF(lifecycle_status = 'X'), COUNT(*)) * 100 AS value FROM {_SALES_BQ_PREFIX}",
         "filters": {"lifecycle_status": "X"},
         "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": True},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": True},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "cancellations", "operations", "lubricants"],

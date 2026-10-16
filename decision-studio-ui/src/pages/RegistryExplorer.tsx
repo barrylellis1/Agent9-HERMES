@@ -7,6 +7,7 @@ import { ConnectionHealthPanel } from '../components/ConnectionHealthPanel'
 import { SliceValidityPanel } from '../components/SliceValidityPanel'
 import { ReliabilityPanel } from '../components/ReliabilityPanel'
 import { PrincipalCardList } from '../components/PrincipalEditor'
+import { ThresholdComparisonSelect } from '../components/shared/ThresholdComparisonSelect'
 import {
   type BusinessTerm,
   type KPIAccountability,
@@ -864,11 +865,9 @@ export function RegistryExplorer() {
           <div className="space-y-2">
             {thresholds.map((t: any, i: number) => (
               <div key={i} className="flex items-center gap-2">
-                <select value={t.comparison_type || 'target'} onChange={e => {
-                  const next = [...thresholds]; next[i] = { ...next[i], comparison_type: e.target.value }; updateDraft('thresholds', next)
-                }} className={inputCls + ' w-32'}>
-                  {['qoq','yoy','mom','target','budget','greater_than','less_than'].map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
+                <ThresholdComparisonSelect value={t.comparison_type || 'target'} onChange={v => {
+                  const next = [...thresholds]; next[i] = { ...next[i], comparison_type: v }; updateDraft('thresholds', next)
+                }} className={inputCls + ' w-60'} />
                 <input type="number" placeholder="Green" value={t.green_threshold ?? ''} onChange={e => {
                   const next = [...thresholds]; next[i] = { ...next[i], green_threshold: e.target.value ? Number(e.target.value) : null }; updateDraft('thresholds', next)
                 }} className={inputCls + ' w-24'} />

@@ -11,9 +11,30 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, field_validator
 
+from src.analysis.period_comparisons import canonical
+
 
 class ComparisonType(str, Enum):
-    """Types of comparisons supported for KPIs."""
+    """Types of comparisons supported for KPIs.
+
+    The ten named period comparisons (Phase 26) are src/analysis/period_comparisons.py.
+    yoy / qoq / mom are their old spellings, kept so rows written before the rename still
+    load; period_comparisons.canonical() reads each as the comparison it has always meant
+    (yoy = YTD vs previous year YTD).
+    """
+    # To date: two partial spans of equal elapsed length
+    MTD_VS_PREV_MTD = "mtd_vs_prev_mtd"
+    MTD_VS_PY_MTD = "mtd_vs_py_mtd"
+    QTD_VS_PREV_QTD = "qtd_vs_prev_qtd"
+    QTD_VS_PY_QTD = "qtd_vs_py_qtd"
+    YTD_VS_PYTD = "ytd_vs_pytd"
+    # Complete period: two finished periods of equal length
+    MONTH_VS_PREV_MONTH = "month_vs_prev_month"
+    MONTH_VS_PY_MONTH = "month_vs_py_month"
+    QUARTER_VS_PREV_QUARTER = "quarter_vs_prev_quarter"
+    QUARTER_VS_PY_QUARTER = "quarter_vs_py_quarter"
+    YEAR_VS_PREV_YEAR = "year_vs_prev_year"
+    # Old spellings (read as ytd_vs_pytd, quarter_vs_prev_quarter, month_vs_prev_month)
     QOQ = "qoq"  # Quarter over Quarter
     YOY = "yoy"  # Year over Year
     MOM = "mom"  # Month over Month
@@ -50,6 +71,14 @@ class KPIThreshold(BaseModel):
     yellow_threshold: Optional[float] = Field(None, description="Threshold for yellow status")
     red_threshold: Optional[float] = Field(None, description="Threshold for red status")
     inverse_logic: bool = Field(False, description="If True, lower values are better")
+    raises_card: Optional[bool] = Field(
+        None,
+        description=(
+            "Phase 26: whether a breach on this comparison may raise a situation card for this KPI. "
+            "None follows the data product's period settings (card_comparisons); true or false is a "
+            "per-KPI exception. The data product's evidence floor (min_card_months) applies either way."
+        ),
+    )
 
 
 class KPIDimension(BaseModel):
@@ -356,8 +385,10 @@ class KPI(BaseModel):
         Returns:
             The evaluation status (GREEN, YELLOW, AMBER, RED, etc.)
         """
-        # Find the threshold for the specified comparison type
-        threshold = next((t for t in self.thresholds if t.comparison_type == comparison_type), None)
+        # Find the threshold for the specified comparison type. An old name and its new one
+        # (yoy / ytd_vs_pytd) find the same row.
+        wanted = canonical(comparison_type)
+        threshold = next((t for t in self.thresholds if canonical(t.comparison_type) == wanted), None)
 
         if not threshold:
             return KPIEvaluationStatus.UNKNOWN

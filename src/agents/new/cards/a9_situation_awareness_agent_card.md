@@ -398,7 +398,7 @@ KPIs with SQL-level negation (`SUM(-amount)`) return positive values — skip th
 All patterns run in the per-KPI loop after `_detect_kpi_situations()`. Each sets `Situation.alert_type` to distinguish it from a standard threshold breach.
 
 #### Threshold-presence gating (Option A)
-Each statistical pattern runs **only if the KPI carries a registry `KPIThreshold` row for the matching `comparison_type`** — presence of the row is the per-KPI on/off switch. A KPI's "nature" is expressed by which threshold rows its seed carries (a covenant flag might carry only `yoy`; a smooth revenue KPI carries all four). Registry `KPIThreshold` rows are mapped into `kpi_def.metadata['variance_thresholds'][<key>]` by `_convert_to_kpi_definition()`. Relevant `ComparisonType` keys: `yoy`/`qoq`/`mom` (threshold_breach), `plan_variance`, `projected_breach`, `acceleration`.
+Each statistical pattern runs **only if the KPI carries a registry `KPIThreshold` row for the matching `comparison_type`** — presence of the row is the per-KPI on/off switch. A KPI's "nature" is expressed by which threshold rows its seed carries (a covenant flag might carry only `yoy`; a smooth revenue KPI carries all four). Registry `KPIThreshold` rows are mapped into `kpi_def.metadata['variance_thresholds'][<key>]` by `_convert_to_kpi_definition()`. Relevant `ComparisonType` keys: the period comparisons (threshold_breach; `ytd_vs_pytd` is what every scan reads today), `plan_variance`, `projected_breach`, `acceleration`. Rows are filed and looked up through `_threshold_key()` (Phase 26, below).
 
 #### Pattern 1: Plan / Budget Variance (`alert_type = "plan_variance"`)
 - Requires `KPI.plan_version_value` set (e.g. `"Budget"`). SA derives the plan SQL at runtime by substituting the version filter in `sql_query` via `_derive_plan_sql()` — no separate SQL field stored.
@@ -657,3 +657,18 @@ read as 13 points; the fall was 4.48 points (34.43% to 29.95%), seen in a produc
 `_point_change()` detects a percentage KPI (unit or name ends in "%") and `_threshold_sentence` /
 the opportunity headline now say "decreased by 4.5 points (13.0%)". Targets stay in relative %
 because the thresholds are relative growth rates.
+
+## Threshold rows are filed by period comparison name (Phase 26 step 2, Oct 2026)
+
+Phase 26 names ten period comparisons (`src/analysis/period_comparisons.py`) and renamed the
+threshold rows: `yoy` → `ytd_vs_pytd`, `qoq` → `quarter_vs_prev_quarter`, `mom` →
+`month_vs_prev_month`. `_threshold_key()` files a row under its canonical name and a request looks
+up the same way (`year_over_year` → `ytd_vs_pytd`, since every such request has read YTD vs previous
+year YTD), so an old row and a renamed one find the same entry. Budget and target keep their
+substring match; any other name is its own key. Behaviour is unchanged: live 2026-10-15, lubricants
+(13 cards) and Apex (7 cards) scanned identically before and after the local registry was re-seeded
+with the new names. Test: `tests/unit/test_period_settings.py::TestSituationAwarenessFilesRowsByComparison`.
+
+Not yet applied (step 3): the data product's period settings (`src/analysis/period_settings.py`:
+which comparisons may raise a card, the minimum complete months, a KPI's own reading) and a
+threshold row's `raises_card`. SA still reads the comparison the request names.

@@ -1,8 +1,9 @@
 """The ten named period comparisons (Phase 26, step 1).
 
 Given the day, how a data product keys time, its fiscal year start, and the latest period
-it holds actuals for, return the two spans a comparison sets side by side. Nothing calls
-this yet; step 3 routes every stage through it.
+it holds actuals for, return the two spans a comparison sets side by side. Step 3 routes every
+stage through it. Until then only `canonical()` is in use: Situation Awareness and Deep Analysis
+match threshold rows through it, so an old name and its new one find the same row.
 
 Two families, as the owner defined them (2026-10-13/14):
 
@@ -58,6 +59,26 @@ LABELS: Dict[str, str] = {
     "quarter_vs_py_quarter": "Quarter vs same quarter previous year",
     "year_vs_prev_year": "Year vs previous year",
 }
+
+# Names in use before Phase 26, and what each has always meant in practice (step 2, 2026-10-15).
+# "yoy" thresholds were only ever evaluated against YTD vs previous year YTD: the screen sends
+# year_to_date and the offline assessment defaults to it. "qoq" and "mom" were never evaluated,
+# so they take their literal reading. The request spellings (year_over_year…) map the same way.
+LEGACY: Dict[str, str] = {
+    "yoy": "ytd_vs_pytd", "year_over_year": "ytd_vs_pytd", "year-over-year": "ytd_vs_pytd",
+    "qoq": "quarter_vs_prev_quarter", "quarter_over_quarter": "quarter_vs_prev_quarter",
+    "quarter-over-quarter": "quarter_vs_prev_quarter",
+    "mom": "month_vs_prev_month", "month_over_month": "month_vs_prev_month",
+    "month-over-month": "month_vs_prev_month",
+}
+
+
+def canonical(name: object) -> str:
+    """A comparison name as one of the ten, when it is an old spelling of one. Anything else
+    (budget, plan_variance, projected_breach…) comes back lower-cased and otherwise unchanged."""
+    n = str(getattr(name, "value", name) or "").strip().lower()
+    return LEGACY.get(n, n)
+
 
 # The period each comparison works in, and how far back its comparison span starts (months).
 _GRAIN: Dict[str, Tuple[str, int]] = {
@@ -200,6 +221,14 @@ def available(period_keyed: bool) -> Tuple[str, ...]:
     if period_keyed:
         return tuple(c for c in COMPARISONS if c not in ("mtd_vs_prev_mtd", "mtd_vs_py_mtd"))
     return COMPARISONS
+
+
+def complete_months(span: Span) -> int:
+    """Whole calendar months inside a span. A to-date span on date-keyed data ends part-way
+    through a month, which does not count; every span on period-keyed data is whole months."""
+    first = _idx(span.start) if span.start.day == 1 else _idx(span.start) + 1
+    last = _idx(span.end) if span.end == _month_end(span.end) else _idx(span.end) - 1
+    return max(0, last - first + 1)
 
 
 def fiscal_periods(span: Span, fy_start: int = 1) -> Tuple[int, int, int]:

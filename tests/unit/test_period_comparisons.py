@@ -159,3 +159,13 @@ class TestEveryComparisonIsWellFormed:
 def test_describe_reads_as_a_person_would_say_it():
     r = spans("quarter_vs_py_quarter", TODAY, True)
     assert r.describe() == "Quarter vs same quarter previous year: Jul 2026 – Sep 2026 vs Jul 2025 – Sep 2025"
+
+
+class TestCompleteMonths:
+    def test_whole_months_only(self):
+        from src.analysis.period_comparisons import complete_months
+        assert complete_months(Span(date(2026, 1, 1), date(2026, 9, 30))) == 9
+        assert complete_months(Span(date(2026, 10, 1), date(2026, 10, 15))) == 0
+        assert complete_months(Span(date(2026, 1, 1), date(2026, 2, 27))) == 1
+        assert complete_months(Span(date(2026, 1, 1), date(2026, 2, 28))) == 2
+        assert complete_months(Span(date(2026, 1, 15), date(2026, 3, 31))) == 2

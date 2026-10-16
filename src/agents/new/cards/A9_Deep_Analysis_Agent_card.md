@@ -378,7 +378,7 @@ Chooses the single Is/Is-Not comparison basis (`"previous"` vs prior period, `"b
 2. else `alert_type == "plan_variance"` **and** the KPI has budget data (`_kpi_has_budget_data`: `plan_version_value` set, or a `"budget"`/`"plan_variance"`-typed threshold) → `"budget"`; `alert_type == "threshold_breach"` → `"previous"`.
 3. else → today's registry-preference default (`registry_comparator`), unchanged for direct/non-situation calls.
 
-`_kpi_has_budget_data` checks `plan_version_value` first and both `"budget"` **and** `"plan_variance"` comparison_types — SA's `plan_variance` is `ComparisonType.PLAN_VARIANCE`, a different enum member than the narrow `"budget"` scan `_pick_threshold_spec` does, so a plan_variance-only KPI would otherwise look budget-less. After resolution, `spec_main["comparison_type"]` is reconciled to match the chosen basis.
+`_kpi_has_budget_data` checks `plan_version_value` first and both `"budget"` **and** `"plan_variance"` comparison_types — SA's `plan_variance` is `ComparisonType.PLAN_VARIANCE`, a different enum member than the narrow `"budget"` scan `_threshold_spec` does, so a plan_variance-only KPI would otherwise look budget-less. After resolution, `spec_main["comparison_type"]` is reconciled to match the chosen basis.
 
 **Still one KT table, one comparator, one LLM call per run** — no dual-pass, no structural refactor of `execute_deep_analysis`. The rejected dual-comparator design (two tables synthesized by the LLM) was dropped on comprehension grounds (KT = one problem per analysis; LLM cross-table synthesis goes muddy at the diagnosis step).
 
@@ -1259,3 +1259,14 @@ compares one month with three and every segment reads down. The "across the boar
 Production Revenue is that artefact, not a finding. Phase 26 rule 2 (a period with no actuals is not
 finished) is what removes it.
 
+## The threshold row is matched by period comparison name (Phase 26 step 2, Oct 2026)
+
+`_threshold_spec(kpi_def, timeframe)` (a static method since 2026-10-15; it was the per-run closure
+`_pick_threshold_spec`, which now just calls it) picks the KPI's threshold row for the analysis's
+comparison: the row for the timeframe's comparison first, a `budget` row only when none is found.
+Rows are matched through `period_comparisons.canonical()`, so a row renamed from `yoy` to
+`ytd_vs_pytd` (or `qoq` to `quarter_vs_prev_quarter`) is found as before. Without this a renamed row
+missed and DA fell through to the budget row, changing the comparator. The spec keeps the short key
+(`yoy`/`qoq`/`mom`) downstream, so reader wording and basis reconciliation are unchanged. Live
+2026-10-15 on lubricants Gross Margin % with renamed rows: comparator `previous`, spec `yoy`, no error.
+Test: `tests/unit/test_period_settings.py::TestDeepAnalysisPicksTheSameRow`.
