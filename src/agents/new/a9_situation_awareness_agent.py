@@ -93,6 +93,19 @@ def _severity_for_band(evaluation: str) -> "SituationSeverity":
     return SituationSeverity.CRITICAL
 
 
+def _latest_month_end(series: Any):
+    """The last day of the latest calendar month in a monthly series, or None when the
+    labels cannot be trusted (src/analysis/monthly_series.py: trusted_months)."""
+    import calendar as _cal
+    from datetime import date as _date
+    from src.analysis.monthly_series import trusted_months
+    months = trusted_months(series)
+    if not months:
+        return None
+    y, m = int(months[-1][0][:4]), int(months[-1][0][5:7])
+    return _date(y, m, _cal.monthrange(y, m)[1])
+
+
 def _threshold_key(name: Any) -> Optional[str]:
     """The key a threshold row is filed under in variance_thresholds, and looked up by.
 
@@ -613,6 +626,9 @@ class A9_Situation_Awareness_Agent:
             # mistaken for a business with nothing to flag (seen live 2026-10-13: Apex's
             # Snowflake key was missing and the scan showed "0 cards").
             kpis_unread: List[str] = []
+            # Readings that breached but may not raise a card under their data product's
+            # period settings (Phase 26), each with the reason.
+            readings_held: List[str] = []
             # Process each relevant KPI to fetch actual values from database (no cap)
             opportunities: List[OpportunitySignal] = []
             for kpi_name, kpi_definition in relevant_kpis.items():
@@ -623,7 +639,8 @@ class A9_Situation_Awareness_Agent:
                         request.timeframe,
                         request.comparison_type,
                         request.filters,
-                        request.principal_context
+                        request.principal_context,
+                        period_comparison=getattr(request, "period_comparison", None),
                     )
 
                     if not kpi_value or getattr(kpi_value, "value", None) is None:
@@ -667,7 +684,8 @@ class A9_Situation_Awareness_Agent:
                         if _plan_version:
                             try:
                                 plan_val = await self._fetch_plan_value(
-                                    kpi_definition, request.timeframe, request.filters, request.principal_context
+                                    kpi_definition, request.timeframe, request.filters, request.principal_context,
+                                    period_token=self._period_token(kpi_value),
                                 )
                                 _budget_val = plan_val
                                 if plan_val is not None and abs(plan_val) > 0:
@@ -763,10 +781,7 @@ class A9_Situation_Awareness_Agent:
                                 if _is_ratio:
                                     _monthly_budget = _budget_val
                                 else:
-                                    _n_months = self._timeframe_month_count(
-                                        request.timeframe,
-                                        as_of=await self._period_as_of(getattr(kpi_definition, 'data_product_id', None)),
-                                    )
+                                    _n_months = self._months_in_reading(kpi_value)
                                     _monthly_budget = _budget_val / max(1, _n_months)
                                 _pb_tol = abs(float(_pb_cfg['red'])) / 100.0
                                 _pb_floor = _monthly_budget - abs(_monthly_budget) * _pb_tol
@@ -827,6 +842,11 @@ class A9_Situation_Awareness_Agent:
                             except Exception as _acc_err:
                                 self.logger.warning(f"Acceleration detection failed for {kpi_name}: {_acc_err}")
 
+                        # Phase 26: the data product's period settings decide which of these
+                        # this reading may raise; the rest are listed with the reason.
+                        detected_situations, _held = self._apply_card_settings(detected_situations, kpi_value)
+                        readings_held.extend(h for h in _held if h not in readings_held)
+
                         # Commit detected situations before enrichment so detection
                         # failures in LLM calls can never silently discard situations.
                         situations.extend(detected_situations)
@@ -850,7 +870,13 @@ class A9_Situation_Awareness_Agent:
                                 )
                             opportunities.extend(detected_opportunities)
                             # Convert high-confidence opportunity signals into clickable Situation cards
+                            _opp_hold = getattr(getattr(kpi_value, "context", None), "card_hold_reason", None)
                             for signal in detected_opportunities:
+                                if signal.confidence >= 0.7 and _opp_hold:
+                                    _h = f"{signal.kpi_name}: {_opp_hold}"
+                                    if _h not in readings_held:
+                                        readings_held.append(_h)
+                                    continue
                                 if signal.confidence >= 0.7:
                                     opp_dedupe_key = f"opp_{signal.kpi_name}_{signal.opportunity_type}"
                                     if not any(s.dedupe_key == opp_dedupe_key for s in situations):
@@ -956,6 +982,7 @@ class A9_Situation_Awareness_Agent:
                 kpi_evaluated_count=len(kpi_values),
                 kpis_evaluated=[kv.kpi_name for kv in kpi_values],
                 kpis_unread=kpis_unread,
+                readings_held=readings_held,
                 kpi_details=kpi_values  # Return full KPIValue objects for debugging
             )
         
@@ -1388,86 +1415,11 @@ class A9_Situation_Awareness_Agent:
     # ──────────────────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _bq_get_period_dates(timeframe, is_comparison=False, comparison_type=None, as_of=None):
-        """Return (start_date_str, end_date_str) for a timeframe/comparison pair.
-
-        `as_of`: the date to treat as today. Set to the last closed day for period-keyed
-        data products, so "the quarter so far" covers closed months only
-        (src/analysis/complete_periods.py). None = the real today.
-        """
-        from datetime import date
-        import calendar as _cal
-        today = as_of or date.today()
-        y, m = today.year, today.month
-
-        def quarter_dates(yr, qtr):
-            sm = (qtr - 1) * 3 + 1
-            em = qtr * 3
-            return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
-
-        # Use .value for Enum members (Python 3.11 changed str(StrEnum) to include class name).
-        tf = (getattr(timeframe, 'value', None) or str(timeframe) or "").strip().lower() if timeframe else "last_quarter"
-
-        # Determine current quarter
-        cur_q = (m - 1) // 3 + 1
-
-        if tf in ("last_quarter",):
-            bq = cur_q - 1 or 4
-            by = y if cur_q > 1 else y - 1
-            base_start, base_end = quarter_dates(by, bq)
-        elif tf in ("current_quarter", "quarter_to_date"):
-            base_start, base_end = quarter_dates(y, cur_q)
-            base_end = min(base_end, today)
-        elif tf in ("last_month",):
-            pm = m - 1 or 12
-            py = y if m > 1 else y - 1
-            base_start = date(py, pm, 1)
-            base_end = date(py, pm, _cal.monthrange(py, pm)[1])
-        elif tf in ("current_month", "month_to_date"):
-            base_start = date(y, m, 1)
-            base_end = min(date(y, m, _cal.monthrange(y, m)[1]), today)
-        elif tf in ("last_year",):
-            base_start, base_end = date(y - 1, 1, 1), date(y - 1, 12, 31)
-        elif tf in ("year_to_date", "current_year"):
-            base_start, base_end = date(y, 1, 1), today
-        else:
-            # Default to last quarter
-            bq = cur_q - 1 or 4
-            by = y if cur_q > 1 else y - 1
-            base_start, base_end = quarter_dates(by, bq)
-
-        if not is_comparison:
-            return str(base_start), str(base_end)
-
-        ct = str(comparison_type).strip().lower() if comparison_type else "year_over_year"
-        if "year" in ct:
-            # same days a year earlier; 29 Feb has no such day, so it becomes the 28th
-            _py = base_end.year - 1
-            _pe_day = min(base_end.day, _cal.monthrange(_py, base_end.month)[1])
-            return str(date(base_start.year - 1, base_start.month, base_start.day)), \
-                   str(date(_py, base_end.month, _pe_day))
-        elif "quarter" in ct:
-            # Previous quarter
-            pq = ((base_start.month - 1) // 3)  # 0-indexed quarter before current
-            py = base_start.year if pq > 0 else base_start.year - 1
-            pq = pq or 4
-            cs, ce = quarter_dates(py, pq)
-            return str(cs), str(ce)
-        else:  # month_over_month or default
-            pm = base_start.month - 1 or 12
-            py = base_start.year if base_start.month > 1 else base_start.year - 1
-            cs = date(py, pm, 1)
-            ce = date(py, pm, _cal.monthrange(py, pm)[1])
-            return str(cs), str(ce)
-
-    @staticmethod
-    def _bq_apply_period(sql, timeframe, is_comparison=False, comparison_type=None, date_col="transaction_date", as_of=None):
-        """Append a BigQuery-compatible date range filter to an existing KPI SQL."""
+    def _apply_span(sql: str, span: Any, date_col: str = "transaction_date") -> str:
+        """Append a date range filter for one span (period_comparisons.Span) to a KPI's SQL.
+        ISO dates work in BigQuery, Snowflake and T-SQL alike."""
         import re as _re
-        start, end = A9_Situation_Awareness_Agent._bq_get_period_dates(
-            timeframe, is_comparison=is_comparison, comparison_type=comparison_type, as_of=as_of
-        )
-        cond = f"{date_col} BETWEEN '{start}' AND '{end}'"
+        cond = f"{date_col} BETWEEN '{span.start.isoformat()}' AND '{span.end.isoformat()}'"
         if _re.search(r'\bWHERE\b', sql, _re.IGNORECASE):
             return sql + f" AND {cond}"
         return sql + f" WHERE {cond}"
@@ -1652,24 +1604,90 @@ class A9_Situation_Awareness_Agent:
 
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def _period_as_of(self, data_product_id: Optional[str]):
-        """The date to treat as today for this data product's readings: the last closed
-        day when it is keyed by period, None (the real today) when keyed by date.
-        The declaration is read from the registry and remembered for a minute, so a
-        scan of many KPIs does not reload it for each one. On any failure: None."""
+    async def _time_spec_cached(self, data_product_id: Optional[str]) -> dict:
+        """The data product's TimeDimensionSpec, remembered for a minute so a scan of many
+        KPIs does not reload it for each one. Falls back as _resolve_time_spec_sa does."""
         import time as _time
-        from src.analysis.complete_periods import as_of as _as_of_for
-        cache = self.__dict__.setdefault("_period_as_of_cache", {})
+        cache = self.__dict__.setdefault("_time_spec_cache", {})
         hit = cache.get(data_product_id)
         if hit and (_time.monotonic() - hit[0]) < 60:
-            spec = hit[1]
-        else:
-            try:
-                spec = await self._resolve_time_spec_sa(data_product_id)
-            except Exception:
-                spec = None
-            cache[data_product_id] = (_time.monotonic(), spec)
-        return _as_of_for(spec)
+            return hit[1]
+        try:
+            spec = await self._resolve_time_spec_sa(data_product_id)
+        except Exception:
+            spec = {"type": "date", "column": "transaction_date"}
+        cache[data_product_id] = (_time.monotonic(), spec)
+        return spec
+
+    async def _period_settings_cached(self, data_product_id: Optional[str], keyed: bool):
+        """(PeriodSettings, problem) for a data product, remembered for a minute.
+
+        A stored setting that is not valid is logged and the defaults are used; `problem` says
+        so, and the scan lists it with the held readings, so a registry mistake is seen."""
+        import time as _time
+        from src.analysis.period_settings import PeriodSettings, settings_for
+        cache = self.__dict__.setdefault("_period_settings_cache", {})
+        hit = cache.get((data_product_id, keyed))
+        if hit and (_time.monotonic() - hit[0]) < 60:
+            return hit[1], hit[2]
+        meta: Dict[str, Any] = {}
+        try:
+            registry_factory = self.config.get("registry_factory") if isinstance(getattr(self, "config", None), dict) else None
+            if not registry_factory:
+                from src.registry.factory import RegistryFactory
+                registry_factory = RegistryFactory()
+            dp_provider = registry_factory.get_provider("data_product")
+            dp = dp_provider.get(data_product_id) if (dp_provider and data_product_id) else None
+            meta = dict(getattr(dp, "metadata", None) or {})
+        except Exception as _e:
+            self.logger.debug(f"[SA] period settings lookup failed for {data_product_id}: {_e}")
+        problem = None
+        try:
+            settings = settings_for(meta, None, period_keyed=keyed)
+        except ValueError as _e:
+            problem = f"period settings for data product {data_product_id} are not valid ({_e}); the defaults were used"
+            self.logger.error(problem)
+            settings = PeriodSettings()
+        cache[(data_product_id, keyed)] = (_time.monotonic(), settings, problem)
+        return settings, problem
+
+    @staticmethod
+    def _apply_card_settings(situations: List[Any], kpi_value: Any):
+        """(the cards this reading may raise, reasons for the ones it may not).
+
+        A breach on a comparison shown for context, or on too few complete months, is held:
+        listed with its reason, not raised. Covenant and regulatory cards are never held (a
+        covenant breach is a compliance event, not a trend that needs months of evidence), and
+        projected breach and acceleration read a monthly series, not this span."""
+        ctx = getattr(kpi_value, "context", None)
+        hold = getattr(ctx, "card_hold_reason", None)
+        plan_hold = getattr(ctx, "plan_card_hold_reason", None)
+        kept, held = [], []
+        for sit in situations:
+            kind = getattr(sit, "alert_type", None) or "threshold_breach"
+            reason = hold if kind == "threshold_breach" else (plan_hold if kind == "plan_variance" else None)
+            if reason:
+                held.append(f"{getattr(sit, 'kpi_name', '')}: {reason}")
+            else:
+                kept.append(sit)
+        return kept, list(dict.fromkeys(held))
+
+    async def _native_monthly_series_sql(
+        self, raw_sql: str, data_product_id: Optional[str], is_ss: bool, is_sf: bool, date_col: str,
+    ) -> str:
+        """The monthly series SQL for a KPI that carries its own warehouse SQL. SQL Server and
+        Snowflake products keyed by fiscal year and period group on those columns."""
+        monthly_sql = ""
+        if is_ss or is_sf:
+            ts = await self._time_spec_cached(data_product_id)
+            if ts.get("type") == "fiscal_year_period":
+                yr = ts.get("year_column", "fiscal_year")
+                pr = ts.get("period_column", "fiscal_period")
+                builder = self._ss_monthly_series_sql if is_ss else self._sf_monthly_series_sql
+                monthly_sql = builder(raw_sql, year_col=yr, period_col=pr, num_months=_SERIES_FETCH_MONTHS)
+        if not monthly_sql:
+            monthly_sql = self._bq_monthly_series_sql(raw_sql, date_col=date_col, num_months=_SERIES_FETCH_MONTHS)
+        return monthly_sql
 
     async def _resolve_time_spec_sa(self, data_product_id: Optional[str]) -> dict:
         """Return the TimeDimensionSpec dict for a data product (SA-side lookup).
@@ -2084,6 +2102,9 @@ class A9_Situation_Awareness_Agent:
                             if rv is not None:
                                 entry['red'] = float(rv)
                             entry['inverse_logic'] = bool(inv)
+                            _rc = getattr(t, 'raises_card', None)
+                            if _rc is not None:
+                                entry['raises_card'] = bool(_rc)  # Phase 26 per-KPI exception
                             variance_thresholds[key] = entry
                         except Exception:
                             continue
@@ -2626,7 +2647,8 @@ class A9_Situation_Awareness_Agent:
 
     def _build_measurement_context(
         self, *, timeframe, comparison_type, merged_filters, source_system,
-        data_product_id, base_sql, kpi_definition, as_of=None,
+        data_product_id, base_sql, kpi_definition, spans=None, comparison_name=None,
+        actuals_end=None, card_hold_reason=None, plan_card_hold_reason=None,
     ):
         """Stamp what this reading actually measured — resolved, not requested.
 
@@ -2644,12 +2666,20 @@ class A9_Situation_Awareness_Agent:
             from src.agents.models.situation_awareness_models import MeasurementContext
             import hashlib
 
+            from datetime import date as _date
+            from src.analysis import period_comparisons as _pc
+
             cur = comp = (None, None)
             basis = None
             try:
-                cur = self._bq_get_period_dates(timeframe, is_comparison=False, as_of=as_of)
+                # The spans the reading used (Phase 26). Without them (a caller that only
+                # has the request words) they are resolved the same way, as of today.
+                if spans is None:
+                    comparison_name = comparison_name or _pc.from_request(timeframe, comparison_type)
+                    spans = _pc.spans(comparison_name, _date.today(), period_keyed=False)
+                cur = (spans.current.start.isoformat(), spans.current.end.isoformat())
 
-                # NOT every KPI comparison is current-vs-prior. `_bq_get_period_dates`
+                # NOT every KPI comparison is current-vs-prior. The old `_bq_get_period_dates`
                 # has no concept of that — asked for a comparison window it returns a
                 # prior PERIOD for anything, falling back to "last month" for types it
                 # does not recognise. Stamping that produced a confidently wrong window
@@ -2661,9 +2691,7 @@ class A9_Situation_Awareness_Agent:
                 _ct = getattr(comparison_type, "value", comparison_type)
                 if _ct in ("year_over_year", "quarter_over_quarter", "month_over_month"):
                     basis = "temporal"
-                    comp = self._bq_get_period_dates(
-                        timeframe, is_comparison=True, comparison_type=comparison_type, as_of=as_of
-                    )
+                    comp = (spans.previous.start.isoformat(), spans.previous.end.isoformat())
                 elif _ct in ("budget_vs_actual", "target_vs_actual"):
                     # Same window, different version — the plan is measured over the
                     # SAME period, so the comparison window is the current one.
@@ -2687,6 +2715,12 @@ class A9_Situation_Awareness_Agent:
                 version = str(_plan_version)
 
             return MeasurementContext(
+                period_comparison=getattr(spans, "comparison", None),
+                period_label=getattr(spans, "label", None),
+                reference_day=spans.reference_day.isoformat() if spans is not None else None,
+                actuals_end=actuals_end.isoformat() if actuals_end else None,
+                card_hold_reason=card_hold_reason,
+                plan_card_hold_reason=plan_card_hold_reason,
                 window_start=cur[0], window_end=cur[1],
                 comparison_basis=basis,
                 comparison_window_start=comp[0], comparison_window_end=comp[1],
@@ -2699,8 +2733,22 @@ class A9_Situation_Awareness_Agent:
         except Exception:
             return None
 
-    async def _fetch_plan_value(self, kpi_def, timeframe, filters, principal_context):
-        """Execute plan SQL and return the scalar plan value, or None on any error."""
+    @staticmethod
+    def _period_token(kpi_value: Any) -> Optional[str]:
+        """The comparison and reference day a reading used, as a token a later reading (the
+        plan, Deep Analysis) passes on to measure exactly the same spans. None when unknown."""
+        ctx = getattr(kpi_value, "context", None)
+        name, ref = getattr(ctx, "period_comparison", None), getattr(ctx, "reference_day", None)
+        if not name:
+            return None
+        return f"{name}@{ref}" if ref else name
+
+    async def _fetch_plan_value(self, kpi_def, timeframe, filters, principal_context, period_token=None):
+        """Execute plan SQL and return the scalar plan value, or None on any error.
+
+        `period_token`: the actual reading's comparison and reference day, so the plan is read
+        over the same span. Plan rows run past the latest actuals (Hess: actuals to July, plan
+        to December); without it the plan would be read to the calendar's last closed month."""
         plan_version = getattr(kpi_def, 'plan_version_value', None)
         original_sql = getattr(kpi_def, 'calculation', None) or ''
         if not plan_version or not original_sql:
@@ -2710,7 +2758,9 @@ class A9_Situation_Awareness_Agent:
             return None
         try:
             plan_def = kpi_def.model_copy(update={'calculation': plan_sql})
-            plan_kpi_value = await self._get_kpi_value(plan_def, timeframe, None, filters, principal_context)
+            plan_kpi_value = await self._get_kpi_value(
+                plan_def, timeframe, None, filters, principal_context, period_comparison=period_token,
+            )
             if plan_kpi_value is not None:
                 return plan_kpi_value.value
         except Exception as e:
@@ -2811,17 +2861,13 @@ class A9_Situation_Awareness_Agent:
             return None
 
     @staticmethod
-    def _timeframe_month_count(timeframe, as_of=None) -> int:
-        """Number of whole months spanned by a timeframe — used to convert an aggregate
-        budget into a monthly run-rate for budget-anchored projected_breach detection.
-
-        Falls back to 12 if the timeframe can't be resolved (annual assumption).
-        """
+    def _months_in_reading(kpi_value: Any) -> int:
+        """Calendar months the reading's current span touches, for turning an aggregate budget
+        into a monthly run-rate (budget-anchored projected_breach). 12 when unknown."""
         try:
-            start, end = A9_Situation_Awareness_Agent._bq_get_period_dates(timeframe, as_of=as_of)
-            from datetime import date as _date
-            sy, sm, sd = (int(x) for x in str(start).split("-")[:3])
-            ey, em, ed = (int(x) for x in str(end).split("-")[:3])
+            ctx = getattr(kpi_value, "context", None)
+            sy, sm = (int(x) for x in str(ctx.window_start).split("-")[:2])
+            ey, em = (int(x) for x in str(ctx.window_end).split("-")[:2])
             months = (ey - sy) * 12 + (em - sm) + 1
             return months if months >= 1 else 1
         except Exception:
@@ -2835,7 +2881,8 @@ class A9_Situation_Awareness_Agent:
         timeframe: TimeFrame,
         comparison_type: Optional[ComparisonType],
         filters: Optional[Dict[str, Any]],
-        principal_context: Optional[PrincipalContext] = None
+        principal_context: Optional[PrincipalContext] = None,
+        period_comparison: Optional[str] = None,
     ) -> Optional[KPIValue]:
         """
         Get KPI value from the Data Product MCP Service Agent.
@@ -2896,40 +2943,144 @@ class A9_Situation_Awareness_Agent:
                 _is_bq_kpi = bool(re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', _raw_kpi_sql))
                 _is_ss_kpi = (not _is_bq_kpi) and bool(re.search(r'\[[A-Za-z][\w\s]*\]', _raw_kpi_sql))
                 _is_sf_kpi = False
-            # Period-keyed data is read as of the last closed period; date-keyed, to the day.
-            _as_of = await self._period_as_of(_gen_dp_id)
+            # ── Phase 26: the named comparison this reading uses ──
+            # A request may name it (period_comparison, optionally with the reference day an
+            # earlier reading used, so the plan is read over exactly the actuals' spans);
+            # otherwise the old timeframe + comparison words map to the comparison they have
+            # always been read as (src/analysis/period_comparisons.py: from_request).
+            from datetime import date
+            from src.analysis import period_comparisons as _pc
+            from src.analysis.complete_periods import is_period_keyed as _is_period_keyed
+            _time_spec = await self._time_spec_cached(_gen_dp_id)
+            _keyed = _is_period_keyed(_time_spec)
+            _fy_start = int((_time_spec or {}).get("fiscal_year_start_month") or 1)
+            if period_comparison:
+                _asked = _pc.parse_token(period_comparison)
+                if not _asked:
+                    self.logger.error(f"KPI {kpi_name}: {period_comparison!r} is not a period comparison; reported as unread")
+                    return None
+                _comparison, _fixed_ref = _asked
+            else:
+                _comparison, _fixed_ref = _pc.from_request(timeframe, comparison_type, _keyed), None
+            _native = _is_bq_kpi or _is_ss_kpi or _is_sf_kpi
             _bq_date_col = (
                 (kpi_definition.metadata or {}).get('date_column', 'transaction_date')
                 if hasattr(kpi_definition, 'metadata') and isinstance(getattr(kpi_definition, 'metadata', None), dict)
                 else 'transaction_date'
             )
+            _series_reach: Dict[str, Any] = {"latest": None}
 
-            # 1) Generate Base SQL via DPA (or directly for BigQuery / SQL Server KPIs)
+            # ── Monthly series SQL (no I/O). Warehouse paths read the raw KPI SQL; the
+            # DPA path has only its generated SQL, so its series is built after that. ──
+            monthly_sql = ""
+            if _native and _raw_kpi_sql:
+                monthly_sql = await self._native_monthly_series_sql(
+                    _raw_kpi_sql, _gen_dp_id, _is_ss_kpi, _is_sf_kpi, _bq_date_col
+                )
+
+            import asyncio as _asyncio
+
+            async def _fetch_monthly():
+                if not monthly_sql:
+                    return None
+                self.logger.info(f"[Monthly] Executing monthly series for {kpi_name}")
+                try:
+                    result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context, data_product_id=_gen_dp_id)
+                    if not result or not (result.get("rows") or result.get("data")):
+                        self.logger.info(f"[Monthly] No rows returned for {kpi_name}")
+                        return None
+                    raw_rows = result.get("rows") or result.get("data") or []
+                    vals = []
+                    _dropped = 0   # rows that failed coercion — never silently lost
+                    for row in raw_rows:
+                        if isinstance(row, dict):
+                            # Snowflake returns uppercase column names; normalize to lowercase
+                            row = {k.lower(): v for k, v in row.items()}
+                            period = row.get("period", "")
+                            val = row.get("value")
+                        elif isinstance(row, (list, tuple)) and len(row) >= 2:
+                            period = str(row[0])
+                            val = row[1]
+                        else:
+                            continue
+                        if val is not None:
+                            try:
+                                vals.append({"period": period, "value": float(val)})
+                            except (ValueError, TypeError):
+                                # Count, do not just swallow. A silently shortened
+                                # series is not a cosmetic loss: _compute_acceleration
+                                # requires >=4 points, so dropping to 3 makes that
+                                # signal never fire — invisibly — and _project_trend
+                                # fits its regression over whatever survives, skewing
+                                # the projected-breach slope. "Got 9 monthly values"
+                                # previously reported the SURVIVING count as if it
+                                # were the queried count.
+                                _dropped += 1
+                    if _dropped:
+                        self.logger.warning(
+                            "[Monthly] %s: %d of %d monthly rows were unparseable and dropped — "
+                            "trend/acceleration signals are computed on the remainder",
+                            kpi_name, _dropped, len(vals) + _dropped,
+                        )
+                    # The latest month the warehouse holds for this KPI's own filters (its
+                    # version filter included): how far the actuals reach (Phase 26 rule 2).
+                    _series_reach["latest"] = _latest_month_end(vals)
+                    # Closed months only: drop the open month and anything dated after it.
+                    from src.analysis.monthly_series import closed_months_only
+                    _fetched = len(vals)
+                    vals = closed_months_only(vals, keep=9)
+                    self.logger.info(
+                        f"[Monthly] Got {_fetched} monthly values for {kpi_name}, {len(vals)} closed and kept"
+                    )
+                    return vals or None
+                except Exception as _me:
+                    self.logger.warning(f"[Monthly] Failed to get monthly series for {kpi_name}: {_me}")
+                    return None
+
+            # Warehouse paths: the series runs first, so the spans can stop at the latest month
+            # holding actuals. Found live on Hess: actuals end in July 2026 while August to
+            # December hold plan rows only, and a calendar-closed quarter compared one month of
+            # 2026 with three of 2025.
+            monthly_values = None
+            if _native and _fixed_ref is None:
+                monthly_values = await _fetch_monthly()
+
+            try:
+                _ref = _fixed_ref or _pc.reference_day(date.today(), _keyed, _series_reach["latest"])
+                _spans = _pc.spans_at(_comparison, _ref, _keyed, _fy_start)
+            except ValueError as _span_err:
+                self.logger.error(f"KPI {kpi_name}: {_comparison} cannot be read here ({_span_err}); reported as unread")
+                return None
+            _actuals_end = None
+            if _series_reach["latest"] is not None:
+                _calendar_ref = _pc.reference_day(date.today(), _keyed)
+                if _spans.reference_day < _calendar_ref:
+                    _actuals_end = _spans.reference_day
+
+            # May a breach on this reading raise a card? The data product's period settings say
+            # (src/analysis/period_settings.py): which comparisons raise cards, and how many
+            # complete months a card needs. Owner, 2026-10-15: month comparisons never by
+            # default, year over year yes, quarter perhaps, all tunable per client.
+            _card_hold = _plan_hold = None
+            if comparison_type:
+                from src.analysis.period_settings import card_decision as _card_decision, has_card_evidence as _has_evidence
+                _settings, _ = await self._period_settings_cached(_gen_dp_id, _keyed)
+                _meta = getattr(kpi_definition, 'metadata', None)
+                _vt = (_meta.get('variance_thresholds') or {}) if isinstance(_meta, dict) else {}
+                _row = _vt.get(_threshold_key(_comparison)) or {}
+                _d = _card_decision(_spans, _settings, _row.get('raises_card'))
+                _card_hold = None if _d.may_raise else _d.reason
+                _p = _has_evidence(_spans.current, _settings, "Actual vs plan")
+                _plan_hold = None if _p.may_raise else _p.reason
+
+            # 1) Base SQL: the current span. Warehouse KPIs carry their own SQL, filtered here
+            # on their date column; the DPA path (DuckDB) generates SQL from the old words.
             base_sql = ""
-            _gen_dp_id = getattr(kpi_definition, 'data_product_id', None)
-            if _is_bq_kpi:
-                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col, as_of=_as_of)
-                self.logger.info(f"[BQ path] base_sql for '{kpi_name}': {base_sql[:140]}")
+            if _native:
+                base_sql = self._apply_span(_raw_kpi_sql, _spans.current, _bq_date_col)
+                self.logger.info(f"[{_source_system or 'native'} path] base_sql for '{kpi_name}' ({_spans.describe()}): {base_sql[:140]}")
                 if not base_sql:
-                    self.logger.error(f"[BQ path] Failed to build base SQL for {kpi_name}")
-                    return None
-            elif _is_ss_kpi:
-                # SQL Server path: apply ISO date filter directly (T-SQL accepts BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD').
-                # DPA's generate_sql_for_kpi_comparison cannot inject a date filter when the stored T-SQL
-                # has no pre-existing timeframe condition, so we mirror the BigQuery pattern here.
-                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col, as_of=_as_of)
-                self.logger.info(f"[SS path] base_sql for '{kpi_name}': {base_sql[:140]}")
-                if not base_sql:
-                    self.logger.error(f"[SS path] Failed to build base SQL for {kpi_name}")
-                    return None
-            elif _is_sf_kpi:
-                # Snowflake path: apply ISO date filter directly (Snowflake accepts BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD').
-                # Similar to SQL Server, we apply the date filter here since DPA's generate_sql_for_kpi
-                # is DuckDB-centric and cannot reliably inject filters into Snowflake SQL.
-                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col, as_of=_as_of)
-                self.logger.info(f"[SF path] base_sql for '{kpi_name}': {base_sql[:140]}")
-                if not base_sql:
-                    self.logger.error(f"[SF path] Failed to build base SQL for {kpi_name}")
+                    self.logger.error(f"Failed to build base SQL for {kpi_name}")
                     return None
             else:
                 try:
@@ -3002,57 +3153,16 @@ class A9_Situation_Awareness_Agent:
             except Exception as e:
                 self.logger.error(f"Error executing base SQL for {kpi_name}: {e}")
                 return None
-            # ── Build monthly series SQL (sync, no I/O) ──
-            # BQ/SF: use _raw_kpi_sql; SS: T-SQL fiscal period builder; DPA-path: use base_sql
-            monthly_source = _raw_kpi_sql if (_is_bq_kpi or _is_sf_kpi or _is_ss_kpi) else base_sql
-            monthly_sql = ""
-            if monthly_source:
-                if _is_ss_kpi or _is_sf_kpi:
-                    _ts = await self._resolve_time_spec_sa(_gen_dp_id)
-                    if _ts.get("type") == "fiscal_year_period":
-                        _yr = _ts.get("year_column", "fiscal_year")
-                        _pr = _ts.get("period_column", "fiscal_period")
-                        if _is_ss_kpi:
-                            monthly_sql = self._ss_monthly_series_sql(
-                                monthly_source, year_col=_yr, period_col=_pr, num_months=_SERIES_FETCH_MONTHS,
-                            )
-                        else:
-                            monthly_sql = self._sf_monthly_series_sql(
-                                monthly_source, year_col=_yr, period_col=_pr, num_months=_SERIES_FETCH_MONTHS,
-                            )
-                    if not monthly_sql:
-                        monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=_SERIES_FETCH_MONTHS)
-                else:
-                    monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=_SERIES_FETCH_MONTHS)
+            # DPA path: the series comes from its generated SQL.
+            if not _native and base_sql:
+                monthly_sql = self._bq_monthly_series_sql(base_sql, date_col=_bq_date_col, num_months=_SERIES_FETCH_MONTHS)
 
-            # ── Build comparison SQL (sync for BQ/SS-native, async for DPA-path) ──
+            # ── Comparison SQL: the previous span ──
             comp_sql = ""
             if comparison_type:
-                if _is_bq_kpi:
-                    comp_sql = self._bq_apply_period(
-                        _raw_kpi_sql, timeframe,
-                        is_comparison=True, comparison_type=comparison_type,
-                        date_col=_bq_date_col, as_of=_as_of
-                    )
-                    self.logger.info(f"[BQ path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
-                elif _is_ss_kpi:
-                    # SQL Server: apply comparison period date filter directly to raw T-SQL.
-                    # ISO date strings work in T-SQL, so _bq_apply_period is reusable.
-                    comp_sql = self._bq_apply_period(
-                        _raw_kpi_sql, timeframe,
-                        is_comparison=True, comparison_type=comparison_type,
-                        date_col=_bq_date_col, as_of=_as_of
-                    )
-                    self.logger.info(f"[SS path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
-                elif _is_sf_kpi:
-                    # Snowflake: apply comparison period date filter directly.
-                    # ISO date strings work in Snowflake, so _bq_apply_period is reusable.
-                    comp_sql = self._bq_apply_period(
-                        _raw_kpi_sql, timeframe,
-                        is_comparison=True, comparison_type=comparison_type,
-                        date_col=_bq_date_col, as_of=_as_of
-                    )
-                    self.logger.info(f"[SF path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
+                if _native:
+                    comp_sql = self._apply_span(_raw_kpi_sql, _spans.previous, _bq_date_col)
+                    self.logger.info(f"[{_source_system or 'native'} path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
                 else:
                     try:
                         comp_sql_resp = await self.data_product_agent.generate_sql_for_kpi_comparison(
@@ -3078,63 +3188,6 @@ class A9_Situation_Awareness_Agent:
                 except Exception:
                     pass
 
-            # ── Fire monthly series + comparison queries concurrently ──
-            import asyncio as _asyncio
-
-            async def _fetch_monthly():
-                if not monthly_sql:
-                    return None
-                self.logger.info(f"[Monthly] Executing monthly series for {kpi_name}")
-                try:
-                    result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context, data_product_id=_gen_dp_id)
-                    if not result or not (result.get("rows") or result.get("data")):
-                        self.logger.info(f"[Monthly] No rows returned for {kpi_name}")
-                        return None
-                    raw_rows = result.get("rows") or result.get("data") or []
-                    vals = []
-                    _dropped = 0   # rows that failed coercion — never silently lost
-                    for row in raw_rows:
-                        if isinstance(row, dict):
-                            # Snowflake returns uppercase column names; normalize to lowercase
-                            row = {k.lower(): v for k, v in row.items()}
-                            period = row.get("period", "")
-                            val = row.get("value")
-                        elif isinstance(row, (list, tuple)) and len(row) >= 2:
-                            period = str(row[0])
-                            val = row[1]
-                        else:
-                            continue
-                        if val is not None:
-                            try:
-                                vals.append({"period": period, "value": float(val)})
-                            except (ValueError, TypeError):
-                                # Count, do not just swallow. A silently shortened
-                                # series is not a cosmetic loss: _compute_acceleration
-                                # requires >=4 points, so dropping to 3 makes that
-                                # signal never fire — invisibly — and _project_trend
-                                # fits its regression over whatever survives, skewing
-                                # the projected-breach slope. "Got 9 monthly values"
-                                # previously reported the SURVIVING count as if it
-                                # were the queried count.
-                                _dropped += 1
-                    if _dropped:
-                        self.logger.warning(
-                            "[Monthly] %s: %d of %d monthly rows were unparseable and dropped — "
-                            "trend/acceleration signals are computed on the remainder",
-                            kpi_name, _dropped, len(vals) + _dropped,
-                        )
-                    # Closed months only: drop the open month and anything dated after it.
-                    from src.analysis.monthly_series import closed_months_only
-                    _fetched = len(vals)
-                    vals = closed_months_only(vals, keep=9)
-                    self.logger.info(
-                        f"[Monthly] Got {_fetched} monthly values for {kpi_name}, {len(vals)} closed and kept"
-                    )
-                    return vals or None
-                except Exception as _me:
-                    self.logger.warning(f"[Monthly] Failed to get monthly series for {kpi_name}: {_me}")
-                    return None
-
             async def _fetch_comparison():
                 if not comp_sql:
                     return None
@@ -3144,9 +3197,10 @@ class A9_Situation_Awareness_Agent:
                     self.logger.warning(f"Comparison query failed for {kpi_name}: {_ce}")
                     return None
 
-            # SQL Server ODBC cannot handle concurrent queries on the same connection;
-            # run monthly + comparison sequentially to avoid "Connection is busy" errors.
-            if _is_ss_kpi:
+            if _native and _fixed_ref is None:
+                exec_comp_result = await _fetch_comparison()   # the series already ran
+            elif _is_ss_kpi:
+                # SQL Server ODBC cannot run two queries on one connection at once.
                 monthly_values = await _fetch_monthly()
                 exec_comp_result = await _fetch_comparison()
             else:
@@ -3171,7 +3225,8 @@ class A9_Situation_Awareness_Agent:
                     percent_change=None,
                     monthly_values=monthly_values,
                     context=self._build_measurement_context(
-                        as_of=_as_of,
+                        spans=_spans, actuals_end=_actuals_end,
+                        comparison_name=_comparison,
                         timeframe=timeframe, comparison_type=None,
                         merged_filters=merged_filters, source_system=_source_system,
                         data_product_id=_gen_dp_id, base_sql=base_sql,
@@ -3253,7 +3308,9 @@ class A9_Situation_Awareness_Agent:
                 monthly_values=monthly_values,
                 inverse_logic=_inverse_logic,
                 context=self._build_measurement_context(
-                        as_of=_as_of,
+                    spans=_spans, actuals_end=_actuals_end,
+                    comparison_name=_comparison,
+                    card_hold_reason=_card_hold, plan_card_hold_reason=_plan_hold,
                     timeframe=timeframe, comparison_type=comparison_type,
                     merged_filters=merged_filters, source_system=_source_system,
                     data_product_id=_gen_dp_id, base_sql=base_sql,
@@ -3887,7 +3944,10 @@ class A9_Situation_Awareness_Agent:
                 meta = getattr(kpi_definition, 'metadata', None) or {}
                 vt_all = meta.get('variance_thresholds') or {}
                 comp_key = None
-                ct = getattr(kpi_value, 'comparison_type', None)
+                # The row for the comparison the reading used (Phase 26); a value without
+                # that provenance falls back to the request's comparison type.
+                _read_as = getattr(getattr(kpi_value, 'context', None), 'period_comparison', None)
+                ct = _read_as or getattr(kpi_value, 'comparison_type', None)
                 if ct is not None:
                     comp_key = _threshold_key(ct)
                 vt_cfg = vt_all.get(comp_key) if comp_key else None
@@ -4018,7 +4078,13 @@ class A9_Situation_Awareness_Agent:
         cmp_s, cmp_e = getattr(ctx, "comparison_window_start", None), getattr(ctx, "comparison_window_end", None)
         if not (cur_s and cur_e and cmp_s and cmp_e):
             return ""
-        return f" ({cur_s}–{cur_e} vs {cmp_s}–{cmp_e})"
+        # A feed that has stopped must not read as a current reading (Phase 26 rule 2).
+        actuals_end = getattr(ctx, "actuals_end", None)
+        stale = ""
+        if actuals_end:
+            from datetime import date as _date
+            stale = f"; actuals end {_date.fromisoformat(actuals_end):%b %Y}"
+        return f" ({cur_s}–{cur_e} vs {cmp_s}–{cmp_e}{stale})"
 
     def _create_threshold_situation(
         self,

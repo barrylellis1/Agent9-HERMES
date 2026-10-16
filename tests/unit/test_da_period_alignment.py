@@ -11,7 +11,7 @@ from datetime import date
 import pytest
 
 from src.agents.new.a9_deep_analysis_agent import _situation_period
-from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent as SA
+from src.analysis.period_comparisons import from_request, spans
 from src.database.time_filter import TimeFilter
 
 SPEC = {"type": "date", "column": "d"}
@@ -19,8 +19,9 @@ SPEC = {"type": "date", "column": "d"}
 
 @pytest.mark.parametrize("token", ["current_quarter", "current_month", "current_year", "year_to_date", "last_quarter"])
 def test_both_stages_measure_the_same_two_windows(token):
-    cur_start, cur_end = SA._bq_get_period_dates(token)
-    prev_start, prev_end = SA._bq_get_period_dates(token, True, "year_over_year")
+    r = spans(from_request(token, "year_over_year", False), date.today(), False)
+    cur_start, cur_end = r.current.start.isoformat(), r.current.end.isoformat()
+    prev_start, prev_end = r.previous.start.isoformat(), r.previous.end.isoformat()
     aligned = _situation_period(token)
     current = TimeFilter.current_condition(SPEC, aligned, dialect="snowflake")
     previous = TimeFilter.previous_condition(SPEC, aligned, dialect="snowflake")

@@ -9,11 +9,19 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import patch
 
-from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent as SA
 from src.analysis.complete_periods import as_of, closed_view, is_period_keyed, last_closed_day
+from src.analysis.period_comparisons import from_request, spans, token
 from src.database.time_filter import TimeFilter
 
 TODAY = date(2026, 10, 13)
+
+
+def card(request_word, comparison_type="year_over_year", today=TODAY, keyed=True):
+    """The two windows Situation Awareness reads for an old-style request (Phase 26: through
+    the named comparison the request maps to)."""
+    r = spans(from_request(request_word, comparison_type, keyed), today, keyed)
+    return ((r.current.start.isoformat(), r.current.end.isoformat()),
+            (r.previous.start.isoformat(), r.previous.end.isoformat()))
 PERIOD = {"type": "fiscal_year_period", "year_column": "fiscal_year", "period_column": "fiscal_period", "column": ""}
 DATED = {"type": "date", "column": "transaction_date"}
 
@@ -52,9 +60,16 @@ class TestBothStagesOnPeriodKeyedData:
         with patch("src.database.time_filter.TimeFilter._today", return_value=TODAY):
             return TimeFilter.current_condition(PERIOD, token), TimeFilter.previous_condition(PERIOD, token)
 
-    def _card(self, token):
-        a = as_of(PERIOD, TODAY)
-        return SA._bq_get_period_dates(token, as_of=a), SA._bq_get_period_dates(token, True, "year_over_year", as_of=a)
+    def _card(self, word):
+        return card(word)
+
+    def test_the_analysis_given_the_cards_comparison_names_the_same_periods(self):
+        # Phase 26: Deep Analysis is handed the card's comparison and reference day
+        for word in ("current_quarter", "year_to_date", "current_month"):
+            r = spans(from_request(word, "year_over_year", True), TODAY, True)
+            tok = token(r.comparison, r.reference_day)
+            assert TimeFilter.current_condition(PERIOD, tok) ==                 f"fiscal_year = {r.current.start.year} AND fiscal_period BETWEEN {r.current.start.month} AND {r.current.end.month}"
+            assert TimeFilter.previous_condition(PERIOD, tok) ==                 f"fiscal_year = {r.previous.start.year} AND fiscal_period BETWEEN {r.previous.start.month} AND {r.previous.end.month}"
 
     def test_this_quarter_is_the_last_closed_quarter_when_no_month_of_it_has_closed(self):
         assert self._card("current_quarter") == (("2026-07-01", "2026-09-30"), ("2025-07-01", "2025-09-30"))
@@ -77,20 +92,17 @@ class TestBothStagesOnPeriodKeyedData:
 
     def test_once_a_month_of_the_quarter_has_closed_the_quarter_is_that_month(self):
         nov = date(2026, 11, 13)
-        a = as_of(PERIOD, nov)
-        assert SA._bq_get_period_dates("current_quarter", as_of=a) == ("2026-10-01", "2026-10-31")
+        assert card("current_quarter", today=nov)[0] == ("2026-10-01", "2026-10-31")
         with patch("src.database.time_filter.TimeFilter._today", return_value=nov):
             assert TimeFilter.current_condition(PERIOD, "current_quarter") == "fiscal_year = 2026 AND fiscal_period BETWEEN 10 AND 10"
 
     def test_month_over_month_now_compares_two_whole_months(self):
-        a = as_of(PERIOD, TODAY)
-        assert SA._bq_get_period_dates("current_month", True, "month_over_month", as_of=a) == ("2026-08-01", "2026-08-31")
+        assert card("current_month", "month_over_month")[1] == ("2026-08-01", "2026-08-31")
 
 
 class TestDateKeyedDataIsStillToTheDay:
     def test_the_card_reads_to_today(self):
-        cur = SA._bq_get_period_dates("current_quarter", as_of=date(2026, 10, 13))
-        assert cur == ("2026-10-01", "2026-10-13")
+        assert card("current_quarter", keyed=False)[0] == ("2026-10-01", "2026-10-13")
 
     def test_the_shared_helper_does_not_shift_a_dated_product(self):
         with patch("src.database.time_filter.TimeFilter._today", return_value=TODAY):
@@ -99,4 +111,4 @@ class TestDateKeyedDataIsStillToTheDay:
 
 
 def test_the_29th_of_february_compares_with_the_28th():
-    assert SA._bq_get_period_dates("current_month", True, "year_over_year", as_of=date(2028, 2, 29)) == ("2027-02-01", "2027-02-28")
+    assert card("current_month", today=date(2028, 2, 29), keyed=False)[1] == ("2027-02-01", "2027-02-28")

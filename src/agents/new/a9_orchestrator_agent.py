@@ -846,6 +846,7 @@ class A9_Orchestrator_Agent:
                 logs = result.get("logs", [])
                 _evaluated = result.get("kpi_evaluated_count")
                 _unread = result.get("kpis_unread") or []
+                _held = result.get("readings_held") or []
             else:
                 # Assume Pydantic model
                 situations = getattr(result, "situations", [])
@@ -853,6 +854,7 @@ class A9_Orchestrator_Agent:
                 logs = getattr(result, "logs", []) if hasattr(result, "logs") else []
                 _evaluated = getattr(result, "kpi_evaluated_count", None)
                 _unread = getattr(result, "kpis_unread", None) or []
+                _held = getattr(result, "readings_held", None) or []
 
             situation_count = len(situations)
             self.logger.info(f"Situation detection completed. Surfaced {situation_count} situations.")
@@ -866,6 +868,7 @@ class A9_Orchestrator_Agent:
                 # "KPIs evaluated" and a scan that read nothing looked clean (2026-10-13).
                 "kpi_evaluated_count": _evaluated,
                 "kpis_unread": list(_unread),
+                "readings_held": list(_held),
             }
             
         except Exception as e:

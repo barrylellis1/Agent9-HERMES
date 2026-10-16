@@ -180,6 +180,28 @@ class MeasurementContext(BaseModel):
     Every field is optional so this is purely additive — an unpopulated context
     degrades to "unknown provenance", which is honest, rather than blocking.
     """
+    # Phase 26: which named period comparison the reading used, and as of which day. A later
+    # stage (the plan reading, Deep Analysis) passes these on to measure the same spans.
+    period_comparison: Optional[str] = Field(
+        None, description="One of the ten named period comparisons (src/analysis/period_comparisons.py)"
+    )
+    period_label: Optional[str] = Field(None, description="That comparison in words, e.g. 'YTD vs previous year YTD'")
+    reference_day: Optional[str] = Field(None, description="The day the comparison was taken as of (YYYY-MM-DD)")
+    actuals_end: Optional[str] = Field(
+        None,
+        description="Set when the actuals stop before the calendar's last closed period: the end of "
+                    "the latest month holding actuals (YYYY-MM-DD). A feed that has stopped must not "
+                    "read as a current reading.",
+    )
+    card_hold_reason: Optional[str] = Field(
+        None,
+        description="Phase 26: why a breach on this reading may not raise a card (the data product's "
+                    "period settings: a comparison shown for context only, or too few complete months). "
+                    "None when it may.",
+    )
+    plan_card_hold_reason: Optional[str] = Field(
+        None, description="The same for actual against plan over this reading's span. None when it may."
+    )
     window_start: Optional[str] = Field(None, description="Resolved start of the measured period (YYYY-MM-DD)")
     window_end: Optional[str] = Field(None, description="Resolved end of the measured period (YYYY-MM-DD)")
     # WHAT the comparison is, not just when. Not every KPI comparison is
@@ -407,6 +429,12 @@ class SituationDetectionRequest(BaseRequest):
     business_processes: List[str] = Field(description="Business processes to analyze")
     timeframe: TimeFrame = Field(description="Time frame for analysis")
     comparison_type: Optional[ComparisonType] = Field(None, description="Type of comparison")
+    period_comparison: Optional[str] = Field(
+        None,
+        description="Phase 26: read every KPI on this named period comparison (one of the ten in "
+                    "src/analysis/period_comparisons.py). When absent, timeframe + comparison_type "
+                    "map to the comparison they have always been read as (YTD + YoY = ytd_vs_pytd).",
+    )
     filters: Optional[Dict[str, Any]] = Field(None, description="Additional filters")
     client_id: Optional[str] = Field(None, description="Client/tenant ID — limits KPI evaluation to this client's KPIs")
     
@@ -435,6 +463,14 @@ class SituationDetectionResponse(BaseResponse):
             "KPIs in scope whose value could not be read (warehouse unreachable, query error, no "
             "rows). A scan with unread KPIs is not a clean result: no card for them means 'not "
             "looked at', not 'healthy'."
+        ),
+    )
+    readings_held: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Phase 26: readings that breached but may not raise a card under their data product's "
+            "period settings, each with the reason ('Net Revenue: YTD vs previous year YTD holds 1 "
+            "complete month (Jan 2026); a card needs 2.'). Shown as context, never silently dropped."
         ),
     )
     kpi_details: Optional[List[KPIValue]] = Field(None, description="Detailed values of evaluated KPIs")

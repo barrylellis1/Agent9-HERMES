@@ -465,14 +465,14 @@ class TestThresholdPresenceGating:
         result = sa._project_trend(monthly, {"red": floor}, inverse_logic=False)
         assert result is not None, "Worsening cost trend should project below the (negative) floor"
 
-    def test_timeframe_month_count(self):
-        """Month-count helper drives the budget→monthly run-rate conversion."""
+    def test_months_in_reading(self):
+        """Month count of the reading's own span drives the budget→monthly run-rate conversion
+        (Phase 26: the span the reading used, not a re-derivation of the request words)."""
+        from types import SimpleNamespace
         sa = _make_sa_stub()
-        # YTD as of the loaded Hess data resolves to a multi-month span ≥ 1.
-        n = sa._timeframe_month_count(TimeFrame.YEAR_TO_DATE)
-        assert isinstance(n, int) and n >= 1
-        n_q = sa._timeframe_month_count(TimeFrame.CURRENT_QUARTER)
-        assert n_q >= 1
+        ytd_to_july = SimpleNamespace(context=SimpleNamespace(window_start="2026-01-01", window_end="2026-07-31"))
+        assert sa._months_in_reading(ytd_to_july) == 7
+        assert sa._months_in_reading(SimpleNamespace(context=None)) == 12  # unknown: annual
 
 
 # ===========================================================================
@@ -626,71 +626,42 @@ class TestSQLServerSQLHelpers:
         assert "Budget" in result
 
     # -----------------------------------------------------------------------
-    # _bq_apply_period — date filter appended to T-SQL
+    # _apply_span — a comparison span appended to T-SQL (Phase 26; was _bq_apply_period)
     # -----------------------------------------------------------------------
 
-    def test_bq_apply_period_appends_and_when_where_exists(self):
-        """_bq_apply_period appends AND <date> BETWEEN when SQL already has a WHERE clause."""
+    def test_apply_span_appends_and_when_where_exists(self):
+        """_apply_span appends AND <date> BETWEEN when SQL already has a WHERE clause."""
+        from datetime import date
         from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent
-        from src.agents.protocols.situation_awareness_protocol import TimeFrame
+        from src.analysis.period_comparisons import Span
         sql = (
             "SELECT SUM([amount]) AS value "
             "FROM [dbo].[HessStarSchemaView] "
             "WHERE [account_type] = 'Revenue' AND [version] = 'Actual'"
         )
-        result = A9_Situation_Awareness_Agent._bq_apply_period(
-            sql, TimeFrame.YEAR_TO_DATE, is_comparison=False
-        )
-        assert "AND transaction_date BETWEEN" in result
-        assert "WHERE" in result.upper()
+        result = A9_Situation_Awareness_Agent._apply_span(sql, Span(date(2026, 1, 1), date(2026, 7, 31)))
+        assert result.endswith("AND transaction_date BETWEEN '2026-01-01' AND '2026-07-31'")
         assert result.upper().count("WHERE") == 1, "Should not add a second WHERE"
 
-    def test_bq_apply_period_adds_where_when_none_exists(self):
-        """_bq_apply_period adds WHERE <date> BETWEEN when the SQL has no WHERE clause."""
+    def test_apply_span_adds_where_when_none_exists(self):
+        """_apply_span adds WHERE <date> BETWEEN when the SQL has no WHERE clause."""
+        from datetime import date
         from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent
-        from src.agents.protocols.situation_awareness_protocol import TimeFrame
+        from src.analysis.period_comparisons import Span
         sql = "SELECT SUM([amount]) AS value FROM [dbo].[View]"
-        result = A9_Situation_Awareness_Agent._bq_apply_period(
-            sql, TimeFrame.YEAR_TO_DATE, is_comparison=False
-        )
-        assert "WHERE transaction_date BETWEEN" in result
+        result = A9_Situation_Awareness_Agent._apply_span(sql, Span(date(2026, 1, 1), date(2026, 7, 31)), "posting_date")
+        assert "WHERE posting_date BETWEEN '2026-01-01' AND '2026-07-31'" in result
 
-    def test_bq_apply_period_comparison_shifts_year(self):
-        """Year-over-year comparison should produce a date range one year earlier."""
-        from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent
+    def test_ytd_request_compares_with_the_same_span_a_year_earlier(self):
+        """The dashboard's request (an enum, not a string) reads YTD against previous year YTD."""
+        from datetime import date
         from src.agents.protocols.situation_awareness_protocol import TimeFrame, ComparisonType
-        import re
-        sql = "SELECT SUM([amount]) AS value FROM [dbo].[View] WHERE [version] = 'Actual'"
-        current = A9_Situation_Awareness_Agent._bq_apply_period(
-            sql, TimeFrame.YEAR_TO_DATE, is_comparison=False
-        )
-        prior = A9_Situation_Awareness_Agent._bq_apply_period(
-            sql, TimeFrame.YEAR_TO_DATE, is_comparison=True,
-            comparison_type=ComparisonType.YEAR_OVER_YEAR
-        )
-        # Extract the start years from both BETWEEN clauses
-        current_year = re.search(r"BETWEEN '(\d{4})", current)
-        prior_year = re.search(r"BETWEEN '(\d{4})", prior)
-        assert current_year and prior_year
-        assert int(prior_year.group(1)) == int(current_year.group(1)) - 1
-
-    def test_bq_get_period_dates_enum_value_not_class_name(self):
-        """TimeFrame enum member must resolve to the correct dates, not fall to default.
-
-        Python 3.11 changed str(StrEnum) to include the class name (e.g. 'TimeFrame.year_to_date').
-        _bq_get_period_dates must use .value, not str(), to avoid matching failure.
-        """
-        from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent
-        from src.agents.protocols.situation_awareness_protocol import TimeFrame
-        import re
-        # YEAR_TO_DATE must produce a Jan-01 start, not last-quarter start (April 1)
-        start, end = A9_Situation_Awareness_Agent._bq_get_period_dates(TimeFrame.YEAR_TO_DATE)
-        assert start.endswith("-01-01"), f"Expected YYYY-01-01 for YTD start, got {start}"
-        # CURRENT_QUARTER must produce a quarter-start, not fall to last_quarter
-        start_q, end_q = A9_Situation_Awareness_Agent._bq_get_period_dates(TimeFrame.CURRENT_QUARTER)
-        # Quarter starts on a month that is 1, 4, 7, or 10
-        start_month = int(start_q.split("-")[1])
-        assert start_month in (1, 4, 7, 10), f"Quarter start month must be 1/4/7/10, got {start_month}"
+        from src.analysis.period_comparisons import from_request, spans
+        c = from_request(TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, True)
+        assert c == "ytd_vs_pytd"
+        r = spans(c, date(2026, 10, 15), True)
+        assert r.current.start == date(2026, 1, 1) and r.previous.start == date(2025, 1, 1)
+        assert from_request(TimeFrame.CURRENT_QUARTER, ComparisonType.YEAR_OVER_YEAR, True) == "qtd_vs_py_qtd"
 
     # -----------------------------------------------------------------------
     # _ss_monthly_series_sql — T-SQL TOP N monthly series

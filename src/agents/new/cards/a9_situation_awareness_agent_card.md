@@ -672,3 +672,42 @@ with the new names. Test: `tests/unit/test_period_settings.py::TestSituationAwar
 Not yet applied (step 3): the data product's period settings (`src/analysis/period_settings.py`:
 which comparisons may raise a card, the minimum complete months, a KPI's own reading) and a
 threshold row's `raises_card`. SA still reads the comparison the request names.
+
+## Each reading uses a named period comparison (Phase 26 steps 3b–3c, Oct 2026)
+
+**What a reading measures.** `_get_kpi_value` resolves the comparison first: the request's
+`period_comparison` (new optional field on `SituationDetectionRequest`; a token may carry the
+reference day an earlier reading used, `"ytd_vs_pytd@2026-07-31"`), else the old timeframe +
+comparison words through `period_comparisons.from_request()` (the dashboard's year_to_date +
+year_over_year = `ytd_vs_pytd`, as every scan has read it). On the warehouse paths (BigQuery,
+Snowflake, SQL Server) the monthly series now runs FIRST: its latest month (with the KPI's own version
+filter) says how far the actuals reach, and `period_comparisons.reference_day()` stops the spans there
+(rule 2). Base and comparison SQL are the raw KPI SQL plus `_apply_span()` on its date column.
+Removed: `_bq_get_period_dates`, `_bq_apply_period`, `_period_as_of`, `_timeframe_month_count`
+(replaced by `_months_in_reading`, which counts the reading's own span). The DuckDB/DPA path still
+sends the old words; its stamped spans are SA's reading of them.
+
+**The plan is read over the actuals' spans.** `_fetch_plan_value` passes `_period_token(kpi_value)`,
+so a Budget reading uses the actual reading's reference day. Plan rows run past the actuals (Hess:
+actuals to July, plan to December).
+
+**What a reading records.** `MeasurementContext` gains `period_comparison`, `period_label`,
+`reference_day`, `actuals_end` (set when the actuals stop before the calendar's last closed month),
+`card_hold_reason` and `plan_card_hold_reason`. `_window_suffix` adds "; actuals end Jul 2026" when
+`actuals_end` is set, so a stopped feed does not read as current. The threshold row is looked up for
+the reading's own comparison (`context.period_comparison`).
+
+**Which readings may raise a card (3c).** The data product's period settings
+(`src/analysis/period_settings.py`, `metadata.period_settings`, cached by `_period_settings_cached`;
+an invalid setting is logged and the defaults used) and a threshold row's `raises_card` (carried into
+`variance_thresholds`) decide, once per actual reading. `_apply_card_settings` holds threshold-breach
+and plan-variance cards (and the scan holds opportunity cards from the same reading) whose comparison is
+context-only or whose span has too few complete months; covenant/regulatory, projected breach and
+acceleration are never held. Held readings are listed with the reason in
+`SituationDetectionResponse.readings_held`, passed through by the orchestrator. Defaults: YTD vs
+previous year YTD and year vs previous year raise cards; 2 complete months.
+
+**Live, 2026-10-16:** lubricants (13 cards) and Apex (7) identical to the 2026-10-15 scans, every card
+stamped `ytd_vs_pytd` as of 2026-09-30, nothing held. Hess now reads Jan–Jul 2026 vs Jan–Jul 2025 with
+"actuals end Jul 2026" on every card (falls of 2–8%, where the calendar quarter had read 61–66% down),
+and its Budget readings use the same span. Tests: `tests/unit/test_sa_period_comparisons.py`.
