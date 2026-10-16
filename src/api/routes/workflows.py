@@ -1397,6 +1397,19 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
         await _update_record(request_id, state="failed", error=str(exc))
 
 
+def _situation_period_token(full_payload: Dict[str, Any]) -> Optional[str]:
+    """The comparison a stored situation card was read on, with its reference day, as the
+    timeframe token Deep Analysis analyses ("ytd_vs_pytd@2026-07-31"). None for a card read
+    before Phase 26 recorded it; Deep Analysis then reads the request's own words."""
+    from src.analysis.period_comparisons import parse_token
+    ctx = ((full_payload or {}).get("kpi_value") or {}).get("context") or {}
+    name, ref = ctx.get("period_comparison"), ctx.get("reference_day")
+    if not name:
+        return None
+    tok = f"{name}@{ref}" if ref else str(name)
+    return tok if parse_token(tok) else None
+
+
 async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, request: DeepAnalysisWorkflowRequest) -> None:
     try:
         orchestrator = runtime.get_orchestrator()
@@ -1423,6 +1436,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
         _da_alert_type: Optional[str] = None
         _da_merged_alert_types: Optional[List[str]] = None
         _da_secondary_facts: Optional[Dict[str, Any]] = None
+        _da_period_token: Optional[str] = None
         if request.situation_id:
             try:
                 from src.database.situations_store import SituationsStore
@@ -1433,6 +1447,9 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
                         _fp = _sit_row.get("full_payload") or {}
                         _da_alert_type = _fp.get("alert_type")
                         _da_merged_alert_types = _fp.get("merged_alert_types")
+                        # Phase 26: analyse the comparison the card was read on, as of the same
+                        # day, so the spans match the card's exactly (actuals cut-off included).
+                        _da_period_token = _situation_period_token(_fp)
                         _facts = {
                             k: _fp.get(k) for k in (
                                 "plan_value", "projected_breach_at_period",
@@ -1450,7 +1467,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             "request_id": request_id,
             "principal_id": request.principal_id,
             "kpi_name": request.scope.kpi_id,
-            "timeframe": request.scope.timeframe or "current_quarter",
+            "timeframe": _da_period_token or request.scope.timeframe or "current_quarter",
             "filters": {},
         }
         if request.client_id:

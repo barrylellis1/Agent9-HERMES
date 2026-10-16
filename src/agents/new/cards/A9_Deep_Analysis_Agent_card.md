@@ -1270,3 +1270,22 @@ missed and DA fell through to the budget row, changing the comparator. The spec 
 (`yoy`/`qoq`/`mom`) downstream, so reader wording and basis reconciliation are unchanged. Live
 2026-10-15 on lubricants Gross Margin % with renamed rows: comparator `previous`, spec `yoy`, no error.
 Test: `tests/unit/test_period_settings.py::TestDeepAnalysisPicksTheSameRow`.
+
+## The analysis measures the card's own comparison (Phase 26 step 3d, Oct 2026)
+
+The `/deep-analysis/run` route reads the stored situation's `kpi_value.context` (period_comparison +
+reference_day, recorded by Situation Awareness since step 3b) and passes them as the timeframe token
+(`workflows._situation_period_token`, e.g. `"ytd_vs_pytd@2026-07-31"`). Every Data Product Agent
+query resolves the token through `TimeFilter` and the shared spans, so the analysis covers exactly the
+card's spans, actuals cut-off included. Without a situation (or for a card read before step 3b),
+`_situation_period(timeframe, period_keyed)` reads the old word as Situation Awareness does
+(`period_comparisons.from_request`; replaces the old `_SITUATION_PERIOD_TOKEN` translation).
+`_threshold_spec` matches the row for the token's own comparison and keys the spec on
+`period_comparisons.basis_key` (yoy/qoq/mom), so wording and basis reconciliation are unchanged.
+The KT text, `timeframe_mapping` ({current, previous, comparison}) and the LLM prompts name the
+period in words (`_period_words`: "YTD vs previous year YTD, as of 30 Sep 2026"), never the token.
+
+Live 2026-10-16: Hess Production Revenue, overall 445,779,966.72 vs 454,442,084.37 (-1.9%), the
+card's two numbers exactly, over Jan–Jul 2026 vs Jan–Jul 2025 (actuals end in July). Lubricants Gross
+Margin %: 29.95 vs 34.43, the card's numbers, and the same segment findings as the previous run.
+Tests: `tests/unit/test_da_period_alignment.py`.

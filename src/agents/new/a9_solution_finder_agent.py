@@ -352,6 +352,9 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
         timeframe = plan.get("timeframe")
     if not timeframe and isinstance(timeframe_map, dict):
         timeframe = timeframe_map.get("current")
+    if isinstance(timeframe_map, dict) and timeframe_map.get("comparison") and timeframe_map.get("current"):
+        # Phase 26: a named comparison, labelled by Deep Analysis with its spans in words.
+        timeframe = f"{timeframe_map['comparison']}: {timeframe_map['current']}"
     if timeframe:
         summary["timeframe"] = str(timeframe)
     if isinstance(timeframe_map, dict) and timeframe_map.get("previous"):

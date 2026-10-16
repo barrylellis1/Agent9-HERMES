@@ -368,30 +368,31 @@ COUNCIL_ROUTING = {
 }
 
 
-# The period Situation Awareness actually measured, as a token the shared period helper
-# (src/database/time_filter.py) reads the same way.
+# The period Situation Awareness actually measured (Phase 26, step 3d).
 #
-# SA reads "current_quarter" as the quarter SO FAR and compares it with the same days a
-# year earlier (2026-10-01..13 vs 2025-10-01..13). The shared helper reads the same token
-# as the WHOLE quarter against the WHOLE previous quarter (2026-10-01..12-31 vs
-# 2026-07-01..09-30). Found live 2026-10-13: the B2B Revenue card said "up 1.8% vs prior
-# year" and this agent, analysing that card, found all 36 segments down by 4% to 26%.
-# The helper's "*_to_date" tokens give exactly SA's windows, so the token is translated
-# once, on the way in, and everything downstream uses the translated one.
-_SITUATION_PERIOD_TOKEN: Dict[str, str] = {
-    "current_quarter": "quarter_to_date",
-    "this_quarter": "quarter_to_date",
-    "current_month": "month_to_date",
-    "this_month": "month_to_date",
-    "current_year": "year_to_date",
-    "this_year": "year_to_date",
-}
+# The situation card records the named comparison it was read on and the reference day it was
+# read as of; the route passes them as a token ("ytd_vs_pytd@2026-07-31") and every query here
+# resolves it through src/analysis/period_comparisons.py, so the analysis measures exactly the
+# card's spans, actuals cut-off included (Hess: actuals end in July).
+#
+# Without a situation the timeframe is an old word. It is read as Situation Awareness reads it
+# (period_comparisons.from_request: "current_quarter" is the quarter so far, compared with the
+# same days a year earlier), which replaces the old token translation here. Found live
+# 2026-10-13: the B2B Revenue card said "up 1.8% vs prior year" and this agent, given the same
+# word, compared the whole quarter with the whole previous quarter and found all 36 segments down.
+def _period_words(timeframe: Any) -> str:
+    """The timeframe as a reader says it (a comparison token in words), for prompts and text."""
+    from src.analysis.period_comparisons import period_words
+    return period_words(timeframe) if timeframe else ""
 
 
-def _situation_period(timeframe: Any) -> Any:
-    """The token for the period the situation card was measured over."""
-    key = str(getattr(timeframe, "value", timeframe) or "").strip().lower()
-    return _SITUATION_PERIOD_TOKEN.get(key, timeframe)
+def _situation_period(timeframe: Any, period_keyed: bool = False) -> str:
+    """The comparison token to analyse: a token as given, an old word as Situation Awareness
+    reads it (as of today; no reference day, so TimeFilter decides it)."""
+    from src.analysis import period_comparisons as _pc
+    if _pc.parse_token(timeframe):
+        return str(getattr(timeframe, "value", timeframe)).strip().lower()
+    return _pc.from_request(timeframe or "current_quarter", "year_over_year", period_keyed)
 
 
 def _total_comparison_basis(comparator: Any) -> str:
@@ -619,13 +620,20 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         key downstream (reader wording, basis reconciliation). Lifted out of the per-run
         closure on 2026-10-15 so the match can be tested.
         """
-        from src.analysis.period_comparisons import canonical as _canonical
-        tf = str(timeframe or "").lower()
-        comp = "mom"
-        if "quarter" in tf:
-            comp = "qoq"
-        elif "year" in tf:
-            comp = "yoy"
+        from src.analysis.period_comparisons import basis_key as _basis_key, canonical as _canonical, parse_token as _parse_token
+        _named = _parse_token(timeframe)
+        if _named:
+            # A named comparison (Phase 26): its row, and the short key for what it is set against.
+            comp = _basis_key(_named[0])
+            wanted = _named[0]
+        else:
+            tf = str(timeframe or "").lower()
+            comp = "mom"
+            if "quarter" in tf:
+                comp = "qoq"
+            elif "year" in tf:
+                comp = "yoy"
+            wanted = _canonical(comp)
         spec: Dict[str, Any] = {"comparison_type": comp, "inverse_logic": False, "yellow_threshold": 0.0}
         try:
             thrs = getattr(kpi_def, "thresholds", None)
@@ -635,7 +643,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     try:
                         ct = getattr(t, "comparison_type", None) or (t.get("comparison_type") if isinstance(t, dict) else None)
                         ct_str = str(getattr(ct, "value", ct)).lower() if ct is not None else ""
-                        if ct_str and _canonical(ct_str) == _canonical(comp):
+                        if ct_str and _canonical(ct_str) == wanted:
                             chosen = (comp, t)
                             break
                     except Exception:
@@ -1253,11 +1261,29 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 if kpi_def is not None:
                     dp_id = getattr(kpi_def, "data_product_id", None)
                     cur_tf = getattr(plan, "timeframe", None)
-                    # Default to current_quarter if no timeframe specified
-                    if not cur_tf:
-                        cur_tf = "current_quarter"
-                    # Analyse the period the situation card was measured over.
-                    _aligned_tf = _situation_period(cur_tf)
+                    # Analyse the comparison the situation card was read on (Phase 26). An old
+                    # word becomes the comparison Situation Awareness reads it as; month to date
+                    # on period-keyed data becomes the last closed month, so it needs the key.
+                    _keyed = False
+                    try:
+                        from src.analysis.complete_periods import is_period_keyed as _is_period_keyed
+                        _resolver = getattr(self.data_product_agent, "_resolve_time_spec", None)
+                        if _resolver and dp_id:
+                            _keyed = _is_period_keyed(_resolver(dp_id, kpi_def))
+                    except Exception:
+                        _keyed = False
+                    _aligned_tf = _situation_period(cur_tf, _keyed)
+                    _cur_words = _prev_words = None
+                    try:
+                        from src.analysis import period_comparisons as _pc_w
+                        _named_w = _pc_w.parse_token(_aligned_tf)
+                        if _named_w and _named_w[1]:
+                            _spec_w = _resolver(dp_id, kpi_def) if (_resolver and dp_id) else {}
+                            _sp_w = _pc_w.spans_at(_named_w[0], _named_w[1], _keyed,
+                                                   int((_spec_w or {}).get("fiscal_year_start_month") or 1))
+                            _cur_words, _prev_words = _sp_w.current.describe(), _sp_w.previous.describe()
+                    except Exception:
+                        _cur_words = _prev_words = None
                     if _aligned_tf != cur_tf:
                         self.logger.info(f"[PERIOD] {cur_tf} -> {_aligned_tf} (the period Situation Awareness measured)")
                     cur_tf = _aligned_tf
@@ -1750,9 +1776,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     if comparator_main == "budget" and str(spec_main.get("comparison_type", "")).lower() != "budget":
                         spec_main = dict(spec_main); spec_main["comparison_type"] = "budget"
                     elif comparator_main == "previous" and str(spec_main.get("comparison_type", "")).lower() == "budget":
+                        from src.analysis.period_comparisons import basis_key as _bk, parse_token as _pt
+                        _named_tf = _pt(cur_tf)
                         _tf_reconcile = str(cur_tf or "").lower()
                         spec_main = dict(spec_main)
-                        spec_main["comparison_type"] = "qoq" if "quarter" in _tf_reconcile else ("yoy" if "year" in _tf_reconcile else "mom")
+                        spec_main["comparison_type"] = (
+                            _bk(_named_tf[0]) if _named_tf else
+                            ("qoq" if "quarter" in _tf_reconcile else ("yoy" if "year" in _tf_reconcile else "mom"))
+                        )
                     overall_summary = await _compute_overall_summary(comparator_main) if self.data_product_agent else None
                     if hmap:
                         used_hierarchical = True
@@ -2434,7 +2465,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         # is how the wrong baseline stayed invisible in the first place.
                         comparator_label = (
                             "Budget" if comparator_main == "budget"
-                            else (f"prior {cur_tf}" if cur_tf else "prior period")
+                            else (_prev_words or (f"prior {cur_tf}" if cur_tf else "prior period"))
                         )
                         new_what_is: List[str] = []
                         new_what_is_not: List[str] = []
@@ -2444,7 +2475,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 f"{plan.kpi_name} is {overall_summary.get('current', 0.0):,.2f} vs {comparator_label} {overall_summary.get('baseline', 0.0):,.2f} (Δ {overall_summary.get('delta', 0.0):+,.2f}, {delta_pct:+.1%})."
                             )
                         if cur_tf:
-                            new_what_is.append(f"Issue observed during {cur_tf} compared against {comparator_label}.")
+                            new_what_is.append(f"Issue observed during {_cur_words or cur_tf} compared against {comparator_label}.")
                         
                         # MVP Optimization: Sort and truncate global change_points to top 5 by impact
                         if change_points:
@@ -2675,6 +2706,22 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     "current": str(cur_tf_val),
                     "previous": f"prior {cur_tf_val}",
                 }
+                # A named comparison (Phase 26) is labelled with its spans, not the token.
+                try:
+                    from src.analysis import period_comparisons as _pc
+                    _named = _pc.parse_token(cur_tf_val)
+                    if _named and _named[1]:
+                        _kpi_for_spec = locals().get("kpi_def")
+                        _dp_for_spec = getattr(_kpi_for_spec, "data_product_id", None)
+                        _res = getattr(self.data_product_agent, "_resolve_time_spec", None)
+                        _spec = _res(_dp_for_spec, _kpi_for_spec) if (_res and _dp_for_spec) else {}
+                        from src.analysis.complete_periods import is_period_keyed as _ipk
+                        _sp = _pc.spans_at(_named[0], _named[1], _ipk(_spec),
+                                           int((_spec or {}).get("fiscal_year_start_month") or 1))
+                        tf_mapping = {"current": _sp.current.describe(), "previous": _sp.previous.describe(),
+                                      "comparison": _sp.label}
+                except Exception:
+                    pass
 
             # Use DataQualityFilter utility to handle data anomalies
             dq_filter = DataQualityFilter()
@@ -4891,7 +4938,7 @@ If nothing relevant is found for a category, use an empty list."""
             if analysis_mode == "opportunity":
                 prompt = (
                     f"Write a concise SCQA narrative for a CFO reviewing a GROWTH OPPORTUNITY in "
-                    f"'{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
+                    f"'{plan.kpi_name}' ({_period_words(plan.timeframe) or 'current period'}).\n\n"
                     f"Leading segments (IS — the blueprint to replicate): {', '.join(is_items) or 'see change points'}\n"
                     f"Segments with unrealised potential (IS NOT — replication targets): "
                     f"{', '.join(is_not_items) or 'none identified'}\n"
@@ -4938,7 +4985,7 @@ If nothing relevant is found for a category, use an empty list."""
                     )
                 prompt = (
                     f"Write a concise SCQA narrative for a CFO reviewing MIXED performance in "
-                    f"'{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
+                    f"'{plan.kpi_name}' ({_period_words(plan.timeframe) or 'current period'}).\n\n"
                     f"Underperforming segments (need recovery): {', '.join(problem_segs) or 'see change points'} "
                     f"— combined magnitude {_fmt_delta(net_problem)}\n"
                     f"Outperforming segments (replication blueprints): {', '.join(opp_segs) or 'see change points'} "
@@ -5008,7 +5055,7 @@ If nothing relevant is found for a category, use an empty list."""
                     )
                 prompt = (
                     f"Write a concise SCQA (Situation-Complication-Question-Answer) narrative for a CFO "
-                    f"investigating the KPI '{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
+                    f"investigating the KPI '{plan.kpi_name}' ({_period_words(plan.timeframe) or 'current period'}).\n\n"
                     f"Comparator: {comparator} | Direction: has {movement_verb} vs target "
                     f"(state this as a numeric fact — 'risen'/'fallen' — never as 'over/under-performing', "
                     f"which reads as good/bad news regardless of whether the movement is actually good or bad "

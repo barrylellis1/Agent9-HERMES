@@ -299,6 +299,16 @@ def legacy_word(value: object) -> object:
     return _LEGACY_WORD[parsed[0]] if parsed else value
 
 
+def period_words(value: object) -> str:
+    """A timeframe as a reader says it: a comparison token as its label and reference day
+    ("YTD vs previous year YTD, as of 30 Sep 2026"); anything else as given."""
+    parsed = parse_token(value)
+    if not parsed:
+        return str(getattr(value, "value", value) or "")
+    name, ref = parsed
+    return f"{LABELS[name]}, as of {ref.day} {ref:%b %Y}" if ref else LABELS[name]
+
+
 def basis_key(comparison: str) -> str:
     """What the current span is set against, as the short key the agents' wording uses:
     "yoy" (the same span a year earlier), "qoq" (the previous quarter), "mom" (the previous month)."""

@@ -1067,3 +1067,10 @@ Tests: `tests/unit/test_recommendation_choice.py`.
 (seen in a production run). `disagreement_tension(..., check_skipped=True)` and
 `fallback_rationale(..., check_skipped=True)` now say "the highest-ranked option that acts".
 
+
+## The dataset recap names the period in words (Phase 26 step 3d, Oct 2026)
+
+When Deep Analysis labels its `timeframe_mapping` with a named comparison
+(`{current, previous, comparison}`), `_extract_deep_analysis_summary` writes the recap's timeframe as
+"YTD vs previous year YTD: Jan 2026 – Sep 2026" (then "vs Jan 2025 – Sep 2025"), not the
+`ytd_vs_pytd@2026-09-30` token the plan carries.
