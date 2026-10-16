@@ -29,7 +29,6 @@ from src.agents.models.assessment_models import (
     AssessmentConfig,
     AssessmentRun,
     AssessmentStatus,
-    ComparisonPeriod,
     KPIAssessment,
     KPIAssessmentStatus,
 )
@@ -213,27 +212,29 @@ _DEFAULT_CONFIDENCE = {
     SituationSeverity.INFORMATION: 0.3,
 }
 
-_COMPARISON_PERIOD_TO_TIMEFRAME = {
-    ComparisonPeriod.MOM: TimeFrame.CURRENT_MONTH,
-    ComparisonPeriod.QOQ: TimeFrame.CURRENT_QUARTER,
-    ComparisonPeriod.YOY: TimeFrame.YEAR_TO_DATE,
-}
+def _period_comparison_for_kpi(kpi, registry_factory) -> str:
+    """The named comparison an assessment reads this KPI on (Phase 26): its data product's
+    period settings, with the KPI's own override (src/analysis/period_settings.py). Default:
+    YTD vs previous year YTD, which is what every assessment has read.
 
-# Default when KPI has no monitoring_profile.comparison_period set.
-_DEFAULT_TIMEFRAME = TimeFrame.YEAR_TO_DATE
-
-
-def _timeframe_for_kpi(kpi) -> TimeFrame:
-    """Derive the appropriate TimeFrame from a KPI's monitoring_profile."""
+    Replaces `monitoring_profile.comparison_period`, which the kpis table never stored: every
+    assessment fell back to year to date whatever it said."""
+    from src.analysis.complete_periods import is_period_keyed
+    from src.analysis.period_settings import DEFAULT_READING, settings_for
     try:
-        monitoring_profile = getattr(kpi, "monitoring_profile", None)
-        if monitoring_profile is not None:
-            comparison_period = getattr(monitoring_profile, "comparison_period", None)
-            if comparison_period is not None:
-                return _COMPARISON_PERIOD_TO_TIMEFRAME.get(comparison_period, _DEFAULT_TIMEFRAME)
-    except Exception:
-        pass
-    return _DEFAULT_TIMEFRAME
+        dp_provider = registry_factory.get_provider("data_product") if registry_factory else None
+        dp_id = getattr(kpi, "data_product_id", None)
+        dp = dp_provider.get(dp_id) if (dp_provider and dp_id) else None
+        meta = dict(getattr(dp, "metadata", None) or {})
+        dims = getattr(dp, "time_dimensions", None) or meta.get("time_dimensions") or []
+        first = dims[0] if dims else None
+        spec = first.model_dump() if hasattr(first, "model_dump") else first
+        return settings_for(meta, getattr(kpi, "metadata", None) or {}, period_keyed=is_period_keyed(spec)).reading
+    except Exception as e:
+        logger.error(
+            f"Period settings for KPI {getattr(kpi, 'id', kpi)} could not be read ({e}); reading {DEFAULT_READING}"
+        )
+        return DEFAULT_READING
 
 
 # ---------------------------------------------------------------------------
@@ -346,7 +347,10 @@ class EnterpriseAssessmentEngine:
         )
 
         try:
-            timeframe = _timeframe_for_kpi(kpi)
+            # The request still names a timeframe word (a required field); the named comparison
+            # decides the period read (Phase 26).
+            timeframe = TimeFrame.YEAR_TO_DATE
+            period_comparison = _period_comparison_for_kpi(kpi, self.registry_factory)
 
             principal_context = PrincipalContext(
                 principal_id="system",
@@ -365,6 +369,7 @@ class EnterpriseAssessmentEngine:
                 business_processes=getattr(kpi, "business_process_ids", []) or [],
                 timeframe=timeframe,
                 comparison_type=ComparisonType.YEAR_OVER_YEAR,
+                period_comparison=period_comparison,
                 client_id=getattr(kpi, "client_id", None),
                 filters=getattr(kpi, "filters", None) or {},
             )

@@ -32,12 +32,6 @@ class KPIAssessmentStatus(str, Enum):
     ERROR = "error"
 
 
-class ComparisonPeriod(str, Enum):
-    MOM = "MoM"
-    QOQ = "QoQ"
-    YOY = "YoY"
-
-
 # ---------------------------------------------------------------------------
 # Calibration / configuration
 # ---------------------------------------------------------------------------
@@ -45,14 +39,6 @@ class ComparisonPeriod(str, Enum):
 class MonitoringProfile(BaseModel):
     """Per-KPI calibration overrides applied during an assessment run."""
 
-    comparison_period: ComparisonPeriod = Field(
-        default=ComparisonPeriod.QOQ,
-        description=(
-            "The look-back window used to compute the comparison value. "
-            "MoM = month-over-month, QoQ = quarter-over-quarter, "
-            "YoY = year-over-year."
-        ),
-    )
     volatility_band: float = Field(
         default=0.05,
         description=(
@@ -226,9 +212,9 @@ class KPIAssessment(BaseModel):
     comparison_value: Optional[float] = Field(
         default=None,
         description=(
-            "Reference value derived from the MonitoringProfile "
-            "comparison_period (e.g. prior-quarter average). None when "
-            "data retrieval failed."
+            "The comparison span's value for the KPI's named period "
+            "comparison (Phase 26: its data product's reading, e.g. YTD vs "
+            "previous year YTD). None when data retrieval failed."
         ),
     )
     severity: Optional[float] = Field(

@@ -711,3 +711,11 @@ previous year YTD and year vs previous year raise cards; 2 complete months.
 stamped `ytd_vs_pytd` as of 2026-09-30, nothing held. Hess now reads Jan–Jul 2026 vs Jan–Jul 2025 with
 "actuals end Jul 2026" on every card (falls of 2–8%, where the calendar quarter had read 61–66% down),
 and its Budget readings use the same span. Tests: `tests/unit/test_sa_period_comparisons.py`.
+
+**Offline assessment (Phase 26 step 3e).** `run_enterprise_assessment._period_comparison_for_kpi`
+reads each KPI on its data product's `reading` (with the KPI's `metadata.period_comparison`
+override) and passes it as `period_comparison`. `KPIMonitoringProfile.comparison_period` and the
+assessment's `ComparisonPeriod` are removed: the kpis table never stored them, so every assessment
+fell back to year to date (this supersedes the 2026-10-02 correction above that said it IS read; the
+code read it, but the value was never there). Live 2026-10-16: the script's readings log as "YTD vs
+previous year YTD: Jan 2026 – Sep 2026 vs Jan 2025 – Sep 2025".

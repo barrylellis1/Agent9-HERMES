@@ -102,7 +102,6 @@ class KPIMonitoringProfile(BaseModel):
     escalate to Deep Analysis. Set by KPI Assistant (Phase 9F) from historical
     volatility analysis; defaults apply until calibrated.
     """
-    comparison_period: str = Field("QoQ", description="Comparison cadence: 'MoM', 'QoQ', or 'YoY'.")
     volatility_band: float = Field(0.05, ge=0.0, le=1.0, description="Fractional band (e.g. 0.05 = ±5%). Breach must exceed this to be significant.")
     min_breach_duration: int = Field(1, ge=1, description="Consecutive periods in breach before SA escalates.")
     confidence_floor: float = Field(0.6, ge=0.0, le=1.0, description="Minimum SA confidence to escalate to DA; below this → 'monitoring' status.")

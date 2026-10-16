@@ -241,3 +241,45 @@ class TestSeedFiles:
             for k in mod.KPIS:
                 if k.get("data_product_id") == dp.get("id"):
                     settings_for(meta, k.get("metadata") or {}, period_keyed=keyed)
+
+
+class TestTheOfflineAssessmentReadsEachKpisSetting:
+    """run_enterprise_assessment: each KPI on its data product's reading (Phase 26 step 3e)."""
+
+    @staticmethod
+    def _factory(dp):
+        from types import SimpleNamespace
+        provider = SimpleNamespace(get=lambda dp_id: dp if dp_id == "dp" else None)
+        return SimpleNamespace(get_provider=lambda name: provider if name == "data_product" else None)
+
+    @staticmethod
+    def _dp(settings=None, keyed=True):
+        from types import SimpleNamespace
+        td = {"type": "fiscal_year_period", "year_column": "fy", "period_column": "fp"} if keyed else {"type": "date", "column": "d"}
+        meta = {"period_settings": settings} if settings else {}
+        return SimpleNamespace(metadata=meta, time_dimensions=[td])
+
+    def test_the_default_is_what_every_assessment_has_read(self):
+        from types import SimpleNamespace
+        from run_enterprise_assessment import _period_comparison_for_kpi
+        kpi = SimpleNamespace(id="k", data_product_id="dp", metadata={})
+        assert _period_comparison_for_kpi(kpi, self._factory(self._dp())) == "ytd_vs_pytd"
+
+    def test_the_data_product_and_then_the_kpi_decide(self):
+        from types import SimpleNamespace
+        from run_enterprise_assessment import _period_comparison_for_kpi
+        dp = self._dp({"reading": "quarter_vs_py_quarter"})
+        assert _period_comparison_for_kpi(SimpleNamespace(id="k", data_product_id="dp", metadata={}), self._factory(dp)) == "quarter_vs_py_quarter"
+        kpi = SimpleNamespace(id="k", data_product_id="dp", metadata={"period_comparison": "year_vs_prev_year"})
+        assert _period_comparison_for_kpi(kpi, self._factory(dp)) == "year_vs_prev_year"
+
+    def test_an_invalid_setting_is_logged_and_the_default_read(self, caplog):
+        from types import SimpleNamespace
+        from run_enterprise_assessment import _period_comparison_for_kpi
+        kpi = SimpleNamespace(id="k", data_product_id="dp", metadata={"period_comparison": "mtd_vs_py_mtd"})
+        assert _period_comparison_for_kpi(kpi, self._factory(self._dp(keyed=True))) == "ytd_vs_pytd"
+        assert "could not be read" in caplog.text
+
+    def test_monitoring_profile_no_longer_claims_a_comparison_period(self):
+        from src.registry.models.kpi import KPIMonitoringProfile
+        assert "comparison_period" not in KPIMonitoringProfile.model_fields

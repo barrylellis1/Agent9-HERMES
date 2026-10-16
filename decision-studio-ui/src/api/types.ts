@@ -701,7 +701,6 @@ export interface ProblemRefinementResult {
 // ---------------------------------------------------------------------------
 
 export interface MonitoringProfile {
-  comparison_period: 'MoM' | 'QoQ' | 'YoY';
   volatility_band: number;
   min_breach_duration: number;
   confidence_floor: number;
