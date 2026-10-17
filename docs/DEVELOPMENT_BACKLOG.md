@@ -3447,7 +3447,9 @@ question above is answered.
 
 ### Phase 26: Named Period Comparisons — say which two periods are being compared (in progress, 2026-10-15)
 
-**Status:** In progress. Steps 1–3 built 2026-10-15/16; steps 4–6 (screens) remain. Split out on 2026-10-13 from the
+**Status:** In progress. Steps 1–3 built 2026-10-15/16. On 2026-10-17 the owner ruled on nine choices made during
+that build (below, and `docs/architecture/period_comparisons_decisions.md`); step 3f reworks the build to match
+them, then steps 4–6 (screens). Nothing released. Split out on 2026-10-13 from the
 reliability-threshold work, at the owner's direction, once it was clear the fix is a registry and
 onboarding change and not a patch.
 
@@ -3571,6 +3573,24 @@ What the registry holds:
    actuals); the lookup per data product is step 3. The card must say when the period shown is older
    than the calendar implies, or a feed that has stopped looks like a current reading.
 
+#### Owner rulings, 2026-10-17 (they supersede the design text below where it differs)
+
+During the step 2 and step 3 build, Claude made nine product choices that the owner had not ruled
+on, and reported them only afterwards. The owner reviewed each one on 2026-10-17. Decision record for
+reviewers: `docs/architecture/period_comparisons_decisions.md`.
+
+| # | Ruling |
+|---|---|
+| 1 | **Financial** data products raise cards on YTD vs the same months last year; quarter (same quarter last year) is a per-client option; month never by default. **Operational** data products raise cards on the last 12 months vs the 12 before. Each data product carries an explicit financial/operational setting, proposed at onboarding from its domain and confirmed by a person. "Last full year vs the year before" is removed from the default. Built after all nine rulings, together with the fix for the two unread lubricants Sales KPIs |
+| 2 | Two complete months minimum. When the year so far holds fewer (closed-month data: February scans), financial cards use the last 12 months vs the 12 before instead; every card names the comparison it used |
+| 3 | Settings on the data product only; no client-wide default yet. **No per-KPI exceptions**: the KPI override of the reading and the per-threshold `raises_card` are removed |
+| 4 | A reading on a comparison that may not raise a card is hidden, with a count in the summary and one click to see why. Arises only from the step 6 dashboard switch; built with step 6 |
+| 5 | No covenant/regulatory exemption from the card rules. Their monitoring (fixed limits, test dates) gets its own design when the first such KPI is onboarded. The older 11I-A rule that rates their breaches critical is untouched |
+| 6 | Improvement cards follow the same rule as problem cards |
+| 7 | The actuals cut-off (rule 2) is measured once per data product: the latest month with actuals across all its KPIs. Every card from the product compares the same months and says so. Replaces the per-KPI detection built in 3b, where a KPI with no recent activity looked like a stopped feed |
+| 8 | The dashboard reads each data product's own comparison (no longer forcing year to date), and every tile and card names its comparison. Built with the 12-month comparison; step 6 later adds the override switch |
+| 9 | "YoY" thresholds follow the product: financial = YTD vs last year's YTD, operational = last 12 months vs the 12 before. "QoQ" thresholds stay as quarter vs previous quarter (they apply only if a client chooses that comparison; the quarter option in ruling 1 is same quarter last year) |
+
 #### When a comparison may raise a card (owner, 2026-10-15)
 
 A card starts the chain toward a corrective decision, and one month of movement is not enough
@@ -3579,7 +3599,7 @@ year-over-year comparisons do, quarter comparisons may.** All three are tuning t
 business, so they are settings with those defaults, not rules in code. A comparison that may not raise
 a card is still read and shown, as context.
 
-#### Step 2: the settings
+#### Step 2: the settings (as first built; superseded in part by rulings 1–3)
 
 | Setting | Lives on | Default | Meaning |
 |---|---|---|---|
@@ -3610,7 +3630,7 @@ What the default minimum means in practice: on period-keyed data, YTD holds one 
 scans run in February (read as of 31 January), so those scans raise no YTD card. On date-keyed data,
 none until 1 March. A client that cannot wait adds a quarter comparison.
 
-#### Migration of existing threshold rows (settled 2026-10-15)
+#### Migration of existing threshold rows (proposed by Claude 2026-10-15 and wrongly labelled "settled"; the owner ruled on 2026-10-17, see ruling 9)
 
 | Today | Becomes | Why |
 |---|---|---|
@@ -3630,9 +3650,10 @@ production registry is synced.
 | 1 ✅ | One shared definition of the ten comparisons: given a day, a data product's time key, its fiscal year start and its latest period with actuals, return the two spans. `src/analysis/period_comparisons.py`, `tests/unit/test_period_comparisons.py` (`649d2bc`) | No | nothing |
 | 2 ✅ | The settings above (`src/analysis/period_settings.py`); the threshold row's comparison takes the ten names and `raises_card`; old names read as new ones (`period_comparisons.canonical()`, used by Situation Awareness `_threshold_key` and Deep Analysis `_threshold_spec`); the four client seed files renamed; both threshold editors list the ten names, grouped. Local registry re-seeded 2026-10-15: lubricants and Apex scans identical before and after | No (verified live) | production: deploy the code first, then sync the registry for all four clients (owner go-ahead). The KPI Assistant still proposes the old names until step 5; they read correctly |
 | 3 ✅ | Built 2026-10-16 in five commits. (3a) A comparison travels as a timeframe token with its reference day (`ytd_vs_pytd@2026-07-31`); `TimeFilter` resolves it for period-keyed, date-keyed and annual data, so the Data Product Agent's warehouse builders take it unchanged. (3b) Situation Awareness resolves each reading's comparison (request `period_comparison`, else the old words mapped by `from_request`), runs the monthly series first so the spans stop at the latest month with actuals (rule 2), reads the plan over the actuals' spans, and records comparison, reference day and where actuals end; the card says "actuals end Jul 2026". (3c) The card settings decide which readings may raise a card; held readings are listed with the reason in `readings_held`. (3d) Deep Analysis is handed the card's comparison and reference day and names periods in words. (3e) The offline assessment reads each KPI's setting. Removed `_bq_get_period_dates`, `_bq_apply_period`, `_period_as_of`, `_timeframe_month_count`, the `_situation_period` translation table and `comparison_period`. **Kept**, unlike the plan: `closed_view` in `TimeFilter`, because callers that still send the old words (natural-language queries, the DuckDB path) rely on it. Live: lubricants and Apex cards unchanged; Hess reads Jan–Jul 2026 and Deep Analysis reproduces the card's numbers | Yes | step 2 |
-| 4 | Registry editor: the choice grouped as "To date" / "Complete period", with a live preview from step 1 ("Today this compares Jul–Sep 2026 with Jul–Sep 2025"); the card settings on the data product, and `raises_card` on each threshold row. Save-time checks: only comparisons the data product can support; warn when a card comparison has no threshold row, because the KPI would then be judged by the built-in magnitude rule | UI | step 2 |
+| 3f | **Rework to match the 2026-10-17 rulings** (owner-ruled; any choice not covered by a ruling is put to the owner before it is built): the financial/operational setting on the data product (1); the rolling 12-month comparison and the February fallback (1, 2); remove the KPI reading override and `raises_card` (3) and the covenant/regulatory exemption (5); the actuals cut-off per data product (7); the dashboard reading each data product's comparison, with every tile and card naming it (8); operational "YoY" thresholds moved to 12 months (9); the fix for the two unread lubricants Sales KPIs (period-keyed products filtered on fiscal year and period) | Yes | rulings 2026-10-17 |
+| 4 | Registry editor: the choice grouped as "To date" / "Complete period", with a live preview from step 1 ("Today this compares Jul–Sep 2026 with Jul–Sep 2025"); the card settings and the financial/operational setting on the data product (no per-KPI exceptions, ruling 3). Save-time checks: only comparisons the data product can support; warn when a card comparison has no threshold row, because the KPI would then be judged by the built-in magnitude rule | UI | step 2 |
 | 5 | Onboarding: a review step after schema inspection that shows the detected time key, the fiscal year start month and the latest period with actuals, and sets the data product's settings. KPI Assistant proposes a comparison with its thresholds, limited to the ten names | UI | step 2 |
-| 6 | Dashboard: a control to switch the comparison for the session; tile and card labels name the comparison in use in place of "YoY" | UI | step 3 |
+| 6 | Dashboard: a control to switch the comparison for the session; readings that may not raise a card are hidden with a count and one click to see why (ruling 4). The comparison labels on tiles and cards move forward to 3f (ruling 8) | UI | step 3f |
 
 #### Found while building step 3 (2026-10-16), not fixed
 
@@ -3642,9 +3663,9 @@ production registry is synced.
   filter should be the fiscal year and period columns, which `TimeFilter` already produces for a
   comparison token. Changing it touches every period-keyed reading's SQL, so it needs its own before
   and after check.
-- The dashboard still sends year to date: a data product's `reading` only applies through the
-  offline assessment or a request that names `period_comparison`, until step 6 adds the control.
-- `readings_held` is in the API response but not yet on screen (step 6).
+- The dashboard still sends year to date. Ruling 8 (2026-10-17): it will read each data product's own
+  comparison, built in 3f.
+- `readings_held` is in the API response but not yet on screen. Ruling 4: hidden with a count, built with step 6.
 
 #### Not in this phase
 
