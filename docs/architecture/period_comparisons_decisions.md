@@ -1,6 +1,6 @@
 # Period comparisons: decision record (Phase 26)
 
-**Decided by:** the product owner, 13–17 October 2026
+**Decided by:** the product owner, 13–18 October 2026
 **Status:** decided. Partly built (see the end of this document); nothing released.
 **For engineers:** the build plan is in `docs/DEVELOPMENT_BACKLOG.md` → Phase 26.
 
@@ -92,14 +92,16 @@ Federation (4-5-4 calendar), Walmart FY2025 earnings presentation. Full links in
 - Follow the same rule as problem cards: both start an analysis that ends in a decision.
 
 **7. When a client's actuals stop early**
-- Every card from that data product compares up to the **last month with actuals**, and says so
-  ("actuals end Jul 2026"). The cut-off is worked out once for the whole data product.
+- Every card from that data product compares up to the **last month with actuals**. The cut-off is
+  worked out once for the whole data product. The months in the card's detail show it ("Jan–Jul 2026
+  vs Jan–Jul 2025"); the tile label does not (build choice 2 below).
 - *Why:* otherwise a quiet KPI (a seasonal cost with no postings for two months) would look like a
   stopped feed, and cards from one data product would compare different months.
 
 **8. What the dashboard compares**
 - Each KPI is read on its own data product's comparison, and **every card names the comparison it
-  used**. A later dashboard control will let a user choose another comparison.
+  used** (wording: build choice 2 below). A later dashboard control will let a user choose another
+  comparison.
 - *Why:* the dashboard and the briefing emails must not disagree about the same KPI.
 
 **9. Existing thresholds** (the targets a KPI is judged against)
@@ -107,14 +109,41 @@ Federation (4-5-4 calendar), Walmart FY2025 earnings presentation. Full links in
   they keep that meaning; on operational data products they move to the last 12 months.
 - Thresholds labelled "QoQ" (never used so far) stay as quarter against the previous quarter.
 
+## Build choices (ruled 17–18 October 2026)
+
+Four choices that building the decisions above required, put to the owner before building.
+
+**1. Which existing data products are financial or operational.** Lubricants Sales Orders is
+operational; Lubricants, Apex and Hess Financial Analytics and Bicycle FI are financial. A data
+product not yet marked is read as financial, as every data product was before the setting existed;
+onboarding will require the setting for new ones.
+
+**2. How a card names its comparison.** Finance shorthand: *YTD vs PYTD*, *LTM vs Prior LTM*,
+*Q3 vs PY Q3*, *Q3 vs Q2*, and *YTD Act vs Budget* against a plan. "Act" appears only when actuals are
+set against a plan or forecast; otherwise actual against actual is assumed. The tile shows the
+comparison only; the months appear in the card's detail.
+- *Considered:* plain words ("YTD vs last year"); the period end in the label ("YTD Sep-26 vs PYTD"),
+  which would have shown a stopped feed on the tile itself.
+
+**3. What "last twelve months" means.** The last 12 complete months, for every data product, so LTM
+means one thing everywhere.
+- *Considered:* rolling to today for data booked by date (freshest, but windows start mid-month).
+
+**4. Which date a card is measured on.** Each KPI is read on the business event its data product
+declares for it (Phase 25): sales value by the period revenue was recognised, fulfilment by delivery
+date, cancellation by order date. The analysis behind a card already reads data this way; cards now
+read the same rows. Kept only after the owner has reviewed before-and-after figures for every KPI.
+- *Considered:* dating the two unreadable Sales KPIs by order or delivery date (ruled out by Phase 25:
+  90% of order lines fall in a different month from their revenue recognition).
+
 ## What a reader of a card now sees
 
-| Situation | The card's comparison |
-|---|---|
-| Financial KPI, October | Jan–Sep 2026 against Jan–Sep 2025 |
-| Financial KPI, February | the last 12 months against the 12 before |
-| Client whose actuals end in July | Jan–Jul 2026 against Jan–Jul 2025, "actuals end Jul 2026" |
-| Operational KPI, any month | the last 12 months against the 12 before |
+| Situation | Tile | Card detail |
+|---|---|---|
+| Financial KPI, October | YTD vs PYTD | Jan–Sep 2026 vs Jan–Sep 2025 |
+| Financial KPI, February | LTM vs Prior LTM | Feb 2025–Jan 2026 vs Feb 2024–Jan 2025 |
+| Client whose actuals end in July | YTD vs PYTD | Jan–Jul 2026 vs Jan–Jul 2025 |
+| Operational KPI, any month | LTM vs Prior LTM | Oct 2025–Sep 2026 vs Oct 2024–Sep 2025 |
 
 ## Status
 
@@ -124,9 +153,10 @@ numbers). Also built, but to be reworked to match these decisions: the stopped-a
 KPI; decision 7 makes it per data product) and the rules for which readings may raise a card
 (decisions 1–4).
 
-To build, as decided above: the financial/operational setting, the twelve-month comparison and the
-February fallback, the dashboard reading each data product's comparison with labelled cards, the
-whole-data-product actuals cut-off, the threshold changes, and the removal of choices made during
+To build, as decided above: cards read on each KPI's declared date (build choice 4, first, with a
+before-and-after review); the financial/operational setting; the twelve-month comparison and the
+February fallback; the dashboard reading each data product's comparison with labelled cards; the
+whole-data-product actuals cut-off; the threshold changes; and the removal of choices made during
 the first build that these decisions overturned (per-KPI exceptions, the covenant exemption).
 
 ## Left for later
