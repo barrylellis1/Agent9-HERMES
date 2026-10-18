@@ -3367,6 +3367,8 @@ around it.
 dates — and the seed itself records that 90.2% of sales line items have `delivery_date` in a
 different fiscal month than revenue recognition. It would silently disagree with Finance on most rows.
 
+> **Pre-mortem, 2026-10-18:** `docs/architecture/time_alignment_premortem.md` examines the long-term risk of Agent9 running its own time-alignment process for data products that lack a usable time dimension, and argues for declared-and-thin translation plus an onboarding contract over inference and query rewriting. No decision taken.
+
 #### The three levels of alignment — current state is 1 of 3
 
 | Level | What it means | Status |
