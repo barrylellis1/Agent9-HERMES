@@ -1414,16 +1414,6 @@ class A9_Situation_Awareness_Agent:
     # These bypass the DuckDB/time_dim-centric generate_sql_for_kpi path entirely.
     # ──────────────────────────────────────────────────────────────────────────
 
-    @staticmethod
-    def _apply_span(sql: str, span: Any, date_col: str = "transaction_date") -> str:
-        """Append a date range filter for one span (period_comparisons.Span) to a KPI's SQL.
-        ISO dates work in BigQuery, Snowflake and T-SQL alike."""
-        import re as _re
-        cond = f"{date_col} BETWEEN '{span.start.isoformat()}' AND '{span.end.isoformat()}'"
-        if _re.search(r'\bWHERE\b', sql, _re.IGNORECASE):
-            return sql + f" AND {cond}"
-        return sql + f" WHERE {cond}"
-
     def _bq_monthly_series_sql(self, base_sql: str, date_col: str = "transaction_date", num_months: int = 9) -> str:
         """Generate SQL returning the most recent N monthly aggregates for a KPI.
 
@@ -1674,12 +1664,27 @@ class A9_Situation_Awareness_Agent:
 
     async def _native_monthly_series_sql(
         self, raw_sql: str, data_product_id: Optional[str], is_ss: bool, is_sf: bool, date_col: str,
+        kpi_definition: Any = None, time_spec: Optional[dict] = None,
     ) -> str:
-        """The monthly series SQL for a KPI that carries its own warehouse SQL. SQL Server and
-        Snowflake products keyed by fiscal year and period group on those columns."""
+        """The monthly series SQL for a KPI that carries its own warehouse SQL, on the KPI's
+        declared time dimension (owner ruling B4, Phase 25).
+
+        BigQuery: the Data Product Agent's builder (generate_monthly_series_sql), which keys
+        the series on the declared dimension's canonical YYYY-MM period. When it cannot build
+        one, there is no series rather than one on a guessed column. SQL Server and Snowflake:
+        grouped on the fiscal year and period columns when that is the declared dimension."""
+        if not (is_ss or is_sf):
+            builder = getattr(self.data_product_agent, "generate_monthly_series_sql", None)
+            if callable(builder) and kpi_definition is not None:
+                try:
+                    resp = builder(kpi_definition, num_months=_SERIES_FETCH_MONTHS)
+                    return resp.get("sql", "") if isinstance(resp, dict) and resp.get("success") else ""
+                except Exception as _se:
+                    self.logger.warning(f"[Monthly] series SQL not built for {getattr(kpi_definition, 'name', '?')}: {_se}")
+                    return ""
         monthly_sql = ""
         if is_ss or is_sf:
-            ts = await self._time_spec_cached(data_product_id)
+            ts = time_spec or await self._time_spec_cached(data_product_id)
             if ts.get("type") == "fiscal_year_period":
                 yr = ts.get("year_column", "fiscal_year")
                 pr = ts.get("period_column", "fiscal_period")
@@ -2970,12 +2975,31 @@ class A9_Situation_Awareness_Agent:
             )
             _series_reach: Dict[str, Any] = {"latest": None}
 
+            # Owner ruling B4 (2026-10-18, Phase 25): each KPI is read on the time dimension
+            # its data product declares for it (sales value by revenue-recognition period,
+            # fulfilment by delivery date, cancellation by order date), resolved exactly as the
+            # Data Product Agent resolves it for Deep Analysis, so a card and the analysis
+            # behind it filter the same rows. Until then this path filtered a guessed
+            # `transaction_date` column, which the lubricants sales view does not have.
+            _kpi_time_spec = _time_spec
+            _td_resolver = getattr(self.data_product_agent, "_resolve_time_spec", None)
+            if _native and callable(_td_resolver):
+                try:
+                    _kpi_time_spec = _td_resolver(_gen_dp_id, kpi_definition) or _time_spec
+                except Exception as _tde:
+                    self.logger.warning(
+                        f"KPI {kpi_name}: its declared time dimension could not be resolved ({_tde}); "
+                        f"using the data product's"
+                    )
+            _dialect = "bigquery" if _is_bq_kpi else ("sqlserver" if _is_ss_kpi else "snowflake")
+
             # ── Monthly series SQL (no I/O). Warehouse paths read the raw KPI SQL; the
             # DPA path has only its generated SQL, so its series is built after that. ──
             monthly_sql = ""
             if _native and _raw_kpi_sql:
                 monthly_sql = await self._native_monthly_series_sql(
-                    _raw_kpi_sql, _gen_dp_id, _is_ss_kpi, _is_sf_kpi, _bq_date_col
+                    _raw_kpi_sql, _gen_dp_id, _is_ss_kpi, _is_sf_kpi, _bq_date_col,
+                    kpi_definition=kpi_definition, time_spec=_kpi_time_spec,
                 )
 
             import asyncio as _asyncio
@@ -3073,15 +3097,26 @@ class A9_Situation_Awareness_Agent:
                 _p = _has_evidence(_spans.current, _settings, "Actual vs plan")
                 _plan_hold = None if _p.may_raise else _p.reason
 
-            # 1) Base SQL: the current span. Warehouse KPIs carry their own SQL, filtered here
-            # on their date column; the DPA path (DuckDB) generates SQL from the old words.
+            # 1) Base SQL: the current span. Warehouse KPIs carry their own SQL, filtered here on
+            # their declared time dimension through TimeFilter (the comparison and reference day
+            # travel as a token, src/analysis/period_comparisons.py); the DPA path (DuckDB)
+            # generates SQL from the old words.
+            from src.database.time_filter import TimeFilter as _TF
+            _period_tok = _pc.token(_comparison, _spans.reference_day)
             base_sql = ""
             if _native:
-                base_sql = self._apply_span(_raw_kpi_sql, _spans.current, _bq_date_col)
-                self.logger.info(f"[{_source_system or 'native'} path] base_sql for '{kpi_name}' ({_spans.describe()}): {base_sql[:140]}")
-                if not base_sql:
-                    self.logger.error(f"Failed to build base SQL for {kpi_name}")
+                try:
+                    _cur_cond = _TF.current_condition(_kpi_time_spec, _period_tok, dialect=_dialect)
+                except ValueError as _ce:
+                    _cur_cond = None
+                    self.logger.error(f"KPI {kpi_name}: {_ce}")
+                if not _cur_cond:
+                    # Never read without a period filter: an unfiltered total would be judged
+                    # as if it were the period's.
+                    self.logger.error(f"KPI {kpi_name}: no period filter for {_comparison} on its time dimension; reported as unread")
                     return None
+                base_sql = _TF.append_condition(_raw_kpi_sql, _cur_cond)
+                self.logger.info(f"[{_source_system or 'native'} path] base_sql for '{kpi_name}' ({_spans.describe()}): {base_sql[:140]}")
             else:
                 try:
                     gen_resp = await self.data_product_agent.generate_sql_for_kpi(
@@ -3161,7 +3196,11 @@ class A9_Situation_Awareness_Agent:
             comp_sql = ""
             if comparison_type:
                 if _native:
-                    comp_sql = self._apply_span(_raw_kpi_sql, _spans.previous, _bq_date_col)
+                    try:
+                        _prev_cond = _TF.previous_condition(_kpi_time_spec, _period_tok, dialect=_dialect)
+                    except ValueError:
+                        _prev_cond = None
+                    comp_sql = _TF.append_condition(_raw_kpi_sql, _prev_cond) if _prev_cond else ""
                     self.logger.info(f"[{_source_system or 'native'} path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
                 else:
                     try:

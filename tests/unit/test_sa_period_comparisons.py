@@ -34,8 +34,8 @@ class Warehouse:
             y, m = int(self.last_month[:4]), int(self.last_month[5:])
             months = [(y if k <= m else y - 1, k) for k in range(1, 13)]
             return {"rows": [{"period": f"{yy}-{mm:02d}", "value": 10.0} for yy, mm in months]}
-        start = re.search(r"BETWEEN '(\d{4})-", sql).group(1)
-        return {"rows": [[120.0 if start == "2026" else 100.0]]}
+        m = re.search(r"BETWEEN '(\d{4})-", sql) or re.search(r"fiscal_year = (\d{4})", sql)
+        return {"rows": [[120.0 if m.group(1) == "2026" else 100.0]]}
 
 
 def _sa(warehouse, spec=FYP):
@@ -58,7 +58,21 @@ def _kpi():
 
 
 def _span_filters(warehouse):
-    return [re.search(r"BETWEEN '([\d-]+)' AND '([\d-]+)'", q).groups() for q in warehouse.sql if "BETWEEN" in q]
+    """The (start, end) each period-filtered query read, as dates, whether it filtered a date
+    column or fiscal year and period (period-keyed data, owner ruling B4)."""
+    import calendar
+    out = []
+    for q in warehouse.sql:
+        if "LIMIT" in q:
+            continue
+        d = re.search(r"BETWEEN '([\d-]+)' AND '([\d-]+)'", q)
+        f = re.search(r"fiscal_year = (\d{4}) AND \S+ BETWEEN (\d+) AND (\d+)", q)
+        if d:
+            out.append(d.groups())
+        elif f:
+            y, p1, p2 = int(f.group(1)), int(f.group(2)), int(f.group(3))
+            out.append((f"{y}-{p1:02d}-01", f"{y}-{p2:02d}-{calendar.monthrange(y, p2)[1]:02d}"))
+    return out
 
 
 @pytest.fixture
@@ -131,7 +145,7 @@ async def test_a_comparison_the_data_cannot_answer_is_unread_not_unfiltered(toda
     v = await _sa(wh)._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {},
                                      period_comparison="mtd_vs_py_mtd")
     assert v is None
-    assert not any("BETWEEN" in q for q in wh.sql)
+    assert not any("BETWEEN" in q or "fiscal_year =" in q for q in wh.sql if "LIMIT" not in q)
     assert await _sa(Warehouse())._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, None, {}, period_comparison="rolling_90") is None
 
 
@@ -223,3 +237,48 @@ def test_the_response_and_orchestrator_carry_the_held_readings():
     from src.agents.models.situation_awareness_models import SituationDetectionResponse
     r = SituationDetectionResponse(request_id="r", status="success", situations=[])
     assert r.readings_held == []
+
+
+# ── Owner ruling B4: read on the KPI's declared time dimension ──
+
+@pytest.mark.asyncio
+async def test_period_keyed_data_is_filtered_on_fiscal_year_and_period(today):
+    wh = Warehouse("2026-07")
+    await _sa(wh)._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
+    reads = [q for q in wh.sql if "LIMIT" not in q]
+    assert reads[0].endswith("AND fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 7")
+    assert reads[1].endswith("AND fiscal_year = 2025 AND fiscal_period BETWEEN 1 AND 7")
+    assert not any("transaction_date" in q for q in reads)
+
+
+@pytest.mark.asyncio
+async def test_a_kpi_dated_by_another_event_uses_that_dimension(today):
+    """As Deep Analysis does: the Data Product Agent's resolver picks the KPI's declared dimension."""
+    wh = Warehouse("2026-12")
+    wh._resolve_time_spec = lambda dp_id, kpi: {"type": "date", "column": "delivery_date"}
+    v = await _sa(wh)._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
+    reads = [q for q in wh.sql if "LIMIT" not in q]
+    assert "`delivery_date` BETWEEN '2026-01-01' AND '2026-09-30'" in reads[0]   # the product's closed months
+    assert v.context.window_end == "2026-09-30"
+
+
+@pytest.mark.asyncio
+async def test_bigquery_series_comes_from_the_data_product_agent(today):
+    wh = Warehouse("2026-07")
+    asked = []
+
+    def _series(kpi, num_months=9):
+        asked.append(num_months)
+        return {"success": True, "sql": "SELECT period, value FROM (...) LIMIT 13"}
+    wh.generate_monthly_series_sql = _series
+    await _sa(wh)._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
+    assert asked == [13] and wh.sql[0] == "SELECT period, value FROM (...) LIMIT 13"
+
+
+@pytest.mark.asyncio
+async def test_no_series_rather_than_one_on_a_guessed_column(today):
+    wh = Warehouse("2026-07")
+    wh.generate_monthly_series_sql = lambda kpi, num_months=9: {"success": False, "sql": ""}
+    v = await _sa(wh)._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
+    assert not any("LIMIT" in q for q in wh.sql)
+    assert v.monthly_values is None and v.context.reference_day == "2026-09-30"  # calendar rule without a series

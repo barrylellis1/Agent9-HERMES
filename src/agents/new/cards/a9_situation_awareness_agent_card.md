@@ -719,3 +719,21 @@ assessment's `ComparisonPeriod` are removed: the kpis table never stored them, s
 fell back to year to date (this supersedes the 2026-10-02 correction above that said it IS read; the
 code read it, but the value was never there). Live 2026-10-16: the script's readings log as "YTD vs
 previous year YTD: Jan 2026 – Sep 2026 vs Jan 2025 – Sep 2025".
+
+## Each KPI is read on its declared time dimension (Phase 26 build choice B4, Oct 2026)
+
+Owner ruling 2026-10-18 (Phase 25 applied to Situation Awareness): `_get_kpi_value` resolves the
+KPI's time dimension with the Data Product Agent's own resolver (`_resolve_time_spec(dp_id, kpi)`,
+which honours `kpi.metadata['time_dimension']`), and builds the base and comparison filters through
+`TimeFilter.current_condition` / `previous_condition` with the comparison token, exactly as Deep
+Analysis's queries do. Period-keyed data is filtered on fiscal year and period; a KPI dated by another
+declared event (fulfilment by delivery, cancellation by order) on that column, over its data product's
+closed months. No period filter means the KPI is reported unread, never read unfiltered. BigQuery
+monthly series come from the Data Product Agent's `generate_monthly_series_sql` (declared dimension,
+canonical YYYY-MM); when it cannot build one there is no series rather than one on a guessed column.
+SQL Server and Snowflake series group on the declared fiscal columns. `_apply_span` removed.
+
+Before/after 2026-10-18 on every KPI read: lubricants 17, Apex 15, Hess 11 identical on value,
+comparison value, change, spans and monthly series; lubricants Gross Revenue and Sales Tax Collected
+read for the first time (their nested queries still give no monthly series: owner chose to fix that in
+the data product). Tests: `tests/unit/test_sa_period_comparisons.py`, `test_11i_alert_intelligence.py`.

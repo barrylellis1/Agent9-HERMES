@@ -626,31 +626,30 @@ class TestSQLServerSQLHelpers:
         assert "Budget" in result
 
     # -----------------------------------------------------------------------
-    # _apply_span — a comparison span appended to T-SQL (Phase 26; was _bq_apply_period)
+    # The period filter appended to T-SQL (owner ruling B4: through TimeFilter, on the KPI's
+    # declared time dimension; was _apply_span on a guessed date column)
     # -----------------------------------------------------------------------
 
-    def test_apply_span_appends_and_when_where_exists(self):
-        """_apply_span appends AND <date> BETWEEN when SQL already has a WHERE clause."""
-        from datetime import date
-        from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent
-        from src.analysis.period_comparisons import Span
+    def test_period_filter_appends_and_when_where_exists(self):
+        """The fiscal filter is ANDed onto a SQL that already has a WHERE clause."""
+        from src.database.time_filter import TimeFilter
         sql = (
             "SELECT SUM([amount]) AS value "
             "FROM [dbo].[HessStarSchemaView] "
             "WHERE [account_type] = 'Revenue' AND [version] = 'Actual'"
         )
-        result = A9_Situation_Awareness_Agent._apply_span(sql, Span(date(2026, 1, 1), date(2026, 7, 31)))
-        assert result.endswith("AND transaction_date BETWEEN '2026-01-01' AND '2026-07-31'")
+        spec = {"type": "fiscal_year_period", "year_column": "fiscal_year", "period_column": "fiscal_period"}
+        cond = TimeFilter.current_condition(spec, "ytd_vs_pytd@2026-07-31", dialect="sqlserver")
+        result = TimeFilter.append_condition(sql, cond)
+        assert result.endswith("AND fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 7")
         assert result.upper().count("WHERE") == 1, "Should not add a second WHERE"
 
-    def test_apply_span_adds_where_when_none_exists(self):
-        """_apply_span adds WHERE <date> BETWEEN when the SQL has no WHERE clause."""
-        from datetime import date
-        from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent
-        from src.analysis.period_comparisons import Span
+    def test_period_filter_adds_where_when_none_exists(self):
+        """A date-keyed dimension gets a WHERE <date> BETWEEN when the SQL has no WHERE clause."""
+        from src.database.time_filter import TimeFilter
         sql = "SELECT SUM([amount]) AS value FROM [dbo].[View]"
-        result = A9_Situation_Awareness_Agent._apply_span(sql, Span(date(2026, 1, 1), date(2026, 7, 31)), "posting_date")
-        assert "WHERE posting_date BETWEEN '2026-01-01' AND '2026-07-31'" in result
+        cond = TimeFilter.current_condition({"type": "date", "column": "posting_date"}, "ytd_vs_pytd@2026-07-31", dialect="sqlserver")
+        assert "WHERE posting_date BETWEEN '2026-01-01' AND '2026-07-31'" in TimeFilter.append_condition(sql, cond)
 
     def test_ytd_request_compares_with_the_same_span_a_year_earlier(self):
         """The dashboard's request (an enum, not a string) reads YTD against previous year YTD."""
