@@ -27,7 +27,7 @@ CLIENT_META = {
     "id": CLIENT_ID,
     "name": "Lubricants Business",
     "industry": "Oil & Gas / Specialty Chemicals",
-    "data_product_ids": ["dp_lubricants_financials", "dp_lubricants_sales"],
+    "data_product_ids": ["dp_lubricants_financials", "dp_lubricants_sales", "dp_lubricants_orders"],
     # --- Corporate value model (Phase 15 Stage J) --------------------------
     # AUTHORED, not inferred. These are preferences, not facts — there is no
     # correct value to converge on and nothing to tune toward, so they must be
@@ -195,10 +195,21 @@ _SALES_DP_ID = "dp_lubricants_sales"
 _SALES_VIEW = "LubricantsSalesStarView"
 _SALES_BQ_PREFIX = f"`agent9-465818.LubricantsBusiness.{_SALES_VIEW}`"
 
+# Order level (owner, 2026-10-18): "the data product definition should follow the granularity of
+# the KPI we're chasing." Gross revenue, sales tax, order count, average order value and
+# cancellation rate are measured per ORDER; on the line-level view they needed a nested query to
+# count each order once (and so had no monthly trend). View: scripts/generate_lubricants_sales_data.py
+# (ORDER_VIEW_NAME / order_view_sql).
+_ORDERS_DP_ID = "dp_lubricants_orders"
+_ORDERS_VIEW = "LubricantsSalesOrderView"
+_ORDERS_BQ_PREFIX = f"`agent9-465818.LubricantsBusiness.{_ORDERS_VIEW}`"
+
 SALES_DATA_PRODUCT: Dict[str, Any] = {
     "id": _SALES_DP_ID,
     "client_id": CLIENT_ID,
-    "name": "Lubricants Sales Orders",
+    # Renamed 2026-10-18 from "Lubricants Sales Orders": this product is one row per order LINE;
+    # the order-level product is dp_lubricants_orders below. The id is unchanged.
+    "name": "Lubricants Sales Order Lines",
     "domain": "Sales",
     "source_system": "bigquery",
     "description": (
@@ -272,7 +283,66 @@ _SALES_DIMS = [
     {"name": "Sales Org", "field": "sales_org"},
 ]
 
-DATA_PRODUCTS: List[Dict[str, Any]] = [DATA_PRODUCT, SALES_DATA_PRODUCT]
+ORDERS_DATA_PRODUCT: Dict[str, Any] = {
+    "id": _ORDERS_DP_ID,
+    "client_id": CLIENT_ID,
+    "name": "Lubricants Sales Orders",
+    "domain": "Sales",
+    "source_system": "bigquery",
+    "description": (
+        "One row per sales order for the Lubricants Business division: order gross, net and tax "
+        "amounts, lifecycle, billing and delivery status, customer and sales organisation. Order-level "
+        "measures (gross revenue, sales tax, order count, average order value, cancellation rate) are "
+        "simple totals here. Net amount reconciles exactly to dp_lubricants_financials' Net Revenue."
+    ),
+    "owner": "Sales Operations",
+    "owner_role": "COO",
+    "metadata": {
+        "source_system": "bigquery",
+        "bigquery_project": "agent9-465818",
+        "bigquery_dataset": "LubricantsBusiness",
+        "reconciles_to": "dp_lubricants_financials.net_revenue",
+    },
+    # Owner ruling 2026-10-18: the order's revenue-recognition period is the main key (every
+    # order's lines fall in one fiscal month: 0 of 24,961 orders span months), plus order date.
+    # Delivery date stays on the line product: an order's lines are delivered separately.
+    "time_dimensions": [
+        {
+            "type": "fiscal_year_period",
+            "year_column": "fiscal_year",
+            "period_column": "fiscal_period",
+            "period_column_type": "string",
+            "period_type": "month",
+            "column": "",
+            "source_columns": ["fiscal_year", "fiscal_period"],
+            "display_expr": "CONCAT(CAST(fiscal_year AS STRING), '-', fiscal_period)",
+            "sort_expr": "fiscal_year * 100 + CAST(fiscal_period AS INT64)",
+            "label": "Fiscal Period (Revenue Recognition)",
+            "comparison_basis": "revenue_recognition",
+            "granularity": "month",
+            "primary": True,
+        },
+        {
+            "type": "date",
+            "column": "order_date",
+            "label": "Order Date",
+            "comparison_basis": "order_placement",
+            "granularity": "month",
+            "primary": False,
+        },
+    ],
+}
+
+# Owner ruling 2026-10-18, accepted knowingly: an order holds several products and its lines carry
+# their own channel and profit centre, so order-level KPIs break down by customer and sales
+# organisation only, not by product or channel.
+_ORDERS_DIMS = [
+    {"name": "Customer Segment", "field": "customer_segment"},
+    {"name": "Customer Region", "field": "customer_region"},
+    {"name": "Sales Org", "field": "sales_org"},
+]
+
+DATA_PRODUCTS: List[Dict[str, Any]] = [DATA_PRODUCT, SALES_DATA_PRODUCT, ORDERS_DATA_PRODUCT]
 
 KPIS: List[Dict[str, Any]] = [
     # -----------------------------------------------------------------------
@@ -797,10 +867,11 @@ KPIS: List[Dict[str, Any]] = [
         "domain": "Sales",
         "description": "Total number of distinct sales orders placed in the period.",
         "unit": "orders",
-        "data_product_id": _SALES_DP_ID,
-        "view_name": _SALES_VIEW,
+        "data_product_id": _ORDERS_DP_ID,  # moved 2026-10-18, order level
+        "view_name": _ORDERS_VIEW,
         "business_process_ids": ["sales_operations", "order_processing"],
-        "sql_query": f"SELECT COUNT(DISTINCT sales_order_id) AS value FROM {_SALES_BQ_PREFIX}",
+        # One row per order: a plain count (was COUNT(DISTINCT sales_order_id) over order lines; same number).
+        "sql_query": f"SELECT COUNT(*) AS value FROM {_ORDERS_BQ_PREFIX}",
         "filters": {},
         # Phase 17 T1/T2 (2026-09-02): a segment's order count genuinely sums
         # to the total -- the plain-vanilla additive case, and one of the two
@@ -814,7 +885,7 @@ KPIS: List[Dict[str, Any]] = [
         "thresholds": [
             {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
-        "dimensions": _SALES_DIMS,
+        "dimensions": _ORDERS_DIMS,
         "tags": ["sales", "orders", "volume", "lubricants"],
         "owner_role": "COO",
         "stakeholder_roles": ["CFO", "Sales Manager"],
@@ -859,10 +930,11 @@ KPIS: List[Dict[str, Any]] = [
         "domain": "Sales",
         "description": "Net sales value per order (SUM net amount / distinct order count).",
         "unit": "$",
-        "data_product_id": _SALES_DP_ID,
-        "view_name": _SALES_VIEW,
+        "data_product_id": _ORDERS_DP_ID,  # moved 2026-10-18, order level
+        "view_name": _ORDERS_VIEW,
         "business_process_ids": ["sales_operations"],
-        "sql_query": f"SELECT SAFE_DIVIDE(SUM(net_amount), COUNT(DISTINCT sales_order_id)) AS value FROM {_SALES_BQ_PREFIX}",
+        # Net per order over order rows (was SUM(net_amount) / COUNT(DISTINCT order) over lines; same number).
+        "sql_query": f"SELECT SAFE_DIVIDE(SUM(order_net_amount), COUNT(*)) AS value FROM {_ORDERS_BQ_PREFIX}",
         "filters": {},
         # Phase 17 T1/T2 (2026-09-02): defined AS a per-order average, so it is
         # NOT additive across segments (same non-additive shape as
@@ -882,7 +954,7 @@ KPIS: List[Dict[str, Any]] = [
         "thresholds": [
             {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
-        "dimensions": _SALES_DIMS,
+        "dimensions": _ORDERS_DIMS,
         "tags": ["sales", "order-value", "lubricants"],
         "owner_role": "COO",
         "stakeholder_roles": ["CFO", "Sales Manager"],
@@ -916,15 +988,11 @@ KPIS: List[Dict[str, Any]] = [
         "domain": "Finance",
         "description": "Total order value before tax -- the Sales-side gross bookings figure, one exact ORDER-level total per sales_order_id (not per line item).",
         "unit": "$",
-        "data_product_id": _SALES_DP_ID,
-        "view_name": _SALES_VIEW,
+        "data_product_id": _ORDERS_DP_ID,  # moved 2026-10-18, order level
+        "view_name": _ORDERS_VIEW,
         "business_process_ids": ["sales_operations", "finance_revenue_growth_analysis"],
-        "sql_query": (
-            f"SELECT SUM(gross) AS value FROM ("
-            f"SELECT sales_order_id, fiscal_year, fiscal_period, ANY_VALUE(order_gross_amount) AS gross "
-            f"FROM {_SALES_BQ_PREFIX} GROUP BY sales_order_id, fiscal_year, fiscal_period"
-            f") WHERE 1=1"
-        ),
+        # One row per order, so a plain total (was a nested query collapsing lines to orders; same number).
+        "sql_query": f"SELECT SUM(order_gross_amount) AS value FROM {_ORDERS_BQ_PREFIX}",
         "filters": {},
         "unit_class": "currency",
         "additive_across_dimensions": True,
@@ -935,7 +1003,7 @@ KPIS: List[Dict[str, Any]] = [
         "thresholds": [
             {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
-        "dimensions": _SALES_DIMS,
+        "dimensions": _ORDERS_DIMS,
         "tags": ["sales", "revenue", "gross", "lubricants"],
         "owner_role": "CFO",
         "stakeholder_roles": ["CFO", "Sales Manager"],
@@ -948,15 +1016,11 @@ KPIS: List[Dict[str, Any]] = [
         "domain": "Finance",
         "description": "Total tax collected on sales orders -- the entire gross-to-net revenue gap in this dataset (no separate discount/rebate lines exist).",
         "unit": "$",
-        "data_product_id": _SALES_DP_ID,
-        "view_name": _SALES_VIEW,
+        "data_product_id": _ORDERS_DP_ID,  # moved 2026-10-18, order level
+        "view_name": _ORDERS_VIEW,
         "business_process_ids": ["finance_revenue_growth_analysis"],
-        "sql_query": (
-            f"SELECT SUM(tax) AS value FROM ("
-            f"SELECT sales_order_id, fiscal_year, fiscal_period, ANY_VALUE(order_tax_amount) AS tax "
-            f"FROM {_SALES_BQ_PREFIX} GROUP BY sales_order_id, fiscal_year, fiscal_period"
-            f") WHERE 1=1"
-        ),
+        # One row per order, so a plain total (was a nested query collapsing lines to orders; same number).
+        "sql_query": f"SELECT SUM(order_tax_amount) AS value FROM {_ORDERS_BQ_PREFIX}",
         "filters": {},
         "unit_class": "currency",
         "additive_across_dimensions": True,
@@ -967,7 +1031,7 @@ KPIS: List[Dict[str, Any]] = [
         "thresholds": [
             {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],
-        "dimensions": _SALES_DIMS,
+        "dimensions": _ORDERS_DIMS,
         "tags": ["sales", "tax", "lubricants"],
         "owner_role": "CFO",
         "stakeholder_roles": ["CFO"],
@@ -1009,15 +1073,16 @@ KPIS: List[Dict[str, Any]] = [
         "domain": "Sales",
         "description": "Percentage of sales orders with lifecycle status Cancelled.",
         "unit": "%",
-        "data_product_id": _SALES_DP_ID,
-        "view_name": _SALES_VIEW,
+        "data_product_id": _ORDERS_DP_ID,  # moved 2026-10-18, order level
+        "view_name": _ORDERS_VIEW,
         "business_process_ids": ["order_processing"],
-        "sql_query": f"SELECT SAFE_DIVIDE(COUNTIF(lifecycle_status = 'X'), COUNT(*)) * 100 AS value FROM {_SALES_BQ_PREFIX}",
+        # Each order counts once (owner ruling 2026-10-18). Over order LINES a 4-line cancelled order counted four times.
+        "sql_query": f"SELECT SAFE_DIVIDE(COUNTIF(lifecycle_status = 'X'), COUNT(*)) * 100 AS value FROM {_ORDERS_BQ_PREFIX}",
         "filters": {"lifecycle_status": "X"},
         "thresholds": [
             {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": True},
         ],
-        "dimensions": _SALES_DIMS,
+        "dimensions": _ORDERS_DIMS,
         "tags": ["sales", "cancellations", "operations", "lubricants"],
         "owner_role": "COO",
         "stakeholder_roles": ["Sales Manager"],

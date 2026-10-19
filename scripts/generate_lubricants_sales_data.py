@@ -48,6 +48,46 @@ random.seed(43)  # Distinct from the Finance generator's seed(42) -- order/line
                   # randomness layered on top of the captured, already-fixed amounts.
 
 VIEW_NAME = "LubricantsSalesStarView"
+# One row per sales order (owner, 2026-10-18: a data product follows the grain of the KPI it serves).
+# Backs dp_lubricants_orders: gross revenue, sales tax, order count, average order value and
+# cancellation rate are order-level measures; on the line-level view above they needed a nested
+# query to count each order once.
+ORDER_VIEW_NAME = "LubricantsSalesOrderView"
+
+
+def order_view_sql() -> str:
+    """CREATE VIEW statement for the order-level view. Every order's lines share one fiscal month
+    (orders are batched per customer and month below; verified 2026-10-18: 0 of 24,961 orders span
+    months), so the order's recognition period is unambiguous."""
+    return f"""
+CREATE OR REPLACE VIEW `{PROJECT_ID}.{DATASET_ID}.{ORDER_VIEW_NAME}` AS
+SELECT
+  so.SALESORDERID AS sales_order_id,
+  so.CREATEDAT AS order_date,
+  ANY_VALUE(soi.fiscal_year) AS fiscal_year,
+  ANY_VALUE(soi.fiscal_month) AS fiscal_month,
+  -- Same convention as the line view and Finance: zero-padded 3-digit STRING recognition period.
+  FORMAT('%03d', ANY_VALUE(soi.fiscal_month)) AS fiscal_period,
+  so.PARTNERID AS partner_id,
+  bp.COMPANYNAME AS customer_name,
+  bp.CUSTOMER_SEGMENT AS customer_segment,
+  bp.CUSTOMER_REGION AS customer_region,
+  so.SALESORG AS sales_org,
+  so.CURRENCY AS currency,
+  so.GROSSAMOUNT AS order_gross_amount,
+  so.NETAMOUNT AS order_net_amount,
+  so.TAXAMOUNT AS order_tax_amount,
+  so.LIFECYCLESTATUS AS lifecycle_status,
+  so.BILLINGSTATUS AS billing_status,
+  so.DELIVERYSTATUS AS delivery_status,
+  COUNT(*) AS line_count
+FROM `{PROJECT_ID}.{DATASET_ID}.SalesOrders` so
+JOIN `{PROJECT_ID}.{DATASET_ID}.SalesOrderItems` soi ON soi.SALESORDERID = so.SALESORDERID
+LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.BusinessPartners` bp ON so.PARTNERID = bp.PARTNERID
+GROUP BY so.SALESORDERID, so.CREATEDAT, so.PARTNERID, bp.COMPANYNAME, bp.CUSTOMER_SEGMENT,
+         bp.CUSTOMER_REGION, so.SALESORG, so.CURRENCY, so.GROSSAMOUNT, so.NETAMOUNT, so.TAXAMOUNT,
+         so.LIFECYCLESTATUS, so.BILLINGSTATUS, so.DELIVERYSTATUS
+"""
 
 # "Today" for the running demo, used to derive plausible lifecycle status.
 DEMO_TODAY = date(2026, 8, 20)
@@ -286,6 +326,10 @@ LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.Products` p ON soi.PRODUCTID = p.product_id
 """
     print(f"Creating view {VIEW_NAME}...")
     client.query(view_sql).result()
+    print(f"  -> View created successfully")
+
+    print(f"Creating view {ORDER_VIEW_NAME}...")
+    client.query(order_view_sql()).result()
     print(f"  -> View created successfully")
 
     count_query = f"SELECT COUNT(*) as cnt FROM `{PROJECT_ID}.{DATASET_ID}.{VIEW_NAME}`"

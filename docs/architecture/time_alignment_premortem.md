@@ -77,7 +77,9 @@ reads) multiplies warehouse queries.
 
 ## Bearing on open items (2026-10-18)
 
-- **Trends for nested-query KPIs** (open). Extending the query rewrite to nested queries is failure 1;
+- **Trends for nested-query KPIs** (resolved 2026-10-18: the owner chose an order-level data product,
+  because a data product follows the grain of the KPI it serves; see `period_comparisons_decisions.md`,
+  build choice 5). Extending the query rewrite to nested queries is failure 1;
   reading each month separately is failure 7. The contract path suggests fixing the data product
   instead: for example, the Sales data product exposing one row per order with its fiscal period, so
   Gross Revenue becomes a simple total and gets a trend from the existing builder. Claude had first

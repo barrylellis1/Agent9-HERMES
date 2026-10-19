@@ -136,6 +136,17 @@ read the same rows. Kept only after the owner has reviewed before-and-after figu
 - *Considered:* dating the two unreadable Sales KPIs by order or delivery date (ruled out by Phase 25:
   90% of order lines fall in a different month from their revenue recognition).
 
+**5. Trends for order-level KPIs.** A data product follows the grain of the KPI it serves. Gross
+revenue, sales tax, order count, average order value and cancellation rate are measured per order, so
+they now sit on a new order-level data product, "Lubricants Sales Orders" (one row per order); the
+line-level product is renamed "Lubricants Sales Order Lines". Each now has a monthly trend. Their
+figures are unchanged except cancellation rate, which now counts each order once (1.83% → 1.92% year
+to date; 1.93% → 1.99% last year to date). At order level these KPIs break down by customer and sales
+organisation, not by product or channel.
+- *Considered:* carrying gross and tax on each order line by allocation (rejected: the data product
+  should match the KPI's grain); extending Agent9's query rewriting to nested queries (see
+  `time_alignment_premortem.md`).
+
 ## What a reader of a card now sees
 
 | Situation | Tile | Card detail |
