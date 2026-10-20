@@ -1754,6 +1754,13 @@ PRINCIPALS: List[Dict[str, Any]] = [
             "finance_profitability_analysis",
             "operations_inventory_turnover_analysis",
             "supply_chain_logistics_efficiency",
+            # Owner ruling 2026-10-19: the COO is accountable for the five operational Sales KPIs
+            # (order count, units sold, average order value, fulfilment, cancellation; see
+            # ACCOUNTABILITY), but a dashboard first takes the KPIs in a principal's business
+            # processes, so without these they reached no one's screen.
+            "sales_operations",
+            "order_processing",
+            "operations_order_to_cash_cycle_optimization",
         ],
         "default_filters": {"Fiscal Year": ["2024", "2025", "2026"]},
         "typical_timeframes": ["Monthly", "Quarterly"],

@@ -2174,7 +2174,14 @@ class A9_Situation_Awareness_Agent:
 
         # Normalize selected processes: handle both display names (e.g., "Finance: Expense Management")
         # and canonical IDs (e.g., "finance_expense_management") for robust matching.
+        # A display name is looked up in the business-process registry first (2026-10-20); the
+        # wording-based guess below is only the fallback for names the registry does not know.
+        _bp_ids_by_label = self._business_process_ids_by_label()
+
         def _to_bp_id(bp_str: str) -> str:
+            known = _bp_ids_by_label.get((bp_str or "").strip().lower())
+            if known:
+                return known
             try:
                 s = (bp_str or "").strip().lower()
                 # If already looks like an id (no colon and contains underscores), use as-is
@@ -2327,6 +2334,35 @@ class A9_Situation_Awareness_Agent:
             coverage_out["registered"] = len(registry_items)
             coverage_out["evaluated"] = len(ordered_kpis)
         return ordered_kpis
+
+    def _business_process_ids_by_label(self) -> Dict[str, str]:
+        """Business-process display name, name or id (lower-case) -> id, from the registry.
+
+        The Principal Context Agent turns a principal's business-process IDs into their registered
+        display names; guessing the ID back from the wording fails whenever a display name's
+        domain differs from its ID's prefix: "Sales: Sales Operations" is `sales_operations`, not
+        `sales_sales_operations`, and "Operations: Order Processing" is `order_processing`. Found
+        2026-10-20: the COO's sales processes matched no KPI, so three KPIs the COO is accountable
+        for never reached their dashboard. Empty on any failure (the guess then applies, as before).
+        """
+        out: Dict[str, str] = {}
+        try:
+            cfg = getattr(self, "config", None)
+            registry_factory = cfg.get("registry_factory") if isinstance(cfg, dict) else None
+            if not registry_factory:
+                from src.registry.factory import RegistryFactory
+                registry_factory = RegistryFactory()
+            provider = registry_factory.get_provider("business_process")
+            for bp in (provider.get_all() if provider else None) or []:
+                bp_id = getattr(bp, "id", None)
+                if not bp_id:
+                    continue
+                for label in (getattr(bp, "display_name", None), getattr(bp, "name", None), bp_id):
+                    if label:
+                        out.setdefault(str(label).strip().lower(), bp_id)
+        except Exception as _bpe:
+            self.logger.debug(f"[SA] business-process lookup unavailable: {_bpe}")
+        return out
 
     def _apply_principal_kpi_preferences(
         self,

@@ -350,3 +350,37 @@ class TestSABusinessProcessFailOpen:
             )
 
         assert "net_revenue_actual" in result
+
+
+class TestBusinessProcessDisplayNamesMatchByRegistry:
+    """2026-10-20: a principal's business processes arrive as registered display names. Guessing
+    the ID back from the wording turned "Sales: Sales Operations" into sales_sales_operations, so
+    KPIs on sales_operations reached no dashboard. The registry lookup gives the real ID."""
+
+    @staticmethod
+    def _agent_with_registry(bps):
+        from types import SimpleNamespace
+        agent = _sa_agent()
+        provider = SimpleNamespace(get_all=lambda: bps)
+        agent.config = {"registry_factory": SimpleNamespace(get_provider=lambda name: provider if name == "business_process" else None)}
+        kpi = MagicMock(spec=KPIDefinition)
+        kpi.id, kpi.name, kpi.client_id = "sales_order_count", "Sales Order Count", "lubricants"
+        kpi.business_processes = ["sales_operations", "Sales: Operations"]
+        kpi.business_process_ids = ["sales_operations"]
+        agent.kpi_registry = {"lubricants:Sales Order Count": kpi}
+        return agent
+
+    def _relevant(self, agent, names):
+        ctx = MagicMock(spec=PrincipalContext)
+        ctx.principal_id, ctx.role, ctx.business_processes = "coo_001", "COO", names
+        with patch.object(agent, "_apply_principal_kpi_preferences", side_effect=lambda _c, k: k):
+            return agent._get_relevant_kpis(ctx, business_processes=names, client_id="lubricants")
+
+    def test_a_display_name_is_matched_through_the_registry(self):
+        from types import SimpleNamespace
+        bp = SimpleNamespace(id="sales_operations", name="Sales Operations", display_name="Sales: Sales Operations")
+        assert "Sales Order Count" in self._relevant(self._agent_with_registry([bp]), ["Sales: Sales Operations"])
+
+    def test_without_the_registry_the_old_guess_still_applies(self):
+        # the guess turns the display name into sales_sales_operations, which matches nothing
+        assert "Sales Order Count" not in self._relevant(self._agent_with_registry([]), ["Sales: Sales Operations"])

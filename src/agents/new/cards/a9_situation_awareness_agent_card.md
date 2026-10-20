@@ -747,3 +747,16 @@ order value, cancellation rate, units sold, fulfilment rate) out of every scan. 
 `_kpi_matches_domains` are removed; a caller still passing `target_domains` gets an INFO log saying
 it no longer applies. Before/after 2026-10-19 on lubricants: 19 → 24 of 24 KPIs read, the 19 and the
 20 existing cards unchanged, five new cards. Test: `tests/unit/test_sa_kpi_registry.py`.
+
+## Business-process display names are matched through the registry (2026-10-20)
+
+A principal's business processes arrive from the Principal Context Agent as registered display
+names. `_get_relevant_kpis` used to guess each ID back from the wording, which fails whenever the
+display name's domain differs from the ID's prefix ("Sales: Sales Operations" became
+`sales_sales_operations`, "Operations: Order Processing" became `operations_order_processing`).
+`_business_process_ids_by_label()` now maps display name / name / id to the real ID from the
+business-process registry; the guess remains only for names the registry does not know. Measured
+across every principal of lubricants, Apex, Hess and Bicycle: only the lubricants COO's scope
+changed (after the owner gave the COO the sales business processes, 2026-10-19/20): 8 -> 13 KPIs,
+the five operational Sales KPIs the COO is accountable for. Test:
+`tests/unit/test_kpi_accountability_wiring.py::TestBusinessProcessDisplayNamesMatchByRegistry`.
