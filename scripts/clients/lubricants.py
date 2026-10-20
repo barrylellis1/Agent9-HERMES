@@ -216,7 +216,10 @@ SALES_DATA_PRODUCT: Dict[str, Any] = {
         "BigQuery dataset covering Sales Order header and line-item detail for the "
         "Lubricants Business division -- order volume, units sold, and fulfillment "
         "status underneath the Finance revenue figures. Net amount reconciles "
-        "exactly to dp_lubricants_financials' Net Revenue KPI (same generation basis)."
+        "exactly to dp_lubricants_financials' Net Revenue KPI (same generation basis). "
+        "DEMO DATA WITH A PLANTED SCENARIO, not a finding: from June 2026 port congestion makes "
+        "about a third of Asia-Pacific deliveries late (scripts/generate_lubricants_sales_data.py, "
+        "PLANTED_*); elsewhere about 4% of lines are late and 1% never delivered, at random."
     ),
     "owner": "Sales Operations",
     "owner_role": "COO",
@@ -1042,15 +1045,20 @@ KPIS: List[Dict[str, Any]] = [
         "client_id": CLIENT_ID,
         "name": "Order Fulfillment Rate",
         "domain": "Sales",
-        "description": "Percentage of sales order lines with delivery status Completed.",
+        "description": "On-time delivery: share of order lines delivered by their planned delivery date (cancelled orders excluded).",
         "unit": "%",
         "data_product_id": _SALES_DP_ID,
         "view_name": _SALES_VIEW,
         "business_process_ids": ["order_processing", "operations_order_to_cash_cycle_optimization"],
-        "sql_query": f"SELECT SAFE_DIVIDE(COUNTIF(delivery_status = 'C'), COUNT(*)) * 100 AS value FROM {_SALES_BQ_PREFIX}",
-        "filters": {"delivery_status": "C"},
+        # Redefined 2026-10-19 (owner): on-time delivery, the standard fulfilment measure. The old
+        # definition (share of lines with status Completed) read a status frozen at the generator's
+        # DEMO_TODAY, and with real lateness a late line still ends up delivered, so it barely moved.
+        "sql_query": f"SELECT SAFE_DIVIDE(COUNTIF(delivered_on_time), COUNTIF(lifecycle_status != 'X')) * 100 AS value FROM {_SALES_BQ_PREFIX}",
+        "filters": {},
+        # Owner 2026-10-19: judged on the change against last year, suited to a rate near its
+        # ceiling (~95%). The old +2% growth target made a steady rate raise a card every scan.
         "thresholds": [
-            {"comparison_type": "ytd_vs_pytd", "green_threshold": 2.0, "yellow_threshold": 0.0, "red_threshold": -2.0, "inverse_logic": False},
+            {"comparison_type": "ytd_vs_pytd", "green_threshold": -0.5, "yellow_threshold": -1.0, "red_threshold": -2.0, "inverse_logic": False},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "fulfillment", "operations", "lubricants"],

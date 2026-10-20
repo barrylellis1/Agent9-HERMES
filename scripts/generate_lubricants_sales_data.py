@@ -79,18 +79,42 @@ SELECT
   so.TAXAMOUNT AS order_tax_amount,
   so.LIFECYCLESTATUS AS lifecycle_status,
   so.BILLINGSTATUS AS billing_status,
-  so.DELIVERYSTATUS AS delivery_status,
+  -- Delivered once every line has been, against the real date (owner ruling 2026-10-19).
+  CASE WHEN so.LIFECYCLESTATUS = 'X' THEN 'X'
+       WHEN COUNTIF(soi.ACTUALDELIVERYDATE IS NULL
+                    OR soi.ACTUALDELIVERYDATE > FORMAT_DATE('%Y-%m-%d', CURRENT_DATE())) = 0 THEN 'C'
+       ELSE 'I' END AS delivery_status,
   COUNT(*) AS line_count
 FROM `{PROJECT_ID}.{DATASET_ID}.SalesOrders` so
 JOIN `{PROJECT_ID}.{DATASET_ID}.SalesOrderItems` soi ON soi.SALESORDERID = so.SALESORDERID
 LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.BusinessPartners` bp ON so.PARTNERID = bp.PARTNERID
 GROUP BY so.SALESORDERID, so.CREATEDAT, so.PARTNERID, bp.COMPANYNAME, bp.CUSTOMER_SEGMENT,
          bp.CUSTOMER_REGION, so.SALESORG, so.CURRENCY, so.GROSSAMOUNT, so.NETAMOUNT, so.TAXAMOUNT,
-         so.LIFECYCLESTATUS, so.BILLINGSTATUS, so.DELIVERYSTATUS
+         so.LIFECYCLESTATUS, so.BILLINGSTATUS
 """
 
-# "Today" for the running demo, used to derive plausible lifecycle status.
+# "Today" for the running demo, used to derive plausible lifecycle and billing status.
+# Delivery status no longer comes from it: the views work it out from each line's actual delivery
+# date against the real date, so it cannot freeze (found 2026-10-19: frozen at this date, the
+# on-time picture read 98% to July, 75% in August and 13% in September).
 DEMO_TODAY = date(2026, 8, 20)
+
+# ── Delivery outcomes (owner rulings, 2026-10-19) ─────────────────────────────────────────────
+# Each order line has a planned delivery date (DELIVERYDATE) and an actual one (ACTUALDELIVERYDATE,
+# NULL when never delivered). Drawn from their own random sequence, so adding them changes no
+# other generated value: order structure, amounts, quantities and statuses are as before.
+FULFILMENT_SEED = 44
+BACKGROUND_LATE_SHARE = 0.04       # steady background: 4% of lines late ...
+BACKGROUND_LATE_DAYS = (1, 20)     # ... by 1 to 20 days
+FAILED_SHARE = 0.01                # 1% never delivered
+# PLANTED SCENARIO, demo only, not a finding: from June 2026 port congestion makes about a third
+# of Asia-Pacific deliveries late. Asia-Pacific is 4% of order lines, so the company-wide on-time
+# rate moves about half a point while Asia-Pacific's falls to about 65%: a sharp local problem
+# with a modest total effect. Deep Analysis should trace it to the APJ sales organisation.
+PLANTED_REGION = "Asia-Pacific"
+PLANTED_FROM = date(2026, 6, 1)
+PLANTED_LATE_SHARE = 1 / 3
+PLANTED_LATE_DAYS = (10, 30)
 
 SALESORG_BY_REGION = {
     "North America": "AMER",
@@ -163,6 +187,7 @@ def generate_sales_orders():
     orders: List[Dict] = []
     items: List[Dict] = []
     order_seq = 200000000  # SAP-style numeric order id, matching the sample's range
+    fulfil_rng = random.Random(FULFILMENT_SEED)  # delivery outcomes only; see FULFILMENT_SEED
 
     for (cust_id, yr, mo), lines in groups.items():
         random.shuffle(lines)
@@ -187,6 +212,18 @@ def generate_sales_orders():
                 delivery_date = order_date + timedelta(days=random.randint(15, 60))
                 net_total += amt
 
+                # Delivery outcome, on its own random sequence (owner rulings 2026-10-19).
+                planted = CUSTOMER_REGION.get(cust_id) == PLANTED_REGION and delivery_date >= PLANTED_FROM
+                late_share = PLANTED_LATE_SHARE if planted else BACKGROUND_LATE_SHARE
+                late_days = PLANTED_LATE_DAYS if planted else BACKGROUND_LATE_DAYS
+                u = fulfil_rng.random()
+                if u < FAILED_SHARE:
+                    actual_delivery = None
+                elif u < FAILED_SHARE + late_share:
+                    actual_delivery = delivery_date + timedelta(days=fulfil_rng.randint(*late_days))
+                else:
+                    actual_delivery = delivery_date
+
                 items.append({
                     "SALESORDERID": order_id,
                     "SALESORDERITEM": item_no,
@@ -196,6 +233,7 @@ def generate_sales_orders():
                     "QUANTITY": quantity,
                     "QUANTITYUNIT": "EA",
                     "DELIVERYDATE": delivery_date.isoformat(),
+                    "ACTUALDELIVERYDATE": actual_delivery.isoformat() if actual_delivery else None,
                     "DELIVERYSTATUS": status["DELIVERYSTATUS"],
                     "channel_id": line["channel_id"],
                     "profit_center_id": line["profit_center_id"],
@@ -296,7 +334,8 @@ SELECT
   soi.NETAMOUNT AS net_amount,
   soi.QUANTITY AS quantity,
   soi.QUANTITYUNIT AS quantity_unit,
-  soi.DELIVERYDATE AS delivery_date,
+  soi.DELIVERYDATE AS delivery_date,                -- planned
+  soi.ACTUALDELIVERYDATE AS actual_delivery_date,   -- NULL: never delivered
   soi.fiscal_year,
   soi.fiscal_month,
   -- fiscal_period matches Finance's convention exactly (LubricantsStarSchemaView /
@@ -318,7 +357,16 @@ SELECT
   so.TAXAMOUNT AS order_tax_amount,
   so.LIFECYCLESTATUS AS lifecycle_status,
   so.BILLINGSTATUS AS billing_status,
-  so.DELIVERYSTATUS AS delivery_status
+  -- Worked out against the real date, so it cannot freeze (owner ruling 2026-10-19).
+  CASE WHEN so.LIFECYCLESTATUS = 'X' THEN 'X'
+       WHEN soi.ACTUALDELIVERYDATE IS NOT NULL
+            AND soi.ACTUALDELIVERYDATE <= FORMAT_DATE('%Y-%m-%d', CURRENT_DATE()) THEN 'C'
+       ELSE 'I' END AS delivery_status,
+  -- On time: delivered, by its planned date (owner ruling 2026-10-19: fulfilment is on-time delivery).
+  (so.LIFECYCLESTATUS != 'X'
+   AND soi.ACTUALDELIVERYDATE IS NOT NULL
+   AND soi.ACTUALDELIVERYDATE <= soi.DELIVERYDATE
+   AND soi.ACTUALDELIVERYDATE <= FORMAT_DATE('%Y-%m-%d', CURRENT_DATE())) AS delivered_on_time
 FROM `{PROJECT_ID}.{DATASET_ID}.SalesOrderItems` soi
 JOIN `{PROJECT_ID}.{DATASET_ID}.SalesOrders` so ON soi.SALESORDERID = so.SALESORDERID
 LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.BusinessPartners` bp ON so.PARTNERID = bp.PARTNERID
