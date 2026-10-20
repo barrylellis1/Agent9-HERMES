@@ -186,6 +186,34 @@ def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: 
     return sentence + tail
 
 
+def _improvement_sentence(name: str, percent_change: float, inverse: bool, green: Any, label: str = "",
+                          points: Optional[float] = None) -> str:
+    """The card sentence for a KPI that moved the right way and met its target: the mirror of
+    `_threshold_sentence` (owner, 2026-10-20: improvement cards follow the problem cards' wording and
+    name their comparison the same way).
+
+    "Midstream Revenue grew 5.8%, above the 5.0% growth target, YTD vs PYTD"; a lower-is-better KPI
+    with a reduction target: "SG&A Expense fell 3.9%, beyond the 2.0% reduction target"; one whose
+    target is a limit on increases (green at or above zero): "Order Cancellation Rate decreased by
+    3.6%". A higher-is-better KPI whose target allows no decline (green at or below zero) reads
+    "increased by". Until 2026-10-20 every lower-is-better KPI read "cost reduction above green
+    threshold", whatever it measured.
+    """
+    amount = _change_amount(percent_change, points)
+    tail = f", {label}" if label else ""
+    try:
+        g = float(green) if green is not None else None
+    except (TypeError, ValueError):
+        g = None
+    if inverse:
+        if g is not None and g < 0:
+            return f"{name} fell {amount}, beyond the {abs(g):.1f}% reduction target{tail}"
+        return f"{name} decreased by {amount}{tail}"
+    if g is not None and g > 0:
+        return f"{name} grew {amount}, above the {g:.1f}% growth target{tail}"
+    return f"{name} increased by {amount}{tail}"
+
+
 def _series_months(monthly_values: Any) -> Optional[str]:
     """The months a monthly series covers, as a card's second line names them ("Jan–Sep 2026").
     None when its labels are not distinct calendar months."""
@@ -952,19 +980,7 @@ class A9_Situation_Awareness_Agent:
             # ── 11I-B: compound cross-KPI alert detection ─────────────────
             situations = await self._detect_compound_alerts(situations, client_id)
 
-            # Deduplicate by (kpi_name, alert_type) — keep highest severity per pair
-            _seen_kpi: dict = {}
-            _severity_order = {s: i for i, s in enumerate(SituationSeverity)}
-            for sit in situations:
-                _key = (sit.kpi_name, sit.alert_type or "threshold_breach")
-                if _key not in _seen_kpi:
-                    _seen_kpi[_key] = sit
-                else:
-                    _existing_rank = _severity_order.get(_seen_kpi[_key].severity, 99)
-                    _new_rank = _severity_order.get(sit.severity, 99)
-                    if _new_rank < _existing_rank:
-                        _seen_kpi[_key] = sit
-            situations = list(_seen_kpi.values())
+            situations = self._deduplicate_situations(situations)
 
             # ── Consolidate multiple problem alert_types for the same KPI ──────
             # A single KPI can legitimately trigger several 11I-A/11I-B patterns in one
@@ -2661,6 +2677,24 @@ class A9_Situation_Awareness_Agent:
             return None
         return result
 
+    @staticmethod
+    def _deduplicate_situations(situations: List['Situation']) -> List['Situation']:
+        """One card per (KPI, pattern), keeping the most severe.
+
+        An improvement card is its own pattern. It used to share the threshold-breach key (both
+        carry no alert_type), so on the same KPI the improvement (HIGH) replaced the problem
+        (MEDIUM): live 2026-10-20, "Net Revenue grew 3.1%, short of the 5.0% growth target" was
+        created and then dropped for an improvement card quoting the wrong target.
+        """
+        seen: Dict[Any, 'Situation'] = {}
+        order = {sev: i for i, sev in enumerate(SituationSeverity)}
+        for sit in situations:
+            pattern = sit.alert_type or ("improvement" if sit.card_type == "opportunity" else "threshold_breach")
+            key = (sit.kpi_name, pattern)
+            if key not in seen or order.get(sit.severity, 99) < order.get(seen[key].severity, 99):
+                seen[key] = sit
+        return list(seen.values())
+
     def _merge_compound_kpi_situations(self, situations: List['Situation']) -> List['Situation']:
         """Fold multiple 'problem' alert_types for the same kpi_name into one card.
 
@@ -3698,6 +3732,9 @@ class A9_Situation_Awareness_Agent:
         current = kpi_value.value
         kpi_name = kpi_definition.name
         positive_trend_is_good = getattr(kpi_definition, "positive_trend_is_good", True)
+        # The comparison the reading used, ending each sentence as on problem cards (2026-10-20)
+        _label = self._reading_label(kpi_value)
+        _tail = f", {_label}" if _label else ""
 
         # ── helpers ───────────────────────────────────────────────────────────
 
@@ -3828,8 +3865,8 @@ class A9_Situation_Awareness_Agent:
                             signals.append(_make_signal(
                                 opportunity_type="recovery",
                                 headline=(
-                                    f"{kpi_name} recovered — up {improvement_pct:.1f}% vs prior period, "
-                                    f"now above performance threshold ({recovery_threshold:,.2f})"
+                                    f"{kpi_name} recovered — up {improvement_pct:.1f}%, "
+                                    f"now above performance threshold ({recovery_threshold:,.2f}){_tail}"
                                 ),
                                 delta_pct=improvement_pct,
                                 baseline=comparison,
@@ -3853,62 +3890,42 @@ class A9_Situation_Awareness_Agent:
                     signals.append(_make_signal(
                         opportunity_type="trend_reversal",
                         headline=(
-                            f"{kpi_name} up {improvement_pct:.1f}% vs prior period "
-                            f"— significant positive trend reversal"
+                            f"{kpi_name} up {improvement_pct:.1f}% "
+                            f"— significant positive trend reversal{_tail}"
                         ),
                         delta_pct=improvement_pct,
                         baseline=comparison,
                         confidence=0.65,
                     ))
 
-        # ── percent_change-based opportunity check (Format B / Supabase KPIs) ──────
-        # YAML KPIs use absolute-value thresholds (handled above). Supabase KPIs
-        # store percent-change thresholds in metadata['variance_thresholds'].
-        # We compare kpi_value.percent_change directly against green_threshold here.
-        if (
-            not signals
-            and kpi_value.percent_change is not None
-            and hasattr(kpi_definition, 'metadata')
-            and isinstance(getattr(kpi_definition, 'metadata', None), dict)
-        ):
-            vt = kpi_definition.metadata.get('variance_thresholds', {})
-            inverse_logic = kpi_definition.thresholds.get('_inverse_logic', False) if isinstance(kpi_definition.thresholds, dict) else False
-            for _ct, _entry in vt.items():
-                if not isinstance(_entry, dict):
-                    continue
-                _green = _entry.get('green')
-                if _green is None:
-                    continue
+        # ── percent_change-based improvement check (Format B / Supabase KPIs) ──────
+        # The same target as the problem path (_threshold_row): the row for the comparison the
+        # reading used. An improvement is a move the right way that meets that target, and a KPI
+        # with no row for that comparison raises none (owner, 2026-10-20: improvement cards follow
+        # the problem cards' logic). It used to read the first row listed whatever its comparison,
+        # took the direction from the KPI rather than the row, and counted any fall in a
+        # lower-is-better KPI as an improvement.
+        if not signals and kpi_value.percent_change is not None:
+            _row = self._threshold_row(kpi_definition, kpi_value)
+            try:
+                _green = float(_row.get('green')) if _row and _row.get('green') is not None else None
+            except (TypeError, ValueError):
+                _green = None
+            if _green is not None:
                 pct = kpi_value.percent_change
-                # For inverse_logic KPIs: percent_change is already sign-flipped so
-                # positive = bad (costs up). Opportunity = costs actually fell (pct < 0).
-                # For positive-trend KPIs: opportunity = pct > green_threshold (above target).
-                if inverse_logic:
-                    if pct < 0:
-                        signals.append(_make_signal(
-                            opportunity_type="outperformance",
-                            headline=(
-                                f"{kpi_name} is {abs(pct):.1f}% below prior year "
-                                f"— cost reduction above green threshold"
-                            ),
-                            delta_pct=abs(pct),
-                            baseline=kpi_value.comparison_value or kpi_value.value,
-                            confidence=0.75,
-                        ))
-                        break
-                else:
-                    if pct > _green:
-                        signals.append(_make_signal(
-                            opportunity_type="outperformance",
-                            headline=(
-                                f"{kpi_name} grew {_change_amount(pct, _point_change(kpi_definition, kpi_value))} "
-                                f"vs prior year — above {_green:.1f}% target"
-                            ),
-                            delta_pct=pct,
-                            baseline=kpi_value.comparison_value or kpi_value.value,
-                            confidence=0.75,
-                        ))
-                        break
+                _inverse = bool(_row.get('inverse_logic', False))
+                _met = (pct < 0 and pct < _green) if _inverse else (pct > 0 and pct > _green)
+                if _met:
+                    signals.append(_make_signal(
+                        opportunity_type="outperformance",
+                        headline=_improvement_sentence(
+                            kpi_name, pct, _inverse, _green, _label,
+                            points=_point_change(kpi_definition, kpi_value),
+                        ),
+                        delta_pct=abs(pct) if _inverse else pct,
+                        baseline=kpi_value.comparison_value or kpi_value.value,
+                        confidence=0.75,
+                    ))
 
         return signals
 
@@ -4088,21 +4105,7 @@ class A9_Situation_Awareness_Agent:
                 percent_change = (kpi_value.value - kpi_value.comparison_value) / abs(kpi_value.comparison_value) * 100
 
             # Prefer registry-defined variance thresholds when available
-            vt_cfg = None
-            try:
-                meta = getattr(kpi_definition, 'metadata', None) or {}
-                vt_all = meta.get('variance_thresholds') or {}
-                comp_key = None
-                # The row for the comparison the reading used (Phase 26); a value without
-                # that provenance falls back to the request's comparison type.
-                _ctx_t = getattr(kpi_value, 'context', None)
-                _read_as = getattr(_ctx_t, 'fallback_from', None) or getattr(_ctx_t, 'period_comparison', None)
-                ct = _read_as or getattr(kpi_value, 'comparison_type', None)
-                if ct is not None:
-                    comp_key = _threshold_key(ct)
-                vt_cfg = vt_all.get(comp_key) if comp_key else None
-            except Exception:
-                vt_cfg = None
+            vt_cfg = self._threshold_row(kpi_definition, kpi_value)
 
             if vt_cfg:
                 inv = bool(vt_cfg.get('inverse_logic', False))
@@ -4194,6 +4197,29 @@ class A9_Situation_Awareness_Agent:
         
         return situations
     
+    @staticmethod
+    def _threshold_row(kpi_definition: Any, kpi_value: Any) -> Optional[Dict[str, Any]]:
+        """The threshold row a reading is judged on: the row for the comparison it used (Phase 26;
+        the February fallback is judged on its year-to-date row), or, for a value without that
+        provenance, the request's comparison type. None when the KPI has no row for it.
+
+        Problem and improvement cards both read this row, so one reading is never short of one
+        target and above another. Found live 2026-10-20: improvement cards read the first row
+        listed, whatever its comparison, and lubricants Net Revenue (+3.1% year to date against a
+        5.0% target) showed "above 3.0% target", its quarter-on-quarter target.
+        """
+        try:
+            meta = getattr(kpi_definition, 'metadata', None) or {}
+            vt_all = meta.get('variance_thresholds') or {}
+            _ctx_t = getattr(kpi_value, 'context', None)
+            _read_as = getattr(_ctx_t, 'fallback_from', None) or getattr(_ctx_t, 'period_comparison', None)
+            ct = _read_as or getattr(kpi_value, 'comparison_type', None)
+            comp_key = _threshold_key(ct) if ct is not None else None
+            row = vt_all.get(comp_key) if comp_key else None
+            return row if isinstance(row, dict) else None
+        except Exception:
+            return None
+
     @staticmethod
     def _reading_label(kpi_value: Any) -> str:
         """The comparison a reading used, in finance shorthand ("YTD vs PYTD"), for the end of a

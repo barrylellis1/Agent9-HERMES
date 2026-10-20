@@ -209,7 +209,19 @@ period comparison: projected breach reads "Trend vs Budget", acceleration "Trend
 
 **E. Where the second line appears.** Everywhere the sentence is shown: the dashboard tile, the lead
 briefing card, the analysis view and the briefing email. Solution Finder receives the sentence ending
-with the label, without the months; it already has the analysis's periods in words.
+with the label, without the months; it already has the analysis's periods in words. The tile's copy
+of the sentence leaves off the closing label, which the tile already shows under its headline figure.
+Trend sentences end with their labels; "last N months" states the trend's actual length.
+
+**F. Improvement cards.** The same wording logic and comparison phrasing as problem cards ("Midstream
+Revenue grew 5.8%, above the 5.0% growth target, YTD vs PYTD"; "SG&A Expense fell 3.9%, beyond the 2.0%
+reduction target"). Building it found two defects, fixed with the owner's agreement: an improvement
+card judged a reading against whichever target came first (Net Revenue's quarterly 3.0% rather than its
+year-to-date 5.0%), and replaced the problem card on the same KPI. An improvement card now uses the same
+target as the problem card, is raised only when the KPI moved the right way and met that target, and
+never replaces a problem card. Effect on 20 October: lubricants and Apex Net Revenue and Apex Service
+Revenue show their shortfall against the year-to-date target instead of an improvement; Apex Average
+Transaction Value, which has no year-to-date target, raises no improvement card.
 
 ## Other rulings made while building (19–20 October 2026)
 

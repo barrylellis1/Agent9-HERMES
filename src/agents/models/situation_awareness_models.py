@@ -311,7 +311,7 @@ class OpportunitySignal(BaseModel):
     opportunity_type: str = Field(
         description="Class of opportunity: 'outperformance' | 'recovery' | 'trend_reversal'"
     )
-    headline: str = Field(description="One-line summary, e.g. 'Gross Margin up 3.2pp vs prior period'")
+    headline: str = Field(description="One-line summary, e.g. 'Midstream Revenue grew 5.8%, above the 5.0% growth target, YTD vs PYTD'")
     confidence: float = Field(default=0.7, ge=0.0, le=1.0, description="Confidence score (0–1)")
 
 
@@ -405,31 +405,34 @@ class Situation(BaseModel):
             "trend_reversal": SituationSeverity.LOW,
         }
         delta = abs(signal.delta_pct or 0)
-        # kpi_value.percent_change is sign-normalised: negative = costs fell (inverse_logic KPI)
+        # kpi_value.percent_change is sign-normalised: negative = a lower-is-better KPI fell
         pct = kpi_value.percent_change if kpi_value.percent_change is not None else 0.0
-        is_cost_reduction = pct < 0
+        fell = pct < 0
+        # The comparison the reading used, named as on problem cards (owner, 2026-10-20). This
+        # text used to say "year-over-year" whatever the comparison, and called every
+        # lower-is-better KPI a cost ("a significant reduction in overhead spend").
+        label = getattr(getattr(kpi_value, "context", None), "period_short_label", None)
+        tail = f", {label}" if label else ""
 
         if signal.opportunity_type == "outperformance":
-            if is_cost_reduction:
+            if fell:
                 business_impact = (
-                    f"{signal.kpi_name} costs fell {delta:.1f}% year-over-year — a significant "
-                    f"reduction in overhead spend. Deep analysis can identify what drove this "
-                    f"and whether it can be sustained or replicated across other cost centres."
+                    f"{signal.kpi_name} fell {delta:.1f}%{tail}. Deep analysis can identify what "
+                    f"drove this and whether it can be sustained or replicated."
                 )
             else:
                 business_impact = (
-                    f"{signal.kpi_name} is outperforming prior year by {delta:.1f}%, tracking "
-                    f"ahead of targets. Deep analysis can identify the key drivers and determine "
-                    f"where to accelerate."
+                    f"{signal.kpi_name} grew {delta:.1f}%{tail}, ahead of its target. Deep analysis "
+                    f"can identify the key drivers and determine where to accelerate."
                 )
         elif signal.opportunity_type == "recovery":
             business_impact = (
-                f"{signal.kpi_name} has recovered {delta:.1f}% from a prior-period low, returning "
-                f"within target range. Understanding the recovery drivers can help prevent future dips."
+                f"{signal.kpi_name} has recovered {delta:.1f}%{tail}, returning within target range. "
+                f"Understanding the recovery drivers can help prevent future dips."
             )
         else:
             business_impact = (
-                f"{signal.kpi_name} reversed a declining trend with a {delta:.1f}% improvement. "
+                f"{signal.kpi_name} reversed a declining trend with a {delta:.1f}% improvement{tail}. "
                 f"Identifying what triggered the turnaround can inform forward strategy."
             )
 

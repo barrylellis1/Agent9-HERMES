@@ -809,8 +809,28 @@ months_words`). Each `Situation` carries `comparison_label` and `period_months`:
 
 Plan and trend cards set their own at creation; `_label_cards` gives the rest the reading's. A merged
 card keeps its primary member's. Every card sentence ends with its label ("…decreased by 4.5 points
-(13.0%), YTD vs PYTD"; `_reading_label` replaced `_window_suffix` and its raw dates); improvement
-headlines are unchanged (their wording is an open item). Solution Finder receives the sentence with
+(13.0%), YTD vs PYTD"; `_reading_label` replaced `_window_suffix` and its raw dates). The tile leaves
+the closing label off its copy of the sentence (it shows the label under the headline figure). Solution Finder receives the sentence with
 the label and no months. The UI tile, briefing card, analysis view and the PIB email show
 `period_months` as a second, smaller line. Tests: `test_sa_period_comparisons.py`,
 `test_sa_threshold_sentence.py`, `test_period_tokens.py::TestCardNames`.
+
+## Improvement cards follow the problem cards' logic and wording (owner, 2026-10-20)
+
+`_threshold_row(kpi_definition, kpi_value)` is the one lookup of the threshold row a reading is judged
+on (its comparison; the February fallback's YTD row), used by the problem path and by
+`_detect_opportunities`. An improvement (Format B) is raised when the KPI moved the right way AND met
+that row's green target (`pct > 0 and pct > green`; lower-is-better `pct < 0 and pct < green`, the
+direction from the row's `inverse_logic`); no row for the comparison read, no improvement. Its
+sentence is `_improvement_sentence`, the mirror of `_threshold_sentence`: "grew 5.8%, above the 5.0%
+growth target, YTD vs PYTD"; "fell 3.9%, beyond the 2.0% reduction target"; "decreased by 3.6%" where
+the target is a limit on increases; points for percentage KPIs. Recovery and trend-reversal headlines
+end with the label instead of "vs prior period". `Situation.from_opportunity_signal` names the
+comparison and no longer calls a lower-is-better KPI a cost.
+
+**Defects fixed (found live 2026-10-20):** improvement cards read the first row listed, whatever its
+comparison (lubricants Net Revenue: "above 3.0% target", its quarter-on-quarter target; YTD target
+5.0%), and counted any fall in a lower-is-better KPI. `_deduplicate_situations` gives improvement cards
+their own key: they shared the threshold-breach key, so the improvement (HIGH) replaced the problem
+(MEDIUM) on the same KPI, dropping "Net Revenue grew 3.1%, short of the 5.0% growth target" (and Apex
+Net Revenue and Service Revenue). Tests: `tests/unit/test_sa_improvement_cards.py`.
