@@ -107,7 +107,6 @@ class AgentRuntime:
                 {
                     "orchestrator": self._orchestrator,
                     "registry_factory": self._registry_factory,
-                    "target_domains": ["Finance"],
                 },
             ),
             (

@@ -119,7 +119,6 @@ async def _create_core_agents(orchestrator, registry_factory) -> None:
             {
                 "orchestrator": orchestrator,
                 "registry_factory": registry_factory,
-                "target_domains": ["Finance"],
             },
         ),
         (

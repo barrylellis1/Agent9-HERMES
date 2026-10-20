@@ -398,8 +398,15 @@ class A9_Situation_Awareness_Agent:
                 logger.error("No KPIs found in Supabase registry — verify seed data")
                 return
 
-            target_domains = self.config.get("target_domains", ["Finance"])
-            logger.info(f"Filtering KPIs for domains: {target_domains}")
+            # Every active KPI is judged, whatever its domain (owner ruling 2026-10-19). Until
+            # then only "Finance" KPIs were loaded, a launch-era setting that silently left five
+            # lubricants Sales KPIs out of every scan. A caller still passing target_domains is
+            # told it no longer applies, rather than having it quietly honoured or ignored.
+            if self.config.get("target_domains"):
+                logger.info(
+                    "target_domains no longer restricts which KPIs are judged; every active KPI is "
+                    "(owner ruling 2026-10-19)"
+                )
             self.kpi_registry = {}
             templates_skipped = 0
             for kpi in kpis:
@@ -411,22 +418,21 @@ class A9_Situation_Awareness_Agent:
                     templates_skipped += 1
                     continue
 
-                if self._kpi_matches_domains(kpi, target_domains):
-                    kpi_def = self._convert_to_kpi_definition(kpi)
-                    if kpi_def:
-                        # Store under plain name (used by NL-query name lookups, last-write wins).
-                        self.kpi_registry[kpi_def.name] = kpi_def
-                        # Also store under a client-qualified key so multi-tenant scans can
-                        # iterate collision-free even when two clients share a KPI name.
-                        if kpi_def.client_id:
-                            self.kpi_registry[f"{kpi_def.client_id}:{kpi_def.name}"] = kpi_def
+                kpi_def = self._convert_to_kpi_definition(kpi)
+                if kpi_def:
+                    # Store under plain name (used by NL-query name lookups, last-write wins).
+                    self.kpi_registry[kpi_def.name] = kpi_def
+                    # Also store under a client-qualified key so multi-tenant scans can
+                    # iterate collision-free even when two clients share a KPI name.
+                    if kpi_def.client_id:
+                        self.kpi_registry[f"{kpi_def.client_id}:{kpi_def.name}"] = kpi_def
             unique_names = len([k for k in self.kpi_registry if ':' not in k])
             logger.info(
-                f"Added {unique_names} unique KPI names to registry for domains: {target_domains} "
+                f"Added {unique_names} unique KPI names to registry, every domain "
                 f"(skipped {templates_skipped} template KPIs)"
             )
             if not self.kpi_registry:
-                logger.warning("No matching KPIs found in registry for target domains")
+                logger.warning("No active KPIs found in registry")
         except Exception as e:
             logger.error(f"Error loading KPI registry: {str(e)}")
             self.kpi_registry = {}
@@ -1779,86 +1785,6 @@ class A9_Situation_Awareness_Agent:
 
     # ──────────────────────────────────────────────────────────────────────────
 
-    def _kpi_matches_domains(self, kpi: KPI, target_domains: List[str]) -> bool:
-        """
-        Check if a KPI is relevant to any of the specified target domains.
-        
-        This method works with the canonical KPI model structure and handles
-        different ways domains might be specified.
-        
-        Args:
-            kpi: The canonical KPI model instance
-            target_domains: List of domain names to match against
-            
-        Returns:
-            True if the KPI matches any of the target domains, False otherwise
-        """
-        # Dict-based KPIs (used in tests/mocks)
-        if isinstance(kpi, dict):
-            domain = kpi.get('domain')
-            if isinstance(domain, str):
-                for d in target_domains:
-                    if d.lower() == domain.lower():
-                        return True
-            # business_process_ids (canonical)
-            for bp_id in (kpi.get('business_process_ids') or []):
-                for d in target_domains:
-                    if isinstance(bp_id, str) and bp_id.lower().startswith(d.lower() + '_'):
-                        return True
-            # business_processes (display strings)
-            for process in (kpi.get('business_processes') or []):
-                for d in target_domains:
-                    if isinstance(process, str) and process.lower().startswith(f"{d.lower()}:"):
-                        return True
-            # tags
-            for tag in (kpi.get('tags') or []):
-                for d in target_domains:
-                    if isinstance(tag, str) and d.lower() in tag.lower():
-                        return True
-            # name heuristic for Finance
-            if 'Finance' in target_domains:
-                name = kpi.get('name')
-                if isinstance(name, str) and 'finance' in name.lower():
-                    return True
-            return False
-
-        # First check the canonical 'domain' attribute
-        if hasattr(kpi, 'domain') and isinstance(kpi.domain, str):
-            # Direct domain match
-            for domain in target_domains:
-                if domain.lower() == kpi.domain.lower():
-                    return True
-                    
-        # Check business_process_ids (canonical model)
-        if hasattr(kpi, 'business_process_ids') and kpi.business_process_ids:
-            for bp_id in kpi.business_process_ids:
-                # Check if business process ID starts with any target domain
-                for domain in target_domains:
-                    if bp_id.lower().startswith(domain.lower() + '_'):
-                        return True
-        
-        # Check business_processes (backward compatibility)
-        if hasattr(kpi, 'business_processes') and kpi.business_processes:
-            for process in kpi.business_processes:
-                for domain in target_domains:
-                    # Check for "Domain: Process" format
-                    if isinstance(process, str) and process.lower().startswith(f"{domain.lower()}:"):
-                        return True
-        
-        # Check tags for domain references
-        if hasattr(kpi, 'tags') and kpi.tags:
-            for tag in kpi.tags:
-                for domain in target_domains:
-                    if domain.lower() in tag.lower():
-                        return True
-        
-        # For MVP, include Finance KPIs based on name if Finance is a target domain
-        if 'Finance' in target_domains and hasattr(kpi, 'name'):
-            if 'finance' in kpi.name.lower():
-                return True
-                
-        return False
-            
     def _convert_to_kpi_definition(self, kpi: KPI) -> Optional[KPIDefinition]:
         """
         Convert from canonical KPI model to our internal KPIDefinition model.
@@ -4609,15 +4535,10 @@ def create_situation_awareness_agent(config: Dict[str, Any]) -> "A9_Situation_Aw
     Args:
         config: Configuration dictionary with these options:
             - registry_factory: Initialized RegistryFactory instance (injected by bootstrap)
-            - target_domains: List of domain prefixes to filter KPIs (optional, defaults to ['Finance'])
             - kpi_thresholds: Custom KPI thresholds (optional)
             - principal_profile_path: Custom principal profile path (optional)
         
     Returns:
         A9_Situation_Awareness_Agent instance
     """
-    # Set defaults for optional config
-    if "target_domains" not in config:
-        config["target_domains"] = ["Finance"]  # Default for MVP
-        
     return A9_Situation_Awareness_Agent(config)

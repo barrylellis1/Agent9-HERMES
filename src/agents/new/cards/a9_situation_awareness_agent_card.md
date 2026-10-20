@@ -737,3 +737,13 @@ Before/after 2026-10-18 on every KPI read: lubricants 17, Apex 15, Hess 11 ident
 comparison value, change, spans and monthly series; lubricants Gross Revenue and Sales Tax Collected
 read for the first time (their nested queries still give no monthly series: owner chose to fix that in
 the data product). Tests: `tests/unit/test_sa_period_comparisons.py`, `test_11i_alert_intelligence.py`.
+
+## Every active KPI is judged, whatever its domain (owner ruling 2026-10-19)
+
+`_load_kpi_registry` loads every active KPI (template KPIs are still skipped). The launch-era
+`target_domains: ["Finance"]` setting, passed by `src/api/runtime.py`, the orchestrator's bootstrap
+and `run_enterprise_assessment.py`, silently left five lubricants Sales KPIs (order count, average
+order value, cancellation rate, units sold, fulfilment rate) out of every scan. The setting and
+`_kpi_matches_domains` are removed; a caller still passing `target_domains` gets an INFO log saying
+it no longer applies. Before/after 2026-10-19 on lubricants: 19 → 24 of 24 KPIs read, the 19 and the
+20 existing cards unchanged, five new cards. Test: `tests/unit/test_sa_kpi_registry.py`.

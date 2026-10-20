@@ -1243,7 +1243,6 @@ async def create_and_connect_agents(orchestrator: A9_Orchestrator_Agent, registr
     sa_agent_config = {
         "orchestrator": orchestrator,
         "registry_factory": registry_factory,
-        "target_domains": ["Finance"]
     }
     sa_agent = await orchestrator.create_agent_with_dependencies("A9_Situation_Awareness_Agent", sa_agent_config)
     agents["A9_Situation_Awareness_Agent"] = sa_agent

@@ -338,10 +338,6 @@ class A9_Situation_Awareness_Agent_Config(BaseModel):
         None,
         description="Path to the data contract YAML file. Defaults to fi_star_schema.yaml when None."
     )
-    target_domains: List[str] = Field(
-        default_factory=lambda: ["Finance"],
-        description="Domain prefixes used to filter KPIs from the registry."
-    )
 
     # Opportunity detection settings (Phase 11C: results now appear in situations[], not opportunities[])
     opportunity_threshold_multiplier: float = Field(

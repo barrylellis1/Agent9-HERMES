@@ -35,7 +35,6 @@ def _make_agent_with_mock_registry(loop, mock_registry_factory):
     # injected via config to validate loading behavior in isolation.
     """
     config = {
-        "target_domains": ["Finance"],
         "registry_factory": mock_registry_factory,
     }
     # Instantiate directly (no connect) to avoid orchestrator side-effects
@@ -76,21 +75,39 @@ class TestSituationAwarenessKPIRegistry(unittest.TestCase):
         # Verify KPI provider was called
         self.mock_registry_factory.get_kpi_provider.assert_called_once()
 
-    def test_kpi_matches_domains(self):
-        """Test KPI domain matching."""
-        agent = _make_agent_with_mock_registry(self.loop, self.mock_registry_factory)
+    def test_every_active_kpi_is_loaded_whatever_its_domain(self):
+        """Owner ruling 2026-10-19: every active KPI a client has registered is judged. Until then
+        only "Finance" KPIs were loaded, which left five lubricants Sales KPIs out of every scan."""
+        from src.registry.models.kpi import KPI
 
-        # Test with matching domain
-        kpi = {"domain": "Finance", "name": "Revenue"}
-        self.assertTrue(agent._kpi_matches_domains(kpi, ["Finance"]))
+        def _kpi(kid, domain, status="active"):
+            return KPI(id=kid, client_id="c", name=kid.title(), domain=domain, data_product_id="dp",
+                       sql_query="SELECT 1 AS value", status=status)
 
-        # Test with non-matching domain
-        kpi = {"domain": "HR", "name": "Employee Count"}
-        self.assertFalse(agent._kpi_matches_domains(kpi, ["Finance"]))
+        provider = mock.MagicMock()
+        provider.get_all.return_value = [
+            _kpi("net_revenue", "Finance"), _kpi("order_count", "Sales"),
+            _kpi("headcount", "HR"), _kpi("draft_kpi", "Sales", status="template"),
+        ]
+        factory = mock.MagicMock()
+        factory.get_kpi_provider.return_value = provider
+        agent = _make_agent_with_mock_registry(self.loop, factory)
+        plain = {k for k in agent.kpi_registry if ":" not in k}
+        self.assertEqual(plain, {"Net_Revenue", "Order_Count", "Headcount"})  # template skipped
 
-        # Test with multiple domains
-        kpi = {"domain": "Finance", "name": "Revenue"}
-        self.assertTrue(agent._kpi_matches_domains(kpi, ["Finance", "HR"]))
+    def test_target_domains_no_longer_restricts(self):
+        """A caller still passing target_domains gets every active KPI, not a filtered set."""
+        from src.registry.models.kpi import KPI
+        provider = mock.MagicMock()
+        provider.get_all.return_value = [
+            KPI(id="order_count", client_id="c", name="Order Count", domain="Sales", data_product_id="dp",
+                sql_query="SELECT 1 AS value", status="active"),
+        ]
+        factory = mock.MagicMock()
+        factory.get_kpi_provider.return_value = provider
+        agent = A9_Situation_Awareness_Agent({"registry_factory": factory, "target_domains": ["Finance"]})  # arch-allow-agent-ctor
+        self.loop.run_until_complete(agent._load_kpi_registry())
+        self.assertIn("Order Count", agent.kpi_registry)
 
     def test_convert_to_kpi_definition(self):
         """Test converting canonical KPI to internal KPIDefinition."""
