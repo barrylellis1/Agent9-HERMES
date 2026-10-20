@@ -377,15 +377,13 @@ export async function onboardDataProduct(payload: any) {
 
 export async function detectSituations(
   principalId: string = 'cfo_001',
-  timeframe: string = 'year_to_date',
-  comparisonType: string = 'year_over_year',
   clientId?: string
 ): Promise<SituationDetectionResult> {
-  // 1. Trigger the workflow
+  // 1. Trigger the workflow. No period is sent: each KPI is read on its own data product's
+  // comparison (Phase 26, owner ruling 8), as the briefing emails read it, and every card
+  // names the comparison it used.
   const body: Record<string, any> = {
     principal_id: principalId,
-    timeframe: timeframe,
-    comparison_type: comparisonType,
   };
   if (clientId) body.client_id = clientId;
 

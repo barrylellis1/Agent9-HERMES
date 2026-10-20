@@ -280,7 +280,7 @@ This design ensures tight coupling between state changes and UI re-renders, maki
 - **Constants**: AVAILABLE_COUNCILS, AVAILABLE_PERSONAS
 
 **Key flows:**
-1. **Auto-scan on mount**: refs track previous principal/timeframe/client; triggers `detectSituations()` on change.
+1. **Auto-scan on mount**: refs track previous principal/timeframe/client; triggers `detectSituations()` on change. The scan sends no period: each KPI is read on its data product's own comparison (Phase 26), and each card carries `comparison_label` and `period_months`.
 2. **Deep-link KPI support**: router state provides kpiName; useEffect matches and auto-selects situation.
 3. **Solutions persistence**: saves to localStorage after synthesis; restores on situation change.
 4. **Debate flow** (Stage H, 2026-08-04): two dispatches — `stage1_only` (parallel firm hypotheses, ~15s) → `synthesis` (critic + moderator + generation, minutes). The former `hypothesis`/`cross_review` stages were audited as identical requests to synthesis and removed; `VITE_DEBATE_MODE` is retired.

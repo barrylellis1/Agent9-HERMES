@@ -170,6 +170,9 @@
         <span class="severity-badge sev-{{ sit.severity }}">{{ sit.severity | upper }}</span>
         <p class="sit-kpi">{{ sit.kpi_name }}</p>
         <p class="sit-desc">{{ sit.description }}</p>
+        {% if sit.period_months %}
+        <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">{{ sit.period_months }}</p>
+        {% endif %}
         {% if sit.deviation_summary and sit.deviation_summary != sit.description %}
         <p class="sit-deviation">{{ sit.deviation_summary }}</p>
         {% endif %}

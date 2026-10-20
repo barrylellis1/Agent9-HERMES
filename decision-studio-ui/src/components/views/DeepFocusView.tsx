@@ -548,9 +548,15 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                     }
                     summary={situation.description?.substring(0, 80) + (situation.description && situation.description.length > 80 ? '...' : '') || "Significant variance detected"}
                 >
-                    <p className="text-lg text-slate-200 mb-4 leading-relaxed">
+                    <p className={`text-lg text-slate-200 leading-relaxed ${situation.period_months ? 'mb-1' : 'mb-4'}`}>
                         {situation.description || "The system has detected a significant anomaly in this KPI."}
                     </p>
+                    {/* The months behind the card (Phase 26, owner ruling C) */}
+                    {situation.period_months && (
+                        <p className="text-sm text-slate-500 mb-4" data-testid="situation-months">
+                            {situation.period_months}
+                        </p>
+                    )}
                     {/* No stock "significant variance" line for a separate
                         analysis: nothing flagged this KPI. */}
                     {(situation.business_impact || !situation.situation_id?.startsWith('investigate-')) && (

@@ -154,17 +154,22 @@ def _change_amount(percent_change: float, points: Optional[float]) -> str:
     return f"{p} points ({abs(percent_change):.1f}%)"
 
 
-def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: Any, window: str = "",
+def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: Any, label: str = "",
                         points: Optional[float] = None) -> str:
-    """The card sentence for a KPI that moved against the prior year and is outside its green band.
+    """The card sentence for a KPI that moved outside its green band.
 
     A KPI can move the RIGHT way and still be flagged: revenue that grew 3.1% against a
     5% growth target has fallen short. The sentence used to read "B2B Revenue increased by
     3.1% vs prior year" under a problem card, which reads as a system error. Found live
     2026-10-13: five lubricants KPIs that rose were listed as problems with no reason given.
     The KPI's direction comes from the threshold row's `inverse_logic` (lower is better).
+
+    It ends with the comparison in finance shorthand, `label` ("…fell 4.5 points (13.0%),
+    YTD vs PYTD"; owner ruling C, 2026-10-20). It used to say "vs prior year" followed by raw
+    dates, whatever the comparison; the months now go on a second line (Situation.period_months).
     """
     amount = _change_amount(percent_change, points)
+    tail = f", {label}" if label else ""
     try:
         g = float(green) if green is not None else None
     except (TypeError, ValueError):
@@ -172,13 +177,27 @@ def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: 
     moved_the_right_way = (percent_change < 0) if inverse else (percent_change > 0)
     if g is not None and moved_the_right_way:
         if not inverse:
-            return f"{name} grew {amount} vs prior year{window}, short of the {g:.1f}% growth target"
-        return f"{name} fell {amount} vs prior year{window}, short of the {abs(g):.1f}% reduction target"
+            return f"{name} grew {amount}, short of the {g:.1f}% growth target{tail}"
+        return f"{name} fell {amount}, short of the {abs(g):.1f}% reduction target{tail}"
     direction = "increased" if percent_change > 0 else "decreased"
-    sentence = f"{name} {direction} by {amount} vs prior year{window}"
+    sentence = f"{name} {direction} by {amount}"
     if inverse and g is not None and g >= 0 and percent_change > 0:
         sentence += f", above the {g:.1f}% limit"
-    return sentence
+    return sentence + tail
+
+
+def _series_months(monthly_values: Any) -> Optional[str]:
+    """The months a monthly series covers, as a card's second line names them ("Jan–Sep 2026").
+    None when its labels are not distinct calendar months."""
+    import calendar as _cal
+    from datetime import date as _date
+    from src.analysis.monthly_series import trusted_months
+    from src.analysis.period_comparisons import Span, months_words
+    months = trusted_months(monthly_values or [])
+    if not months:
+        return None
+    (y1, m1), (y2, m2) = ((int(p[0][:4]), int(p[0][5:7])) for p in (months[0], months[-1]))
+    return months_words(Span(_date(y1, m1, 1), _date(y2, m2, _cal.monthrange(y2, m2)[1])))
 
 
 class A9_Situation_Awareness_Agent:
@@ -647,6 +666,7 @@ class A9_Situation_Awareness_Agent:
                         request.filters,
                         request.principal_context,
                         period_comparison=getattr(request, "period_comparison", None),
+                        product_reading=bool(getattr(request, "use_data_product_reading", False)),
                     )
 
                     if not kpi_value or getattr(kpi_value, "value", None) is None:
@@ -729,6 +749,10 @@ class A9_Situation_Awareness_Agent:
                                             direction_word = "above" if bad_direction else "below"
                                         else:
                                             direction_word = "below" if bad_direction else "ahead of"
+                                        # Owner ruling B2: "Act" appears only against a plan or forecast.
+                                        _pv_ctx = getattr(kpi_value, 'context', None)
+                                        _pv_span = getattr(_pv_ctx, 'period_current_short', None)
+                                        _pv_label = f"{_pv_span} Act vs {_plan_version}" if _pv_span else f"Act vs {_plan_version}"
                                         plan_sit = Situation(
                                             situation_id=f"plan_{getattr(kpi_definition, 'id', None) or kpi_name}_{int(abs(variance_pct)*100)}",
                                             kpi_name=kpi_name,
@@ -739,7 +763,9 @@ class A9_Situation_Awareness_Agent:
                                             direction='down' if bad_direction else 'up',
                                             alert_type="plan_variance",
                                             plan_value=plan_val,
-                                            description=f"{kpi_name} is {abs(variance_pct)*100:.1f}% {direction_word} plan",
+                                            description=f"{kpi_name} is {abs(variance_pct)*100:.1f}% {direction_word} plan, {_pv_label}",
+                                            comparison_label=_pv_label,
+                                            period_months=getattr(_pv_ctx, 'period_current_months', None),
                                             business_impact=(
                                                 f"{kpi_name} is tracking {abs(variance_pct)*100:.1f}% "
                                                 f"{direction_word} the {_plan_version} baseline."
@@ -806,7 +832,13 @@ class A9_Situation_Awareness_Agent:
                                         projected_breach_at_period=proj['projected_breach_at_period'],
                                         projection_confidence=proj['projection_confidence'],
                                         periods_until_breach=proj['periods_until_breach'],
-                                        description=f"{kpi_name} on trajectory to breach the {_plan_version} baseline in {proj['periods_until_breach']} period(s)",
+                                        description=(
+                                            f"{kpi_name} on trajectory to breach the {_plan_version} baseline in "
+                                            f"{proj['periods_until_breach']} period(s), Trend vs {_plan_version}"
+                                        ),
+                                        # The trend fitted over the last six months (_project_trend lookback)
+                                        comparison_label=f"Trend vs {_plan_version}",
+                                        period_months=_series_months(_monthly[-6:]),
                                         business_impact=(
                                             f"At current run-rate ({proj['slope']:+.2f}/period), "
                                             f"{kpi_name} is projected to fall more than {abs(float(_pb_cfg['red'])):.0f}% "
@@ -837,7 +869,12 @@ class A9_Situation_Awareness_Agent:
                                         direction='down',
                                         alert_type="acceleration",
                                         acceleration_signal=accel_signal,
-                                        description=f"{kpi_name} deterioration is accelerating ({accel_signal:.1f}× baseline volatility)",
+                                        description=(
+                                            f"{kpi_name} deterioration is accelerating ({accel_signal:.1f}× baseline volatility), "
+                                            f"Trend, last {len(_monthly)} months"
+                                        ),
+                                        comparison_label=f"Trend, last {len(_monthly)} months",
+                                        period_months=_series_months(_monthly),
                                         business_impact=(
                                             f"The rate of change in {kpi_name} is itself increasing — "
                                             f"the period-over-period decline is accelerating at {accel_signal:.1f}× the historical pace."
@@ -847,6 +884,9 @@ class A9_Situation_Awareness_Agent:
                                     detected_situations.append(accel_sit)
                             except Exception as _acc_err:
                                 self.logger.warning(f"Acceleration detection failed for {kpi_name}: {_acc_err}")
+
+                        # Every card names what it compared (Phase 26, owner rulings B2 and C).
+                        self._label_cards(detected_situations, kpi_value)
 
                         # Phase 26: the data product's period settings decide which of these
                         # this reading may raise; the rest are listed with the reason.
@@ -889,6 +929,7 @@ class A9_Situation_Awareness_Agent:
                                         try:
                                             opp_situation = Situation.from_opportunity_signal(signal, kpi_value)
                                             opp_situation.dedupe_key = opp_dedupe_key
+                                            self._label_cards([opp_situation], kpi_value)
                                             situations.append(opp_situation)
                                         except Exception as _opp_conv_err:
                                             self.logger.warning(
@@ -2722,6 +2763,7 @@ class A9_Situation_Awareness_Agent:
         self, *, timeframe, comparison_type, merged_filters, source_system,
         data_product_id, base_sql, kpi_definition, spans=None, comparison_name=None,
         actuals_end=None, card_hold_reason=None, plan_card_hold_reason=None, fallback_from=None,
+        fy_start=1,
     ):
         """Stamp what this reading actually measured — resolved, not requested.
 
@@ -2781,6 +2823,19 @@ class A9_Situation_Awareness_Agent:
             # Which data version produced this number. `calculation` is rewritten to
             # the plan/budget variant by _fetch_plan_value, so the substituted
             # version value is the reliable marker — the KPI name is not.
+            # How a card names this reading (owner rulings B2 and C).
+            names = {}
+            try:
+                if spans is not None:
+                    names = dict(
+                        period_short_label=_pc.short_label(spans, fy_start),
+                        period_current_short=_pc.current_short(spans, fy_start),
+                        period_months=_pc.months_line(spans),
+                        period_current_months=_pc.months_words(spans.current),
+                    )
+            except Exception:
+                names = {}
+
             _plan_version = getattr(kpi_definition, "plan_version_value", None)
             _sql = base_sql or ""
             version = "Actual"
@@ -2795,6 +2850,7 @@ class A9_Situation_Awareness_Agent:
                 card_hold_reason=card_hold_reason,
                 plan_card_hold_reason=plan_card_hold_reason,
                 fallback_from=fallback_from,
+                **names,
                 window_start=cur[0], window_end=cur[1],
                 comparison_basis=basis,
                 comparison_window_start=comp[0], comparison_window_end=comp[1],
@@ -2957,6 +3013,7 @@ class A9_Situation_Awareness_Agent:
         filters: Optional[Dict[str, Any]],
         principal_context: Optional[PrincipalContext] = None,
         period_comparison: Optional[str] = None,
+        product_reading: bool = False,
     ) -> Optional[KPIValue]:
         """
         Get KPI value from the Data Product MCP Service Agent.
@@ -3037,6 +3094,10 @@ class A9_Situation_Awareness_Agent:
                     self.logger.error(f"KPI {kpi_name}: {period_comparison!r} is not a period comparison; reported as unread")
                     return None
                 _comparison, _fixed_ref = _asked
+            elif product_reading:
+                # Owner ruling 8: the dashboard reads each KPI on its data product's comparison,
+                # as the offline assessment does, so the screen and the emails agree.
+                _comparison, _fixed_ref = _settings.reading, None
             else:
                 _comparison, _fixed_ref = _pc.from_request(timeframe, comparison_type, _keyed), None
             _native = _is_bq_kpi or _is_ss_kpi or _is_sf_kpi
@@ -3313,7 +3374,7 @@ class A9_Situation_Awareness_Agent:
                     monthly_values=monthly_values,
                     context=self._build_measurement_context(
                         spans=_spans, actuals_end=_actuals_end,
-                        comparison_name=_comparison,
+                        comparison_name=_comparison, fy_start=_fy_start,
                         timeframe=timeframe, comparison_type=None,
                         merged_filters=merged_filters, source_system=_source_system,
                         data_product_id=_gen_dp_id, base_sql=base_sql,
@@ -3396,7 +3457,7 @@ class A9_Situation_Awareness_Agent:
                 inverse_logic=_inverse_logic,
                 context=self._build_measurement_context(
                     spans=_spans, actuals_end=_actuals_end,
-                    comparison_name=_comparison,
+                    comparison_name=_comparison, fy_start=_fy_start,
                     card_hold_reason=_card_hold, plan_card_hold_reason=_plan_hold,
                     fallback_from=_fallback_from,
                     timeframe=timeframe, comparison_type=comparison_type,
@@ -4087,7 +4148,7 @@ class A9_Situation_Awareness_Agent:
                         kpi_value,
                         severity,
                         _threshold_sentence(
-                            kpi_definition.name, percent_change, inv, g, self._window_suffix(kpi_value),
+                            kpi_definition.name, percent_change, inv, g, self._reading_label(kpi_value),
                             points=_point_change(kpi_definition, kpi_value),
                         ),
                         principal_context
@@ -4127,53 +4188,38 @@ class A9_Situation_Awareness_Agent:
                         kpi_value,
                         severity,
                         f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}%"
-                        f" ({change_quality}){self._window_suffix(kpi_value)}",
+                        f" ({change_quality})" + (f", {self._reading_label(kpi_value)}" if self._reading_label(kpi_value) else ""),
                         principal_context
                     ))
         
         return situations
     
     @staticmethod
-    def _window_suffix(kpi_value: Any) -> str:
-        """Render the window a number actually measured, for the description text.
+    def _reading_label(kpi_value: Any) -> str:
+        """The comparison a reading used, in finance shorthand ("YTD vs PYTD"), for the end of a
+        card's sentence (owner ruling C, 2026-10-20). '' when the reading is unstamped, so an
+        unstamped value never gains an invented comparison.
 
-        WHY
-        ---
-        A situation description states a bare percentage ("decreased by 12.9%"),
-        and Solution Finder carries that sentence verbatim into the briefing's
-        problem statement. Deep Analysis independently reports its own movement
-        for the same KPI over its own window. One live briefing therefore stated
-        three different characterisations of "the KPI's decline" on adjacent
-        pages — 12.9%, -8.2% enterprise, and -25.7% for the anchor segment —
-        with nothing to tell a reader they were different measurements rather
-        than a contradiction.
-
-        The windows legitimately differ. The defect is that none of them said so.
-        `MeasurementContext` already resolved this at read time; this just
-        surfaces it. Returns '' when context is absent, so an unstamped value
-        degrades to today's wording rather than inventing a window.
+        WHY the sentence names its comparison: Solution Finder carries the sentence verbatim into
+        the briefing's problem statement, and Deep Analysis reports its own movement for the same
+        KPI. One live briefing stated three characterisations of "the KPI's decline" on adjacent
+        pages (12.9%, -8.2% enterprise, -25.7% for the anchor segment) with nothing to say they
+        were different measurements. The sentence used to carry raw dates for that; the label
+        does it in the reader's terms, and the months sit on the card's second line.
         """
         ctx = getattr(kpi_value, "context", None)
-        if ctx is None:
-            return ""
-        basis = getattr(ctx, "comparison_basis", None)
-        # Only temporal and version comparisons HAVE a comparison window. For
-        # peer / projection / series a date range would be fabricated — and a
-        # fabricated range is worse than none, because something downstream can
-        # compare against it and "confirm" nothing.
-        if basis not in ("temporal", "version"):
-            return ""
-        cur_s, cur_e = getattr(ctx, "window_start", None), getattr(ctx, "window_end", None)
-        cmp_s, cmp_e = getattr(ctx, "comparison_window_start", None), getattr(ctx, "comparison_window_end", None)
-        if not (cur_s and cur_e and cmp_s and cmp_e):
-            return ""
-        # A feed that has stopped must not read as a current reading (Phase 26 rule 2).
-        actuals_end = getattr(ctx, "actuals_end", None)
-        stale = ""
-        if actuals_end:
-            from datetime import date as _date
-            stale = f"; actuals end {_date.fromisoformat(actuals_end):%b %Y}"
-        return f" ({cur_s}–{cur_e} vs {cmp_s}–{cmp_e}{stale})"
+        return getattr(ctx, "period_short_label", None) or ""
+
+    @staticmethod
+    def _label_cards(situations: List[Any], kpi_value: Any) -> None:
+        """Name what each card compared (owner rulings B2, C; 2026-10-20). A card that set its own
+        label (actuals against plan, the two trend cards) keeps it; the rest take the reading's
+        shorthand and months."""
+        ctx = getattr(kpi_value, "context", None)
+        for sit in situations:
+            if getattr(sit, "comparison_label", None) is None:
+                sit.comparison_label = getattr(ctx, "period_short_label", None)
+                sit.period_months = getattr(ctx, "period_months", None)
 
     def _create_threshold_situation(
         self,

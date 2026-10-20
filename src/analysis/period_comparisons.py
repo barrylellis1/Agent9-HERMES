@@ -357,6 +357,47 @@ def short_label(sp: "ComparisonSpans", fy_start: int = 1) -> str:
     return sp.label
 
 
+def current_short(sp: "ComparisonSpans", fy_start: int = 1) -> str:
+    """The current span alone in finance shorthand, for actuals set against a plan (owner ruling
+    B2: "YTD Act vs Budget"): "YTD", "LTM", "Q3". QTD and MTD are the same convention; the
+    complete month and year, which no data product reads yet, say "Month" and "Year"."""
+    grain, _ = _GRAIN[sp.comparison]
+    if sp.comparison == "ytd_vs_pytd":
+        return "YTD"
+    if grain == "rolling12":
+        return "LTM"
+    if sp.comparison.startswith("qtd"):
+        return "QTD"
+    if sp.comparison.startswith("mtd"):
+        return "MTD"
+    if grain == "quarter":
+        return f"Q{((sp.current.start.month - fy_start) % 12) // 3 + 1}"
+    return "Month" if grain == "month" else "Year"
+
+
+def months_words(span: Span) -> str:
+    """A span as a card's second line names it (owner ruling C, 2026-10-20): "Jan–Sep 2026",
+    "Oct 2025–Sep 2026", "Sep 2026". A span ending part-way through a month keeps its days
+    ("1 Jan–20 Oct 2026"), so a to-date reading on data booked by date is not overstated."""
+    a, b = span.start, span.end
+    if a.day == 1 and b == _month_end(b):
+        if (a.year, a.month) == (b.year, b.month):
+            return f"{a:%b %Y}"
+        if a.year == b.year:
+            return f"{a:%b}–{b:%b %Y}"
+        return f"{a:%b %Y}–{b:%b %Y}"
+    if a == b:
+        return f"{a.day} {a:%b %Y}"
+    if a.year == b.year:
+        return f"{a.day} {a:%b}–{b.day} {b:%b %Y}"
+    return f"{a.day} {a:%b %Y}–{b.day} {b:%b %Y}"
+
+
+def months_line(sp: "ComparisonSpans") -> str:
+    """The months a comparison set side by side: "Jan–Sep 2026 vs Jan–Sep 2025"."""
+    return f"{months_words(sp.current)} vs {months_words(sp.previous)}"
+
+
 def available(period_keyed: bool) -> Tuple[str, ...]:
     """The comparisons that mean something for this kind of data product."""
     if period_keyed:

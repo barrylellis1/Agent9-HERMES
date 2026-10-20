@@ -104,7 +104,10 @@ async def test_ytd_stops_at_the_last_month_with_actuals(today):
     assert (ctx.period_comparison, ctx.reference_day, ctx.actuals_end) == ("ytd_vs_pytd", "2026-07-31", "2026-07-31")
     assert ctx.period_label == "YTD vs previous year YTD"
     assert (ctx.window_start, ctx.window_end) == ("2026-01-01", "2026-07-31")
-    assert SA._window_suffix(v).endswith("; actuals end Jul 2026)")
+    # how a card names it (owner rulings B2, C): the months show where the actuals stop
+    assert (ctx.period_short_label, ctx.period_months) == ("YTD vs PYTD", "Jan–Jul 2026 vs Jan–Jul 2025")
+    assert (ctx.period_current_short, ctx.period_current_months) == ("YTD", "Jan–Jul 2026")
+    assert SA._reading_label(v) == "YTD vs PYTD"
 
 
 @pytest.mark.asyncio
@@ -113,7 +116,7 @@ async def test_a_current_feed_reads_to_the_last_closed_month_and_says_nothing_ex
     v = await _sa(wh)._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
     assert _span_filters(wh)[0] == ("2026-01-01", "2026-09-30")
     assert v.context.actuals_end is None
-    assert "actuals end" not in SA._window_suffix(v)
+    assert v.context.period_months == "Jan–Sep 2026 vs Jan–Sep 2025"
 
 
 @pytest.mark.asyncio
@@ -204,6 +207,8 @@ async def test_a_february_scan_falls_back_to_the_last_12_months(february):
     assert (c.period_comparison, c.fallback_from) == ("ltm_vs_prior_ltm", "ytd_vs_pytd")
     assert (c.window_start, c.window_end) == ("2025-02-01", "2026-01-31")
     assert c.card_hold_reason is None and c.plan_card_hold_reason is None
+    # the card says what it read, not what it stands in for
+    assert (c.period_short_label, c.period_months) == ("LTM vs Prior LTM", "Feb 2025–Jan 2026 vs Feb 2024–Jan 2025")
 
 
 @pytest.mark.asyncio
@@ -329,3 +334,87 @@ async def test_a_stopped_feed_stops_the_whole_product(today):
     sa.kpi_registry = {"hess:Production Revenue": _kpi(), "hess:Total Revenue": other}
     v = await sa._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
     assert (v.context.reference_day, v.context.actuals_end) == ("2026-07-31", "2026-07-31")
+
+
+# ── Phase 26 step 3f(3): the dashboard reads each data product's comparison; cards name it ──
+
+@pytest.mark.asyncio
+async def test_the_dashboard_reads_the_data_products_own_comparison(today):
+    """Owner ruling 8: asked for the product reading, an operational product reads the last 12
+    months whatever the request words say; a financial one reads YTD."""
+    from src.analysis.period_settings import PeriodSettings
+    sa = _sa(Warehouse("2026-12"))
+
+    async def _operational(dp_id, keyed):
+        return PeriodSettings(kind="operational"), None
+    sa._period_settings_cached = _operational
+    v = await sa._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {},
+                                product_reading=True)
+    c = v.context
+    assert (c.period_comparison, c.period_short_label) == ("ltm_vs_prior_ltm", "LTM vs Prior LTM")
+    assert c.period_months == "Oct 2025–Sep 2026 vs Oct 2024–Sep 2025"
+
+    v = await _sa(Warehouse("2026-12"))._get_kpi_value(_kpi(), TimeFrame.CURRENT_QUARTER, ComparisonType.YEAR_OVER_YEAR, {},
+                                                        product_reading=True)
+    assert v.context.period_comparison == "ytd_vs_pytd"  # financial, the default kind
+
+
+@pytest.mark.asyncio
+async def test_a_named_comparison_wins_over_the_product_reading(today):
+    v = await _sa(Warehouse("2026-12"))._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {},
+                                                        period_comparison="quarter_vs_py_quarter", product_reading=True)
+    assert (v.context.period_comparison, v.context.period_short_label) == ("quarter_vs_py_quarter", "Q3 vs PY Q3")
+
+
+def test_cards_take_the_readings_label_unless_they_set_their_own():
+    from src.agents.models.situation_awareness_models import KPIValue, Situation, SituationSeverity
+    ctx = MeasurementContext(period_short_label="YTD vs PYTD", period_months="Jan–Sep 2026 vs Jan–Sep 2025")
+    kv = KPIValue(kpi_name="Net Revenue", value=1.0, timeframe=TimeFrame.YEAR_TO_DATE, context=ctx)
+
+    def card(**kw):
+        return Situation(situation_id="x", kpi_name="Net Revenue", kpi_value=kv, severity=SituationSeverity.HIGH,
+                         description="d", business_impact="b", **kw)
+    breach, plan = card(), card(alert_type="plan_variance", comparison_label="YTD Act vs Budget", period_months="Jan–Sep 2026")
+    SA._label_cards([breach, plan], kv)
+    assert (breach.comparison_label, breach.period_months) == ("YTD vs PYTD", "Jan–Sep 2026 vs Jan–Sep 2025")
+    assert (plan.comparison_label, plan.period_months) == ("YTD Act vs Budget", "Jan–Sep 2026")
+
+
+def test_a_series_names_its_months():
+    from src.agents.new.a9_situation_awareness_agent import _series_months
+    series = [{"period": f"2026-{m:02d}", "value": 1.0} for m in range(1, 10)]
+    assert _series_months(series) == "Jan–Sep 2026"
+    assert _series_months(series[-6:]) == "Apr–Sep 2026"
+    assert _series_months([]) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body, product_reading, named", [
+    ({}, True, None),                                            # the dashboard sends no period
+    ({"timeframe": "current_quarter"}, False, None),             # an old caller keeps its words
+    ({"period_comparison": "quarter_vs_py_quarter"}, False, "quarter_vs_py_quarter"),
+])
+async def test_the_route_asks_for_the_product_reading_when_no_period_is_given(monkeypatch, body, product_reading, named):
+    """Owner ruling 8: with no period in the request each KPI is read on its data product's
+    comparison; a caller naming a timeframe or a comparison keeps it."""
+    from src.api.routes import workflows
+    seen = {}
+
+    class _Orch:
+        async def execute_agent_method(self, agent, method, args):
+            return {"context": {"principal_id": "cfo_001", "role": "CFO", "business_processes": ["finance"],
+                                "default_filters": {}, "decision_style": "analytical",
+                                "communication_style": "concise", "preferred_timeframes": ["year_to_date"]}}
+
+        async def orchestrate_situation_detection(self, request):
+            seen["request"] = request
+            return {"status": "error", "message": "stop here"}
+
+    async def _record(request_id, **updates):
+        return None
+    monkeypatch.setattr(workflows, "_update_record", _record)
+    runtime = SimpleNamespace(get_orchestrator=lambda: _Orch())
+    await workflows._run_situations_workflow(
+        "r1", runtime, workflows.SituationWorkflowRequest(principal_id="cfo_001", client_id="lubricants", **body))
+    r = seen["request"]
+    assert (r.use_data_product_reading, r.period_comparison) == (product_reading, named)

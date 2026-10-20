@@ -127,6 +127,8 @@ deep_link_token: Optional[str]      # UUID for "Investigate" deep link
 delegate_token: Optional[str]
 request_info_token: Optional[str]
 key_observations: Optional[List[str]] # Bullet-point observations from Situation
+period_months: Optional[str]        # "Jan–Sep 2026 vs Jan–Sep 2025", from the saved situation's
+                                    # full_payload; shown under the sentence (Phase 26, ruling C)
 ```
 
 ## Lifecycle Notes

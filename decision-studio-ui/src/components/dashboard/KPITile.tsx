@@ -116,8 +116,10 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
     return `${prefix}${value.toLocaleString()}${unit && unit !== '$' ? ` ${unit}` : ''}`;
   })();
 
-  // #7: Temporal grounding — enrich generic comparison type labels with year context
+  // What the card compared, as the agent names it (Phase 26, owner ruling B2): "YTD vs PYTD",
+  // "YTD Act vs Budget", "Trend vs Budget". The fallback below serves cards from older scans.
   const comparisonLabel = (() => {
+    if (situation.comparison_label) return situation.comparison_label;
     if (triggeringComparison) return triggeringComparison.label;
     if (!comparisonType) return null;
     const year = new Date().getFullYear();
@@ -296,14 +298,22 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
       {/* ── Lead finding + sparkline (always together at bottom) ── */}
       <div className="mt-auto">
         {/* Why this card was raised, in the agent's own stated terms (for example
-            "grew 3.1% vs prior year, short of the 5.0% growth target"). It used to be
+            "grew 3.1%, short of the 5.0% growth target, YTD vs PYTD"). It used to be
             absent: the tile showed only a model-written observation, so a KPI that rose
-            sat under a problem label with no reason given. The dates in brackets are
-            dropped here because the comparison label above already names the period. */}
+            sat under a problem label with no reason given. The months follow on a second,
+            smaller line (owner ruling C). Dates in brackets, which older scans put in the
+            sentence, are dropped. */}
         {cardReason(situation.description) ? (
-          <p className="text-[11px] text-slate-300 leading-snug px-0 pb-1 line-clamp-2" data-testid="tile-reason">
-            {cardReason(situation.description)}
-          </p>
+          <>
+            <p className="text-[11px] text-slate-300 leading-snug px-0 pb-1 line-clamp-2" data-testid="tile-reason">
+              {cardReason(situation.description)}
+            </p>
+            {situation.period_months && (
+              <p className="text-[10px] text-slate-500 leading-snug px-0 pb-1" data-testid="tile-months">
+                {situation.period_months}
+              </p>
+            )}
+          </>
         ) : situation.key_observations && situation.key_observations.length > 0 ? (
           <p className="text-[11px] text-slate-400 leading-snug px-0 pb-2 line-clamp-2">
             {situation.key_observations[0]}

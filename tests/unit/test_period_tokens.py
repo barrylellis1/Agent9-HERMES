@@ -176,3 +176,31 @@ class TestLastTwelveMonths:
         assert short_label(spans("quarter_vs_py_quarter", date(2026, 10, 20), True)) == "Q3 vs PY Q3"
         assert short_label(spans("quarter_vs_prev_quarter", date(2026, 10, 20), True)) == "Q3 vs Q2"
         assert short_label(spans("quarter_vs_py_quarter", date(2026, 10, 20), True), fy_start=4) == "Q2 vs PY Q2"
+
+
+class TestCardNames:
+    """How a card names a reading (owner rulings B2 and C, 2026-10-20)."""
+
+    def test_months_line(self):
+        from src.analysis.period_comparisons import months_line
+        assert months_line(spans("ytd_vs_pytd", date(2026, 10, 20), True)) == "Jan–Sep 2026 vs Jan–Sep 2025"
+        assert months_line(spans("ltm_vs_prior_ltm", date(2026, 10, 20), True)) == \
+            "Oct 2025–Sep 2026 vs Oct 2024–Sep 2025"
+        assert months_line(spans("month_vs_py_month", date(2026, 10, 20), True)) == "Sep 2026 vs Sep 2025"
+
+    def test_a_stopped_feed_shows_in_the_months(self):
+        from src.analysis.period_comparisons import months_line
+        assert months_line(spans("ytd_vs_pytd", date(2026, 10, 20), True, date(2026, 7, 31))) == \
+            "Jan–Jul 2026 vs Jan–Jul 2025"
+
+    def test_a_reading_to_the_day_keeps_its_days(self):
+        from src.analysis.period_comparisons import months_line
+        assert months_line(spans("ytd_vs_pytd", date(2026, 10, 15), False)) == \
+            "1 Jan–15 Oct 2026 vs 1 Jan–15 Oct 2025"
+
+    def test_the_current_span_against_a_plan(self):
+        from src.analysis.period_comparisons import current_short
+        assert current_short(spans("ytd_vs_pytd", date(2026, 10, 20), True)) == "YTD"
+        assert current_short(spans("ltm_vs_prior_ltm", date(2026, 10, 20), True)) == "LTM"
+        assert current_short(spans("quarter_vs_py_quarter", date(2026, 10, 20), True)) == "Q3"
+        assert current_short(spans("quarter_vs_py_quarter", date(2026, 10, 20), True), fy_start=4) == "Q2"

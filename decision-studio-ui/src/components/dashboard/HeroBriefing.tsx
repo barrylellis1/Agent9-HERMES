@@ -96,7 +96,10 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
     return `${prefix}${value.toLocaleString()}${unit && unit !== '$' ? ` ${unit}` : ''}`;
   })();
 
+  // What the card compared, as the agent names it (Phase 26, owner ruling B2); the fallback
+  // below serves cards from older scans.
   const comparisonLabel = (() => {
+    if (situation.comparison_label) return situation.comparison_label;
     if (triggeringComparison) return triggeringComparison.label;
     const comparisonType = situation.kpi_value?.comparison_type;
     if (!comparisonType) return null;
@@ -203,6 +206,11 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
           {comparisonLabel && (
             <span className="block text-[11px] text-slate-500 uppercase tracking-wider mt-2">
               {comparisonLabel}
+            </span>
+          )}
+          {situation.period_months && (
+            <span className="block text-[11px] text-slate-500 mt-1" data-testid="hero-months">
+              {situation.period_months}
             </span>
           )}
         </div>

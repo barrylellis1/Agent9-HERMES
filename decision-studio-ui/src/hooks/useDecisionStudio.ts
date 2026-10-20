@@ -315,9 +315,8 @@ export function useDecisionStudio() {
     setFramingPrompt(null);
 
     try {
-      // Use proper comparison type based on timeframe
-      const comparisonType = timeframe === 'current_month' ? 'month_over_month' : 'year_over_year';
-      const result = await detectSituations(selectedPrincipal, timeframe, comparisonType, selectedClientId);
+      // Each KPI is read on its data product's own comparison (Phase 26, owner ruling 8).
+      const result = await detectSituations(selectedPrincipal, selectedClientId);
 
       setSituations(result.situations);
       setOpportunities(result.opportunities);

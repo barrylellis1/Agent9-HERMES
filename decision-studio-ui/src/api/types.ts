@@ -32,6 +32,10 @@ export interface MeasurementContext {
   source_system?: string | null;
   data_product_id?: string | null;
   sql_hash?: string | null;
+  /** Phase 26: the comparison in finance shorthand ("YTD vs PYTD") and its months. */
+  period_comparison?: string | null;
+  period_short_label?: string | null;
+  period_months?: string | null;
 }
 
 export interface Situation {
@@ -82,6 +86,13 @@ export interface Situation {
   // Same-KPI multi-alert-type consolidation — present when this card folds together
   // more than one alert_type for the same KPI (e.g. threshold_breach + plan_variance)
   merged_alert_types?: string[] | null;
+  /**
+   * Phase 26 (owner rulings B2, C): what the card compared, in finance shorthand ("YTD vs PYTD",
+   * "YTD Act vs Budget", "Trend vs Budget"), and the months behind it ("Jan–Sep 2026 vs
+   * Jan–Sep 2025"), shown as a smaller line under the card's sentence. Absent on older scans.
+   */
+  comparison_label?: string | null;
+  period_months?: string | null;
 }
 
 export interface OpportunitySignal {

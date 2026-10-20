@@ -192,6 +192,12 @@ class MeasurementContext(BaseModel):
         description="Set when this is the February fallback (owner ruling 2): the comparison the reading "
                     "stands in for (ytd_vs_pytd). Its targets are that comparison's threshold row.",
     )
+    # How a card names this reading (owner rulings B2 and C): the comparison in finance
+    # shorthand, and the months it set side by side.
+    period_short_label: Optional[str] = Field(None, description='The comparison in finance shorthand: "YTD vs PYTD", "LTM vs Prior LTM", "Q3 vs PY Q3"')
+    period_current_short: Optional[str] = Field(None, description='The current span alone in shorthand, for actuals against a plan: "YTD", "LTM", "Q3"')
+    period_months: Optional[str] = Field(None, description='The months compared: "Jan–Sep 2026 vs Jan–Sep 2025"')
+    period_current_months: Optional[str] = Field(None, description='The months of the current span alone: "Jan–Sep 2026"')
     actuals_end: Optional[str] = Field(
         None,
         description="Set when the actuals stop before the calendar's last closed period: the end of "
@@ -376,6 +382,19 @@ class Situation(BaseModel):
         None,
         description="All alert_type patterns folded into this card when the same KPI triggers more than one in a single scan. None/absent when only one pattern fired."
     )
+    # Phase 26 (owner rulings B2, C and 2026-10-20): what the card compared, in finance
+    # shorthand, and the months, shown as a second line under its sentence.
+    comparison_label: Optional[str] = Field(
+        None,
+        description='What this card compared: the reading in shorthand ("YTD vs PYTD", "LTM vs Prior LTM"); '
+                    '"YTD Act vs Budget" for actuals against a plan; "Trend vs Budget" for a projected breach; '
+                    '"Trend, last 9 months" for acceleration. None for a card from an older scan.',
+    )
+    period_months: Optional[str] = Field(
+        None,
+        description='The months behind the card: "Jan–Sep 2026 vs Jan–Sep 2025"; one span ("Jan–Sep 2026") '
+                    'for a plan or trend card. None when unknown.',
+    )
 
     @classmethod
     def from_opportunity_signal(cls, signal: "OpportunitySignal", kpi_value: "KPIValue") -> "Situation":
@@ -439,6 +458,12 @@ class SituationDetectionRequest(BaseRequest):
         description="Phase 26: read every KPI on this named period comparison (one of the ten in "
                     "src/analysis/period_comparisons.py). When absent, timeframe + comparison_type "
                     "map to the comparison they have always been read as (YTD + YoY = ytd_vs_pytd).",
+    )
+    use_data_product_reading: bool = Field(
+        False,
+        description="Phase 26 (owner ruling 8): read each KPI on its own data product's comparison "
+                    "(src/analysis/period_settings.py: reading), as the dashboard does. timeframe and "
+                    "comparison_type are then ignored for the period. period_comparison wins over it.",
     )
     filters: Optional[Dict[str, Any]] = Field(None, description="Additional filters")
     client_id: Optional[str] = Field(None, description="Client/tenant ID — limits KPI evaluation to this client's KPIs")

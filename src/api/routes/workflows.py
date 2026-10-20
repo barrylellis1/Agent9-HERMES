@@ -250,6 +250,12 @@ class SituationWorkflowRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = Field(None, description="Additional filters for KPI evaluation")
     comparison_type: Optional[str] = Field(None, description="Override comparison type")
     timeframe: Optional[str] = Field(None, description="Requested timeframe token")
+    period_comparison: Optional[str] = Field(
+        None,
+        description="Phase 26: read every KPI on this named comparison (e.g. 'ytd_vs_pytd'). With neither "
+                    "this nor timeframe, each KPI is read on its data product's own comparison (owner ruling 8), "
+                    "as the dashboard asks.",
+    )
     kpi_ids: Optional[List[str]] = Field(None, description="Explicit KPI identifiers to evaluate")
     include_annotations: bool = Field(False, description="Whether to capture annotations in the workflow")
     client_id: Optional[str] = Field(None, description="Client/tenant ID — limits KPI evaluation to this client's KPIs")
@@ -1334,7 +1340,13 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
             or principal_context.get("business_process_ids")  # fallback for Supabase column name
             or []
         )
-        timeframe = request.timeframe or TimeFrame.CURRENT_QUARTER.value
+        # Owner ruling 8 (Phase 26): asked for no period, each KPI is read on its data product's
+        # own comparison, as the offline assessment reads it. The timeframe is then a placeholder
+        # the request model requires; each reading's context records the comparison it used.
+        use_product_reading = not request.timeframe and not request.period_comparison
+        timeframe = request.timeframe or (
+            TimeFrame.YEAR_TO_DATE.value if use_product_reading else TimeFrame.CURRENT_QUARTER.value
+        )
         comparison_type = request.comparison_type or ComparisonType.YEAR_OVER_YEAR.value
 
         detection_request_payload = {
@@ -1344,7 +1356,10 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
             "timeframe": timeframe,
             "comparison_type": comparison_type,
             "filters": request.filters or {},
+            "use_data_product_reading": use_product_reading,
         }
+        if request.period_comparison:
+            detection_request_payload["period_comparison"] = request.period_comparison
         if request.kpi_ids:
             detection_request_payload["kpi_ids"] = request.kpi_ids
         if request.client_id:

@@ -1,6 +1,6 @@
 # Period comparisons: decision record (Phase 26)
 
-**Decided by:** the product owner, 13–18 October 2026
+**Decided by:** the product owner, 13–20 October 2026
 **Status:** decided. Partly built (see the end of this document); nothing released.
 **For engineers:** the build plan is in `docs/DEVELOPMENT_BACKLOG.md` → Phase 26.
 
@@ -121,7 +121,8 @@ onboarding will require the setting for new ones.
 **2. How a card names its comparison.** Finance shorthand: *YTD vs PYTD*, *LTM vs Prior LTM*,
 *Q3 vs PY Q3*, *Q3 vs Q2*, and *YTD Act vs Budget* against a plan. "Act" appears only when actuals are
 set against a plan or forecast; otherwise actual against actual is assumed. The tile shows the
-comparison only; the months appear in the card's detail.
+comparison only; the months appear in the card's detail. *Refined 20 October (ruling C below):* the
+card's sentence ends with the comparison, and the months sit on a second, smaller line under it.
 - *Considered:* plain words ("YTD vs last year"); the period end in the label ("YTD Sep-26 vs PYTD"),
   which would have shown a stopped feed on the tile itself.
 
@@ -154,26 +155,61 @@ organisation, not by product or channel.
 
 ## What a reader of a card now sees
 
-| Situation | Tile | Card detail |
+| Situation | Label | Second line (months) |
 |---|---|---|
 | Financial KPI, October | YTD vs PYTD | Jan–Sep 2026 vs Jan–Sep 2025 |
 | Financial KPI, February | LTM vs Prior LTM | Feb 2025–Jan 2026 vs Feb 2024–Jan 2025 |
 | Client whose actuals end in July | YTD vs PYTD | Jan–Jul 2026 vs Jan–Jul 2025 |
 | Operational KPI, any month | LTM vs Prior LTM | Oct 2025–Sep 2026 vs Oct 2024–Sep 2025 |
+| Actuals against the budget, October | YTD Act vs Budget | Jan–Sep 2026 |
+| Projected breach (trend crossing the budget floor) | Trend vs Budget | the six months the trend was fitted on |
+| Acceleration (trend worsening faster) | Trend, last 9 months | the nine months of the trend |
+
+The label sits on the tile under the headline figure, and ends the card's sentence ("Gross Margin %
+decreased by 4.5 points (13.0%), YTD vs PYTD"). The second line appears under the sentence wherever
+the sentence is shown: the dashboard tile, the lead briefing card, the analysis view and the briefing
+email. Solution Finder receives the sentence with the label, without the months.
 
 ## Status
 
 Built, not released: every reading records which comparison it used, and the analysis behind a card
 measures exactly the card's periods (verified on two clients: the analysis reproduces the card's
-numbers). Also built, but to be reworked to match these decisions: the stopped-actuals rule (built per
-KPI; decision 7 makes it per data product) and the rules for which readings may raise a card
-(decisions 1–4).
+numbers). Cards read on each KPI's declared date (build choice 4); the financial/operational setting,
+the twelve-month comparison and the February fallback; per-KPI exceptions and the covenant exemption
+removed; the actuals cut-off worked out per data product (decision 7); the dashboard reading each data
+product's comparison, with every card labelled and its months on a second line (decision 8, build
+choice 2, rulings C–E below).
 
-To build, as decided above: cards read on each KPI's declared date (build choice 4, first, with a
-before-and-after review); the financial/operational setting; the twelve-month comparison and the
-February fallback; the dashboard reading each data product's comparison with labelled cards; the
-whole-data-product actuals cut-off; the threshold changes; and the removal of choices made during
-the first build that these decisions overturned (per-KPI exceptions, the covenant exemption).
+To build, as decided above: marking each data product financial or operational in the client seeds,
+and moving the operational KPIs' "YoY" thresholds to the last 12 months (decision 9).
+
+## Rulings for the rework (20 October 2026)
+
+Choices the rework needed that the decisions above did not cover, put to the owner before building.
+
+**A. The targets for the February fallback.** A financial KPI read on the last 12 months in February
+is judged on its year-to-date targets: both measure growth against the year before, so a "+5% growth"
+target means the same thing. *Considered:* the built-in 5/10/20% rule.
+
+**B. Gross revenue and sales tax read on the last 12 months.** They sit on the order-level data
+product, which is operational, so they compare the last 12 months while net revenue, on the financial
+product, compares the year to date; on the CFO's screen gross and net revenue then compare different
+periods. Accepted, following the grain principle (build choice 5). *Considered:* marking the
+order-level product financial, which would put order count, average order value and cancellation rate
+on the year to date too.
+
+**C. Where the months go.** The card's sentence ends with the comparison ("…fell 4.5 points (13.0%),
+YTD vs PYTD"), and a second, smaller line under it gives the months ("Jan–Sep 2026 vs Jan–Sep 2025").
+On a stopped feed, the second line is where "Jan–Jul 2026" shows. The sentence used to say "vs prior
+year" followed by raw dates, whatever the comparison.
+
+**D. The label on trend cards.** Projected breach and acceleration come from the monthly trend, not a
+period comparison: projected breach reads "Trend vs Budget", acceleration "Trend, last 9 months".
+*Considered:* the reading's label ("YTD vs PYTD"), which describes the wrong thing.
+
+**E. Where the second line appears.** Everywhere the sentence is shown: the dashboard tile, the lead
+briefing card, the analysis view and the briefing email. Solution Finder receives the sentence ending
+with the label, without the months; it already has the analysis's periods in words.
 
 ## Other rulings made while building (19–20 October 2026)
 

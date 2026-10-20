@@ -52,6 +52,9 @@ class SituationBriefingItem(BaseModel):
     delegate_token: Optional[str] = None
     request_info_token: Optional[str] = None
     key_observations: Optional[List[str]] = None
+    # The months behind the situation ("Jan–Sep 2026 vs Jan–Sep 2025"), shown under its
+    # sentence (Phase 26, owner ruling C). None for a situation saved by an older scan.
+    period_months: Optional[str] = None
 
 
 class SolutionProgressItem(BaseModel):

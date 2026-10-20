@@ -521,7 +521,7 @@ Called in `detect_situations()` after `_detect_compound_alerts()` and after the 
     Cross-agent window equality is therefore only meaningful **within** a basis — comparing a plan variance against a YoY would flag a difference that is correct by definition.
   - Every field optional — purely additive; absence means "unknown provenance" and must **never** be read as a match. `_build_measurement_context()` never raises: provenance is bookkeeping and must not be able to break a measurement. Tests: `tests/unit/test_measurement_context.py` (24).
 
-## Situation Description States the Window It Measured — `_window_suffix()` (Aug 2026)
+## Situation Description States the Window It Measured — `_window_suffix()` (Aug 2026; replaced by the card label in Phase 26 step 3f(3), below)
 
 **Bug fixed:** a live 12-page executive briefing carried **three** different characterisations of "the KPI's decline" on adjacent pages, none of them labelled:
 
@@ -596,9 +596,10 @@ flagged when its growth is under the green threshold (B2B Revenue: +3.1% against
 target). The card was correct; its sentence, "B2B Revenue increased by 3.1% vs prior year", gave no
 reason and read as an error. Found live 2026-10-13 on five lubricants KPIs.
 
-`_threshold_sentence()` now writes "grew 3.1% vs prior year, short of the 5.0% growth target" (and
+`_threshold_sentence()` now writes "grew 3.1%, short of the 5.0% growth target, YTD vs PYTD" (and
 the mirror for a cost that fell by too little, or rose past its limit). With no green threshold the
-sentence is unchanged. Test: `tests/unit/test_sa_threshold_sentence.py`.
+sentence is unchanged. Test: `tests/unit/test_sa_threshold_sentence.py`. (The comparison at the end
+replaced "vs prior year" in Phase 26 step 3f(3).)
 
 **Severity follows the distance from target (decided 2026-10-13).** `_severity_for_band()`: `yellow`
 (missed green only) is MEDIUM, `amber` (missed yellow too) is HIGH, `red` is CRITICAL. Before this,
@@ -693,8 +694,8 @@ actuals to July, plan to December).
 
 **What a reading records.** `MeasurementContext` gains `period_comparison`, `period_label`,
 `reference_day`, `actuals_end` (set when the actuals stop before the calendar's last closed month),
-`card_hold_reason` and `plan_card_hold_reason`. `_window_suffix` adds "; actuals end Jul 2026" when
-`actuals_end` is set, so a stopped feed does not read as current. The threshold row is looked up for
+`card_hold_reason` and `plan_card_hold_reason`. A stopped feed shows in the card's months line
+("Jan–Jul 2026 vs Jan–Jul 2025", step 3f(3)), so it does not read as current. The threshold row is looked up for
 the reading's own comparison (`context.period_comparison`).
 
 **Which readings may raise a card (3c).** The data product's period settings
@@ -784,3 +785,32 @@ stopped feed and every card from a product compares the same months. Series read
 the per-product pass and each reading share one warehouse read. Live 2026-10-20: lubricants, Apex and
 Hess readings and cards identical (Hess's KPIs all end in July; the others are capped at the last
 closed month). Tests: `test_sa_period_comparisons.py::test_a_quiet_kpi_takes_its_data_products_cut_off`.
+
+## Step 3f(3): the dashboard reads each data product's comparison; every card names it (2026-10-20)
+
+**Owner ruling 8.** `SituationDetectionRequest.use_data_product_reading` reads each KPI on its data
+product's `reading` (`period_settings`), as the offline assessment does; `period_comparison` still wins
+over it. The situations route sets it when a request names neither a timeframe nor a
+`period_comparison` (the dashboard now sends neither); a caller naming a timeframe keeps the old
+mapping. The timeframe then defaults to `year_to_date` as a placeholder the request model requires.
+
+**Card labels (rulings B2, C; trend labels and the second line, 2026-10-20).** `_build_measurement_context`
+stamps `period_short_label` ("YTD vs PYTD", "LTM vs Prior LTM", "Q3 vs PY Q3"),
+`period_current_short` ("YTD"), `period_months` ("Jan–Sep 2026 vs Jan–Sep 2025") and
+`period_current_months` (`period_comparisons.short_label / current_short / months_line /
+months_words`). Each `Situation` carries `comparison_label` and `period_months`:
+
+| Card | `comparison_label` | `period_months` |
+|---|---|---|
+| threshold breach, covenant, regulatory, improvement | the reading's shorthand | both spans |
+| actuals against plan | "YTD Act vs Budget" (`{current_short} Act vs {plan_version}`) | the current span |
+| projected breach | "Trend vs Budget" | the six months the trend was fitted on |
+| acceleration | "Trend, last N months" (N = the series kept, 9 normally) | the series' months |
+
+Plan and trend cards set their own at creation; `_label_cards` gives the rest the reading's. A merged
+card keeps its primary member's. Every card sentence ends with its label ("…decreased by 4.5 points
+(13.0%), YTD vs PYTD"; `_reading_label` replaced `_window_suffix` and its raw dates); improvement
+headlines are unchanged (their wording is an open item). Solution Finder receives the sentence with
+the label and no months. The UI tile, briefing card, analysis view and the PIB email show
+`period_months` as a second, smaller line. Tests: `test_sa_period_comparisons.py`,
+`test_sa_threshold_sentence.py`, `test_period_tokens.py::TestCardNames`.

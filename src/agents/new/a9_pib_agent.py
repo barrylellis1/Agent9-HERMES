@@ -300,6 +300,14 @@ class A9_PIB_Agent:
 
             raw_obs = sit_data.get("key_observations")
             key_observations = raw_obs if isinstance(raw_obs, list) else []
+            _payload = sit_data.get("full_payload") or {}
+            if isinstance(_payload, str):
+                import json as _json
+                try:
+                    _payload = _json.loads(_payload)
+                except ValueError:
+                    _payload = {}
+            _months = _payload.get("period_months") if isinstance(_payload, dict) else None
 
             item = SituationBriefingItem(
                 situation_id=sit_data.get("id", kpi_id),
@@ -315,6 +323,7 @@ class A9_PIB_Agent:
                 delegate_token=delegate_token,
                 request_info_token=request_info_token,
                 key_observations=key_observations,
+                period_months=_months if isinstance(_months, str) else None,
             )
 
             if is_new:
@@ -534,6 +543,8 @@ class A9_PIB_Agent:
         ]
         for s in content.new_situations:
             lines.append(f"  [{s.severity.upper()}] {s.kpi_name} — {s.description}")
+            if s.period_months:
+                lines.append(f"      {s.period_months}")
         lines += ["", f"SOLUTIONS IN PROGRESS ({len(content.solutions_in_progress)}):"]
         for sol in content.solutions_in_progress:
             lines.append(f"  {sol.solution_title} — {sol.status}")
