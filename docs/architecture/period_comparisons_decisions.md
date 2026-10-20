@@ -131,8 +131,13 @@ means one thing everywhere.
 
 **4. Which date a card is measured on.** Each KPI is read on the business event its data product
 declares for it (Phase 25): sales value by the period revenue was recognised, fulfilment by delivery
-date, cancellation by order date. The analysis behind a card already reads data this way; cards now
-read the same rows. Kept only after the owner has reviewed before-and-after figures for every KPI.
+date, cancellation by order date, so a card and the analysis behind it read the same rows. Kept after
+the owner reviewed before-and-after figures for every KPI.
+- *Correction, 20 October:* this choice was put to the owner on the stated premise that the analysis
+  behind a card already read data this way. It did not for a KPI dated by an event other than its data
+  product's main one: the analysis read Order Fulfillment Rate by recognition month (88.3% against
+  95.1%) while its card read delivery date (94.4% against 94.9%). Fixed on 20 October; the analysis
+  now reproduces the card's figures.
 - *Considered:* dating the two unreadable Sales KPIs by order or delivery date (ruled out by Phase 25:
   90% of order lines fall in a different month from their revenue recognition).
 
@@ -169,6 +174,16 @@ before-and-after review); the financial/operational setting; the twelve-month co
 February fallback; the dashboard reading each data product's comparison with labelled cards; the
 whole-data-product actuals cut-off; the threshold changes; and the removal of choices made during
 the first build that these decisions overturned (per-KPI exceptions, the covenant exemption).
+
+## Other rulings made while building (19–20 October 2026)
+
+- **Every active KPI is judged, whatever its domain.** A launch-era "Finance only" setting had left
+  five lubricants Sales KPIs out of every scan.
+- **The lubricants demo data tells a real fulfilment story.** Order lines carry an actual delivery
+  date; about 4% are late and 1% never delivered, at random. A planted scenario, labelled as such in
+  the data product: from June 2026 about a third of Asia-Pacific deliveries are late. Order
+  Fulfillment Rate is now on-time delivery (delivered by the planned date), judged on the change
+  against last year (green above −0.5%). Deep Analysis traces the planted problem to Asia-Pacific.
 
 ## Left for later
 
