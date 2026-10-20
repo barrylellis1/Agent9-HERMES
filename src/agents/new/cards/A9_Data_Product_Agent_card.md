@@ -436,3 +436,12 @@ years only). The reference day is what lets Deep Analysis measure exactly the sp
 did. The DuckDB builder (`_generate_sql_for_kpi`) only knows the old words, so `generate_sql_for_kpi`
 gives it `period_comparisons.legacy_word()` (the nearest one, approximate). Old words are still
 answered as before for callers that send them. Test: `tests/unit/test_period_tokens.py`.
+
+## Analysis queries use the KPI's declared time dimension (2026-10-20)
+
+`generate_sql_for_kpi` now resolves `_resolve_time_spec(dp_id, kpi_definition)` (the KPI's Phase 25
+declared dimension) instead of the product's primary only. Until then only the monthly series and
+`resolve_comparison_basis` honoured the declaration, so Deep Analysis read Order Fulfillment Rate
+(declared on delivery date) by recognition month (88.3% vs 95.1%, from orders not yet due for
+delivery) while its card read delivery date (94.4% vs 94.9%). KPIs with no declaration are
+unchanged. Test: `tests/unit/test_time_dimension_comparison_basis.py::TestAnalysisQueriesUseTheDeclaredDimension`.

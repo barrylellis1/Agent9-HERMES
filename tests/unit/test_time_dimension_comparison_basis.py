@@ -109,3 +109,28 @@ class TestResolveComparisonBasis:
             agent.resolve_comparison_basis("dp", _kpi(time_dimension="Delivery Date")),
         }
         assert bases == {"revenue_recognition", "order_placement", "delivery"}
+
+
+class TestAnalysisQueriesUseTheDeclaredDimension:
+    """2026-10-20: generate_sql_for_kpi (the queries behind Deep Analysis) resolved only the
+    product's primary dimension, so Order Fulfillment Rate, declared on delivery date, was
+    analysed by recognition month while its card read delivery date."""
+
+    @staticmethod
+    def _sql(meta):
+        import asyncio
+        agent = _agent()
+        agent._resolve_source_system = lambda dp_id: "bigquery"
+        agent.data_product_provider = None
+        kpi = SimpleNamespace(id="order_fulfillment_rate", name="Order Fulfillment Rate",
+                              data_product_id="dp_lubricants_sales", metadata=meta,
+                              sql_query="SELECT SAFE_DIVIDE(COUNTIF(delivered_on_time), COUNT(*)) AS value FROM `p.d.V`")
+        out = asyncio.run(agent.generate_sql_for_kpi(kpi, timeframe="ytd_vs_pytd@2026-09-30"))
+        return out["sql"]
+
+    def test_a_kpi_declared_on_delivery_date_is_filtered_on_it(self):
+        assert "`delivery_date` BETWEEN '2026-01-01' AND '2026-09-30'" in self._sql({"time_dimension": "delivery"})
+
+    def test_without_a_declaration_the_primary_is_used(self):
+        sql = self._sql({})
+        assert "fiscal_year = 2026" in sql and "delivery_date" not in sql

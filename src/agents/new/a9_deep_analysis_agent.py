@@ -386,13 +386,22 @@ def _period_words(timeframe: Any) -> str:
     return period_words(timeframe) if timeframe else ""
 
 
-def _situation_period(timeframe: Any, period_keyed: bool = False) -> str:
-    """The comparison token to analyse: a token as given, an old word as Situation Awareness
-    reads it (as of today; no reference day, so TimeFilter decides it)."""
+def _situation_period(timeframe: Any, period_keyed: bool = False, today: Any = None) -> str:
+    """The comparison token to analyse, always with its reference day.
+
+    A token from the card is kept as given. Otherwise (no card, or a card read before Phase 26)
+    the old word is read as Situation Awareness reads it, and the reference day is fixed from the
+    DATA PRODUCT's time key (owner decision 7: every reading from a data product compares the
+    same months), so a KPI declared on a date (fulfilment, by delivery date) on a period-keyed
+    product is read over the product's closed months, as its card is. Fixing the day here also
+    lets every label and sentence name the period in words."""
+    from datetime import date as _date
     from src.analysis import period_comparisons as _pc
-    if _pc.parse_token(timeframe):
-        return str(getattr(timeframe, "value", timeframe)).strip().lower()
-    return _pc.from_request(timeframe or "current_quarter", "year_over_year", period_keyed)
+    parsed = _pc.parse_token(timeframe)
+    name, ref = parsed if parsed else (_pc.from_request(timeframe or "current_quarter", "year_over_year", period_keyed), None)
+    if ref is None:
+        ref = _pc.reference_day(today or _date.today(), period_keyed)
+    return _pc.token(name, ref)
 
 
 def _total_comparison_basis(comparator: Any) -> str:
@@ -1265,11 +1274,13 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # word becomes the comparison Situation Awareness reads it as; month to date
                     # on period-keyed data becomes the last closed month, so it needs the key.
                     _keyed = False
+                    _resolver = getattr(self.data_product_agent, "_resolve_time_spec", None)
                     try:
                         from src.analysis.complete_periods import is_period_keyed as _is_period_keyed
-                        _resolver = getattr(self.data_product_agent, "_resolve_time_spec", None)
                         if _resolver and dp_id:
-                            _keyed = _is_period_keyed(_resolver(dp_id, kpi_def))
+                            # The data product's own time key decides closed months (decision 7),
+                            # not the KPI's declared date.
+                            _keyed = _is_period_keyed(_resolver(dp_id))
                     except Exception:
                         _keyed = False
                     _aligned_tf = _situation_period(cur_tf, _keyed)
@@ -2328,6 +2339,19 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                                 time_bucket = _primary_td.display_expr or _primary_td.column
                                 time_bucket_label = getattr(_primary_td, "label", None) or time_bucket
+                                # A KPI declared on another time dimension (fulfilment on delivery
+                                # date) is bucketed on that one, by month, as its readings are.
+                                _kpi_td = self.data_product_agent._resolve_time_spec(dp_id, kpi_def) if (
+                                    self.data_product_agent is not None
+                                    and hasattr(self.data_product_agent, "_resolve_time_spec")) else None
+                                if _kpi_td and (_kpi_td.get("label") or "") != (getattr(_primary_td, "label", "") or ""):
+                                    from src.database.time_filter import TimeFilter as _TFb
+                                    _src = (self.data_product_agent._resolve_source_system(dp_id)
+                                            if hasattr(self.data_product_agent, "_resolve_source_system") else None) or "bigquery"
+                                    _kpi_bucket = _TFb.period_key_expr(_kpi_td, _src)
+                                    if _kpi_bucket:
+                                        time_bucket = _kpi_bucket
+                                        time_bucket_label = _kpi_td.get("label") or time_bucket
                         except Exception as _td_err:
                             self.logger.debug("[DA] time_dimension lookup failed for dp_id=%s: %s", dp_id, _td_err)
                     if not time_bucket:

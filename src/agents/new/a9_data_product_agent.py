@@ -5131,8 +5131,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 elif _SS_PAT.search(_raw_sql):
                     _source_system = 'sqlserver'
 
-            # Resolve the primary time dimension spec for this data product
-            _time_spec = self._resolve_time_spec(_dp_id)
+            # The KPI's declared time dimension (Phase 25; owner ruling B4, 2026-10-18): the same
+            # resolution Situation Awareness uses for the card, so the analysis behind a card reads
+            # the same rows. Until 2026-10-20 only the product's primary was used here, so
+            # Order Fulfillment Rate (declared on delivery date) was analysed by recognition month.
+            _time_spec = self._resolve_time_spec(_dp_id, kpi_definition)
 
             # Route by source_system
             if _source_system == 'bigquery':

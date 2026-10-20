@@ -1289,3 +1289,18 @@ Live 2026-10-16: Hess Production Revenue, overall 445,779,966.72 vs 454,442,084.
 card's two numbers exactly, over Jan–Jul 2026 vs Jan–Jul 2025 (actuals end in July). Lubricants Gross
 Margin %: 29.95 vs 34.43, the card's numbers, and the same segment findings as the previous run.
 Tests: `tests/unit/test_da_period_alignment.py`.
+
+## Reading a KPI on its declared date, with or without a card (2026-10-20)
+
+- `_situation_period(timeframe, period_keyed, today=None)` now always returns a token WITH its
+  reference day. A card's token is kept as given; otherwise the old word is mapped as Situation
+  Awareness maps it and the day is fixed from the DATA PRODUCT's time key (decision 7: every reading
+  from a product compares the same months), so a KPI declared on a date on a period-keyed product is
+  read over the product's closed months, as its card is. `_keyed` comes from the product's primary
+  dimension, not the KPI's. With the day fixed, labels and KT sentences always name the period in
+  words (they leaked "ytd_vs_pytd" when run without a card).
+- The WHEN breakdown buckets a KPI declared on a non-primary dimension by that dimension's monthly
+  period key (`TimeFilter.period_key_expr`); primary-keyed KPIs keep the primary's display expression.
+- With the Data Product Agent's fix the same day, live 2026-10-20: Order Fulfillment Rate analysed at
+  94.35% vs 94.91% (the card's figures), localised, Asia-Pacific (APJ) first at -11.1 points (the
+  planted demo scenario). Controls unchanged: lubricants Gross Margin %, Hess Production Revenue.

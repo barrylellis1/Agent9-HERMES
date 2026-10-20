@@ -39,7 +39,7 @@ def test_hess_the_analysis_stops_where_the_card_did():
     tok = _situation_period_token({"kpi_value": {"context": {
         "period_comparison": "ytd_vs_pytd", "reference_day": "2026-07-31"}}})
     assert tok == "ytd_vs_pytd@2026-07-31"
-    assert _situation_period(tok, True) == tok
+    assert _situation_period(tok, True) == tok   # the card's token is kept as given
     assert TimeFilter.current_condition(FYP, tok) == "fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 7"
 
 
@@ -49,20 +49,36 @@ def test_a_card_without_a_recorded_comparison_gives_no_token(payload):
     assert _situation_period_token(payload) is None
 
 
+ON = date(2026, 10, 15)
+
+
 @pytest.mark.parametrize("word, keyed, expected", [
-    ("year_to_date", True, "ytd_vs_pytd"),
-    ("current_quarter", False, "qtd_vs_py_qtd"),       # the quarter so far, as the card reads it
-    ("current_month", True, "month_vs_py_month"),      # closed month on period-keyed data
-    ("current_month", False, "mtd_vs_py_mtd"),
-    (None, False, "qtd_vs_py_qtd"),                     # the route's old default
+    ("year_to_date", True, "ytd_vs_pytd@2026-09-30"),          # closed months on period-keyed data
+    ("current_quarter", False, "qtd_vs_py_qtd@2026-10-15"),    # the quarter so far, as the card reads it
+    ("current_month", True, "month_vs_py_month@2026-09-30"),   # closed month on period-keyed data
+    ("current_month", False, "mtd_vs_py_mtd@2026-10-15"),
+    (None, False, "qtd_vs_py_qtd@2026-10-15"),                 # the route's old default
 ])
 def test_without_a_situation_an_old_word_is_read_as_the_card_reads_it(word, keyed, expected):
-    assert _situation_period(word, keyed) == expected
+    # Always with a reference day (2026-10-20), so labels and sentences can name the period
+    assert _situation_period(word, keyed, today=ON) == expected
+
+
+def test_a_token_without_a_day_is_given_the_data_products_day():
+    assert _situation_period("ytd_vs_pytd", True, today=ON) == "ytd_vs_pytd@2026-09-30"
+    assert _situation_period("ytd_vs_pytd@2026-07-31", True, today=ON) == "ytd_vs_pytd@2026-07-31"
 
 
 def test_an_enum_word_is_read_too():
     from src.agents.models.situation_awareness_models import TimeFrame
-    assert _situation_period(TimeFrame.CURRENT_QUARTER) == "qtd_vs_py_qtd"
+    assert _situation_period(TimeFrame.CURRENT_QUARTER, today=ON) == "qtd_vs_py_qtd@2026-10-15"
+
+
+def test_a_kpi_dated_by_delivery_on_a_period_keyed_product_reads_its_closed_months():
+    """Fulfilment (declared on delivery date) on the period-keyed Sales product: the product's
+    key decides the day, so the analysis reads Jan-Sep, as the card does (decision 7)."""
+    tok = _situation_period("year_to_date", True, today=ON)
+    assert TimeFilter.current_condition({"type": "date", "column": "delivery_date"}, tok) ==         "`delivery_date` BETWEEN '2026-01-01' AND '2026-09-30'"
 
 
 def test_text_names_the_period_in_words():
