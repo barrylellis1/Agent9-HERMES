@@ -24,14 +24,16 @@ FYP = {"type": "fiscal_year_period", "year_column": "fiscal_year", "period_colum
 class Warehouse:
     """Answers the monthly series with months through `last_month`, and a total per span."""
 
-    def __init__(self, last_month="2026-07"):
+    def __init__(self, last_month="2026-07", last_month_by_table=None):
         self.last_month = last_month
+        self.last_month_by_table = last_month_by_table or {}  # a quieter KPI's own table
         self.sql = []
 
     async def execute_sql(self, sql, parameters=None, principal_context=None, data_product_id=None):
         self.sql.append(sql)
         if "LIMIT" in sql:  # the monthly series
-            y, m = int(self.last_month[:4]), int(self.last_month[5:])
+            last = next((m for t, m in self.last_month_by_table.items() if t in sql), self.last_month)
+            y, m = int(last[:4]), int(last[5:])
             months = [(y if k <= m else y - 1, k) for k in range(1, 13)]
             return {"rows": [{"period": f"{yy}-{mm:02d}", "value": 10.0} for yy, mm in months]}
         run = re.search(r"BETWEEN (\d{4})\d{2} AND (\d{4})\d{2}", sql)  # a span across fiscal years: its end year
@@ -46,6 +48,7 @@ def _sa(warehouse, spec=FYP):
     sa.data_product_agent = warehouse
     sa._last_sql_cache = {}
     sa._resolve_source_system = lambda dp: "bigquery"
+    sa.kpi_registry = {"hess:Production Revenue": _kpi()}  # the product's KPIs, for its actuals cut-off
 
     async def _spec(dp):
         return spec
@@ -284,7 +287,9 @@ async def test_bigquery_series_comes_from_the_data_product_agent(today):
         return {"success": True, "sql": "SELECT period, value FROM (...) LIMIT 13"}
     wh.generate_monthly_series_sql = _series
     await _sa(wh)._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
-    assert asked == [13] and wh.sql[0] == "SELECT period, value FROM (...) LIMIT 13"
+    # asked for the product's cut-off and for the reading, read from the warehouse once
+    assert asked and set(asked) == {13}
+    assert wh.sql.count("SELECT period, value FROM (...) LIMIT 13") == 1
 
 
 @pytest.mark.asyncio
@@ -294,3 +299,33 @@ async def test_no_series_rather_than_one_on_a_guessed_column(today):
     v = await _sa(wh)._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
     assert not any("LIMIT" in q for q in wh.sql)
     assert v.monthly_values is None and v.context.reference_day == "2026-09-30"  # calendar rule without a series
+
+
+
+# ── Step 3f(2): the actuals cut-off is the data product's, across all its KPIs (decision 7) ──
+
+@pytest.mark.asyncio
+async def test_a_quiet_kpi_takes_its_data_products_cut_off(today):
+    """A seasonal cost with nothing posted after July, in a product whose other KPIs run to
+    September: read to September like its siblings, not as a stopped feed."""
+    quiet = _kpi()
+    quiet.name, quiet.calculation = "Exploration Expense", "SELECT SUM(amount) AS value FROM `p.d.QuietView` WHERE version = 'Actual'"
+    quiet.sql_query = quiet.calculation
+    busy = _kpi()
+    wh = Warehouse("2026-09", last_month_by_table={"QuietView": "2026-07"})
+    sa = _sa(wh)
+    sa.kpi_registry = {"hess:Exploration Expense": quiet, "hess:Production Revenue": busy}
+    v = await sa._get_kpi_value(quiet, TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
+    assert v.context.reference_day == "2026-09-30" and v.context.actuals_end is None
+    assert _span_filters(wh)[0] == ("2026-01-01", "2026-09-30")
+
+
+@pytest.mark.asyncio
+async def test_a_stopped_feed_stops_the_whole_product(today):
+    wh = Warehouse("2026-07")
+    sa = _sa(wh)
+    other = _kpi()
+    other.name = "Total Revenue"
+    sa.kpi_registry = {"hess:Production Revenue": _kpi(), "hess:Total Revenue": other}
+    v = await sa._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
+    assert (v.context.reference_day, v.context.actuals_end) == ("2026-07-31", "2026-07-31")

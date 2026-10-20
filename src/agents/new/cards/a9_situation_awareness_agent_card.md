@@ -774,3 +774,13 @@ override and the threshold row's `raises_card` (ruling 3), and the covenant/regu
 `_apply_card_settings` (ruling 5). TimeFilter keys a span across fiscal years on one running
 `year*100+period` number. No reading changed (verified 2026-10-20 on 50 KPIs: lubricants 24, Apex 15,
 Hess 11), since no product is marked operational until step 3f(4).
+
+## Step 3f(2): the actuals cut-off is the data product's (owner decision 7, 2026-10-20)
+
+`_product_actuals_end(dp_id)` takes the latest month with actuals across ALL the data product's
+active KPIs (each series on its declared time dimension), so a quiet KPI is not mistaken for a
+stopped feed and every card from a product compares the same months. Series reads go through
+`_read_series` (parsing moved out of `_get_kpi_value`'s closure, unchanged), kept 120 seconds by SQL so
+the per-product pass and each reading share one warehouse read. Live 2026-10-20: lubricants, Apex and
+Hess readings and cards identical (Hess's KPIs all end in July; the others are capped at the last
+closed month). Tests: `test_sa_period_comparisons.py::test_a_quiet_kpi_takes_its_data_products_cut_off`.

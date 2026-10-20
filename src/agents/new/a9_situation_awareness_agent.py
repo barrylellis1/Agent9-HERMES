@@ -1615,6 +1615,110 @@ class A9_Situation_Awareness_Agent:
         cache[data_product_id] = (_time.monotonic(), spec)
         return spec
 
+    _SERIES_TTL_SECONDS = 120  # one scan's worth: the per-product pass and each reading share results
+
+    async def _read_series(self, monthly_sql: str, data_product_id: Optional[str], principal_context: Any, label: str):
+        """A KPI's monthly series as [{"period", "value"}], before closed-months trimming; None when
+        it cannot be read. Results are kept briefly by SQL, so the per-product cut-off pass and each
+        reading in the same scan read the warehouse once."""
+        import time as _time
+        cache = self.__dict__.setdefault("_series_cache", {})
+        key = (data_product_id, monthly_sql)
+        hit = cache.get(key)
+        if hit and (_time.monotonic() - hit[0]) < self._SERIES_TTL_SECONDS:
+            return hit[1]
+        self.logger.info(f"[Monthly] Executing monthly series for {label}")
+        result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context, data_product_id=data_product_id)
+        if not result or not (result.get("rows") or result.get("data")):
+            self.logger.info(f"[Monthly] No rows returned for {label}")
+            cache[key] = (_time.monotonic(), None)
+            return None
+        raw_rows = result.get("rows") or result.get("data") or []
+        vals = []
+        _dropped = 0   # rows that failed coercion — never silently lost
+        for row in raw_rows:
+            if isinstance(row, dict):
+                # Snowflake returns uppercase column names; normalize to lowercase
+                row = {k.lower(): v for k, v in row.items()}
+                period = row.get("period", "")
+                val = row.get("value")
+            elif isinstance(row, (list, tuple)) and len(row) >= 2:
+                period = str(row[0])
+                val = row[1]
+            else:
+                continue
+            if val is not None:
+                try:
+                    vals.append({"period": period, "value": float(val)})
+                except (ValueError, TypeError):
+                    # Count, do not just swallow. A silently shortened series is not a cosmetic
+                    # loss: _compute_acceleration requires >=4 points, so dropping to 3 makes that
+                    # signal never fire — invisibly — and _project_trend fits its regression over
+                    # whatever survives, skewing the projected-breach slope.
+                    _dropped += 1
+        if _dropped:
+            self.logger.warning(
+                "[Monthly] %s: %d of %d monthly rows were unparseable and dropped — "
+                "trend/acceleration signals are computed on the remainder",
+                label, _dropped, len(vals) + _dropped,
+            )
+        cache[key] = (_time.monotonic(), vals)
+        return vals
+
+    async def _product_actuals_end(self, data_product_id: Optional[str], principal_context: Any = None):
+        """The end of the latest month holding actuals across ALL the data product's active KPIs
+        (owner decision 7, 2026-10-17), from their monthly series, each on its declared time
+        dimension. None when it cannot be worked out (the calendar rule then applies). Remembered
+        briefly per data product."""
+        import asyncio as _asyncio
+        import time as _time
+        cache = self.__dict__.setdefault("_actuals_end_cache", {})
+        hit = cache.get(data_product_id)
+        if hit and (_time.monotonic() - hit[0]) < self._SERIES_TTL_SECONDS:
+            return hit[1]
+        latest = None
+        try:
+            source = self._resolve_source_system(data_product_id)
+            is_bq, is_ss, is_sf = source == "bigquery", source in ("sqlserver", "sql_server", "mssql"), source == "snowflake"
+            if data_product_id and (is_bq or is_ss or is_sf):
+                kpis = [k for key, k in self.kpi_registry.items()
+                        if ":" in key and getattr(k, "data_product_id", None) == data_product_id]
+                resolver = getattr(self.data_product_agent, "_resolve_time_spec", None)
+                product_spec = await self._time_spec_cached(data_product_id)
+
+                async def _one(k):
+                    raw_sql = getattr(k, "calculation", None) or getattr(k, "sql_query", None) or ""
+                    if not raw_sql:
+                        return None
+                    meta = getattr(k, "metadata", None)
+                    date_col = (meta or {}).get("date_column", "transaction_date") if isinstance(meta, dict) else "transaction_date"
+                    try:
+                        spec = resolver(data_product_id, k) if callable(resolver) else product_spec
+                    except Exception:
+                        spec = product_spec
+                    sql = await self._native_monthly_series_sql(
+                        raw_sql, data_product_id, is_ss, is_sf, date_col, kpi_definition=k, time_spec=spec or product_spec,
+                    )
+                    if not sql:
+                        return None
+                    try:
+                        return _latest_month_end(await self._read_series(sql, data_product_id, principal_context, getattr(k, "name", "?")))
+                    except Exception as _e:
+                        self.logger.debug(f"[SA] series for the actuals cut-off failed ({getattr(k, 'name', '?')}): {_e}")
+                        return None
+
+                if is_ss:  # SQL Server ODBC: one query at a time on a connection
+                    ends = [await _one(k) for k in kpis]
+                else:
+                    ends = await _asyncio.gather(*(_one(k) for k in kpis))
+                ends = [e for e in ends if e is not None]
+                latest = max(ends) if ends else None
+        except Exception as _e:
+            self.logger.debug(f"[SA] actuals cut-off for {data_product_id} not worked out: {_e}")
+            latest = None
+        cache[data_product_id] = (_time.monotonic(), latest)
+        return latest
+
     async def _period_settings_cached(self, data_product_id: Optional[str], keyed: bool):
         """(PeriodSettings, problem) for a data product, remembered for a minute.
 
@@ -2975,45 +3079,10 @@ class A9_Situation_Awareness_Agent:
             async def _fetch_monthly():
                 if not monthly_sql:
                     return None
-                self.logger.info(f"[Monthly] Executing monthly series for {kpi_name}")
                 try:
-                    result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context, data_product_id=_gen_dp_id)
-                    if not result or not (result.get("rows") or result.get("data")):
-                        self.logger.info(f"[Monthly] No rows returned for {kpi_name}")
+                    vals = await self._read_series(monthly_sql, _gen_dp_id, principal_context, kpi_name)
+                    if vals is None:
                         return None
-                    raw_rows = result.get("rows") or result.get("data") or []
-                    vals = []
-                    _dropped = 0   # rows that failed coercion — never silently lost
-                    for row in raw_rows:
-                        if isinstance(row, dict):
-                            # Snowflake returns uppercase column names; normalize to lowercase
-                            row = {k.lower(): v for k, v in row.items()}
-                            period = row.get("period", "")
-                            val = row.get("value")
-                        elif isinstance(row, (list, tuple)) and len(row) >= 2:
-                            period = str(row[0])
-                            val = row[1]
-                        else:
-                            continue
-                        if val is not None:
-                            try:
-                                vals.append({"period": period, "value": float(val)})
-                            except (ValueError, TypeError):
-                                # Count, do not just swallow. A silently shortened
-                                # series is not a cosmetic loss: _compute_acceleration
-                                # requires >=4 points, so dropping to 3 makes that
-                                # signal never fire — invisibly — and _project_trend
-                                # fits its regression over whatever survives, skewing
-                                # the projected-breach slope. "Got 9 monthly values"
-                                # previously reported the SURVIVING count as if it
-                                # were the queried count.
-                                _dropped += 1
-                    if _dropped:
-                        self.logger.warning(
-                            "[Monthly] %s: %d of %d monthly rows were unparseable and dropped — "
-                            "trend/acceleration signals are computed on the remainder",
-                            kpi_name, _dropped, len(vals) + _dropped,
-                        )
                     # The latest month the warehouse holds for this KPI's own filters (its
                     # version filter included): how far the actuals reach (Phase 26 rule 2).
                     _series_reach["latest"] = _latest_month_end(vals)
@@ -3034,11 +3103,17 @@ class A9_Situation_Awareness_Agent:
             # December hold plan rows only, and a calendar-closed quarter compared one month of
             # 2026 with three of 2025.
             monthly_values = None
+            _product_end = None
             if _native and _fixed_ref is None:
                 monthly_values = await _fetch_monthly()
+                # Decision 7 (owner, 2026-10-17): the cut-off is the data product's, the latest
+                # month with actuals across ALL its KPIs, so a quiet KPI (a seasonal cost with no
+                # postings for two months) is not mistaken for a stopped feed, and every card from
+                # the product compares the same months.
+                _product_end = await self._product_actuals_end(_gen_dp_id, principal_context)
 
             try:
-                _ref = _fixed_ref or _pc.reference_day(date.today(), _keyed, _series_reach["latest"])
+                _ref = _fixed_ref or _pc.reference_day(date.today(), _keyed, _product_end)
                 _spans = _pc.spans_at(_comparison, _ref, _keyed, _fy_start)
             except ValueError as _span_err:
                 self.logger.error(f"KPI {kpi_name}: {_comparison} cannot be read here ({_span_err}); reported as unread")
@@ -3053,7 +3128,7 @@ class A9_Situation_Awareness_Agent:
                 _spans = _pc.spans_at(_comparison, _spans.reference_day, _keyed, _fy_start)
                 self.logger.info(f"KPI {kpi_name}: year to date holds too few months; read on {_spans.describe()}")
             _actuals_end = None
-            if _series_reach["latest"] is not None:
+            if _product_end is not None:
                 _calendar_ref = _pc.reference_day(date.today(), _keyed)
                 if _spans.reference_day < _calendar_ref:
                     _actuals_end = _spans.reference_day
