@@ -760,3 +760,17 @@ across every principal of lubricants, Apex, Hess and Bicycle: only the lubricant
 changed (after the owner gave the COO the sales business processes, 2026-10-19/20): 8 -> 13 KPIs,
 the five operational Sales KPIs the COO is accountable for. Test:
 `tests/unit/test_kpi_accountability_wiring.py::TestBusinessProcessDisplayNamesMatchByRegistry`.
+
+## Step 3f(1): financial/operational settings, the February fallback, exceptions removed (2026-10-20)
+
+`src/analysis/period_settings.py` now carries the data product's KIND (financial / operational;
+unmarked = financial) with its defaults: financial reads and raises cards on `ytd_vs_pytd`,
+operational on the new `ltm_vs_prior_ltm` (last 12 complete months vs the 12 before). Settings are
+read once per reading at the top of `_get_kpi_value`. The February fallback: a financial
+`ytd_vs_pytd` reading holding fewer than `min_card_months` complete months is re-read on LTM,
+stamped `context.fallback_from = "ytd_vs_pytd"`, judged on the YTD threshold row (owner ruling A) and
+counted as the YTD card. Removed per the owner's rulings: the KPI's `metadata.period_comparison`
+override and the threshold row's `raises_card` (ruling 3), and the covenant/regulatory exemption in
+`_apply_card_settings` (ruling 5). TimeFilter keys a span across fiscal years on one running
+`year*100+period` number. No reading changed (verified 2026-10-20 on 50 KPIs: lubricants 24, Apex 15,
+Hess 11), since no product is marked operational until step 3f(4).

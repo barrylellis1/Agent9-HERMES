@@ -44,6 +44,12 @@ export const THRESHOLD_COMPARISON_GROUPS: ComparisonGroup[] = [
     ],
   },
   {
+    group: 'Rolling',
+    options: [
+      { value: 'ltm_vs_prior_ltm', label: 'LTM vs Prior LTM' },
+    ],
+  },
+  {
     group: 'Plan and alerts',
     options: [
       { value: 'budget', label: 'Actual vs budget' },

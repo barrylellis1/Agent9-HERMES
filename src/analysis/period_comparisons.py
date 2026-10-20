@@ -45,7 +45,11 @@ from typing import Dict, Optional, Tuple
 TO_DATE = ("mtd_vs_prev_mtd", "mtd_vs_py_mtd", "qtd_vs_prev_qtd", "qtd_vs_py_qtd", "ytd_vs_pytd")
 COMPLETE = ("month_vs_prev_month", "month_vs_py_month", "quarter_vs_prev_quarter",
             "quarter_vs_py_quarter", "year_vs_prev_year")
-COMPARISONS = TO_DATE + COMPLETE
+# Rolling (owner rulings 2026-10-17): the last 12 complete months against the 12 before. The
+# operational default, and the financial fallback while the year so far holds too few months.
+# "Complete" for every data product (ruling B3): a date-keyed product's current month is left out.
+ROLLING = ("ltm_vs_prior_ltm",)
+COMPARISONS = TO_DATE + COMPLETE + ROLLING
 
 LABELS: Dict[str, str] = {
     "mtd_vs_prev_mtd": "MTD vs previous MTD",
@@ -58,6 +62,15 @@ LABELS: Dict[str, str] = {
     "quarter_vs_prev_quarter": "Quarter vs previous quarter",
     "quarter_vs_py_quarter": "Quarter vs same quarter previous year",
     "year_vs_prev_year": "Year vs previous year",
+    "ltm_vs_prior_ltm": "Last 12 months vs the 12 before",
+}
+
+# Finance shorthand for tiles and cards (owner ruling B2, 2026-10-17). Quarter labels carry the
+# quarter numbers, so they are built from the spans (short_label). Comparisons without a ruled
+# shorthand fall back to their descriptive LABELS.
+SHORT_LABELS: Dict[str, str] = {
+    "ytd_vs_pytd": "YTD vs PYTD",
+    "ltm_vs_prior_ltm": "LTM vs Prior LTM",
 }
 
 # Names in use before Phase 26, and what each has always meant in practice (step 2, 2026-10-15).
@@ -88,6 +101,7 @@ _GRAIN: Dict[str, Tuple[str, int]] = {
     "month_vs_prev_month": ("month", 1), "month_vs_py_month": ("month", 12),
     "quarter_vs_prev_quarter": ("quarter", 3), "quarter_vs_py_quarter": ("quarter", 12),
     "year_vs_prev_year": ("year", 12),
+    "ltm_vs_prior_ltm": ("rolling12", 12),
 }
 
 
@@ -203,6 +217,16 @@ def spans_at(comparison: str, ref: date, period_keyed: bool, fy_start: int = 1) 
         raise ValueError("fy_start must be a month number, 1 to 12")
 
     grain, back = _GRAIN[comparison]
+
+    if grain == "rolling12":
+        # The last 12 COMPLETE months: a reference day inside a month (date-keyed data) leaves
+        # that month out.
+        last = _idx(ref) if ref == _month_end(ref) else _idx(ref) - 1
+        cur_start = last - 11
+        current = Span(_month_start(cur_start), _month_end(last))
+        previous = Span(_month_start(cur_start - 12), _month_end(last - 12))
+        return ComparisonSpans(comparison, LABELS[comparison], ref, current, previous)
+
     length = _period_len(grain)
 
     if comparison in TO_DATE:
@@ -318,6 +342,21 @@ def basis_key(comparison: str) -> str:
     return "qoq" if back == 3 else "mom"
 
 
+def short_label(sp: "ComparisonSpans", fy_start: int = 1) -> str:
+    """The comparison in finance shorthand (owner ruling B2): "YTD vs PYTD", "LTM vs Prior LTM",
+    "Q3 vs PY Q3", "Q3 vs Q2". Quarters are numbered within the fiscal year."""
+    if sp.comparison in SHORT_LABELS:
+        return SHORT_LABELS[sp.comparison]
+
+    def q(d: date) -> int:
+        return ((d.month - fy_start) % 12) // 3 + 1
+    if sp.comparison == "quarter_vs_py_quarter":
+        return f"Q{q(sp.current.start)} vs PY Q{q(sp.previous.start)}"
+    if sp.comparison == "quarter_vs_prev_quarter":
+        return f"Q{q(sp.current.start)} vs Q{q(sp.previous.start)}"
+    return sp.label
+
+
 def available(period_keyed: bool) -> Tuple[str, ...]:
     """The comparisons that mean something for this kind of data product."""
     if period_keyed:
@@ -331,6 +370,13 @@ def complete_months(span: Span) -> int:
     first = _idx(span.start) if span.start.day == 1 else _idx(span.start) + 1
     last = _idx(span.end) if span.end == _month_end(span.end) else _idx(span.end) - 1
     return max(0, last - first + 1)
+
+
+def fiscal_year_period(d: date, fy_start: int = 1) -> Tuple[int, int]:
+    """(fiscal_year, period) of a calendar day; a fiscal year is named by the year it starts in."""
+    if d.month >= fy_start:
+        return d.year, d.month - fy_start + 1
+    return d.year - 1, d.month - fy_start + 13
 
 
 def fiscal_periods(span: Span, fy_start: int = 1) -> Tuple[int, int, int]:

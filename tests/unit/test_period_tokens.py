@@ -76,6 +76,7 @@ class TestOldRequests:
             "mtd_vs_prev_mtd": "mom", "mtd_vs_py_mtd": "yoy", "qtd_vs_prev_qtd": "qoq", "qtd_vs_py_qtd": "yoy",
             "ytd_vs_pytd": "yoy", "month_vs_prev_month": "mom", "month_vs_py_month": "yoy",
             "quarter_vs_prev_quarter": "qoq", "quarter_vs_py_quarter": "yoy", "year_vs_prev_year": "yoy",
+            "ltm_vs_prior_ltm": "yoy",
         }
 
 
@@ -148,3 +149,30 @@ class TestTimeFilter:
     def test_old_words_are_answered_as_before(self, monkeypatch):
         monkeypatch.setattr(TimeFilter, "_today", staticmethod(lambda: date(2026, 10, 15)))
         assert TimeFilter.current_condition(FYP, "year_to_date") == "fiscal_year = 2026 AND fiscal_period <= 9"
+
+
+
+class TestLastTwelveMonths:
+    def test_complete_months_only(self):
+        r = spans("ltm_vs_prior_ltm", date(2026, 10, 20), period_keyed=False)
+        assert (r.current.start, r.current.end) == (date(2025, 10, 1), date(2026, 9, 30))
+        assert (r.previous.start, r.previous.end) == (date(2024, 10, 1), date(2025, 9, 30))
+
+    def test_period_keyed_and_february(self):
+        r = spans("ltm_vs_prior_ltm", date(2026, 2, 20), period_keyed=True)
+        assert (r.current.start, r.current.end) == (date(2025, 2, 1), date(2026, 1, 31))
+
+    def test_a_span_across_fiscal_years_is_one_running_key(self):
+        spec = dict(FYP, period_column_type="string")
+        assert TimeFilter.current_condition(spec, "ltm_vs_prior_ltm@2026-09-30") == \
+            "(CAST(fiscal_year AS INT64) * 100 + CAST(fiscal_period AS INT64)) BETWEEN 202510 AND 202609"
+        assert TimeFilter.previous_condition(spec, "ltm_vs_prior_ltm@2026-09-30", dialect="sqlserver") == \
+            "(CAST(fiscal_year AS INT) * 100 + CAST(fiscal_period AS INT)) BETWEEN 202410 AND 202509"
+
+    def test_finance_shorthand(self):
+        from src.analysis.period_comparisons import short_label
+        assert short_label(spans("ltm_vs_prior_ltm", date(2026, 10, 20), True)) == "LTM vs Prior LTM"
+        assert short_label(spans("ytd_vs_pytd", date(2026, 10, 20), True)) == "YTD vs PYTD"
+        assert short_label(spans("quarter_vs_py_quarter", date(2026, 10, 20), True)) == "Q3 vs PY Q3"
+        assert short_label(spans("quarter_vs_prev_quarter", date(2026, 10, 20), True)) == "Q3 vs Q2"
+        assert short_label(spans("quarter_vs_py_quarter", date(2026, 10, 20), True), fy_start=4) == "Q2 vs PY Q2"

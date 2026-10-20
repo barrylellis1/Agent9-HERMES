@@ -349,12 +349,18 @@ class TimeFilter:
         fy_start = int(spec.get("fiscal_year_start_month") or 1)
 
         if spec_type == "fiscal_year_period":
-            fy, first, last = pc.fiscal_periods(span, fy_start)
             year_col = spec.get("year_column", "fiscal_year")
             period_col = cls._cast_period_col(
                 spec.get("period_column", "fiscal_period"), dialect, spec.get("period_column_type", "integer"),
             )
-            return f"{year_col} = {fy} AND {period_col} BETWEEN {first} AND {last}"
+            fy1, p1 = pc.fiscal_year_period(span.start, fy_start)
+            fy2, p2 = pc.fiscal_year_period(span.end, fy_start)
+            if fy1 == fy2:
+                return f"{year_col} = {fy1} AND {period_col} BETWEEN {p1} AND {p2}"
+            # A span across fiscal years (the last 12 months): one running period key.
+            year_key = cls._cast_period_col(year_col, dialect, "string")
+            period_key = cls._cast_period_col(spec.get("period_column", "fiscal_period"), dialect, "string")
+            return f"({year_key} * 100 + {period_key}) BETWEEN {fy1 * 100 + p1} AND {fy2 * 100 + p2}"
         if spec_type == "fiscal_year":
             # Annual data can only answer a comparison of years (a year to date is its year).
             if sp.comparison not in ("ytd_vs_pytd", "year_vs_prev_year"):

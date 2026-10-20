@@ -34,8 +34,10 @@ class Warehouse:
             y, m = int(self.last_month[:4]), int(self.last_month[5:])
             months = [(y if k <= m else y - 1, k) for k in range(1, 13)]
             return {"rows": [{"period": f"{yy}-{mm:02d}", "value": 10.0} for yy, mm in months]}
-        m = re.search(r"BETWEEN '(\d{4})-", sql) or re.search(r"fiscal_year = (\d{4})", sql)
-        return {"rows": [[120.0 if m.group(1) == "2026" else 100.0]]}
+        run = re.search(r"BETWEEN (\d{4})\d{2} AND (\d{4})\d{2}", sql)  # a span across fiscal years: its end year
+        m = run and (None, run.group(2)) or re.search(r"BETWEEN '(\d{4})-", sql) or re.search(r"fiscal_year = (\d{4})", sql)
+        year = run.group(2) if run else m.group(1)
+        return {"rows": [[120.0 if year == "2026" else 100.0]]}
 
 
 def _sa(warehouse, spec=FYP):
@@ -190,10 +192,15 @@ async def test_in_october_a_ytd_breach_may_raise_a_card(today):
 
 
 @pytest.mark.asyncio
-async def test_a_february_scan_holds_ytd_on_one_closed_month(february):
-    v = await _sa(Warehouse("2026-12"))._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
-    assert v.context.card_hold_reason == "YTD vs previous year YTD holds 1 complete month (Jan 2026); a card needs 2."
-    assert v.context.plan_card_hold_reason.startswith("Actual vs plan holds 1 complete month")
+async def test_a_february_scan_falls_back_to_the_last_12_months(february):
+    """Owner ruling 2: a financial year to date holding one closed month is read on the last 12
+    months, judged on its year-to-date targets, and may raise a card."""
+    wh = Warehouse("2026-12")
+    v = await _sa(wh)._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {})
+    c = v.context
+    assert (c.period_comparison, c.fallback_from) == ("ltm_vs_prior_ltm", "ytd_vs_pytd")
+    assert (c.window_start, c.window_end) == ("2025-02-01", "2026-01-31")
+    assert c.card_hold_reason is None and c.plan_card_hold_reason is None
 
 
 @pytest.mark.asyncio
@@ -201,11 +208,15 @@ async def test_a_quarter_reading_is_context_unless_the_client_turns_quarters_on(
     v = await _sa(Warehouse("2026-12"))._get_kpi_value(
         _kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {}, period_comparison="quarter_vs_py_quarter")
     assert v.context.card_hold_reason == "Quarter vs same quarter previous year is shown for context; it does not raise cards here."
-    # the threshold row for that comparison opts in
-    kpi = _kpi()
-    kpi.metadata = {"variance_thresholds": {"quarter_vs_py_quarter": {"green": 5.0, "raises_card": True}}}
-    v = await _sa(Warehouse("2026-12"))._get_kpi_value(
-        kpi, TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {}, period_comparison="quarter_vs_py_quarter")
+    # the data product turns quarter cards on (no per-KPI exceptions, ruling 3)
+    from src.analysis.period_settings import PeriodSettings
+    sa = _sa(Warehouse("2026-12"))
+
+    async def _with_quarters(dp_id, keyed):
+        return PeriodSettings(card_comparisons=["ytd_vs_pytd", "quarter_vs_py_quarter"]), None
+    sa._period_settings_cached = _with_quarters
+    v = await sa._get_kpi_value(_kpi(), TimeFrame.YEAR_TO_DATE, ComparisonType.YEAR_OVER_YEAR, {},
+                                period_comparison="quarter_vs_py_quarter")
     assert v.context.card_hold_reason is None
 
 
@@ -223,7 +234,8 @@ def test_held_cards_are_listed_with_the_reason_and_others_pass():
     sits = [SimpleNamespace(kpi_name="EBITDA", alert_type=a) for a in
             ("threshold_breach", None, "plan_variance", "covenant", "projected_breach", "acceleration")]
     kept, held = SA._apply_card_settings(sits, v)
-    assert [s.alert_type for s in kept] == ["covenant", "projected_breach", "acceleration"]
+    # no covenant/regulatory exemption (owner ruling 5)
+    assert [s.alert_type for s in kept] == ["projected_breach", "acceleration"]
     assert held == ["EBITDA: YTD holds 1 complete month (Jan 2026); a card needs 2.",
                     "EBITDA: Actual vs plan holds 1 complete month (Jan 2026); a card needs 2."]
 

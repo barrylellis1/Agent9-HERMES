@@ -213,8 +213,8 @@ _DEFAULT_CONFIDENCE = {
 
 def _period_comparison_for_kpi(kpi, registry_factory) -> str:
     """The named comparison an assessment reads this KPI on (Phase 26): its data product's
-    period settings, with the KPI's own override (src/analysis/period_settings.py). Default:
-    YTD vs previous year YTD, which is what every assessment has read.
+    period settings (src/analysis/period_settings.py; no per-KPI exceptions, owner ruling 3).
+    Financial products: YTD vs previous year YTD; operational: the last 12 months.
 
     Replaces `monitoring_profile.comparison_period`, which the kpis table never stored: every
     assessment fell back to year to date whatever it said."""
@@ -228,7 +228,7 @@ def _period_comparison_for_kpi(kpi, registry_factory) -> str:
         dims = getattr(dp, "time_dimensions", None) or meta.get("time_dimensions") or []
         first = dims[0] if dims else None
         spec = first.model_dump() if hasattr(first, "model_dump") else first
-        return settings_for(meta, getattr(kpi, "metadata", None) or {}, period_keyed=is_period_keyed(spec)).reading
+        return settings_for(meta, period_keyed=is_period_keyed(spec)).reading
     except Exception as e:
         logger.error(
             f"Period settings for KPI {getattr(kpi, 'id', kpi)} could not be read ({e}); reading {DEFAULT_READING}"

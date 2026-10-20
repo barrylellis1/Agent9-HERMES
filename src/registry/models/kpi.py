@@ -34,6 +34,8 @@ class ComparisonType(str, Enum):
     QUARTER_VS_PREV_QUARTER = "quarter_vs_prev_quarter"
     QUARTER_VS_PY_QUARTER = "quarter_vs_py_quarter"
     YEAR_VS_PREV_YEAR = "year_vs_prev_year"
+    # Rolling: the last 12 complete months against the 12 before (operational default)
+    LTM_VS_PRIOR_LTM = "ltm_vs_prior_ltm"
     # Old spellings (read as ytd_vs_pytd, quarter_vs_prev_quarter, month_vs_prev_month)
     QOQ = "qoq"  # Quarter over Quarter
     YOY = "yoy"  # Year over Year
@@ -71,14 +73,6 @@ class KPIThreshold(BaseModel):
     yellow_threshold: Optional[float] = Field(None, description="Threshold for yellow status")
     red_threshold: Optional[float] = Field(None, description="Threshold for red status")
     inverse_logic: bool = Field(False, description="If True, lower values are better")
-    raises_card: Optional[bool] = Field(
-        None,
-        description=(
-            "Phase 26: whether a breach on this comparison may raise a situation card for this KPI. "
-            "None follows the data product's period settings (card_comparisons); true or false is a "
-            "per-KPI exception. The data product's evidence floor (min_card_months) applies either way."
-        ),
-    )
 
 
 class KPIDimension(BaseModel):

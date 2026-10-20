@@ -187,6 +187,11 @@ class MeasurementContext(BaseModel):
     )
     period_label: Optional[str] = Field(None, description="That comparison in words, e.g. 'YTD vs previous year YTD'")
     reference_day: Optional[str] = Field(None, description="The day the comparison was taken as of (YYYY-MM-DD)")
+    fallback_from: Optional[str] = Field(
+        None,
+        description="Set when this is the February fallback (owner ruling 2): the comparison the reading "
+                    "stands in for (ytd_vs_pytd). Its targets are that comparison's threshold row.",
+    )
     actuals_end: Optional[str] = Field(
         None,
         description="Set when the actuals stop before the calendar's last closed period: the end of "

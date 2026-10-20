@@ -1639,7 +1639,7 @@ class A9_Situation_Awareness_Agent:
             self.logger.debug(f"[SA] period settings lookup failed for {data_product_id}: {_e}")
         problem = None
         try:
-            settings = settings_for(meta, None, period_keyed=keyed)
+            settings = settings_for(meta, period_keyed=keyed)
         except ValueError as _e:
             problem = f"period settings for data product {data_product_id} are not valid ({_e}); the defaults were used"
             self.logger.error(problem)
@@ -1652,16 +1652,21 @@ class A9_Situation_Awareness_Agent:
         """(the cards this reading may raise, reasons for the ones it may not).
 
         A breach on a comparison shown for context, or on too few complete months, is held:
-        listed with its reason, not raised. Covenant and regulatory cards are never held (a
-        covenant breach is a compliance event, not a trend that needs months of evidence), and
-        projected breach and acceleration read a monthly series, not this span."""
+        listed with its reason, not raised. Covenant and regulatory cards follow the same rule
+        (owner ruling 5, 2026-10-17: no exemption; their monitoring gets its own design with the
+        first such KPI). Projected breach and acceleration read a monthly series, not this span."""
         ctx = getattr(kpi_value, "context", None)
         hold = getattr(ctx, "card_hold_reason", None)
         plan_hold = getattr(ctx, "plan_card_hold_reason", None)
         kept, held = [], []
         for sit in situations:
             kind = getattr(sit, "alert_type", None) or "threshold_breach"
-            reason = hold if kind == "threshold_breach" else (plan_hold if kind == "plan_variance" else None)
+            if kind in ("threshold_breach", "covenant", "regulatory"):
+                reason = hold
+            elif kind == "plan_variance":
+                reason = plan_hold
+            else:
+                reason = None
             if reason:
                 held.append(f"{getattr(sit, 'kpi_name', '')}: {reason}")
             else:
@@ -2033,9 +2038,6 @@ class A9_Situation_Awareness_Agent:
                             if rv is not None:
                                 entry['red'] = float(rv)
                             entry['inverse_logic'] = bool(inv)
-                            _rc = getattr(t, 'raises_card', None)
-                            if _rc is not None:
-                                entry['raises_card'] = bool(_rc)  # Phase 26 per-KPI exception
                             variance_thresholds[key] = entry
                         except Exception:
                             continue
@@ -2615,7 +2617,7 @@ class A9_Situation_Awareness_Agent:
     def _build_measurement_context(
         self, *, timeframe, comparison_type, merged_filters, source_system,
         data_product_id, base_sql, kpi_definition, spans=None, comparison_name=None,
-        actuals_end=None, card_hold_reason=None, plan_card_hold_reason=None,
+        actuals_end=None, card_hold_reason=None, plan_card_hold_reason=None, fallback_from=None,
     ):
         """Stamp what this reading actually measured — resolved, not requested.
 
@@ -2688,6 +2690,7 @@ class A9_Situation_Awareness_Agent:
                 actuals_end=actuals_end.isoformat() if actuals_end else None,
                 card_hold_reason=card_hold_reason,
                 plan_card_hold_reason=plan_card_hold_reason,
+                fallback_from=fallback_from,
                 window_start=cur[0], window_end=cur[1],
                 comparison_basis=basis,
                 comparison_window_start=comp[0], comparison_window_end=comp[1],
@@ -2921,6 +2924,9 @@ class A9_Situation_Awareness_Agent:
             _time_spec = await self._time_spec_cached(_gen_dp_id)
             _keyed = _is_period_keyed(_time_spec)
             _fy_start = int((_time_spec or {}).get("fiscal_year_start_month") or 1)
+            # The data product's period settings: its kind (financial / operational), which
+            # comparisons raise cards, the evidence floor (src/analysis/period_settings.py).
+            _settings, _ = await self._period_settings_cached(_gen_dp_id, _keyed)
             if period_comparison:
                 _asked = _pc.parse_token(period_comparison)
                 if not _asked:
@@ -3037,6 +3043,15 @@ class A9_Situation_Awareness_Agent:
             except ValueError as _span_err:
                 self.logger.error(f"KPI {kpi_name}: {_comparison} cannot be read here ({_span_err}); reported as unread")
                 return None
+            # The February fallback (owner ruling 2): a financial year to date holding too few
+            # complete months is read on the last 12 months, judged on its year-to-date targets.
+            from src.analysis.period_settings import fallback_comparison as _fallback_comparison
+            _fallback_from = None
+            _fb = _fallback_comparison(_settings, _comparison, _spans.current)
+            if _fb:
+                _fallback_from, _comparison = _comparison, _fb
+                _spans = _pc.spans_at(_comparison, _spans.reference_day, _keyed, _fy_start)
+                self.logger.info(f"KPI {kpi_name}: year to date holds too few months; read on {_spans.describe()}")
             _actuals_end = None
             if _series_reach["latest"] is not None:
                 _calendar_ref = _pc.reference_day(date.today(), _keyed)
@@ -3050,11 +3065,7 @@ class A9_Situation_Awareness_Agent:
             _card_hold = _plan_hold = None
             if comparison_type:
                 from src.analysis.period_settings import card_decision as _card_decision, has_card_evidence as _has_evidence
-                _settings, _ = await self._period_settings_cached(_gen_dp_id, _keyed)
-                _meta = getattr(kpi_definition, 'metadata', None)
-                _vt = (_meta.get('variance_thresholds') or {}) if isinstance(_meta, dict) else {}
-                _row = _vt.get(_threshold_key(_comparison)) or {}
-                _d = _card_decision(_spans, _settings, _row.get('raises_card'))
+                _d = _card_decision(_spans, _settings, _fallback_from)
                 _card_hold = None if _d.may_raise else _d.reason
                 _p = _has_evidence(_spans.current, _settings, "Actual vs plan")
                 _plan_hold = None if _p.may_raise else _p.reason
@@ -3312,6 +3323,7 @@ class A9_Situation_Awareness_Agent:
                     spans=_spans, actuals_end=_actuals_end,
                     comparison_name=_comparison,
                     card_hold_reason=_card_hold, plan_card_hold_reason=_plan_hold,
+                    fallback_from=_fallback_from,
                     timeframe=timeframe, comparison_type=comparison_type,
                     merged_filters=merged_filters, source_system=_source_system,
                     data_product_id=_gen_dp_id, base_sql=base_sql,
@@ -3947,7 +3959,8 @@ class A9_Situation_Awareness_Agent:
                 comp_key = None
                 # The row for the comparison the reading used (Phase 26); a value without
                 # that provenance falls back to the request's comparison type.
-                _read_as = getattr(getattr(kpi_value, 'context', None), 'period_comparison', None)
+                _ctx_t = getattr(kpi_value, 'context', None)
+                _read_as = getattr(_ctx_t, 'fallback_from', None) or getattr(_ctx_t, 'period_comparison', None)
                 ct = _read_as or getattr(kpi_value, 'comparison_type', None)
                 if ct is not None:
                     comp_key = _threshold_key(ct)

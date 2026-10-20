@@ -59,11 +59,6 @@ class TestLayering:
         assert s.min_card_months == 3
         assert s.reading == "ytd_vs_pytd"
 
-    def test_a_kpi_overrides_only_the_reading(self):
-        s = settings_for(self.DP, {"period_comparison": "qtd_vs_py_qtd", "line": "top"})
-        assert s.reading == "qtd_vs_py_qtd"
-        assert s.min_card_months == 3
-
     def test_old_names_are_accepted_in_settings(self):
         s = settings_for({"period_settings": {"reading": "yoy", "card_comparisons": ["yoy", "ytd_vs_pytd"]}})
         assert s.reading == "ytd_vs_pytd" and s.card_comparisons == ["ytd_vs_pytd"]
@@ -96,6 +91,11 @@ class TestMistakesAreSeen:
 
 
 class TestWhenACardMayBeRaised:
+    def test_month_cards_need_a_one_month_floor(self):
+        month = spans("month_vs_py_month", TODAY, period_keyed=True)
+        s1 = PeriodSettings(card_comparisons=["month_vs_py_month"], min_card_months=1)
+        assert card_decision(month, s1).may_raise
+
     def test_ytd_in_october_may_raise_a_card(self):
         d = card_decision(spans("ytd_vs_pytd", TODAY, period_keyed=True), PeriodSettings())
         assert d.may_raise and d.reason == ""
@@ -106,7 +106,8 @@ class TestWhenACardMayBeRaised:
         assert d.reason == "Quarter vs same quarter previous year is shown for context; it does not raise cards here."
 
     def test_ytd_holding_one_closed_month_does_not(self):
-        # a February scan of period-keyed data reads as of 31 January
+        # a February scan of period-keyed data reads as of 31 January; the agent then falls back
+        # to the last 12 months (TestKindsAndFallback), but a YTD span on its own may not raise a card
         d = card_decision(spans("ytd_vs_pytd", date(2026, 2, 20), period_keyed=True), PeriodSettings())
         assert not d.may_raise
         assert d.reason == "YTD vs previous year YTD holds 1 complete month (Jan 2026); a card needs 2."
@@ -119,18 +120,6 @@ class TestWhenACardMayBeRaised:
         early = card_decision(spans("ytd_vs_pytd", date(2026, 1, 9), False), s)
         assert early.reason.startswith("YTD vs previous year YTD holds no complete month")
 
-    def test_a_threshold_row_can_opt_in_or_out(self):
-        s = PeriodSettings()
-        quarter = spans("quarter_vs_py_quarter", TODAY, period_keyed=True)
-        assert card_decision(quarter, s, raises_card=True).may_raise
-        assert not card_decision(spans("ytd_vs_pytd", TODAY, True), s, raises_card=False).may_raise
-
-    def test_opting_in_does_not_skip_the_evidence_floor(self):
-        month = spans("month_vs_py_month", TODAY, period_keyed=True)
-        d = card_decision(month, PeriodSettings(), raises_card=True)
-        assert not d.may_raise and "a card needs 2" in d.reason
-        assert card_decision(month, PeriodSettings(min_card_months=1), raises_card=True).may_raise
-
     def test_a_client_that_moves_on_quarters_turns_them_on(self):
         s = settings_for({"period_settings": {"card_comparisons": ["ytd_vs_pytd", "quarter_vs_py_quarter"]}})
         assert card_decision(spans("quarter_vs_py_quarter", TODAY, True), s).may_raise
@@ -141,14 +130,51 @@ class TestWhenACardMayBeRaised:
         assert not d.may_raise and d.reason.startswith("Actual vs plan holds 1 complete month")
 
 
+class TestKindsAndFallback:
+    """Owner rulings 2026-10-17: financial or operational; the February fallback."""
+
+    def test_unmarked_is_financial(self):
+        s = settings_for({"period_settings": {}})
+        assert (s.kind, s.reading, s.card_comparisons) == ("financial", "ytd_vs_pytd", ["ytd_vs_pytd"])
+        assert "year_vs_prev_year" not in s.card_comparisons  # removed from the default (ruling 1)
+
+    def test_operational_reads_the_last_12_months(self):
+        s = settings_for({"period_settings": {"kind": "operational"}})
+        assert (s.reading, s.card_comparisons) == ("ltm_vs_prior_ltm", ["ltm_vs_prior_ltm"])
+
+    def test_a_product_can_add_quarter_cards(self):
+        s = settings_for({"period_settings": {"kind": "financial", "card_comparisons": ["ytd_vs_pytd", "quarter_vs_py_quarter"]}})
+        assert s.card_comparisons == ["ytd_vs_pytd", "quarter_vs_py_quarter"]
+
+    def test_an_unknown_kind_is_refused(self):
+        with pytest.raises(ValueError):
+            settings_for({"period_settings": {"kind": "commercial"}})
+
+    def test_february_falls_back_to_the_last_12_months(self):
+        from src.analysis.period_settings import fallback_comparison
+        s = PeriodSettings()
+        feb = spans("ytd_vs_pytd", date(2026, 2, 20), period_keyed=True)
+        assert fallback_comparison(s, "ytd_vs_pytd", feb.current) == "ltm_vs_prior_ltm"
+        mar = spans("ytd_vs_pytd", date(2026, 3, 2), period_keyed=True)
+        assert fallback_comparison(s, "ytd_vs_pytd", mar.current) is None
+
+    def test_only_a_financial_year_to_date_falls_back(self):
+        from src.analysis.period_settings import fallback_comparison
+        feb = spans("ytd_vs_pytd", date(2026, 2, 20), period_keyed=True)
+        assert fallback_comparison(PeriodSettings(kind="operational"), "ytd_vs_pytd", feb.current) is None
+        q = spans("qtd_vs_py_qtd", date(2026, 2, 20), period_keyed=True)
+        assert fallback_comparison(PeriodSettings(), "qtd_vs_py_qtd", q.current) is None
+
+    def test_the_fallback_counts_as_the_year_to_date_card(self):
+        ltm = spans("ltm_vs_prior_ltm", date(2026, 2, 20), period_keyed=True)
+        assert not card_decision(ltm, PeriodSettings()).may_raise            # LTM is not a financial card...
+        assert card_decision(ltm, PeriodSettings(), fallback_from="ytd_vs_pytd").may_raise  # ...unless standing in
+
+
 class TestThresholdRow:
     def test_the_ten_names_are_accepted(self):
         for c in COMPARISONS:
             assert KPIThreshold(comparison_type=c).comparison_type.value == c
-
-    def test_raises_card_defaults_to_following_the_data_product(self):
-        assert KPIThreshold(comparison_type="ytd_vs_pytd").raises_card is None
-        assert KPIThreshold(comparison_type="ytd_vs_pytd", raises_card=False).raises_card is False
 
     def test_evaluate_finds_a_renamed_row_by_its_old_name_and_back(self):
         new = KPI(id="k", name="K", domain="F", data_product_id="d",
@@ -238,9 +264,6 @@ class TestSeedFiles:
             keyed = any(td.get("type") in ("fiscal_year_period", "fiscal_year")
                         for td in (dp.get("time_dimensions") or meta.get("time_dimensions") or []))
             settings_for(meta, period_keyed=keyed)
-            for k in mod.KPIS:
-                if k.get("data_product_id") == dp.get("id"):
-                    settings_for(meta, k.get("metadata") or {}, period_keyed=keyed)
 
 
 class TestTheOfflineAssessmentReadsEachKpisSetting:
@@ -265,19 +288,22 @@ class TestTheOfflineAssessmentReadsEachKpisSetting:
         kpi = SimpleNamespace(id="k", data_product_id="dp", metadata={})
         assert _period_comparison_for_kpi(kpi, self._factory(self._dp())) == "ytd_vs_pytd"
 
-    def test_the_data_product_and_then_the_kpi_decide(self):
+    def test_the_data_product_decides(self):
         from types import SimpleNamespace
         from run_enterprise_assessment import _period_comparison_for_kpi
+        assert _period_comparison_for_kpi(SimpleNamespace(id="k", data_product_id="dp", metadata={}),
+                                          self._factory(self._dp({"kind": "operational"}))) == "ltm_vs_prior_ltm"
         dp = self._dp({"reading": "quarter_vs_py_quarter"})
-        assert _period_comparison_for_kpi(SimpleNamespace(id="k", data_product_id="dp", metadata={}), self._factory(dp)) == "quarter_vs_py_quarter"
+        # no per-KPI exceptions (ruling 3): a KPI's own metadata no longer overrides the product
         kpi = SimpleNamespace(id="k", data_product_id="dp", metadata={"period_comparison": "year_vs_prev_year"})
-        assert _period_comparison_for_kpi(kpi, self._factory(dp)) == "year_vs_prev_year"
+        assert _period_comparison_for_kpi(kpi, self._factory(dp)) == "quarter_vs_py_quarter"
 
     def test_an_invalid_setting_is_logged_and_the_default_read(self, caplog):
         from types import SimpleNamespace
         from run_enterprise_assessment import _period_comparison_for_kpi
-        kpi = SimpleNamespace(id="k", data_product_id="dp", metadata={"period_comparison": "mtd_vs_py_mtd"})
-        assert _period_comparison_for_kpi(kpi, self._factory(self._dp(keyed=True))) == "ytd_vs_pytd"
+        kpi = SimpleNamespace(id="k", data_product_id="dp", metadata={})
+        bad = self._dp({"reading": "mtd_vs_py_mtd", "min_card_months": 1}, keyed=True)
+        assert _period_comparison_for_kpi(kpi, self._factory(bad)) == "ytd_vs_pytd"
         assert "could not be read" in caplog.text
 
     def test_monitoring_profile_no_longer_claims_a_comparison_period(self):

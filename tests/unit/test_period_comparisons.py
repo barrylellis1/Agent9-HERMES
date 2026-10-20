@@ -61,7 +61,7 @@ class TestToDateOnPeriodKeyedData:
         for c in ("mtd_vs_prev_mtd", "mtd_vs_py_mtd"):
             with pytest.raises(ComparisonNotAvailable):
                 spans(c, TODAY, period_keyed=True)
-        assert "mtd_vs_prev_mtd" not in available(True) and len(available(True)) == 8
+        assert "mtd_vs_prev_mtd" not in available(True) and len(available(True)) == len(COMPARISONS) - 2
         assert available(False) == COMPARISONS
 
     def test_qtd_as_of_a_quarter_end_is_the_whole_quarter(self):
@@ -142,7 +142,9 @@ class TestEveryComparisonIsWellFormed:
         assert months(r.previous) == months(r.current)                  # same shape, month for month
         assert r.current.start.day == 1 and r.previous.start.day == 1
 
-    @pytest.mark.parametrize("c", [c for c in COMPARISONS if not c.startswith("mtd")])
+    # The rolling 12 months deliberately cross a fiscal year (TimeFilter keys them on one running
+    # year*100+period number); every other comparison stays inside one.
+    @pytest.mark.parametrize("c", [c for c in COMPARISONS if not c.startswith("mtd") and c != "ltm_vs_prior_ltm"])
     @pytest.mark.parametrize("fy", [1, 4])
     def test_period_keyed_spans_are_whole_months_inside_one_fiscal_year(self, c, fy):
         r = spans(c, TODAY, True, None, fy)
