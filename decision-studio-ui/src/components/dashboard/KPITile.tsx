@@ -3,9 +3,16 @@ import { ArrowRight, MessageSquare } from 'lucide-react';
 import { Situation } from '../../api/types';
 import { getTriggeringComparison } from '../../utils/triggeringComparison';
 
-/** The card's stated reason without the bracketed date range ("… vs prior year, short of …"). */
-export function cardReason(description?: string | null): string {
-  return (description || '').replace(/\s*\(\d{4}-\d{2}-\d{2}[^)]*\)/g, '').trim();
+/**
+ * The card's stated reason as the tile shows it. The comparison label that ends the sentence
+ * ("…, YTD vs PYTD") is dropped, because the tile already shows it under the headline figure
+ * (owner, 2026-10-20); elsewhere the sentence keeps it. A bracketed date range, which older
+ * scans put in the sentence, is dropped too.
+ */
+export function cardReason(description?: string | null, label?: string | null): string {
+  let reason = (description || '').replace(/\s*\(\d{4}-\d{2}-\d{2}[^)]*\)/g, '').trim();
+  if (label && reason.endsWith(`, ${label}`)) reason = reason.slice(0, -(label.length + 2));
+  return reason;
 }
 
 
@@ -298,15 +305,15 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
       {/* ── Lead finding + sparkline (always together at bottom) ── */}
       <div className="mt-auto">
         {/* Why this card was raised, in the agent's own stated terms (for example
-            "grew 3.1%, short of the 5.0% growth target, YTD vs PYTD"). It used to be
-            absent: the tile showed only a model-written observation, so a KPI that rose
-            sat under a problem label with no reason given. The months follow on a second,
-            smaller line (owner ruling C). Dates in brackets, which older scans put in the
-            sentence, are dropped. */}
-        {cardReason(situation.description) ? (
+            "grew 3.1%, short of the 5.0% growth target"). It used to be absent: the tile
+            showed only a model-written observation, so a KPI that rose sat under a problem
+            label with no reason given. The sentence's closing label is left off here (it
+            sits under the headline figure); the months follow on a second, smaller line
+            (owner ruling C). See cardReason. */}
+        {cardReason(situation.description, situation.comparison_label) ? (
           <>
             <p className="text-[11px] text-slate-300 leading-snug px-0 pb-1 line-clamp-2" data-testid="tile-reason">
-              {cardReason(situation.description)}
+              {cardReason(situation.description, situation.comparison_label)}
             </p>
             {situation.period_months && (
               <p className="text-[10px] text-slate-500 leading-snug px-0 pb-1" data-testid="tile-months">
