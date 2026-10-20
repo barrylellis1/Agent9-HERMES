@@ -834,3 +834,9 @@ comparison (lubricants Net Revenue: "above 3.0% target", its quarter-on-quarter 
 their own key: they shared the threshold-breach key, so the improvement (HIGH) replaced the problem
 (MEDIUM) on the same KPI, dropping "Net Revenue grew 3.1%, short of the 5.0% growth target" (and Apex
 Net Revenue and Service Revenue). Tests: `tests/unit/test_sa_improvement_cards.py`.
+
+**Problem cards' business impact (owner, 2026-10-20).** `_create_threshold_situation` writes "Net
+Revenue is $117.8M vs $114.3M (+3.1%), YTD vs PYTD" inside each severity's sentence. High and Medium
+used to call the comparison figure the target ("vs. target $18.1M", "+3.1% from target"). Only a "$"
+KPI reads in dollars; other units follow the number ("18K orders"), where every figure of 1,000 or more
+used to carry "$".

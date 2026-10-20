@@ -131,3 +131,26 @@ def test_why_it_matters_names_the_comparison_and_no_cost(pct, expected):
                             headline="h", confidence=0.75)
     card = Situation.from_opportunity_signal(sig, _value(pct, "SG&A Expense"))
     assert card.business_impact == expected
+
+
+# ── Problem cards' "Why it matters" names the comparison (owner, 2026-10-20) ──
+
+def _impact(severity, value, comparison, pct, unit="$", name="Net Revenue"):
+    from src.agents.models.situation_awareness_models import PrincipalContext
+    kv = KPIValue(kpi_name=name, value=value, comparison_value=comparison, percent_change=pct, unit=unit,
+                  timeframe=TimeFrame.YEAR_TO_DATE, context=YTD)
+    kd = SimpleNamespace(name=name, id="x", diagnostic_questions=None)
+    pc = SimpleNamespace(role="CFO")
+    return _sa()._create_threshold_situation(kd, kv, severity, "d", pc).business_impact
+
+
+def test_last_years_figure_is_not_called_the_target():
+    text = _impact(SituationSeverity.MEDIUM, 117_800_000, 114_300_000, 3.1)
+    assert text == ("Monitor closely: Net Revenue is $117.8M vs $114.3M (+3.1%), YTD vs PYTD, "
+                    "showing notable variation from expected values.")
+    assert "target $" not in _impact(SituationSeverity.HIGH, 117_800_000, 114_300_000, 3.1)
+
+
+def test_only_a_currency_kpi_reads_in_dollars():
+    text = _impact(SituationSeverity.HIGH, 18_400, 19_900, -7.5, unit="orders", name="Sales Order Count")
+    assert text.startswith("Attention needed: Sales Order Count is 18K orders vs 20K orders (-7.5%), YTD vs PYTD")

@@ -223,6 +223,11 @@ never replaces a problem card. Effect on 20 October: lubricants and Apex Net Rev
 Revenue show their shortfall against the year-to-date target instead of an improvement; Apex Average
 Transaction Value, which has no year-to-date target, raises no improvement card.
 
+**G. "Why it matters" on problem cards.** It names the comparison instead of calling last year's figure
+the target: "Net Revenue is $117.8M vs $114.3M (+3.1%), YTD vs PYTD". It used to read "vs. target
+$18.1M" or "+3.1% from target". Rounding in card sentences ("grew 3.0%, above the 3.0% growth target"
+for a 3.004% rise) is left as it is.
+
 ## Other rulings made while building (19–20 October 2026)
 
 - **Every active KPI is judged, whatever its domain.** A launch-era "Finance only" setting had left

@@ -4275,42 +4275,55 @@ class A9_Situation_Awareness_Agent:
         _unit = kpi_value.unit or ""
         _role = getattr(principal_context, "role", None)
 
+        # Only a currency KPI carries "$"; any other unit follows the number ("18K orders"). Every
+        # figure of 1,000 or more used to read as dollars, so an order count showed as "$18K".
+        _money = _unit.strip() == "$"
+
         def _fmt(v: float) -> str:
             if abs(v) >= 1_000_000:
-                return f"${v/1_000_000:.1f}M"
-            if abs(v) >= 1_000:
-                return f"${v/1_000:.0f}K"
-            return f"{v:,.1f}{(' ' + _unit) if _unit else ''}"
+                n = f"{v/1_000_000:.1f}M"
+            elif abs(v) >= 1_000:
+                n = f"{v/1_000:.0f}K"
+            else:
+                n = f"{v:,.1f}"
+            if _money:
+                return f"${n}"
+            return f"{n} {_unit}" if _unit else n
 
         _val_str = _fmt(_val)
         _cmp_str = _fmt(_cmp) if _cmp is not None else None
         _pct_str = f"{_pct:+.1f}%" if _pct is not None else None
 
+        # The figure and what it was compared with, named as the card names it: "Net Revenue is
+        # $117.8M vs $114.3M (+3.1%), YTD vs PYTD" (owner, 2026-10-20). The High and Medium wording
+        # used to call the comparison figure the target ("vs. target $18.1M", "+3.1% from
+        # target"): it is last year's figure, and the target is the threshold row's.
+        _label = self._reading_label(kpi_value)
+        _reading = (
+            f"{kpi_definition.name} is {_val_str}"
+            + (f" vs {_cmp_str}" if _cmp_str else "")
+            + (f" ({_pct_str})" if _pct_str else "")
+            + (f", {_label}" if _label else "")
+        )
         if severity == SituationSeverity.CRITICAL:
-            _vs = f" vs. {_cmp_str}" if _cmp_str else ""
-            _chg = f" ({_pct_str})" if _pct_str else ""
             _audience = "shareholder expectations and " if _role == PrincipalRole.CFO else ""
             business_impact = (
-                f"Immediate attention required: {kpi_definition.name} is {_val_str}{_vs}{_chg}, "
+                f"Immediate attention required: {_reading}, "
                 f"significantly outside target — at risk of impacting {_audience}financial targets."
             )
         elif severity == SituationSeverity.HIGH:
-            _vs = f" vs. target {_cmp_str}" if _cmp_str else ""
-            _chg = f" ({_pct_str} variance)" if _pct_str else ""
             business_impact = (
-                f"Attention needed: {kpi_definition.name} is {_val_str}{_vs}{_chg}, "
+                f"Attention needed: {_reading}, "
                 f"outside normal parameters and may indicate an emerging financial issue."
             )
         elif severity == SituationSeverity.MEDIUM:
-            _chg = f" ({_pct_str} from target)" if _pct_str else ""
             business_impact = (
-                f"Monitor closely: {kpi_definition.name} is {_val_str}{_chg}, "
+                f"Monitor closely: {_reading}, "
                 f"showing notable variation from expected values."
             )
         else:
-            _chg = f" ({_pct_str} change)" if _pct_str else ""
             business_impact = (
-                f"For information: {kpi_definition.name} is {_val_str}{_chg}, "
+                f"For information: {_reading}, "
                 f"within expected parameters."
             )
         
