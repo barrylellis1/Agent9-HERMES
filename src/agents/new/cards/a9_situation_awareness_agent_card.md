@@ -840,3 +840,12 @@ Revenue is $117.8M vs $114.3M (+3.1%), YTD vs PYTD" inside each severity's sente
 used to call the comparison figure the target ("vs. target $18.1M", "+3.1% from target"). Only a "$"
 KPI reads in dollars; other units follow the number ("18K orders"), where every figure of 1,000 or more
 used to carry "$".
+
+**Combined cards (owner card audit, 2026-10-21).** `_merge_compound_kpi_situations` writes one business
+impact: the card's call to action once (`_impact_lead` of the primary's severity), then each member's
+finding as its own sentence, most severe first, capped at 4. A threshold member contributes
+`Situation._impact_finding` (a private attribute set by `_create_threshold_situation`: its figures
+without the call to action or the generic closing phrase). The combined card keeps the lead member's
+`key_observations` only. Before: members' impacts were joined whole with " • ", so "at risk of
+impacting financial targets" preceded the budget gap that showed it, and every member's observations
+were kept (near-duplicates; contradictory severities). The 47-card audit: 45 fine, 2 issues, both this.

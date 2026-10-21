@@ -154,3 +154,43 @@ def test_last_years_figure_is_not_called_the_target():
 def test_only_a_currency_kpi_reads_in_dollars():
     text = _impact(SituationSeverity.HIGH, 18_400, 19_900, -7.5, unit="orders", name="Sales Order Count")
     assert text.startswith("Attention needed: Sales Order Count is 18K orders vs 20K orders (-7.5%), YTD vs PYTD")
+
+
+# ── Combined cards: one call to action, each finding once (owner review, 2026-10-21) ──
+
+def _combined_gross_profit():
+    kv = KPIValue(kpi_name="Gross Profit", value=35_300_000, comparison_value=39_400_000, percent_change=-10.4,
+                  unit="$", timeframe=TimeFrame.YEAR_TO_DATE, context=YTD)
+    kd = SimpleNamespace(name="Gross Profit", id="gross_profit", diagnostic_questions=None)
+    sa = _sa()
+    target = sa._create_threshold_situation(kd, kv, SituationSeverity.CRITICAL, "d", SimpleNamespace(role="CFO"))
+    target.alert_type = "threshold_breach"
+    target.key_observations = ["Lost $4.1M in gross profit compared to prior year period."]
+    budget = Situation(situation_id="plan_gp", kpi_name="Gross Profit", kpi_id="gross_profit", kpi_value=kv,
+                       severity=SituationSeverity.HIGH, card_type="problem", alert_type="plan_variance",
+                       plan_value=49_000_000, description="d",
+                       business_impact="Gross Profit is tracking 28.0% below the Budget baseline.",
+                       key_observations=["Lost $4.1M in gross profit compared to prior year performance."])
+    return sa._merge_compound_kpi_situations([target, budget])
+
+
+def test_a_combined_card_states_each_finding_once():
+    [card] = _combined_gross_profit()
+    assert card.business_impact == (
+        "Immediate attention required: Gross Profit is $35.3M vs $39.4M (-10.4%), YTD vs PYTD. "
+        "Gross Profit is tracking 28.0% below the Budget baseline."
+    )
+
+
+def test_a_combined_card_keeps_the_lead_findings_observations_only():
+    [card] = _combined_gross_profit()
+    assert card.key_observations == ["Lost $4.1M in gross profit compared to prior year period."]
+
+
+def test_a_single_card_keeps_its_full_wording():
+    kv = KPIValue(kpi_name="EBITDA", value=18_100_000, comparison_value=21_500_000, percent_change=-15.7,
+                  unit="$", timeframe=TimeFrame.YEAR_TO_DATE, context=YTD)
+    kd = SimpleNamespace(name="EBITDA", id="ebitda", diagnostic_questions=None)
+    card = _sa()._create_threshold_situation(kd, kv, SituationSeverity.CRITICAL, "d", SimpleNamespace(role="COO"))
+    assert card.business_impact == ("Immediate attention required: EBITDA is $18.1M vs $21.5M (-15.7%), YTD vs PYTD, "
+                                    "significantly outside target — at risk of impacting financial targets.")

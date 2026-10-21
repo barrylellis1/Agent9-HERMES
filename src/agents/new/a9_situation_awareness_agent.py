@@ -214,6 +214,18 @@ def _improvement_sentence(name: str, percent_change: float, inverse: bool, green
     return f"{name} increased by {amount}{tail}"
 
 
+# The call to action that opens a problem card's business impact, by severity.
+_IMPACT_LEAD = {
+    "critical": "Immediate attention required: ",
+    "high": "Attention needed: ",
+    "medium": "Monitor closely: ",
+}
+
+
+def _impact_lead(severity: Any) -> str:
+    return _IMPACT_LEAD.get(getattr(severity, "value", severity), "For information: ")
+
+
 def _series_months(monthly_values: Any) -> Optional[str]:
     """The months a monthly series covers, as a card's second line names them ("Jan–Sep 2026").
     None when its labels are not distinct calendar months."""
@@ -2703,11 +2715,18 @@ class A9_Situation_Awareness_Agent:
         Without consolidation each pattern becomes its own Situation, so the same
         KPI shows up repeatedly in the UI and inflates finding counts. This groups
         by kpi_name, keeps the most-severe member as the base card, and folds every
-        other member's alert_type/narrative into it — capped so a KPI with many
+        other member's alert_type and finding into it — capped so a KPI with many
         simultaneous patterns still produces a readable card. 'opportunity' cards
         and KPIs with only one problem alert are passed through unchanged.
+
+        The combined business impact opens with the card's call to action once, then states each
+        finding as its own sentence, most severe first; a threshold finding gives its figures
+        without its generic closing phrase. The observations are the lead finding's only. Owner
+        review 2026-10-21: the members' texts used to be joined whole, so "at risk of impacting
+        financial targets" came right before the budget gap that showed it, and each member's
+        model-written observations were kept, repeating ("Lost $4.1M…" twice) and contradicting
+        on severity ("flagged as critical", "Medium severity rating").
         """
-        _MAX_OBSERVATIONS = 6
         _MAX_IMPACT_BULLETS = 4
         _severity_order = {s: i for i, s in enumerate(SituationSeverity)}
 
@@ -2741,18 +2760,15 @@ class A9_Situation_Awareness_Agent:
             primary = next((m for m in members_sorted if m.card_type == "problem"), members_sorted[0])
 
             alert_types: List[str] = []
-            impact_bullets: List[str] = []
-            observations: List[str] = []
+            findings: List[str] = []
             tags: List[str] = []
             for m in members_sorted:
                 at = m.alert_type or "threshold_breach"
                 if at not in alert_types:
                     alert_types.append(at)
-                if m.business_impact and m.business_impact not in impact_bullets:
-                    impact_bullets.append(m.business_impact)
-                for obs in (m.key_observations or []):
-                    if obs not in observations:
-                        observations.append(obs)
+                finding = getattr(m, "_impact_finding", None) or m.business_impact
+                if finding and finding not in findings:
+                    findings.append(finding)
                 for t in (m.tags or []):
                     if t not in tags:
                         tags.append(t)
@@ -2776,8 +2792,9 @@ class A9_Situation_Awareness_Agent:
 
             combined = primary.model_copy(update={
                 "merged_alert_types": alert_types,
-                "business_impact": " • ".join(impact_bullets[:_MAX_IMPACT_BULLETS]),
-                "key_observations": observations[:_MAX_OBSERVATIONS] or primary.key_observations,
+                "business_impact": _impact_lead(primary.severity) + " ".join(findings[:_MAX_IMPACT_BULLETS]),
+                "key_observations": primary.key_observations
+                or next((m.key_observations for m in members_sorted if m.key_observations), None),
                 "hitl_required": any(m.hitl_required for m in members_sorted),
                 "tags": tags,
                 "plan_value": _first("plan_value"),
@@ -4307,25 +4324,14 @@ class A9_Situation_Awareness_Agent:
         )
         if severity == SituationSeverity.CRITICAL:
             _audience = "shareholder expectations and " if _role == PrincipalRole.CFO else ""
-            business_impact = (
-                f"Immediate attention required: {_reading}, "
-                f"significantly outside target — at risk of impacting {_audience}financial targets."
-            )
+            _closing = f"significantly outside target — at risk of impacting {_audience}financial targets."
         elif severity == SituationSeverity.HIGH:
-            business_impact = (
-                f"Attention needed: {_reading}, "
-                f"outside normal parameters and may indicate an emerging financial issue."
-            )
+            _closing = "outside normal parameters and may indicate an emerging financial issue."
         elif severity == SituationSeverity.MEDIUM:
-            business_impact = (
-                f"Monitor closely: {_reading}, "
-                f"showing notable variation from expected values."
-            )
+            _closing = "showing notable variation from expected values."
         else:
-            business_impact = (
-                f"For information: {_reading}, "
-                f"within expected parameters."
-            )
+            _closing = "within expected parameters."
+        business_impact = f"{_impact_lead(severity)}{_reading}, {_closing}"
         
         # Get diagnostic questions if available
         diagnostic_questions = kpi_definition.diagnostic_questions
@@ -4340,7 +4346,7 @@ class A9_Situation_Awareness_Agent:
             suggested_actions.append("Escalate to appropriate stakeholders")
             suggested_actions.append("Initiate deep analysis")
         
-        return Situation(
+        situation = Situation(
             situation_id=str(uuid.uuid4()),
             kpi_name=kpi_definition.name,
             kpi_id=kpi_definition.id,
@@ -4353,6 +4359,9 @@ class A9_Situation_Awareness_Agent:
             diagnostic_questions=diagnostic_questions,
             timestamp=datetime.now()
         )
+        # The finding alone, for a combined card (_merge_compound_kpi_situations)
+        situation._impact_finding = f"{_reading}."
+        return situation
     
     # SQL generation methods have been moved to the Data Product Agent
         

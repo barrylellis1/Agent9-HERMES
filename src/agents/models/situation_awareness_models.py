@@ -6,7 +6,7 @@ Focused on Finance KPIs from the FI Star Schema for MVP implementation.
 from enum import Enum
 from typing import Dict, List, Literal, Optional, Union, Any, ForwardRef
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
 
 # Enums for standard types
 class SituationSeverity(str, Enum):
@@ -382,6 +382,10 @@ class Situation(BaseModel):
         None,
         description="All alert_type patterns folded into this card when the same KPI triggers more than one in a single scan. None/absent when only one pattern fired."
     )
+    # A threshold card's finding as one sentence, without the call to action and the generic
+    # closing phrase its business_impact wraps it in ("Gross Profit is $35.3M vs $39.4M (-10.4%),
+    # YTD vs PYTD."). Internal: the merge uses it when this card is folded into a combined one.
+    _impact_finding: Optional[str] = PrivateAttr(default=None)
     # Phase 26 (owner rulings B2, C and 2026-10-20): what the card compared, in finance
     # shorthand, and the months, shown as a second line under its sentence.
     comparison_label: Optional[str] = Field(

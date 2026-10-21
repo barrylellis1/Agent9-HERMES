@@ -839,14 +839,14 @@ class TestMergeCompoundKpiSituations:
         assert len(result) == 2
         assert {s.kpi_name for s in result} == {"Total Revenue", "Gross Margin %"}
 
-    def test_business_impact_bullets_combined_and_capped(self):
-        """business_impact concatenates each member's impact, capped at 4 bullets."""
+    def test_business_impact_states_each_finding_once_capped(self):
+        """business_impact opens with the card's call to action once, then each member's
+        finding as its own sentence, capped at 4."""
         sa = _make_sa_stub()
         members = [
-            self._sit(f"s{i}", alert_type=f"type{i}", business_impact=f"impact-{i}")
+            self._sit(f"s{i}", alert_type=f"type{i}", business_impact=f"impact-{i}.")
             for i in range(6)
         ]
         merged = sa._merge_compound_kpi_situations(members)
         assert len(merged) == 1
-        bullets = merged[0].business_impact.split(" • ")
-        assert len(bullets) == 4
+        assert merged[0].business_impact == "Immediate attention required: impact-0. impact-1. impact-2. impact-3."

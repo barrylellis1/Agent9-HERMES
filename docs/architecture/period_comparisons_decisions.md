@@ -237,6 +237,15 @@ migration). Removed from the local registry on 20 October (rows backed up first)
 holds it: re-seeding there upserts KPIs and accountability rows, so the KPI row and its accountability
 row need a targeted delete at the registry sync.
 
+**I. Cards that combine findings.** The owner reviewed all 47 cards the three demo clients raised on
+21 October: 45 fine, 2 issues, both on cards that combine a target miss with a budget gap. Their
+"Why it matters" now opens with the call to action once, then states each finding as its own sentence:
+"Immediate attention required: Gross Profit is $35.3M vs $39.4M (−10.4%), YTD vs PYTD. Gross Profit is
+tracking 28.0% below the Budget baseline." It used to end the first finding with "at risk of impacting
+financial targets" right before the budget gap that showed it. A combined card keeps only the lead
+finding's model-written observations; it used to keep every finding's, which repeated each other and
+contradicted on severity.
+
 ## Other rulings made while building (19–20 October 2026)
 
 - **Every active KPI is judged, whatever its domain.** A launch-era "Finance only" setting had left
