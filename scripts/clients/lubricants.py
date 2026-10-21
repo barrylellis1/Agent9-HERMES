@@ -964,18 +964,9 @@ KPIS: List[Dict[str, Any]] = [
         "metadata": {"line": "middle", "altitude": "operational", "positive_trend_is_good": "true"},
     },
     {
-        # A real gross-to-net revenue bridge (2026-09-02) -- asked directly
-        # whether "gross revenue, discounts, rebates" existed as an
-        # alternative to the order_count x average_order_value decomposition
-        # above. Neither discounts nor rebates exist as fields anywhere in
-        # this dataset (FI's account_type='Revenue' has only two
-        # account_categories: Product Sales, Service Revenue -- no
-        # deduction lines at all). What DOES exist, live-verified: gross_
-        # revenue - tax = net_revenue, exactly, to the cent
-        # ($478,830,174.18 - $38,526,565.56 = $440,303,608.62 vs
-        # SUM(net_amount) = $440,303,607.89). A pure two-term SUM, so unlike
-        # the product edge above it carries no order-dependence question at
-        # all in its own variance bridge.
+        # Gross revenue = net revenue + sales tax in this dataset, to the cent (live-verified
+        # 2026-09-02; no discount or rebate lines exist). Agent9 no longer keeps that breakdown:
+        # Sales Tax Collected was removed as a KPI on 2026-10-20 (see below).
         #
         # order_gross_amount/order_net_amount/order_tax_amount are ORDER-level
         # totals duplicated on every line item of that order (avg 2.47 lines/
@@ -1012,34 +1003,9 @@ KPIS: List[Dict[str, Any]] = [
         "stakeholder_roles": ["CFO", "Sales Manager"],
         "metadata": {"line": "top", "altitude": "operational", "positive_trend_is_good": "true"},
     },
-    {
-        "id": "sales_tax_collected",
-        "client_id": CLIENT_ID,
-        "name": "Sales Tax Collected",
-        "domain": "Finance",
-        "description": "Total tax collected on sales orders -- the entire gross-to-net revenue gap in this dataset (no separate discount/rebate lines exist).",
-        "unit": "$",
-        "data_product_id": _ORDERS_DP_ID,  # moved 2026-10-18, order level
-        "view_name": _ORDERS_VIEW,
-        "business_process_ids": ["finance_revenue_growth_analysis"],
-        # One row per order, so a plain total (was a nested query collapsing lines to orders; same number).
-        "sql_query": f"SELECT SUM(order_tax_amount) AS value FROM {_ORDERS_BQ_PREFIX}",
-        "filters": {},
-        "unit_class": "currency",
-        "additive_across_dimensions": True,
-        "aggregation_method": "sum",
-        "sign_convention": "natural",
-        "inverse_logic": False,
-        "scope_eligible": "both",
-        "thresholds": [
-            {"comparison_type": "ytd_vs_pytd", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
-        ],
-        "dimensions": _ORDERS_DIMS,
-        "tags": ["sales", "tax", "lubricants"],
-        "owner_role": "CFO",
-        "stakeholder_roles": ["CFO"],
-        "metadata": {"line": "top", "altitude": "operational", "positive_trend_is_good": "false"},
-    },
+    # Sales Tax Collected was removed 2026-10-20 (owner: a tax passed through to customers is not a
+    # true KPI), together with its accountability row, its identity links and Gross Revenue's
+    # breakdown into net revenue plus tax.
     {
         "id": "order_fulfillment_rate",
         "client_id": CLIENT_ID,
@@ -1422,34 +1388,6 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "causal_direction": "kpi_causes_related",
         "basis": "accounting_identity",
     },
-    # The gross-to-net bridge (2026-09-02) -- see gross_revenue/sales_tax_
-    # collected's own KPI-definition comments above for why this is a pure
-    # sum (net_revenue + tax = gross_revenue), not a product, and why
-    # discounts/rebates could not be modelled (they don't exist in this data).
-    {
-        "kpi_id": "net_revenue",
-        "related_kpi_id": "gross_revenue",
-        "client_id": CLIENT_ID,
-        "relationship_type": "custom",
-        "conflict_direction": "converging",
-        "description": "Net revenue plus tax collected reproduces gross revenue exactly",
-        "mechanism": "Gross Revenue is Net Revenue plus the sales tax collected, order by order.",
-        "provenance": "confirmed",
-        "causal_direction": "kpi_causes_related",
-        "basis": "accounting_identity",
-    },
-    {
-        "kpi_id": "sales_tax_collected",
-        "related_kpi_id": "gross_revenue",
-        "client_id": CLIENT_ID,
-        "relationship_type": "custom",
-        "conflict_direction": "converging",
-        "description": "Tax collected is the entire gross-to-net revenue gap in this dataset",
-        "mechanism": "Gross Revenue is Net Revenue plus the sales tax collected, order by order.",
-        "provenance": "confirmed",
-        "causal_direction": "kpi_causes_related",
-        "basis": "accounting_identity",
-    },
 ]
 
 
@@ -1499,24 +1437,6 @@ KPI_DECOMPOSITIONS: List[Dict[str, Any]] = [
         "child_kpi_id": "average_order_value",
         "client_id": CLIENT_ID,
         "operation": "product",
-    },
-    # gross_revenue's own decomposition (2026-09-02) -- a pure two-term SUM
-    # (net_revenue + tax), unlike net_revenue's own product edges above.
-    # See gross_revenue/sales_tax_collected's own KPI-definition comments for
-    # the live-verified magnitudes and the order-level dedup trap this closed.
-    {
-        "parent_kpi_id": "gross_revenue",
-        "child_kpi_id": "net_revenue",
-        "client_id": CLIENT_ID,
-        "operation": "linear",
-        "sign": 1,
-    },
-    {
-        "parent_kpi_id": "gross_revenue",
-        "child_kpi_id": "sales_tax_collected",
-        "client_id": CLIENT_ID,
-        "operation": "linear",
-        "sign": 1,
     },
     {
         "parent_kpi_id": "gross_profit",
@@ -1947,18 +1867,7 @@ ACCOUNTABILITY: List[Dict[str, Any]] = [
         "scope_dimension": None,
         "scope_value": None,
         "role": "accountable",
-        "notes": "CFO owns gross bookings and the gross-to-net revenue bridge.",
-        "created_by": "seed",
-    },
-    {
-        "id": "acc_lub_cfo_sales_tax_collected",
-        "client_id": CLIENT_ID,
-        "kpi_id": "sales_tax_collected",
-        "principal_id": "cfo_001",
-        "scope_dimension": None,
-        "scope_value": None,
-        "role": "accountable",
-        "notes": "CFO owns tax compliance and remittance.",
+        "notes": "CFO owns gross bookings.",
         "created_by": "seed",
     },
     {

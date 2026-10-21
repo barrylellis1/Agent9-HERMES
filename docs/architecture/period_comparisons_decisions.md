@@ -228,6 +228,15 @@ the target: "Net Revenue is $117.8M vs $114.3M (+3.1%), YTD vs PYTD". It used to
 $18.1M" or "+3.1% from target". Rounding in card sentences ("grew 3.0%, above the 3.0% growth target"
 for a 3.004% rise) is left as it is.
 
+**H. Sales Tax Collected is not a KPI.** A tax passed through to customers is not a true KPI; it is
+removed from lubricants, with the CFO's accountability for it and Gross Revenue's breakdown into net
+revenue plus tax. The owner's principle: each KPI comes ready-made from its source and needs no
+assembly by Agent9, so a KPI's internal calculation is not a primary concern. *Considered:* keeping tax
+as an unmonitored figure so the breakdown stayed whole (it needed a new registry state and a database
+migration). Removed from the local registry on 20 October (rows backed up first). Production still
+holds it: re-seeding there upserts KPIs and accountability rows, so the KPI row and its accountability
+row need a targeted delete at the registry sync.
+
 ## Other rulings made while building (19–20 October 2026)
 
 - **Every active KPI is judged, whatever its domain.** A launch-era "Finance only" setting had left
