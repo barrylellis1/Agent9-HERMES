@@ -246,6 +246,14 @@ financial targets" right before the budget gap that showed it. A combined card k
 finding's model-written observations; it used to keep every finding's, which repeated each other and
 contradicted on severity.
 
+**J. A cost's budget gap is stated the right way round.** Found through I's new wording and checked
+against each warehouse's raw amounts: the budget check assumed costs are stored as negative amounts.
+Lubricants and Apex report Cost of Goods Sold as positive amounts, so lubricants (9.8% under budget) read
+as above it and Apex (117.6% over) as below. A lower-is-better KPI is now over budget when its amount
+is larger than budgeted, whichever sign the data uses; the projected-breach check follows the same rule.
+Hess, which stores costs as negative amounts, is unchanged. Apex's Cost of Goods Sold budget ($36.5M
+against $79.5M actual) looks incomplete; it is demo data and left as it is.
+
 ## Other rulings made while building (19–20 October 2026)
 
 - **Every active KPI is judged, whatever its domain.** A launch-era "Finance only" setting had left

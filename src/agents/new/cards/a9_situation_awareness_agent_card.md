@@ -849,3 +849,12 @@ without the call to action or the generic closing phrase). The combined card kee
 `key_observations` only. Before: members' impacts were joined whole with " • ", so "at risk of
 impacting financial targets" preceded the budget gap that showed it, and every member's observations
 were kept (near-duplicates; contradictory severities). The 47-card audit: 45 fine, 2 issues, both this.
+
+**Budget direction for costs (2026-10-21).** `_over_budget(actual, budget, lower_is_better)`: a
+lower-is-better KPI is over budget when its amount is larger than budgeted, whichever sign the data
+uses; `_budget_breach_level` applies the same rule to the projected-breach level (a cost reported as a
+positive amount breaches by rising above budget plus the tolerance). Both used to assume costs stored as
+negative amounts: lubricants and Apex report COGS as positive amounts (SQL negates the debits), Hess as
+raw negatives. Verified against each warehouse's raw amounts by version. Live: lubricants COGS now "9.8%
+below the Budget baseline" (82.5M vs 91.6M), Apex COGS "117.6% above" (79.5M vs 36.5M); Hess unchanged.
+Tests: `tests/unit/test_sa_budget_direction.py`.

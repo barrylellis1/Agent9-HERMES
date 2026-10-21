@@ -214,6 +214,32 @@ def _improvement_sentence(name: str, percent_change: float, inverse: bool, green
     return f"{name} increased by {amount}{tail}"
 
 
+def _over_budget(actual: float, budget: float, lower_is_better: bool) -> bool:
+    """Whether a reading is on the wrong side of its budget.
+
+    A lower-is-better KPI (a cost) is over budget when its amount is larger than the budgeted
+    amount, whichever sign the data uses: lubricants and Apex report Cost of Goods Sold as a
+    positive amount (their SQL negates the raw debits), Hess reports its costs as the raw negative
+    amounts. Until 2026-10-21 this assumed negative costs, so a positive-amount cost read
+    backwards: lubricants COGS, 9.8% UNDER its budget (82.5M against 91.6M), was carded as
+    "9.8% above plan"; Apex COGS, 117.6% over (79.5M against 36.5M), as below. Verified against
+    each warehouse's raw amounts. A higher-is-better KPI is short when actual < budget.
+    """
+    if lower_is_better:
+        return abs(actual) > abs(budget)
+    return actual < budget
+
+
+def _budget_breach_level(monthly_budget: float, tolerance: float, lower_is_better: bool):
+    """The level a projected monthly trend must not cross, and whether crossing means rising
+    above it. A cost reported as a positive amount breaches by rising above budget plus the
+    tolerance; anything else (revenue, profit, a cost stored as a negative amount) by falling
+    below budget minus the tolerance. Same rule as _over_budget."""
+    if lower_is_better and monthly_budget > 0:
+        return monthly_budget + abs(monthly_budget) * tolerance, True
+    return monthly_budget - abs(monthly_budget) * tolerance, False
+
+
 # The call to action that opens a problem card's business impact, by severity.
 _IMPACT_LEAD = {
     "critical": "Immediate attention required: ",
@@ -756,12 +782,12 @@ class A9_Situation_Awareness_Agent:
                                 _budget_val = plan_val
                                 if plan_val is not None and abs(plan_val) > 0:
                                     variance_pct = (kpi_value.value - plan_val) / abs(plan_val)
-                                    # variance_pct < 0 always means actual < plan (numerically).
-                                    # For revenue KPIs: actual < plan is bad.
-                                    # For cost KPIs stored as negative values: actual < plan numerically
-                                    # means higher absolute costs (more negative) — also bad.
-                                    # inverse_logic is NOT applied here; the sign already encodes direction.
-                                    bad_direction = variance_pct < 0
+                                    # Over budget for a cost means a larger amount than budgeted,
+                                    # whichever sign the data uses (_over_budget). This used to assume
+                                    # costs stored as negative amounts, and read positive ones backwards.
+                                    bad_direction = _over_budget(
+                                        kpi_value.value, plan_val, bool(getattr(kpi_value, 'inverse_logic', False))
+                                    )
 
                                     # Read per-KPI plan_variance tolerance bands from registry thresholds.
                                     # KPIThreshold entries with comparison_type='plan_variance' store the
@@ -781,9 +807,9 @@ class A9_Situation_Awareness_Agent:
                                             )
                                         )
                                         # Wording must reflect the KPI's polarity. For a cost KPI
-                                        # (inverse / negative-stored), bad_direction means spending is
-                                        # OVER budget → "above plan"; an opportunity means UNDER budget →
-                                        # "below plan". For revenue/profit KPIs the mapping is reversed.
+                                        # (lower is better), bad_direction means spending is OVER budget →
+                                        # "above plan"; otherwise UNDER budget → "below plan". For
+                                        # revenue/profit KPIs the mapping is reversed.
                                         _is_cost = bool(getattr(kpi_value, 'inverse_logic', False))
                                         if _is_cost:
                                             direction_word = "above" if bad_direction else "below"
@@ -833,10 +859,10 @@ class A9_Situation_Awareness_Agent:
                         # percent tolerance (magnitude) against the monthly budget run-rate.
                         #   monthly_budget = budget / months-in-timeframe
                         #   floor          = monthly_budget − |monthly_budget| × (tol%/100)
-                        # Breach fires when the projected monthly trend falls below `floor`. This holds for
-                        # BOTH positive-stored KPIs (revenue below budget) and negative-stored costs (more
-                        # negative = over budget) — the sign is already encoded, so inverse_logic is not applied
-                        # (same reasoning as the plan-variance block above).
+                        # Breach fires when the projected monthly trend falls below `floor`, or, for a cost
+                        # reported as a positive amount, rises above budget plus the tolerance
+                        # (_budget_breach_level, the same rule as _over_budget: over budget means a larger
+                        # amount). This used to assume costs stored as negative amounts.
                         _has_threshold_breach = any(s.alert_type == "threshold_breach" for s in detected_situations)
                         if (
                             not _has_threshold_breach and _monthly and isinstance(_pb_cfg, dict)
@@ -856,8 +882,8 @@ class A9_Situation_Awareness_Agent:
                                     _n_months = self._months_in_reading(kpi_value)
                                     _monthly_budget = _budget_val / max(1, _n_months)
                                 _pb_tol = abs(float(_pb_cfg['red'])) / 100.0
-                                _pb_floor = _monthly_budget - abs(_monthly_budget) * _pb_tol
-                                proj = self._project_trend(_monthly, {'red': _pb_floor}, inverse_logic=False)
+                                _pb_level, _pb_rising = _budget_breach_level(_monthly_budget, _pb_tol, bool(_inverse))
+                                proj = self._project_trend(_monthly, {'red': _pb_level}, inverse_logic=_pb_rising)
                                 if proj:
                                     pb_sit = Situation(
                                         situation_id=f"proj_{getattr(kpi_definition, 'id', None) or kpi_name}_{proj['periods_until_breach']}",
@@ -881,8 +907,11 @@ class A9_Situation_Awareness_Agent:
                                         period_months=_series_months(_monthly[-6:]),
                                         business_impact=(
                                             f"At current run-rate ({proj['slope']:+.2f}/period), "
-                                            f"{kpi_name} is projected to fall more than {abs(float(_pb_cfg['red'])):.0f}% "
-                                            f"below the {_plan_version} baseline within {proj['periods_until_breach']} period(s). "
+                                            f"{kpi_name} is projected to "
+                                            + (f"run more than {abs(float(_pb_cfg['red'])):.0f}% over"
+                                               if _inverse else
+                                               f"fall more than {abs(float(_pb_cfg['red'])):.0f}% below")
+                                            + f" the {_plan_version} baseline within {proj['periods_until_breach']} period(s). "
                                             f"Trend confidence: {proj['projection_confidence']:.0%}."
                                         ),
                                         hitl_required=proj['periods_until_breach'] <= 2,
