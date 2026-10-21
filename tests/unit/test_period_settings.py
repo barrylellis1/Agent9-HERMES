@@ -309,3 +309,36 @@ class TestTheOfflineAssessmentReadsEachKpisSetting:
     def test_monitoring_profile_no_longer_claims_a_comparison_period(self):
         from src.registry.models.kpi import KPIMonitoringProfile
         assert "comparison_period" not in KPIMonitoringProfile.model_fields
+
+
+class TestSeeds:
+    """Phase 26 step 3f(4): every seeded data product declares its kind (owner build choice 1), and
+    each KPI's period target matches its data product's kind (decision 9)."""
+
+    @staticmethod
+    def _seed(client):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(f"seed_{client}", f"scripts/clients/{client}.py")
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
+
+    def test_every_data_product_declares_its_kind(self):
+        kinds = {}
+        for client in ("lubricants", "apex_lubricants", "hess", "bicycle"):
+            m = self._seed(client)
+            for dp in getattr(m, "DATA_PRODUCTS", None) or [m.DATA_PRODUCT]:
+                kinds[dp["id"]] = settings_for(dp["metadata"]).kind
+                assert "kind" in dp["metadata"]["period_settings"], dp["id"]
+        assert kinds["dp_lubricants_sales"] == kinds["dp_lubricants_orders"] == "operational"
+        assert {k for d, k in kinds.items() if d not in ("dp_lubricants_sales", "dp_lubricants_orders")} == {"financial"}
+
+    def test_each_kpi_is_judged_on_its_products_reading(self):
+        for client in ("lubricants", "apex_lubricants", "hess"):
+            m = self._seed(client)
+            reading = {dp["id"]: settings_for(dp["metadata"]).reading
+                       for dp in getattr(m, "DATA_PRODUCTS", None) or [m.DATA_PRODUCT]}
+            for k in m.KPIS:
+                period_rows = [t["comparison_type"] for t in k.get("thresholds") or []
+                               if t["comparison_type"] in ("ytd_vs_pytd", "ltm_vs_prior_ltm")]
+                assert period_rows in ([], [reading[k["data_product_id"]]]), (client, k["id"], period_rows)

@@ -56,6 +56,9 @@ DATA_PRODUCT = {
     "tags": ["finance", "hess", "sqlserver", "oil-gas", "ep"],
     "metadata": {
         "source_system": "sqlserver",
+        # Phase 26 (owner build choice 1, 2026-10-17): read on the year to date against the same
+        # months last year (src/analysis/period_settings.py).
+        "period_settings": {"kind": "financial"},
         "sqlserver_host": "localhost",
         "sqlserver_port": "1433",
         "sqlserver_database": "agent9_lubricants",

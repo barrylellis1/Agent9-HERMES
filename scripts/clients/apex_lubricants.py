@@ -59,6 +59,9 @@ DATA_PRODUCT = {
     ],
     "tags": ["finance", "lubricants", "snowflake", "demo", "oil-and-gas"],
     "metadata": {
+        # Phase 26 (owner build choice 1, 2026-10-17): read on the year to date against the same
+        # months last year (src/analysis/period_settings.py).
+        "period_settings": {"kind": "financial"},
         "snowflake_account": "VSGHWKW-SI38932",
         "snowflake_database": "AGENT9_DEMO",
         "snowflake_schema": "LUBRICANTS",

@@ -180,8 +180,16 @@ removed; the actuals cut-off worked out per data product (decision 7); the dashb
 product's comparison, with every card labelled and its months on a second line (decision 8, build
 choice 2, rulings C–E below).
 
-To build, as decided above: marking each data product financial or operational in the client seeds,
-and moving the operational KPIs' "YoY" thresholds to the last 12 months (decision 9).
+Also built (21 October): every data product in the client seeds is marked financial or operational
+(lubricants Sales Order Lines and Sales Orders operational, all others financial), and the six
+operational KPIs' year-to-date targets moved to the last 12 months with their values unchanged
+(decision 9). Live: those six lubricants KPIs now read "LTM vs Prior LTM" over Oct 2025–Sep 2026 against
+Oct 2024–Sep 2025; every other reading on lubricants, Apex and Hess is unchanged; Deep Analysis on an
+operational card reproduces the card's figures. Order Fulfillment Rate's decline over 12 months
+(−0.41%) sits inside its −0.5% band, so its card now leads with its trend finding.
+
+Not yet released: the code and the registry changes reach production with the next push and registry
+sync.
 
 ## Rulings for the rework (20 October 2026)
 
@@ -269,3 +277,6 @@ against $79.5M actual) looks incomplete; it is demo data and left as it is.
 - Covenant and regulatory monitoring: its own design, with the first such KPI.
 - A client-wide default, if a client has several data products sharing one rhythm.
 - The dashboard control to choose a comparison, and the registry and onboarding screens.
+- A tile whose headline is a budget gap colours it as if costs were stored as positive amounts; for a
+  cost stored as a negative amount (Hess), an over-budget gap would show green. No live card hits it
+  (owner, 21 October: note for later). `decision-studio-ui/src/utils/triggeringComparison.ts`.

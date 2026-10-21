@@ -70,7 +70,12 @@ DATA_PRODUCT: Dict[str, Any] = {
         "finance_investor_relations_reporting",
     ],
     "tags": ["finance", "bicycle", "duckdb", "sap", "fi-star-schema"],
-    "metadata": {"source_system": "duckdb"},
+    "metadata": {
+        "source_system": "duckdb",
+        # Phase 26 (owner build choice 1, 2026-10-17): read on the year to date against the same
+        # months last year (src/analysis/period_settings.py).
+        "period_settings": {"kind": "financial"},
+    },
     "tables": {},
     "views": {
         "fi_star_schema": {

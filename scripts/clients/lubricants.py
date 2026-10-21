@@ -59,6 +59,9 @@ DATA_PRODUCT = {
         "source_system": "bigquery",
         "bigquery_project": "agent9-465818",
         "bigquery_dataset": "LubricantsBusiness",
+        # Phase 26 (owner build choice 1, 2026-10-17): read on the year to date against the same
+        # months last year (src/analysis/period_settings.py).
+        "period_settings": {"kind": "financial"},
         # SIGN CONVENTION -- declared because its absence caused a real defect.
         # In this view `amount` is SIGNED: Revenue is positive, and COGS / SGA /
         # Other (D&A, Interest, Tax) are stored NEGATIVE. Every P&L line therefore
@@ -228,6 +231,9 @@ SALES_DATA_PRODUCT: Dict[str, Any] = {
         "bigquery_project": "agent9-465818",
         "bigquery_dataset": "LubricantsBusiness",
         "reconciles_to": "dp_lubricants_financials.net_revenue",
+        # Phase 26 (owner build choice 1, 2026-10-17; order-level KPIs 2026-10-18): operational,
+        # read on the last 12 complete months against the 12 before (src/analysis/period_settings.py).
+        "period_settings": {"kind": "operational"},
     },
     # Three genuinely distinct dates live on this data product (order / delivery /
     # revenue-recognition), and they disagree: 90.2% of line items have delivery_date
@@ -305,6 +311,9 @@ ORDERS_DATA_PRODUCT: Dict[str, Any] = {
         "bigquery_project": "agent9-465818",
         "bigquery_dataset": "LubricantsBusiness",
         "reconciles_to": "dp_lubricants_financials.net_revenue",
+        # Phase 26 (owner build choice 1, 2026-10-17; order-level KPIs 2026-10-18): operational,
+        # read on the last 12 complete months against the 12 before (src/analysis/period_settings.py).
+        "period_settings": {"kind": "operational"},
     },
     # Owner ruling 2026-10-18: the order's revenue-recognition period is the main key (every
     # order's lines fall in one fiscal month: 0 of 24,961 orders span months), plus order date.
@@ -886,7 +895,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ltm_vs_prior_ltm", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _ORDERS_DIMS,
         "tags": ["sales", "orders", "volume", "lubricants"],
@@ -918,7 +927,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ltm_vs_prior_ltm", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "volume", "units", "lubricants"],
@@ -955,7 +964,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ltm_vs_prior_ltm", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _ORDERS_DIMS,
         "tags": ["sales", "order-value", "lubricants"],
@@ -995,7 +1004,7 @@ KPIS: List[Dict[str, Any]] = [
         "inverse_logic": False,
         "scope_eligible": "both",
         "thresholds": [
-            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "ltm_vs_prior_ltm", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
         "dimensions": _ORDERS_DIMS,
         "tags": ["sales", "revenue", "gross", "lubricants"],
@@ -1024,7 +1033,7 @@ KPIS: List[Dict[str, Any]] = [
         # Owner 2026-10-19: judged on the change against last year, suited to a rate near its
         # ceiling (~95%). The old +2% growth target made a steady rate raise a card every scan.
         "thresholds": [
-            {"comparison_type": "ytd_vs_pytd", "green_threshold": -0.5, "yellow_threshold": -1.0, "red_threshold": -2.0, "inverse_logic": False},
+            {"comparison_type": "ltm_vs_prior_ltm", "green_threshold": -0.5, "yellow_threshold": -1.0, "red_threshold": -2.0, "inverse_logic": False},
         ],
         "dimensions": _SALES_DIMS,
         "tags": ["sales", "fulfillment", "operations", "lubricants"],
@@ -1054,7 +1063,7 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT SAFE_DIVIDE(COUNTIF(lifecycle_status = 'X'), COUNT(*)) * 100 AS value FROM {_ORDERS_BQ_PREFIX}",
         "filters": {"lifecycle_status": "X"},
         "thresholds": [
-            {"comparison_type": "ytd_vs_pytd", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": True},
+            {"comparison_type": "ltm_vs_prior_ltm", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": True},
         ],
         "dimensions": _ORDERS_DIMS,
         "tags": ["sales", "cancellations", "operations", "lubricants"],
