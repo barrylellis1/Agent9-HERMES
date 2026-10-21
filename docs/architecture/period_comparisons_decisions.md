@@ -280,3 +280,9 @@ against $79.5M actual) looks incomplete; it is demo data and left as it is.
 - A tile whose headline is a budget gap colours it as if costs were stored as positive amounts; for a
   cost stored as a negative amount (Hess), an over-budget gap would show green. No live card hits it
   (owner, 21 October: note for later). `decision-studio-ui/src/utils/triggeringComparison.ts`.
+- A tile led by a trend finding shows the reading's change as its headline figure beside the trend
+  label (Order Fulfillment Rate: −0.4%, the 12-month change, beside "Trend, last 8 months"). Deferred by
+  the owner, 21 October.
+- Order Cancellation Rate's targets (+5 / 0 / −5 on a lower-is-better rate) look copied from the growth
+  KPIs: any fall, even 0.2%, raises a High improvement card, and a rise over 5% goes straight to
+  Critical. Deferred by the owner, 21 October.
