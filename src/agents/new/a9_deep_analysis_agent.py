@@ -55,6 +55,92 @@ _ROLLUP_TOTAL_KEY = "\x00__rollup_total__"
 
 _MIXED_MODE_PURITY_THRESHOLD = 0.80  # fraction of top-N items that must be one direction to be "pure"
 
+# ── Parallel queries (owner, 2026-10-23) ─────────────────────────────────────────────────────────
+# Measured on four live cards (lubricants Gross Margin %, Net Revenue, Units Sold; Apex Gross
+# Profit): the analysis spent 12-55 s issuing 17-66 warehouse queries one after another, though
+# they are independent (one breakdown per dimension and period). They now start together, at most
+# _DA_PARALLEL_QUERIES per analysis and _DA_PARALLEL_QUERIES_SERVER across this process, so a busy
+# server stays well inside warehouse limits. Only BigQuery and Snowflake: SQL Server and DuckDB hold
+# one connection that runs one query at a time, and stay sequential.
+_DA_PARALLEL_QUERIES = 8
+_DA_PARALLEL_QUERIES_SERVER = 16
+_PARALLEL_SOURCES = ("bigquery", "snowflake")
+_SERVER_QUERY_SLOTS: Dict[int, asyncio.Semaphore] = {}
+
+
+def _server_query_slots() -> asyncio.Semaphore:
+    """The process-wide cap, one semaphore per event loop (a semaphore belongs to one loop)."""
+    loop = asyncio.get_running_loop()
+    slots = _SERVER_QUERY_SLOTS.get(id(loop))
+    if slots is None:
+        slots = _SERVER_QUERY_SLOTS[id(loop)] = asyncio.Semaphore(_DA_PARALLEL_QUERIES_SERVER)
+    return slots
+
+
+class _ParallelQueries:
+    """One analysis's warehouse queries.
+
+    `prefetch(sqls)` starts queries the analysis is certain to need, before it asks for them;
+    `run(sql)` returns a query's result, joining one already started. The same SQL runs once per
+    analysis. A failed query raises at `run`, where the sequential code raised it before, so the
+    analysis's error handling is unchanged. With `enabled` False (a backend that runs one query at
+    a time) `run` calls straight through and `prefetch` does nothing: exactly the old behaviour.
+    """
+
+    def __init__(self, execute, enabled: bool, limit: int = _DA_PARALLEL_QUERIES):
+        self._execute = execute
+        self.enabled = bool(enabled)
+        self._limit = asyncio.Semaphore(limit) if self.enabled else None
+        self._tasks: Dict[Any, "asyncio.Future"] = {}
+        self._used: set = set()
+        self.prefetched = 0
+
+    async def _guarded(self, sql):
+        async with self._limit:
+            async with _server_query_slots():
+                try:
+                    return True, await self._execute(sql)
+                except Exception as exc:  # re-raised where the result is used
+                    return False, exc
+
+    def prefetch(self, sqls) -> None:
+        if not self.enabled:
+            return
+        for sql in sqls or []:
+            if sql and sql not in self._tasks:
+                self._tasks[sql] = asyncio.ensure_future(self._guarded(sql))
+                self.prefetched += 1
+
+    async def run(self, sql):
+        if not self.enabled:
+            return await self._execute(sql)
+        task = self._tasks.get(sql)
+        if task is None:
+            task = self._tasks[sql] = asyncio.ensure_future(self._guarded(sql))
+        self._used.add(sql)
+        ok, value = await task
+        if not ok:
+            raise value
+        return value
+
+    def stats(self) -> Dict[str, int]:
+        return {"queries": len(self._tasks), "prefetched": self.prefetched,
+                "unused": len(set(self._tasks) - self._used)}
+
+
+class _BridgeSqlProxy:
+    """Thin KPI-like object carrying a substitute sql_query (the ratio bridge's numerator or
+    denominator), shared by the bridge path and its prefetch."""
+
+    def __init__(self, base_kpi: Any, sql_override: str) -> None:
+        self.sql_query = sql_override
+        self.calculation = sql_override
+        self.name = getattr(base_kpi, "name", "bridge")
+        self.id = getattr(base_kpi, "id", "bridge")
+        self.metadata = getattr(base_kpi, "metadata", {})
+        self.unit = getattr(base_kpi, "unit", None)
+        self.data_product_id = getattr(base_kpi, "data_product_id", None)
+
 
 def _rollup_check_outcome(
     warehouse_delta: Optional[float],
@@ -1214,6 +1300,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
             change_points: List[ChangePoint] = []
             queries_executed: int = 0
+            # Every warehouse query goes through _run_sql (parallel queries, 2026-10-23). This
+            # pass-through is replaced by a parallel runner once the data product is known.
+            _queries = _ParallelQueries(
+                lambda _sql: self.data_product_agent.execute_sql(_sql, data_product_id=dp_id), enabled=False,
+            )
+
+            async def _run_sql(_sql):
+                return await _queries.run(_sql)
+
+            def _prefetch(_sqls) -> None:
+                _queries.prefetch(_sqls)
             when_started: Optional[str] = None
             spec_main: Dict[str, Any] = {"comparison_type": "previous", "inverse_logic": False, "yellow_threshold": 0.0}
             kpi_def = None  # populated below when resolvable; used for unit-aware SCQA framing
@@ -1411,6 +1508,55 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             return float(m.pop(_ROLLUP_TOTAL_KEY))
                         return None
 
+                    # Parallel queries: BigQuery and Snowflake run several at once; any other
+                    # backend keeps the pass-through (one query at a time, as before).
+                    try:
+                        _src_q = (self.data_product_agent._resolve_source_system(dp_id)
+                                  if dp_id and hasattr(self.data_product_agent, "_resolve_source_system") else None)
+                    except Exception:
+                        _src_q = None
+                    _queries = _ParallelQueries(
+                        lambda _sql: self.data_product_agent.execute_sql(_sql, data_product_id=dp_id),
+                        enabled=str(_src_q or "").lower() in _PARALLEL_SOURCES,
+                    )
+                    _levels_started: set = set()
+
+                    async def _generated_sqls(reqs) -> List[str]:
+                        """SQL for (kpi, kwargs) requests, generated exactly as the analysis does."""
+                        out: List[str] = []
+                        for _k, _kw in reqs:
+                            try:
+                                _g = await self.data_product_agent.generate_sql_for_kpi(_k, **_kw)
+                            except Exception:
+                                continue
+                            if _g.get("success") and _g.get("sql"):
+                                out.append(_g["sql"])
+                        return out
+
+                    async def _prefetch_level(level_label: str, comparator: str) -> None:
+                        """Start the queries _maps_for_level will run for this level, together."""
+                        if not _queries.enabled or (level_label, comparator) in _levels_started:
+                            return
+                        _levels_started.add((level_label, comparator))
+                        _base_f = getattr(plan, "filters", None)
+                        _grp = dict(timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
+                        reqs: List[Tuple[Any, Dict[str, Any]]] = []
+                        _md = getattr(kpi_def, "metadata", None) or {}
+                        if (isinstance(_md, dict) and _md.get("kpi_type") == "ratio" and comparator != "budget"
+                                and _md.get("bridge_numerator_sql") and _md.get("bridge_denominator_sql") and prev_tf):
+                            for _bsql in (_md["bridge_numerator_sql"], _md["bridge_denominator_sql"]):
+                                _px = _BridgeSqlProxy(kpi_def, _bsql)
+                                reqs += [(_px, dict(_grp)), (_px, dict(_grp, comparison_period=True))]
+                        else:
+                            reqs.append((kpi_def, dict(_grp, include_total=True)))
+                            if comparator == "budget":
+                                _bk = self._budget_variant_kpi(kpi_def)
+                                if _bk is not None:
+                                    reqs.append((_bk, dict(_grp, include_total=True)))
+                            elif prev_tf:
+                                reqs.append((kpi_def, dict(_grp, comparison_period=True, include_total=True)))
+                        _prefetch(await _generated_sqls(reqs))
+
                     # Helper: read dimension hierarchies from the registry.
                     # Registry-only as of Phase 16 step 5 (DEVELOPMENT_PLAN.md, 2026-08-30):
                     # the legacy YAML-contract fallback was deleted once every real data
@@ -1447,16 +1593,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     if not prev_tf:
                                         raise ValueError("bridge: no prev_tf")
 
-                                    class _SqlProxy:
-                                        """Thin KPI-like object carrying a substitute sql_query."""
-                                        def __init__(self, base_kpi: Any, sql_override: str) -> None:
-                                            self.sql_query = sql_override
-                                            self.calculation = sql_override
-                                            self.name = getattr(base_kpi, "name", "bridge")
-                                            self.id = getattr(base_kpi, "id", "bridge")
-                                            self.metadata = getattr(base_kpi, "metadata", {})
-                                            self.unit = getattr(base_kpi, "unit", None)
-                                            self.data_product_id = getattr(base_kpi, "data_product_id", None)
+                                    _SqlProxy = _BridgeSqlProxy
 
                                     _num_proxy = _SqlProxy(kpi_def, _num_sql)
                                     _den_proxy = _SqlProxy(kpi_def, _den_sql)
@@ -1473,11 +1610,12 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
                                     if not all(g.get("success") for g in [_gen_nc, _gen_np, _gen_dc, _gen_dp]):
                                         raise ValueError("bridge: SQL generation failed for one or more components")
+                                    _prefetch([g["sql"] for g in (_gen_nc, _gen_np, _gen_dc, _gen_dp)])
 
-                                    _m_nc = _as_map(await self.data_product_agent.execute_sql(_gen_nc["sql"], data_product_id=dp_id))
-                                    _m_np = _as_map(await self.data_product_agent.execute_sql(_gen_np["sql"], data_product_id=dp_id))
-                                    _m_dc = _as_map(await self.data_product_agent.execute_sql(_gen_dc["sql"], data_product_id=dp_id))
-                                    _m_dp = _as_map(await self.data_product_agent.execute_sql(_gen_dp["sql"], data_product_id=dp_id))
+                                    _m_nc = _as_map(await _run_sql(_gen_nc["sql"]))
+                                    _m_np = _as_map(await _run_sql(_gen_np["sql"]))
+                                    _m_dc = _as_map(await _run_sql(_gen_dc["sql"]))
+                                    _m_dp = _as_map(await _run_sql(_gen_dp["sql"]))
 
                                     _total_den_cur = sum(_m_dc.values()) or 1.0
 
@@ -1523,6 +1661,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         # --- End bridge analysis path ---
 
                         try:
+                            # This level's queries start together (parallel queries)
+                            await _prefetch_level(level_label, comparator)
                             # Current map
                             gen_cur = await self.data_product_agent.generate_sql_for_kpi(
                                 kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[level_label],
@@ -1530,7 +1670,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             )
                             if not gen_cur.get("success"):
                                 return []
-                            cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
+                            cur_exec = await _run_sql(gen_cur.get("sql"))
                             m_cur = _as_map(cur_exec)
                             _tot_cur = _pop_total(m_cur)
 
@@ -1554,8 +1694,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                                 if not (gen_act.get("success") and gen_bud.get("success")):
                                     return []
-                                act_exec = await self.data_product_agent.execute_sql(gen_act.get("sql"), data_product_id=dp_id)
-                                bud_exec = await self.data_product_agent.execute_sql(gen_bud.get("sql"), data_product_id=dp_id)
+                                act_exec = await _run_sql(gen_act.get("sql"))
+                                bud_exec = await _run_sql(gen_bud.get("sql"))
                                 m_act = _as_map(act_exec)
                                 m_bud = _as_map(bud_exec)
                                 _tot_cur = _pop_total(m_act)
@@ -1582,7 +1722,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                                 if not gen_prev.get("success"):
                                     return []
-                                prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
+                                prev_exec = await _run_sql(gen_prev.get("sql"))
                                 m_prev = _as_map(prev_exec)
                                 _tot_prev = _pop_total(m_prev)
                                 _record_dimension_total(level_label, _tot_cur, _tot_prev)
@@ -1715,8 +1855,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                                 if not (gen_act_tot.get("success") and gen_bud_tot.get("success")):
                                     return None
-                                act_exec_tot = await self.data_product_agent.execute_sql(gen_act_tot.get("sql"), data_product_id=dp_id)
-                                bud_exec_tot = await self.data_product_agent.execute_sql(gen_bud_tot.get("sql"), data_product_id=dp_id)
+                                _prefetch([gen_act_tot.get("sql"), gen_bud_tot.get("sql")])
+                                act_exec_tot = await _run_sql(gen_act_tot.get("sql"))
+                                bud_exec_tot = await _run_sql(gen_bud_tot.get("sql"))
                                 current_total = _extract_scalar(act_exec_tot)
                                 baseline_total = _extract_scalar(bud_exec_tot)
                             else:
@@ -1747,8 +1888,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                                 if not (gen_cur_tot.get("success") and gen_prev_tot.get("success")):
                                     return None
-                                cur_exec_tot = await self.data_product_agent.execute_sql(gen_cur_tot.get("sql"), data_product_id=dp_id)
-                                prev_exec_tot = await self.data_product_agent.execute_sql(gen_prev_tot.get("sql"), data_product_id=dp_id)
+                                _prefetch([gen_cur_tot.get("sql"), gen_prev_tot.get("sql")])
+                                cur_exec_tot = await _run_sql(gen_cur_tot.get("sql"))
+                                prev_exec_tot = await _run_sql(gen_prev_tot.get("sql"))
                                 current_total = _extract_scalar(cur_exec_tot)
                                 baseline_total = _extract_scalar(prev_exec_tot)
 
@@ -1810,6 +1952,11 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             lvl for vec in vector_order for lvl in (hmap.get(vec) or [])
                             if lvl not in _denied_dims
                         ]
+                        # The first level of every vector is certain to run: start them together
+                        for vec in vector_order:
+                            _first = next((l for l in (hmap.get(vec, []) or []) if l not in _denied_dims), None)
+                            if _first is not None:
+                                await _prefetch_level(_first, comparator)
                         for vec in vector_order:
                             levels = hmap.get(vec, []) or []
                             for lvl in levels:
@@ -1931,6 +2078,26 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         # them, and records nowhere which ones.
                         dimensions_analyzed = list(dims_to_process)
                         self.logger.info(f"[LOOP] Will process {len(dims_to_process)} dimensions: {dims_to_process}")
+                        # Every dimension's certain queries start together (parallel queries): the
+                        # Top-N breakdown and the distribution summary's two breakdowns, which the
+                        # fallback below reuses. Generated exactly as the loop generates them.
+                        if _queries.enabled:
+                            _flat_reqs: List[Tuple[Any, Dict[str, Any]]] = []
+                            for _fd in dims_to_process:
+                                _ff = getattr(plan, "filters", None)
+                                _fg = dict(timeframe=cur_tf, breakdown=True, override_group_by=[_fd])
+                                if comp_fb != "budget":
+                                    _flat_reqs.append((kpi_def, dict(_fg, filters=_ff, topn={"type": "top", "n": _TOPN_FETCH, "metric": "delta_prev"})))
+                                    if prev_tf:
+                                        _flat_reqs.append((kpi_def, dict(_fg, filters=_ff)))
+                                        _flat_reqs.append((kpi_def, dict(_fg, filters=_ff, comparison_period=True)))
+                                else:
+                                    _bf = _ff or {}
+                                    _flat_reqs.append((kpi_def, dict(_fg, filters=_bf)))
+                                    _bud_fd = self._budget_variant_kpi(kpi_def)
+                                    if _bud_fd is not None:
+                                        _flat_reqs.append((_bud_fd, dict(_fg, filters=_bf)))
+                            _prefetch(await _generated_sqls(_flat_reqs))
                         for dim_idx, dim in enumerate(dims_to_process):
                             self.logger.info(f"[LOOP] Processing dimension {dim_idx+1}/{len(dims_to_process)}: {dim}")
                             # Snapshot of the cumulative list BEFORE this dimension's own pass, so the
@@ -1958,7 +2125,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         topn={"type": "top", "n": _TOPN_FETCH, "metric": "delta_prev"}  # Fetch more for threshold analysis
                                     )
                                 if all_req.get("success"):
-                                    all_exec = await self.data_product_agent.execute_sql(all_req.get("sql"), data_product_id=dp_id)
+                                    all_exec = await _run_sql(all_req.get("sql"))
                                     queries_executed += 1
                                     rows = all_exec.get("rows") or []
                                     cols = [str(c) for c in (all_exec.get("columns") or [])]
@@ -2076,8 +2243,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                 _bud_kpi_fb, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
                                             )
                                             if gen_cur.get("success") and gen_bud.get("success"):
-                                                cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
-                                                bud_exec = await self.data_product_agent.execute_sql(gen_bud.get("sql"), data_product_id=dp_id)
+                                                cur_exec = await _run_sql(gen_cur.get("sql"))
+                                                bud_exec = await _run_sql(gen_bud.get("sql"))
                                                 queries_executed += 2
                                                 m_cur = _as_map(cur_exec)
                                                 m_prev = _as_map(bud_exec)
@@ -2087,7 +2254,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
                                         )
                                         if gen_cur.get("success"):
-                                            cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
+                                            cur_exec = await _run_sql(gen_cur.get("sql"))
                                             queries_executed += 1
                                             m_cur = _as_map(cur_exec)
                                             _fb_success = True
@@ -2096,7 +2263,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                     kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
                                                 )
                                                 if gen_prev.get("success"):
-                                                    prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
+                                                    prev_exec = await _run_sql(gen_prev.get("sql"))
                                                     queries_executed += 1
                                                     m_prev = _as_map(prev_exec)
                                     if _fb_success:
@@ -2158,8 +2325,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             _bud_kpi_h, timeframe=cur_tf, filters=base_filters, breakdown=True, override_group_by=[dim]
                                         ) if _bud_kpi_h is not None else {"success": False}
                                         if gen_act_h.get("success") and gen_bud_h.get("success"):
-                                            act_exec_h = await self.data_product_agent.execute_sql(gen_act_h.get("sql"), data_product_id=dp_id)
-                                            bud_exec_h = await self.data_product_agent.execute_sql(gen_bud_h.get("sql"), data_product_id=dp_id)
+                                            act_exec_h = await _run_sql(gen_act_h.get("sql"))
+                                            bud_exec_h = await _run_sql(gen_bud_h.get("sql"))
                                             m_act_h = _as_map(act_exec_h)
                                             m_bud_h = _as_map(bud_exec_h)
                                             keys_h = set(m_act_h.keys()) | set(m_bud_h.keys())
@@ -2179,8 +2346,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                 kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
                                             )
                                             if gen_cur_h.get("success") and gen_prev_h.get("success"):
-                                                cur_exec_h = await self.data_product_agent.execute_sql(gen_cur_h.get("sql"), data_product_id=dp_id)
-                                                prev_exec_h = await self.data_product_agent.execute_sql(gen_prev_h.get("sql"), data_product_id=dp_id)
+                                                cur_exec_h = await _run_sql(gen_cur_h.get("sql"))
+                                                prev_exec_h = await _run_sql(gen_prev_h.get("sql"))
                                                 m_cur_h = _as_map(cur_exec_h)
                                                 m_prev_h = _as_map(prev_exec_h)
                                                 keys_h = set(m_cur_h.keys()) | set(m_prev_h.keys())
@@ -2299,6 +2466,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     _primary_dims.append(_dm)
                             _sec_delta: Dict[tuple, Any] = {}
                             for _dm in _primary_dims[: max(1, self.config.max_dimensions)]:
+                                await _prefetch_level(_dm, comparator_secondary)
+                            for _dm in _primary_dims[: max(1, self.config.max_dimensions)]:
                                 for _g in (await _maps_for_level(_dm, comparator_secondary) or []):
                                     _gk = _g.get("key")
                                     if _gk is not None:
@@ -2358,12 +2527,18 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         self.logger.info("[DA] No time_dimension configured for dp_id=%s — skipping WHEN analysis", dp_id)
                     if time_bucket:
                         try:
+                            if _queries.enabled:
+                                _tf_g = dict(timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket])
+                                _prefetch(await _generated_sqls([
+                                    (kpi_def, dict(_tf_g, topn={"type": "top", "n": 3, "metric": "delta_prev"})),
+                                    (kpi_def, dict(_tf_g, topn={"type": "bottom", "n": 3, "metric": "delta_prev"})),
+                                ]))
                             # Prefer Top/Bottom N with delta_prev for time buckets
                             t_top = await self.data_product_agent.generate_sql_for_kpi(
                                 kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], topn={"type": "top", "n": 3, "metric": "delta_prev"}
                             )
                             if t_top.get("success"):
-                                t_top_exec = await self.data_product_agent.execute_sql(t_top.get("sql"), data_product_id=dp_id)
+                                t_top_exec = await _run_sql(t_top.get("sql"))
                                 queries_executed += 1
                                 rows_t = t_top_exec.get("rows") or []
                                 cols_t = [str(c) for c in (t_top_exec.get("columns") or [])]
@@ -2390,7 +2565,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], topn={"type": "bottom", "n": 3, "metric": "delta_prev"}
                             )
                             if t_bot.get("success"):
-                                t_bot_exec = await self.data_product_agent.execute_sql(t_bot.get("sql"), data_product_id=dp_id)
+                                t_bot_exec = await _run_sql(t_bot.get("sql"))
                                 queries_executed += 1
                                 rows_tb = t_bot_exec.get("rows") or []
                                 cols_tb = [str(c) for c in (t_bot_exec.get("columns") or [])]
@@ -2419,7 +2594,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket]
                                 )
                                 if gen_cur_t.get("success"):
-                                    cur_exec_t = await self.data_product_agent.execute_sql(gen_cur_t.get("sql"), data_product_id=dp_id)
+                                    cur_exec_t = await _run_sql(gen_cur_t.get("sql"))
                                     queries_executed += 1
                                     m_cur_t = _as_map(cur_exec_t)
                                 else:
@@ -2430,7 +2605,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], comparison_period=True
                                     )
                                     if gen_prev_t.get("success"):
-                                        prev_exec_t = await self.data_product_agent.execute_sql(gen_prev_t.get("sql"), data_product_id=dp_id)
+                                        prev_exec_t = await _run_sql(gen_prev_t.get("sql"))
                                         queries_executed += 1
                                         m_prev_t = _as_map(prev_exec_t)
                                 keys_t = set(m_cur_t.keys()) | set(m_prev_t.keys())
@@ -2478,6 +2653,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         pass
                     try:
                         self.logger.info(f"execute_deep_analysis: dims_after_planning={len(getattr(plan, 'dimensions', []) or [])} steps={len(getattr(plan, 'steps', []) or [])} queries_executed={queries_executed}")
+                        self.logger.info(f"[PARALLEL] {plan.kpi_name}: enabled={_queries.enabled} {_queries.stats()}")
                     except Exception:
                         pass
 
@@ -2830,7 +3006,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                             if not g.get("success"):
                                 return None
-                            ex = await self.data_product_agent.execute_sql(g.get("sql"), data_product_id=dp_id)
+                            ex = await _run_sql(g.get("sql"))
                             rows = (ex or {}).get("rows") or []
                             if not rows:
                                 return None
@@ -2838,8 +3014,12 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             v = list(r.values())[0] if isinstance(r, dict) else r[0]
                             return float(v) if v is not None else None
 
-                        _ov_cur = await _scalar(False)
-                        _ov_prev = await _scalar(True) if (prev_tf or _total_basis == "budget") else None
+                        _want_prev = bool(prev_tf or _total_basis == "budget")
+                        if _queries.enabled and _want_prev:
+                            _ov_cur, _ov_prev = await asyncio.gather(_scalar(False), _scalar(True))
+                        else:
+                            _ov_cur = await _scalar(False)
+                            _ov_prev = await _scalar(True) if _want_prev else None
                         if _ov_cur is not None or _ov_prev is not None:
                             _ov = DimensionTotal(
                                 current=_ov_cur, previous=_ov_prev,

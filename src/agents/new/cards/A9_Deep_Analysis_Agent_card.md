@@ -1304,3 +1304,28 @@ Tests: `tests/unit/test_da_period_alignment.py`.
 - With the Data Product Agent's fix the same day, live 2026-10-20: Order Fulfillment Rate analysed at
   94.35% vs 94.91% (the card's figures), localised, Asia-Pacific (APJ) first at -11.1 points (the
   planted demo scenario). Controls unchanged: lubricants Gross Margin %, Hess Production Revenue.
+
+## The analysis's queries run in parallel (2026-10-23)
+
+Timed on four live cards (lubricants Gross Margin %, Net Revenue, Units Sold; Apex Gross Profit), the
+analysis spent 12-55 s of a 32-77 s run on 17-66 warehouse queries issued one after another. They are
+independent (one breakdown per dimension and period), so they now start together.
+
+- Every query in `execute_deep_analysis` goes through `_run_sql` (a `_ParallelQueries` runner):
+  identical SQL runs once per analysis, and a failed query raises where its result is used, exactly
+  where the sequential code raised it. No other logic, ordering or output changed.
+- Certain queries are started ahead of use (`_prefetch` / `_prefetch_level`): the overall totals, each
+  level's pair (and the ratio bridge's four), the first level of every hierarchy vector, every
+  dimension's Top-N and distribution breakdowns on the flat path (which the fallback reuses), the
+  second-basis pass, the WHEN top/bottom pair, and the consistency totals. Speculative queries (deeper
+  hierarchy levels, fallbacks that may not run) are not started early.
+- Caps: `_DA_PARALLEL_QUERIES` = 8 per analysis, `_DA_PARALLEL_QUERIES_SERVER` = 16 per process (one
+  semaphore per event loop). BigQuery and Snowflake only (`_PARALLEL_SOURCES`); SQL Server and DuckDB
+  hold one connection that runs one query at a time, so the runner passes straight through for them.
+- `[PARALLEL]` log line per run: queries, prefetched, unused.
+
+Verified live 2026-10-23: all four analyses identical field by field to the sequential code; analysis
+stage 33.6 -> 4.7 s, 49.8 -> 6.9 s, 12.7 -> 3.4 s, 16.4 -> 2.5 s; queries 36/66/17/66 -> 33/43/12/43
+(duplicates now run once); every query prefetched and used (0 unused). Tests:
+`tests/unit/test_da_parallel_queries.py`.
+
