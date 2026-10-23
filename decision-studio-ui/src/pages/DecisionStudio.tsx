@@ -33,6 +33,7 @@ export function DecisionStudio() {
     marketConflict,
     marketShift,
     marketSynthesis,
+    marketStatus,
     framingRequired,
     framingDecision,
     framingPrompt,
@@ -140,6 +141,7 @@ export function DecisionStudio() {
         initialMarketConflict={marketConflict}
         initialMarketShift={marketShift}
         initialMarketSynthesis={marketSynthesis}
+        marketResearchStatus={marketStatus}
         principalContext={{
             principal_id: selectedPrincipal,
             // CouncilDebatePage reads this object back (router state / localStorage) and

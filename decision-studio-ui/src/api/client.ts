@@ -467,7 +467,8 @@ export async function runDeepAnalysis(
   timeframe?: string,
   analysisMode?: 'problem' | 'opportunity',
   clientId?: string,
-  comparatorOverride?: 'previous' | 'budget'
+  comparatorOverride?: 'previous' | 'budget',
+  onAnalysisReady?: (partial: any) => void,
 ) {
     // 1. Trigger the workflow
     const body: Record<string, any> = {
@@ -509,13 +510,22 @@ export async function runDeepAnalysis(
     // Analysis is an LLM call (two, on the no-Perplexity fallback path) and its
     // latency is not bounded by anything we control, so the budget needs real
     // headroom rather than a number fitted to one good run.
+    //
+    // The analysis is stored as soon as it is done, in state "analysis_ready", while market
+    // research runs (2026-10-23); onAnalysisReady hands it over once, and polling continues
+    // until "completed" brings the market research.
     let attempts = 0;
+    let announced = false;
     while (attempts < 180) {
       const statusResponse = await fetch(`${API_BASE}/workflows/deep-analysis/${request_id}/status`);
       const { data } = await statusResponse.json();
-      
+
+      if (data.state === 'analysis_ready' && data.result && !announced) {
+        announced = true;
+        onAnalysisReady?.(data.result);
+      }
       if (data.state === 'completed') {
-        return data.result; 
+        return data.result;
       }
       if (data.state === 'failed') {
         throw new Error(data.error || 'Workflow failed');

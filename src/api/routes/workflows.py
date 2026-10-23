@@ -1511,6 +1511,23 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
         # Use Orchestrator to run the full Deep Analysis workflow (Plan + Execute)
         response = await orchestrator.orchestrate_deep_analysis(deep_request)
 
+        # The analysis goes on screen while market research runs (owner, 2026-10-23): it is
+        # stored now, in its own state, so a poller can show it. "completed" still means
+        # everything is in, so a caller that only waits for it is unaffected.
+        if response.status != "error":
+            try:
+                await _update_record(request_id, state="analysis_ready", result={
+                    "plan": serialize(response.plan) if response.plan else None,
+                    "execution": serialize(response),
+                    "market_signals": None,
+                    "market_conflict": None,
+                    "market_shift": None,
+                    "market_synthesis": None,
+                    "market_status": "pending",
+                })
+            except Exception:
+                pass
+
         # Run Market Analysis to enrich DA results with external market context
         # Pass analysis_mode so the MA LLM can assess signal alignment vs internal conclusion
         market_signals = None
@@ -1649,6 +1666,8 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             "market_conflict": market_conflict,
             "market_shift": market_shift,
             "market_synthesis": market_synthesis,
+            # "unavailable" when market research failed: the screen says so and moves on
+            "market_status": "ready" if _ma_resp is not None else "unavailable",
         }
         
         status = "failed" if response.status == "error" else "completed"

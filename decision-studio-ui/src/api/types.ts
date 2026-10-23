@@ -34,6 +34,8 @@ export interface MeasurementContext {
   sql_hash?: string | null;
   /** Phase 26: the comparison in finance shorthand ("YTD vs PYTD") and its months. */
   period_comparison?: string | null;
+  /** The day the comparison was taken as of (YYYY-MM-DD); with period_comparison, the card's period. */
+  reference_day?: string | null;
   period_short_label?: string | null;
   period_months?: string | null;
 }
@@ -762,3 +764,6 @@ export interface AssessmentSummary {
   run: AssessmentRun;
   assessments: KPIAssessment[];
 }
+
+/** Where an analysis's market research stands (2026-10-23): it arrives after the analysis. */
+export type MarketResearchStatus = 'idle' | 'pending' | 'ready' | 'unavailable';

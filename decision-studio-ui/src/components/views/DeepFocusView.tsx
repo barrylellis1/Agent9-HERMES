@@ -18,7 +18,7 @@ import {
   ExternalLink,
   ShieldAlert
 } from 'lucide-react';
-import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict, MarketShift, MarketSynthesis, FramingDecision, FramingPrompt } from '../../api/types';
+import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict, MarketShift, MarketSynthesis, MarketResearchStatus, FramingDecision, FramingPrompt } from '../../api/types';
 import { runDeepAnalysis } from '../../api/client';
 import { COUNCIL_PRESET_PERSONAS } from '../../config/uiConstants';
 import { formatExecutive } from '../../utils/formatExecutive';
@@ -169,6 +169,8 @@ interface DeepFocusViewProps {
   initialMarketShift?: MarketShift | null;
   // Phase 20 §14 decision 6
   initialMarketSynthesis?: MarketSynthesis | null;
+  /** Market research arrives after the analysis; dependent steps wait while 'pending'. */
+  marketResearchStatus?: MarketResearchStatus;
   // Phase 11I-D on-demand comparator drill
   clientId?: string;
   timeframe?: string;
@@ -209,6 +211,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   initialMarketConflict,
   initialMarketShift,
   initialMarketSynthesis,
+  marketResearchStatus = 'idle',
   clientId,
   timeframe,
 }) => {
@@ -263,9 +266,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   // re-fires after an explicit Cancel (showRefinementChat/refinementResult
   // aren't part of the guard key, only gate whether it's currently eligible
   // to fire) and never reopens an already-completed refinement.
+  // The follow-up conversation reads market research only at its start, so it waits until
+  // market research is in (owner, 2026-10-23); the analysis itself is already on screen.
+  const marketPending = marketResearchStatus === 'pending';
   const autoLaunchedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!currentAnalysis || showPersonaSelector) return;
+    if (!currentAnalysis || showPersonaSelector || marketPending) return;
     const analysisKey = `${analysisResults?.kpi_name ?? ''}::${analysisResults?.analysis_mode ?? ''}`;
     if (autoLaunchedForRef.current === analysisKey) return;
     if (showRefinementChat || refinementResult) return;
@@ -275,7 +281,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
     onStartRefinement();
   }, [
     currentAnalysis, showPersonaSelector, analysisResults?.kpi_name, analysisResults?.analysis_mode,
-    analysisMode, resolvedAnalysisMode, showRefinementChat, refinementResult, onStartRefinement,
+    analysisMode, resolvedAnalysisMode, showRefinementChat, refinementResult, onStartRefinement, marketPending,
   ]);
 
   // Net absolute delta per segment type — drives the "Let Agent9 Decide" logic.
@@ -432,6 +438,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
         undefined,
         clientId,
         basis,
+        (partial) => {
+          if (partial?.execution) {
+            setDrillAnalysis(partial.execution);
+            setDrillLoading(false);
+          }
+        },
       );
       if (!result || !result.execution) throw new Error('Drill analysis returned no results.');
       setDrillAnalysis(result.execution);
@@ -866,6 +878,24 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                   ) : null;
                 })()}
 
+                {/* Market research arrives after the analysis (2026-10-23) */}
+                {marketPending && (
+                    <div className="flex items-center gap-3 bg-slate-900/60 border border-slate-800 rounded-xl px-5 py-4" data-testid="market-research-pending" role="status">
+                        <Sparkles className="w-4 h-4 text-severity-warning animate-pulse" />
+                        <p className="text-sm text-slate-300">
+                            Market research in progress. The follow-up conversation starts when it is in.
+                        </p>
+                    </div>
+                )}
+                {marketResearchStatus === 'unavailable' && (
+                    <div className="flex items-center gap-3 bg-slate-900/60 border border-slate-800 rounded-xl px-5 py-4" data-testid="market-research-unavailable" role="status">
+                        <Sparkles className="w-4 h-4 text-slate-500" />
+                        <p className="text-sm text-slate-400">
+                            Market research could not be fetched for this analysis. The follow-up conversation goes ahead without it.
+                        </p>
+                    </div>
+                )}
+
                 {/* Market Intelligence — separate accordion section */}
                 {(initialMarketSignals && initialMarketSignals.length > 0 || initialMarketConflict?.detected || initialMarketShift) && (
                     <AccordionSection
@@ -1167,9 +1197,10 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                            </p>
                            <button
                                onClick={onStartRefinement}
-                               className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors"
+                               disabled={marketPending}
+                               className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
                            >
-                               Start Refinement Session
+                               {marketPending ? 'Waiting for market research…' : 'Start Refinement Session'}
                            </button>
                            {/* Phase 19 — "Start Refinement" above stays enabled regardless
                                (it's the only way to REACH the framing gate); this direct
@@ -1187,7 +1218,9 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                            ) : (
                              <button
                                  onClick={() => setShowPersonaSelector(true)}
-                                 className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-medium flex items-center justify-center gap-2"
+                                 disabled={marketPending}
+                                 title={marketPending ? 'Solution Finder uses the market research; it is still arriving' : undefined}
+                                 className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded font-medium flex items-center justify-center gap-2"
                              >
                                  <CircleDot className="w-3 h-3" />
                                  Generate Solutions →

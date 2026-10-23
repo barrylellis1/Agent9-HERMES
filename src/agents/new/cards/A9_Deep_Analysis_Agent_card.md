@@ -1329,3 +1329,16 @@ stage 33.6 -> 4.7 s, 49.8 -> 6.9 s, 12.7 -> 3.4 s, 16.4 -> 2.5 s; queries 36/66/
 (duplicates now run once); every query prefetched and used (0 unused). Tests:
 `tests/unit/test_da_parallel_queries.py`.
 
+## The analysis is on screen before market research (route and UI, 2026-10-23)
+
+`_run_deep_analysis_workflow` stores the analysis as soon as `orchestrate_deep_analysis` returns, in
+workflow state `analysis_ready` with `market_status: "pending"`, then runs Market Analysis and
+completes (`completed`, `market_status` `ready` or `unavailable`). A caller that only waits for
+`completed` sees what it saw before. The screen (`runDeepAnalysis(..., onAnalysisReady)`) shows the
+analysis at `analysis_ready`; the follow-up conversation and "Generate Solutions" wait for market
+research (owner's choice: the conversation reads market signals only at its first turn), and the
+request now carries the card's own period token, so the analysis never depends on the stored card
+being readable yet. Live 2026-10-23 (local, lubricants Gross Margin %): analysis on screen at 6.5 s,
+market research and the conversation's first request at 29.5 s. Tests:
+`tests/unit/test_da_analysis_ready_state.py`.
+

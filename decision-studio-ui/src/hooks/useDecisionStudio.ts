@@ -21,7 +21,7 @@ import {
   AVAILABLE_PERSONAS,
   COUNCIL_PRESET_PERSONAS
 } from '../config/uiConstants';
-import { Client, Principal, MarketSignal, MarketConflict, MarketShift, MarketSynthesis } from '../api/types';
+import { Client, Principal, MarketSignal, MarketConflict, MarketShift, MarketSynthesis, MarketResearchStatus } from '../api/types';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
 
 // ── Principal mapping helpers ─────────────────────────────────────────────────
@@ -105,6 +105,9 @@ export function useDecisionStudio() {
   // Phase 20 §14 decision 6 — synthesis/confidence/sources_queried, already
   // computed by MA but silently dropped before this fix.
   const [marketSynthesis, setMarketSynthesis] = useState<MarketSynthesis | null>(null);
+  // Market research arrives after the analysis (2026-10-23); the follow-up conversation and
+  // the hand-off to Solution Finder wait for it.
+  const [marketStatus, setMarketStatus] = useState<MarketResearchStatus>('idle');
   // Phase 19 — the framing gate's own decision, remembered independently of
   // `refinementResult`. `refinementResult` only updates ONCE, when the whole
   // interview finishes (ProblemRefinementChat's onComplete fires once, at
@@ -398,16 +401,37 @@ export function useDecisionStudio() {
 
     setAnalyzing(true);
     setAnalysisError(null);
+    setMarketStatus('idle');
+    // The card's own period, so the analysis measures exactly what the card measured even if
+    // the stored copy of the card is not readable yet (it is written just after the scan).
+    const _ctx = sit.kpi_value?.context;
+    const cardPeriod = _ctx?.period_comparison
+      ? (_ctx.reference_day ? `${_ctx.period_comparison}@${_ctx.reference_day}` : _ctx.period_comparison)
+      : timeframe;
+    let analysisShown = false;
     try {
         const result = await runDeepAnalysis(
           sitId,
           sit.kpi_name,
           selectedPrincipal,
-          timeframe,
+          cardPeriod,
           (sit.direction === 'up' || sit.card_type === 'opportunity') ? 'opportunity' : 'problem',
-          selectedClientId
+          selectedClientId,
+          undefined,
+          (partial) => {
+            // The analysis is on screen while market research runs.
+            if (!partial?.execution) return;
+            analysisShown = true;
+            setAnalysisResults(prev => ({ ...prev, [sitId]: partial.execution }));
+            setMarketSignals([]);
+            setMarketConflict(null);
+            setMarketShift(null);
+            setMarketSynthesis(null);
+            setMarketStatus('pending');
+            setAnalyzing(false);
+          },
         );
-        
+
         if (!result || !result.execution) {
             throw new Error("Analysis completed but returned no results.");
         }
@@ -423,10 +447,16 @@ export function useDecisionStudio() {
         setMarketConflict(result.market_conflict?.detected ? result.market_conflict : null);
         setMarketShift(result.market_shift ?? null);
         setMarketSynthesis(result.market_synthesis ?? null);
+        setMarketStatus(result.market_status === 'unavailable' ? 'unavailable' : 'ready');
 
     } catch (err) {
         console.error("Analysis Failed", err);
-        setAnalysisError(err instanceof Error ? err.message : "Analysis failed unexpectedly");
+        if (analysisShown) {
+            // The analysis is already on screen; only market research is missing.
+            setMarketStatus('unavailable');
+        } else {
+            setAnalysisError(err instanceof Error ? err.message : "Analysis failed unexpectedly");
+        }
     } finally {
         setAnalyzing(false);
     }
@@ -710,6 +740,7 @@ export function useDecisionStudio() {
     marketConflict,
     marketShift,
     marketSynthesis,
+    marketStatus,
     framingRequired,
     framingDecision,
     framingPrompt,
