@@ -52,22 +52,80 @@ interface IsIsNotExhibitProps {
   matrixRan?: boolean
   comparator?: 'previous' | 'budget'
   comparatorSecondary?: 'previous' | 'budget'
+  /** Lower is better (costs): budget words read "over / under budget". */
+  inverseLogic?: boolean
+  /** The card's period comparison (e.g. "ytd_vs_pytd"), so "previous" is named as the reader knows it. */
+  periodComparison?: string | null
 }
 
-// Label a comparison basis for column headers / chips
-const basisLabel = (c?: string): string => (c === 'budget' ? 'vs Budget' : 'vs Prior')
+// ── Plain words for the two comparisons (owner, 2026-10-29) ──────────────────
+// The chips used to read "both" / "one only" / "other only", which a principal could not
+// decode, and "one only" was explained as "possibly a timing effect". Each row now says
+// what its two numbers say, built from the numbers themselves, so the words can never
+// disagree with the figures beside them.
 
-// Cross-basis tier chip (Phase 11I-D)
-const TierChip: React.FC<{ tier?: string | null }> = ({ tier }) => {
-  if (!tier || tier === 'healthy') return null
-  const cfg: Record<string, { label: string; cls: string }> = {
-    confirmed: { label: 'both', cls: 'bg-severity-critical/20 text-severity-critical border-severity-critical/60' },
-    basis_specific: { label: 'one only', cls: 'bg-severity-warning/20 text-severity-warning border-severity-warning/60' },
-    secondary_only: { label: 'other only', cls: 'bg-blue-950 text-blue-300 border-blue-800/60' },
+/** What "previous" means on this card, in a reader's words. */
+export const priorWords = (periodComparison?: string | null): string => {
+  const k = (periodComparison || '').toLowerCase()
+  if (k === 'ltm_vs_prior_ltm') return 'the prior 12 months'
+  if (k === 'mtd_vs_py_mtd' || k === 'month_vs_py_month') return 'the same month last year'
+  if (k === 'qtd_vs_py_qtd' || k === 'quarter_vs_py_quarter') return 'the same quarter last year'
+  if (k === 'ytd_vs_pytd' || k === 'year_vs_prev_year' || k === 'yoy') return 'last year'
+  if (k === 'qtd_vs_prev_qtd' || k === 'quarter_vs_prev_quarter' || k === 'qoq') return 'last quarter'
+  if (k === 'mtd_vs_prev_mtd' || k === 'month_vs_prev_month' || k === 'mom') return 'last month'
+  return 'the prior period'
+}
+
+interface BasisWords {
+  /** "budget" or e.g. "last year": the object of "above / below". */
+  name: string
+  /** Column heading: "vs Budget", "vs last year". */
+  heading: string
+  /** In a sentence: "the budget", "last year". */
+  phrase: string
+}
+
+const basisWords = (c: string | undefined, prior: string): BasisWords =>
+  c === 'budget'
+    ? { name: 'budget', heading: 'vs Budget', phrase: 'the budget' }
+    : { name: prior, heading: `vs ${prior}`, phrase: prior }
+
+/** "below" / "above" (or "under" / "over" budget for a cost); "level with" at zero. */
+const sideWord = (delta: number, isBudget: boolean, inverse: boolean): string => {
+  if (Math.abs(delta) < 1e-9) return 'level with'
+  if (isBudget && inverse) return delta > 0 ? 'over' : 'under'
+  return delta > 0 ? 'above' : 'below'
+}
+
+/** One row's two comparisons: "below budget, above last year"; "below budget and last year". */
+export const comparisonPhrase = (
+  delta: number,
+  secondaryDelta: number | null | undefined,
+  main: BasisWords,
+  other: BasisWords,
+  mainIsBudget: boolean,
+  inverse: boolean,
+  joiner: ', ' | ' but ' = ', ',
+): string | null => {
+  if (secondaryDelta == null) return null
+  const a = sideWord(delta, mainIsBudget, inverse)
+  const b = sideWord(secondaryDelta, !mainIsBudget, inverse)
+  return a === b ? `${a} ${main.name} and ${other.name}` : `${a} ${main.name}${joiner}${b} ${other.name}`
+}
+
+// Cross-basis tier chip (Phase 11I-D): the colour still comes from the tier the analysis
+// computed (red = worse on both, amber = worse on the main comparison only, blue = worse on
+// the other only); the words come from the row's numbers.
+const TierChip: React.FC<{ tier?: string | null; text?: string | null }> = ({ tier, text }) => {
+  if (!tier || tier === 'healthy' || !text) return null
+  const cfg: Record<string, string> = {
+    confirmed: 'bg-severity-critical/20 text-severity-critical border-severity-critical/60',
+    basis_specific: 'bg-severity-warning/20 text-severity-warning border-severity-warning/60',
+    secondary_only: 'bg-blue-950 text-blue-300 border-blue-800/60',
   }
-  const c = cfg[tier]
-  if (!c) return null
-  return <span className={`px-1 py-px rounded text-[8px] font-medium border ${c.cls}`}>{c.label}</span>
+  const cls = cfg[tier]
+  if (!cls) return null
+  return <span className={`px-1.5 py-px rounded text-[10px] font-medium border whitespace-nowrap ${cls}`}>{text}</span>
 }
 
 // ─── IsIsNotExhibit — printed exhibit style, two-level expand ────────────────
@@ -79,6 +137,8 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
   matrixRan = false,
   comparator,
   comparatorSecondary,
+  inverseLogic = false,
+  periodComparison,
 }) => {
   const isOpportunity = analysisMode === 'opportunity'
   const isMixed = analysisMode === 'mixed'
@@ -95,6 +155,13 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
     isRatioKpi
       ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}pp`
       : formatExecutive(v, '$', true)
+
+  const prior = priorWords(periodComparison)
+  const mainWords = basisWords(comparator, prior)
+  const otherWords = basisWords(comparatorSecondary, prior)
+  const mainIsBudget = comparator === 'budget'
+  const phraseFor = (item: IsIsNotItem, joiner: ', ' | ' but ' = ', ') =>
+    comparisonPhrase(item.delta || 0, item.secondary_delta, mainWords, otherWords, mainIsBudget, inverseLogic, joiner)
 
   const toggleDimension = (dim: string) => {
     setExpandedDimensions(prev => {
@@ -189,10 +256,10 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
         // In dual-basis (11I-D matrix) mode, prefer CONFIRMED segments (bad on
         // BOTH bases — the genuine problem, per DA's own
         // _build_situation_complication_facts framing) over ones merely
-        // flagged "artifact?" (bad on the primary basis only — likely a
-        // comparison-timing quirk, not a real issue). Found live 2026-08-24:
+        // worse on the main comparison only (the old "one only" chip, once
+        // read as a timing quirk; now said plainly). Found live 2026-08-24:
         // Customer Region's largest RAW delta was North America at -$17.1M,
-        // tagged "artifact?" (it's actually +$2.8M vs the secondary basis) —
+        // worse on budget only (it's actually +$2.8M vs the secondary basis) —
         // that single number was both the row's headline "Largest driver"
         // AND the dimension's sort-order key, burying International and
         // Europe underneath it despite both being tagged "confirmed" at a
@@ -249,6 +316,22 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
     return max || 1
   }, [processedData])
 
+  // "Every segment shown is below budget but above last year." Only when every cross-checked
+  // segment reads the same; otherwise the rows speak for themselves.
+  const sharedPattern = useMemo(() => {
+    if (!matrixRan) return null
+    const phrases: string[] = []
+    processedData.forEach(dim => {
+      ;[...dim.is, ...dim.isNot].forEach(item => {
+        const p = phraseFor(item, ' but ')
+        if (p) phrases.push(p)
+      })
+    })
+    if (phrases.length < 2) return null
+    return phrases.every(p => p === phrases[0]) ? phrases[0] : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [processedData, matrixRan, comparator, comparatorSecondary, inverseLogic, periodComparison])
+
   if (!data || processedData.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-24 gap-1 text-slate-500 text-sm">
@@ -297,15 +380,17 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
         </div>
       </div>
 
-      {/* Phase 11I-D: two-basis matrix banner — explains the second delta column + tiers */}
+      {/* Phase 11I-D: two comparisons per segment, said plainly (owner, 2026-10-29) */}
       {matrixRan && (
-        <div className="mb-2 flex items-center flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
-          <span>Each segment is checked against two comparisons:</span>
-          <span className="font-mono text-slate-400">{basisLabel(comparator)}</span>
-          <span className="font-mono text-slate-400">{basisLabel(comparatorSecondary)}</span>
-          <span className="flex items-center gap-1"><TierChip tier="confirmed" /> worse on both</span>
-          <span className="flex items-center gap-1"><TierChip tier="basis_specific" /> worse on the first only, possibly a timing effect</span>
-          <span className="flex items-center gap-1"><TierChip tier="secondary_only" /> worse on the second only</span>
+        <div className="mb-2 space-y-1 px-1" data-testid="two-comparisons-note">
+          <p className="text-[11px] text-slate-400">
+            Each segment is compared with {mainWords.phrase} and with {otherWords.phrase}.
+          </p>
+          {sharedPattern && (
+            <p className="text-xs text-slate-200 font-medium" data-testid="shared-pattern">
+              Every segment shown is {sharedPattern}.
+            </p>
+          )}
         </div>
       )}
 
@@ -320,8 +405,8 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
       <div className="flex items-center gap-3 px-4 pb-1">
         <span className="w-3.5 flex-shrink-0" />
         <span className="w-36 flex-shrink-0 text-[9px] uppercase tracking-widest text-slate-600">Dimension</span>
-        <span className="w-32 flex-shrink-0 text-right text-[9px] uppercase tracking-widest text-slate-600">
-          {matrixRan ? 'Largest driver (confirmed where available)' : 'Largest driver'}
+        <span className="w-32 flex-shrink-0 text-right text-[9px] uppercase tracking-widest text-slate-600 whitespace-nowrap">
+          {matrixRan ? `Largest driver, ${mainWords.heading}` : 'Largest driver'}
         </span>
       </div>
 
@@ -380,24 +465,15 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                   className="w-32 flex-shrink-0 flex items-center justify-end gap-1"
                   title={[
                     dim.sortKeyIsConfirmedOnly
-                      ? 'Largest CONFIRMED segment driver (bad on both comparison bases) in this dimension — segments flagged "artifact?" are excluded from this figure even if their raw delta is larger, since the matrix itself marked them as likely comparison-timing noise, not a genuine problem.'
+                      ? `Largest gap among the segments here that are worse than both ${mainWords.phrase} and ${otherWords.phrase}. Segments worse on only one comparison are left out of this figure, even when their gap is larger.`
                       : matrixRan
-                        ? 'No segment in this dimension is confirmed on both bases — this is the largest single-segment driver by raw magnitude only, and every segment behind it is flagged "artifact?" (likely a comparison-timing quirk, not a confirmed problem). Treat this figure as provisional.'
+                        ? `No segment here is worse than both ${mainWords.phrase} and ${otherWords.phrase}; this is the largest gap ${mainWords.heading}.`
                         : 'Largest single-segment driver in this dimension.',
                     dim.netIsVariance == null
                       ? 'No dimension-level rollup total was supplied (a ratio KPI\'s segments cannot be summed to derive one).'
                       : `Dimension-wide rollup total: ${fmtDelta(dim.netIsVariance)} (computed across all segments, not the sum of the rows below).`,
                   ].join(' ')}
                 >
-                  {/* Visible, not just hover-only: a dimension whose "largest"
-                      figure had no confirmed segment to draw from gets the
-                      same "artifact?" chip already taught to the reader by
-                      the per-segment rows below — not a new visual language,
-                      reused so the same figure can't read as a confirmed
-                      problem when it is only the largest unconfirmed one. */}
-                  {matrixRan && hasProblem && !dim.sortKeyIsConfirmedOnly && (
-                    <TierChip tier="basis_specific" />
-                  )}
                   <span
                     className={`font-mono text-xs ${
                       hasProblem
@@ -410,6 +486,14 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                     {!hasProblem ? '—' : fmtDelta(dim.sortKey)}
                   </span>
                 </div>
+                {matrixRan && hasProblem && (() => {
+                  const driver = dim.is.find(i => (i.delta || 0) === dim.sortKey)
+                  return driver ? (
+                    <span className="flex-shrink-0 hidden md:inline">
+                      <TierChip tier={driver.basis_agreement} text={phraseFor(driver)} />
+                    </span>
+                  ) : null
+                })()}
 
                 {/* IS count badges */}
                 <div className="flex items-center gap-2 ml-auto">
@@ -453,6 +537,15 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
               {/* Level 2: Expanded item bars */}
               {isExpanded && (
                 <div className="bg-slate-950/60 border-t border-slate-800/60 px-4 py-3 space-y-2">
+                  {matrixRan && (
+                    <div className="flex items-center gap-3 text-[9px] uppercase tracking-widest text-slate-500">
+                      <span className="w-28 flex-shrink-0" />
+                      <span className="flex-1" />
+                      <span className="w-20 flex-shrink-0 text-right">{mainWords.heading}</span>
+                      <span className="w-20 flex-shrink-0 text-right">{otherWords.heading}</span>
+                      <span className="w-44 flex-shrink-0" />
+                    </div>
+                  )}
                   {/* IS items — red bars (problem) or green bars (opportunity leaders); mixed: color by segment_type */}
                   {dim.is.map((item, i) => {
                     const barPct = Math.max(4, Math.abs(item.delta || 0) / maxDelta * 100)
@@ -473,10 +566,10 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                         </span>
                         {matrixRan && (
                           <>
-                            <span className="w-20 flex-shrink-0 text-right font-mono text-[11px] text-slate-400" title={basisLabel(comparatorSecondary)}>
+                            <span className="w-20 flex-shrink-0 text-right font-mono text-[11px] text-slate-400" title={otherWords.heading}>
                               {item.secondary_delta != null ? fmtDelta(item.secondary_delta) : '—'}
                             </span>
-                            <span className="w-16 flex-shrink-0"><TierChip tier={item.basis_agreement} /></span>
+                            <span className="w-44 flex-shrink-0"><TierChip tier={item.basis_agreement} text={phraseFor(item)} /></span>
                           </>
                         )}
                       </div>
@@ -510,10 +603,10 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                         </span>
                         {matrixRan && (
                           <>
-                            <span className="w-20 flex-shrink-0 text-right font-mono text-[11px] text-slate-500" title={basisLabel(comparatorSecondary)}>
+                            <span className="w-20 flex-shrink-0 text-right font-mono text-[11px] text-slate-500" title={otherWords.heading}>
                               {item.secondary_delta != null ? fmtDelta(item.secondary_delta) : '—'}
                             </span>
-                            <span className="w-16 flex-shrink-0"><TierChip tier={item.basis_agreement} /></span>
+                            <span className="w-44 flex-shrink-0"><TierChip tier={item.basis_agreement} text={phraseFor(item)} /></span>
                           </>
                         )}
                       </div>

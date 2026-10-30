@@ -4774,7 +4774,7 @@ If nothing relevant is found for a category, use an empty list."""
         other needs the same fix — see test_da_scqa_deferral.py.
         """
         def _basis_label(c: Optional[str]) -> str:
-            return "Budget/Plan" if c == "budget" else "prior period"
+            return "Budget/Plan" if c == "budget" else "the prior period"
 
         _rows_all = [r for r in ((getattr(kt, "where_is", []) or []) + (getattr(kt, "where_is_not", []) or [])) if isinstance(r, dict)]
         _confirmed = [r.get("key", "") for r in _rows_all if r.get("basis_agreement") == "confirmed"][:5]
@@ -4834,11 +4834,11 @@ If nothing relevant is found for a category, use an empty list."""
                 f"Situation: {plan.kpi_name} breached on two bases — vs {_prim} and vs {_sec}.",
                 (f"Complication: {_conf_str} are adverse on BOTH bases — the genuine problem to solve."
                  if _confirmed else
-                 f"Complication: no segment is adverse on both bases — the breach is basis-specific."),
+                 f"Complication: no segment is worse on both comparisons — every flagged segment is worse than {_prim} but better than {_sec}."),
             ]
             if _bs_str:
                 parts.append(
-                    f"Note: {_bs_str} are adverse vs {_prim} but on-track vs {_sec} — likely a comparison-timing artifact, not a root-cause problem."
+                    f"Note: {_bs_str} are worse than {_prim} but better than {_sec}."
                 )
             if _secondary_only:
                 parts.append(
@@ -4932,9 +4932,10 @@ If nothing relevant is found for a category, use an empty list."""
 
         Falls back to a deterministic summary if the LLM call fails. When `matrix_ran`,
         the narrative reads ACROSS the segment × basis matrix (one enriched table) — leading
-        with `confirmed` segments (adverse on both bases), flagging `basis_specific` ones as
-        probable comparison artifacts, and surfacing any `secondary_only` segments — rather
-        than diagnosing a single basis.
+        with `confirmed` segments (adverse on both bases), describing `basis_specific` ones plainly
+        as worse on the main comparison and better on the other (never as "timing artifacts",
+        owner 2026-10-29), and surfacing any `secondary_only` segments — rather than
+        diagnosing a single basis.
 
         `frame` (Phase 19): when a framing decision has been made, the Question
         this method produces MUST *be* that decision, not a fresh guess —
@@ -4950,7 +4951,7 @@ If nothing relevant is found for a category, use an empty list."""
         import json as _json
 
         def _basis_label(c: Optional[str]) -> str:
-            return "Budget/Plan" if c == "budget" else "prior period"
+            return "Budget/Plan" if c == "budget" else "the prior period"
 
         # Percentage-point deltas need a "pp" suffix, not the bare "%" unit (which
         # reads as a percentage of the delta itself, not percentage points) or a
@@ -5028,18 +5029,22 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Situation: {plan.kpi_name} breached on two bases — vs {_prim} and vs {_sec}.",
                     (f"Complication: {_conf_str} are adverse on BOTH bases — the genuine problem to solve."
                      if _confirmed else
-                     f"Complication: no segment is adverse on both bases — the breach is basis-specific."),
+                     f"Complication: no segment is worse on both comparisons — every flagged segment is worse than {_prim} but better than {_sec}."),
                 ]
                 if _bs_str:
                     parts.append(
-                        f"Note: {_bs_str} are adverse vs {_prim} but on-track vs {_sec} — likely a comparison-timing artifact, not a root-cause problem."
+                        f"Note: {_bs_str} are worse than {_prim} but better than {_sec}."
                     )
                 if _secondary_only:
                     parts.append(
                         f"Also: {', '.join(_secondary_only)} look fine vs {_prim} but are adverse vs {_sec} — surfaced only by the second basis."
                     )
                 parts.append(
-                    _question_line(f"Question: What actions address the {_conf_str} problem confirmed across both bases?")
+                    _question_line(
+                        f"Question: What actions address the {_conf_str} problem confirmed across both bases?"
+                        if _confirmed else
+                        f"Question: What closes the gap to {_prim} across the flagged segments?"
+                    )
                 )
                 return " ".join(parts)
             if analysis_mode == "opportunity":
@@ -5213,11 +5218,12 @@ If nothing relevant is found for a category, use an empty list."""
                         f"\n\nCRITICAL FRAMING — TWO-BASIS SEGMENT MATRIX: This KPI breached vs {_prim_l} AND vs {_sec_l}. "
                         f"Each segment has been cross-classified across both bases:\n"
                         f"- CONFIRMED (adverse on both — the real problem): {', '.join(_confirmed) or 'none'}\n"
-                        f"- BASIS-SPECIFIC (adverse on {_prim_l} but on-track vs {_sec_l} — likely a comparison-timing artifact, NOT a root cause): {', '.join(_basis_specific) or 'none'}\n"
-                        f"- SECONDARY-ONLY (fine vs {_prim_l} but adverse vs {_sec_l}): {', '.join(_secondary_only) or 'none'}\n"
-                        f"The Complication MUST lead with the CONFIRMED segments as the genuine problem, and MUST explicitly "
-                        f"note that BASIS-SPECIFIC segments are probably a timing/budget artifact so they are not chased. "
-                        f"Do NOT treat a segment that is only adverse on one basis as a confirmed problem."
+                        f"- WORSE ON ONE ONLY (worse than {_prim_l} but better than {_sec_l}): {', '.join(_basis_specific) or 'none'}\n"
+                        f"- WORSE ON THE OTHER ONLY (better than {_prim_l} but worse than {_sec_l}): {', '.join(_secondary_only) or 'none'}\n"
+                        f"When there are CONFIRMED segments, the Complication MUST lead with them. Describe the other "
+                        f"segments in plain words, e.g. 'worse than {_prim_l} but better than {_sec_l}'. Do NOT call any "
+                        f"of them a timing effect or an artifact, and do NOT say they are confirmed on both. When there "
+                        f"are no CONFIRMED segments, the gap to {_prim_l} is the problem: name it as that gap."
                     )
                 elif compound_pattern:
                     _alert_context = (

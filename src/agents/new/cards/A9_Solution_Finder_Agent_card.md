@@ -1074,3 +1074,15 @@ When Deep Analysis labels its `timeframe_mapping` with a named comparison
 (`{current, previous, comparison}`), `_extract_deep_analysis_summary` writes the recap's timeframe as
 "YTD vs previous year YTD: Jan 2026 – Sep 2026" (then "vs Jan 2025 – Sep 2025"), not the
 `ytd_vs_pytd@2026-09-30` token the plan carries.
+
+## Segments worse on one comparison are not set aside (Oct 2026)
+
+On a two-comparison (matrix) analysis, `basis_specific_segments` are worse on the analysis's
+main comparison and better on the other. The CROSS-BASIS SCOPING instruction used to call them
+"probable comparison-timing artifacts" and forbid primary options around them; on lubricants
+Net Revenue (budget-led) that set aside a gap to budget that ran across every channel while each
+was ahead of last year. `_extract_deep_analysis_summary` now adds `basis_specific_meaning`
+("worse than budget but better than the prior period"), and the instruction asks for that plain
+description, forbids "timing effect"/"artifact", and — when no segment is worse on both — makes
+the gap on the main comparison the problem the options address. Confirmed segments still lead
+when there are any. Test: `tests/unit/test_da_plain_basis_wording.py`.

@@ -23,7 +23,7 @@ import { runDeepAnalysis } from '../../api/client';
 import { COUNCIL_PRESET_PERSONAS } from '../../config/uiConstants';
 import { formatExecutive } from '../../utils/formatExecutive';
 import { ProblemRefinementChat, RefinementProgress } from '../ProblemRefinementChat';
-import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
+import { IsIsNotExhibit, priorWords } from '../visualizations/DivergingBarChart';
 import { BrandLogo } from '../BrandLogo';
 import { CausalNeighbourhoodEvidence } from '../CausalNeighbourhoodEvidence';
 import { ReliabilityDrillDown } from '../reliability/ReliabilityDrillDown';
@@ -421,7 +421,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
     for (const b of bases) if (b !== diagnosedComparator) return b;
     return null;
   })();
-  const otherBasisLabel = otherBasis === 'budget' ? 'Budget' : 'prior period';
+  const priorBasisWords = priorWords(situation?.kpi_value?.context?.period_comparison);
+  const otherBasisLabel = otherBasis === 'budget' ? 'Budget' : priorBasisWords;
   const viewingDrill = drillAnalysis != null;
 
   const handleComparatorDrill = async (basis: 'previous' | 'budget') => {
@@ -741,7 +742,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                             <span className="text-xs text-slate-400">
                               Diagnosed vs{' '}
                               <span className="font-semibold text-slate-200">
-                                {diagnosedComparator === 'budget' ? 'Budget / Plan' : 'prior period'}
+                                {diagnosedComparator === 'budget' ? 'Budget / Plan' : priorBasisWords}
                               </span>
                               {viewingDrill && <span className="ml-1 text-severity-warning">(on-demand drill)</span>}
                             </span>
@@ -777,6 +778,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                             matrixRan={currentAnalysis.matrix_ran}
                             comparator={currentAnalysis.comparator}
                             comparatorSecondary={currentAnalysis.comparator_secondary}
+                            inverseLogic={situation.kpi_value?.inverse_logic}
+                            periodComparison={situation.kpi_value?.context?.period_comparison}
                         />
                     </AccordionSection>
                 )}
