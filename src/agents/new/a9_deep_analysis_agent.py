@@ -59,22 +59,16 @@ _MIXED_MODE_PURITY_THRESHOLD = 0.80  # fraction of top-N items that must be one 
 # Measured on four live cards (lubricants Gross Margin %, Net Revenue, Units Sold; Apex Gross
 # Profit): the analysis spent 12-55 s issuing 17-66 warehouse queries one after another, though
 # they are independent (one breakdown per dimension and period). They now start together, at most
-# _DA_PARALLEL_QUERIES per analysis and _DA_PARALLEL_QUERIES_SERVER across this process, so a busy
+# _DA_PARALLEL_QUERIES per analysis and query_slots.QUERIES_PER_SERVER across this process, so a busy
 # server stays well inside warehouse limits. Only BigQuery and Snowflake: SQL Server and DuckDB hold
 # one connection that runs one query at a time, and stay sequential.
-_DA_PARALLEL_QUERIES = 8
-_DA_PARALLEL_QUERIES_SERVER = 16
-_PARALLEL_SOURCES = ("bigquery", "snowflake")
-_SERVER_QUERY_SLOTS: Dict[int, asyncio.Semaphore] = {}
-
-
-def _server_query_slots() -> asyncio.Semaphore:
-    """The process-wide cap, one semaphore per event loop (a semaphore belongs to one loop)."""
-    loop = asyncio.get_running_loop()
-    slots = _SERVER_QUERY_SLOTS.get(id(loop))
-    if slots is None:
-        slots = _SERVER_QUERY_SLOTS[id(loop)] = asyncio.Semaphore(_DA_PARALLEL_QUERIES_SERVER)
-    return slots
+# The limits live in src/database/query_slots.py (2026-10-30) so the Situation Awareness scan
+# shares the same server-wide cap: overlapping scans and analyses count against one limit.
+from src.database.query_slots import (  # noqa: E402
+    PARALLEL_SOURCES as _PARALLEL_SOURCES,
+    QUERIES_PER_RUN as _DA_PARALLEL_QUERIES,
+    server_query_slots as _server_query_slots,
+)
 
 
 class _ParallelQueries:

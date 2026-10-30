@@ -886,3 +886,30 @@ other field and every other card untouched. `_detect_situations_from_kpi_values`
 helper. Live (local, Lubricants CFO, 13 KPIs): 65.8 s → 40.1 s (first scan after restart) and
 29.8 s (second); same 13 cards, same 23 calls. The warehouse queries are still one KPI at a
 time (~45 s of the old scan) — the larger, separate change. Tests: `tests/unit/test_sa_enrich_cards_parallel.py`.
+
+## The scan reads several KPIs at once on BigQuery and Snowflake (2026-10-30)
+
+The KPI loop in `detect_situations` is now `_scan_one(kpi_name, kpi_definition)`, which returns that
+KPI's cards, readings, unread names, held readings, cards to write text for and opportunities in
+lists of its own. `_run_kpi_scans()` runs them **together** when every relevant KPI's data product
+is BigQuery or Snowflake (`query_slots.runs_in_parallel`), one at a time otherwise (SQL Server,
+DuckDB, any mix), and returns results in KPI order; the scan combines them in that order, so the
+cards are exactly the ones a one-at-a-time scan gives. `[PARALLEL] SA scan: kpis=N parallel=… sources=…`
+is logged per scan. The whole scan runs inside the Data Product Agent's `registry_snapshot()`.
+
+- **Query limits** (`src/database/query_slots.py`, shared with Deep Analysis): every scan query goes
+  through `_execute_sql()`, which for BigQuery/Snowflake takes a slot of the server-wide cap
+  (`QUERIES_PER_SERVER` = 16, shared with every analysis) and, inside a parallel scan, one of the
+  scan's own cap (`QUERIES_PER_RUN` = 8, held in the `_SCAN_QUERY_SLOTS` context variable). The
+  per-product actuals cut-off pass, which used to send one query per KPI with no cap, goes through
+  the same limits. Why these numbers: a Snowflake warehouse runs about 8 queries at once by default
+  and queues the rest, and it carries the client's own workload.
+- **Shared in-flight work** (`_once`): `_product_actuals_end` and `_read_series` are fill-on-miss
+  caches; with KPIs starting together every KPI would miss and run the whole cut-off pass itself
+  (13 KPIs × 13 series). Callers asking for the same key at the same time now await one task.
+- **Verified card for card** (local, 2026-10-30): scans with the old and new code, restart between,
+  compared on every field except the model-written text — Lubricants (BigQuery, 13 cards), Apex
+  (Snowflake, 6) and Hess (SQL Server, sequential, 11): no differences. Lubricants 35.4 s → 14.3 s.
+  The first parallel Apex run lost every monthly series to a Snowflake connect race in the Data
+  Product Agent (fixed the same day, see its card) — which the field comparison caught.
+- Tests: `tests/unit/test_sa_parallel_kpi_scan.py`.

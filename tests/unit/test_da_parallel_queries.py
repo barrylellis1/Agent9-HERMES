@@ -65,8 +65,9 @@ async def test_the_per_analysis_cap_holds():
 
 @pytest.mark.asyncio
 async def test_the_server_cap_holds_across_analyses(monkeypatch):
-    monkeypatch.setattr(da, "_DA_PARALLEL_QUERIES_SERVER", 4)
-    monkeypatch.setattr(da, "_SERVER_QUERY_SLOTS", {})
+    from src.database import query_slots
+    monkeypatch.setattr(query_slots, "QUERIES_PER_SERVER", 4)
+    monkeypatch.setattr(query_slots, "_SERVER_SLOTS", {})
     wh = Warehouse(delay=0.02)
     runners = [_ParallelQueries(wh.execute, enabled=True, limit=8) for _ in range(3)]
     for i, r in enumerate(runners):

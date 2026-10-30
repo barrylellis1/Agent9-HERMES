@@ -1323,6 +1323,9 @@ independent (one breakdown per dimension and period), so they now start together
   semaphore per event loop). BigQuery and Snowflake only (`_PARALLEL_SOURCES`); SQL Server and DuckDB
   hold one connection that runs one query at a time, so the runner passes straight through for them.
 - `[PARALLEL]` log line per run: queries, prefetched, unused.
+- The limits now live in `src/database/query_slots.py` (2026-10-30): `QUERIES_PER_RUN` (8),
+  `QUERIES_PER_SERVER` (16), `PARALLEL_SOURCES`. The SA scan uses the same server-wide cap, so
+  overlapping scans and analyses count against one limit.
 - The data product registry loads once per run: `execute_deep_analysis` runs the analysis
   (`_execute_deep_analysis`) inside the Data Product Agent's `registry_snapshot()`, so the ~60
   queries a run no longer each reload `data_products` (~10 s in production, 2026-10-30).

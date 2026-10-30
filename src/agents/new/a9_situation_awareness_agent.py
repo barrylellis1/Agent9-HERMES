@@ -10,6 +10,8 @@ MVP implementation focuses on the Finance KPIs from the FI Star Schema.
 # doc-sync-skip
 
 import asyncio
+import contextlib
+import contextvars
 import os
 import re
 import json
@@ -34,6 +36,7 @@ from src.agents.new.a9_orchestrator_agent import A9_Orchestrator_Agent
 from src.agents.shared.a9_agent_base_model import A9AgentBaseModel
 
 # Import registry and database components
+from src.database.query_slots import QUERIES_PER_RUN, runs_in_parallel, server_query_slots
 from src.registry.factory import RegistryFactory
 from src.registry.models.kpi import KPI
 
@@ -80,6 +83,12 @@ _SERIES_FETCH_MONTHS = 13
 # Cards whose text (key observations + trend note) is written at once. Each card makes up
 # to two model calls, so at most twice this many calls are in flight.
 _ENRICH_CARDS_AT_ONCE = 4
+
+# Set while a scan reads its KPIs in parallel: that scan's cap on queries in flight
+# (query_slots.QUERIES_PER_RUN). Unset, a query takes only the server-wide cap.
+_SCAN_QUERY_SLOTS: contextvars.ContextVar[Optional[asyncio.Semaphore]] = contextvars.ContextVar(
+    "sa_scan_query_slots", default=None
+)
 
 
 def _severity_for_band(evaluation: str) -> "SituationSeverity":
@@ -753,7 +762,17 @@ class A9_Situation_Awareness_Agent:
             to_enrich: List[tuple] = []
             # Process each relevant KPI to fetch actual values from database (no cap)
             opportunities: List[OpportunitySignal] = []
-            for kpi_name, kpi_definition in relevant_kpis.items():
+
+            async def _scan_one(kpi_name, kpi_definition):
+                """One KPI's reading and cards, in lists of its own. Several of these run at
+                once on BigQuery/Snowflake (_run_kpi_scans); the scan combines their lists in
+                KPI order below, so the cards are the ones a one-at-a-time scan produces."""
+                situations: List[Situation] = []
+                kpi_values: List[KPIValue] = []
+                kpis_unread: List[str] = []
+                readings_held: List[str] = []
+                to_enrich: List[tuple] = []
+                opportunities: List[OpportunitySignal] = []
                 try:
                     # Get actual KPI value from database using Data Product Agent
                     kpi_value = await self._get_kpi_value(
@@ -1047,6 +1066,15 @@ class A9_Situation_Awareness_Agent:
                     ):
                         kpis_unread.append(_unread_name)
                     # Continue with other KPIs
+                return situations, kpi_values, kpis_unread, readings_held, to_enrich, opportunities
+
+            for _sits, _vals, _unread, _held_r, _enrich, _opps in await self._run_kpi_scans(_scan_one, relevant_kpis):
+                situations.extend(_sits)
+                kpi_values.extend(_vals)
+                kpis_unread.extend(u for u in _unread if u not in kpis_unread)
+                readings_held.extend(h for h in _held_r if h not in readings_held)
+                to_enrich.extend(_enrich)
+                opportunities.extend(_opps)
 
             # ── 11I-B: compound cross-KPI alert detection ─────────────────
             situations = await self._detect_compound_alerts(situations, client_id)
@@ -1735,6 +1763,37 @@ class A9_Situation_Awareness_Agent:
 
     # ──────────────────────────────────────────────────────────────────────────
 
+    async def _execute_sql(self, sql: str, principal_context: Any, data_product_id: Optional[str]):
+        """Run one scan query through the Data Product Agent, inside the query limits.
+
+        BigQuery and Snowflake queries take a slot of the server-wide cap shared with Deep
+        Analysis (query_slots.QUERIES_PER_SERVER) and, inside a parallel scan, a slot of that
+        scan's cap (QUERIES_PER_RUN). Other backends run as before: one query at a time.
+        """
+        run = lambda: self.data_product_agent.execute_sql(  # noqa: E731
+            sql, parameters=None, principal_context=principal_context, data_product_id=data_product_id
+        )
+        try:
+            parallel_source = runs_in_parallel(self._resolve_source_system(data_product_id))
+        except Exception:
+            parallel_source = False
+        if not parallel_source:
+            return await run()
+        scan_slots = _SCAN_QUERY_SLOTS.get()
+        async with (scan_slots if scan_slots is not None else contextlib.nullcontext()):
+            async with server_query_slots():
+                return await run()
+
+    async def _once(self, key: Any, factory):
+        """Await factory() once for every caller asking for `key` at the same time; later
+        callers find the result in the method's own cache."""
+        inflight = self.__dict__.setdefault("_inflight", {})
+        task = inflight.get(key)
+        if task is None:
+            task = inflight[key] = asyncio.ensure_future(factory())
+            task.add_done_callback(lambda _t, _k=key: inflight.pop(_k, None))
+        return await asyncio.shield(task)
+
     async def _time_spec_cached(self, data_product_id: Optional[str]) -> dict:
         """The data product's TimeDimensionSpec, remembered for a minute so a scan of many
         KPIs does not reload it for each one. Falls back as _resolve_time_spec_sa does."""
@@ -1753,6 +1812,14 @@ class A9_Situation_Awareness_Agent:
     _SERIES_TTL_SECONDS = 120  # one scan's worth: the per-product pass and each reading share results
 
     async def _read_series(self, monthly_sql: str, data_product_id: Optional[str], principal_context: Any, label: str):
+        """_read_series_now, shared by callers asking for the same series at the same time (a
+        parallel scan's KPIs and the per-product cut-off pass ask for the same SQL together)."""
+        return await self._once(
+            ("series", data_product_id, monthly_sql),
+            lambda: self._read_series_now(monthly_sql, data_product_id, principal_context, label),
+        )
+
+    async def _read_series_now(self, monthly_sql: str, data_product_id: Optional[str], principal_context: Any, label: str):
         """A KPI's monthly series as [{"period", "value"}], before closed-months trimming; None when
         it cannot be read. Results are kept briefly by SQL, so the per-product cut-off pass and each
         reading in the same scan read the warehouse once."""
@@ -1763,7 +1830,7 @@ class A9_Situation_Awareness_Agent:
         if hit and (_time.monotonic() - hit[0]) < self._SERIES_TTL_SECONDS:
             return hit[1]
         self.logger.info(f"[Monthly] Executing monthly series for {label}")
-        result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context, data_product_id=data_product_id)
+        result = await self._execute_sql(monthly_sql, principal_context, data_product_id)
         if not result or not (result.get("rows") or result.get("data")):
             self.logger.info(f"[Monthly] No rows returned for {label}")
             cache[key] = (_time.monotonic(), None)
@@ -1801,6 +1868,15 @@ class A9_Situation_Awareness_Agent:
         return vals
 
     async def _product_actuals_end(self, data_product_id: Optional[str], principal_context: Any = None):
+        """_product_actuals_end_now, shared by callers asking at the same time. In a parallel scan
+        every KPI of a data product asks at once; each would otherwise miss the cache and run the
+        whole pass (one series per KPI of the product) itself."""
+        return await self._once(
+            ("actuals_end", data_product_id),
+            lambda: self._product_actuals_end_now(data_product_id, principal_context),
+        )
+
+    async def _product_actuals_end_now(self, data_product_id: Optional[str], principal_context: Any = None):
         """The end of the latest month holding actuals across ALL the data product's active KPIs
         (owner decision 7, 2026-10-17), from their monthly series, each on its declared time
         dimension. None when it cannot be worked out (the calendar rule then applies). Remembered
@@ -3384,7 +3460,7 @@ class A9_Situation_Awareness_Agent:
             # 2) Execute Base SQL via DPA to obtain current KPI value
             current_value = None
             try:
-                exec_resp = await self.data_product_agent.execute_sql(base_sql, parameters=None, principal_context=principal_context, data_product_id=_gen_dp_id)
+                exec_resp = await self._execute_sql(base_sql, principal_context, _gen_dp_id)
                 # A query that failed is not a reading. Until 2026-10-13 it fell through to
                 # `current_value = 0.0` below: with Snowflake unreachable every Apex KPI read
                 # as 0.0 against a prior-year 0.0, nothing was flagged, and the scan looked
@@ -3468,7 +3544,7 @@ class A9_Situation_Awareness_Agent:
                 if not comp_sql:
                     return None
                 try:
-                    return await self.data_product_agent.execute_sql(comp_sql, parameters=None, principal_context=principal_context, data_product_id=_gen_dp_id)
+                    return await self._execute_sql(comp_sql, principal_context, _gen_dp_id)
                 except Exception as _ce:
                     self.logger.warning(f"Comparison query failed for {kpi_name}: {_ce}")
                     return None
@@ -4457,6 +4533,42 @@ class A9_Situation_Awareness_Agent:
     
     # SQL generation methods have been moved to the Data Product Agent
         
+    async def _run_kpi_scans(self, scan_one, relevant_kpis: Dict[str, Any]) -> List[tuple]:
+        """Read every relevant KPI with scan_one, several at once when the backends allow it.
+
+        Results come back in KPI order whichever way they ran, so the scan's cards are the ones a
+        one-at-a-time scan produces. Parallel only when every KPI's data product is BigQuery or
+        Snowflake (query_slots.runs_in_parallel); then the scan's queries share a cap of
+        QUERIES_PER_RUN in flight, inside the server-wide cap shared with Deep Analysis. Either
+        way the data product registry is loaded once for the scan (registry_snapshot).
+
+        A Lubricants scan spent ~45 s of 65 s reading 13 KPIs one after another, ~4 queries each
+        at ~0.9 s (local, 2026-10-30).
+        """
+        from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
+
+        items = list(relevant_kpis.items())
+        sources = set()
+        for _name, _definition in items:
+            try:
+                sources.add(self._resolve_source_system(getattr(_definition, "data_product_id", None)))
+            except Exception:
+                sources.add(None)
+        parallel = len(items) > 1 and all(runs_in_parallel(s) for s in sources)
+        self.logger.info(
+            f"[PARALLEL] SA scan: kpis={len(items)} parallel={parallel} sources={sorted(str(s) for s in sources)}"
+        )
+        dpa = getattr(self, "data_product_agent", None)
+        snapshot = dpa.registry_snapshot() if isinstance(dpa, A9_Data_Product_Agent) else contextlib.nullcontext()
+        async with snapshot:
+            if not parallel:
+                return [await scan_one(n, d) for n, d in items]
+            token = _SCAN_QUERY_SLOTS.set(asyncio.Semaphore(QUERIES_PER_RUN))
+            try:
+                return list(await asyncio.gather(*(scan_one(n, d) for n, d in items)))
+            finally:
+                _SCAN_QUERY_SLOTS.reset(token)
+
     async def _enrich_cards(self, items: List[tuple]) -> None:
         """Write each card's key observations and trend note, several cards at once.
 
