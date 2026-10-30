@@ -1323,6 +1323,10 @@ independent (one breakdown per dimension and period), so they now start together
   semaphore per event loop). BigQuery and Snowflake only (`_PARALLEL_SOURCES`); SQL Server and DuckDB
   hold one connection that runs one query at a time, so the runner passes straight through for them.
 - `[PARALLEL]` log line per run: queries, prefetched, unused.
+- The data product registry loads once per run: `execute_deep_analysis` runs the analysis
+  (`_execute_deep_analysis`) inside the Data Product Agent's `registry_snapshot()`, so the ~60
+  queries a run no longer each reload `data_products` (~10 s in production, 2026-10-30).
+  Confirmed in production the same day: `[PARALLEL] ... enabled=True`, every query prefetched.
 
 Verified live 2026-10-23: all four analyses identical field by field to the sequential code; analysis
 stage 33.6 -> 4.7 s, 49.8 -> 6.9 s, 12.7 -> 3.4 s, 16.4 -> 2.5 s; queries 36/66/17/66 -> 33/43/12/43

@@ -1256,6 +1256,21 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             return DeepAnalysisResponse.error(request_id=req_id, error_message=str(e))
 
     async def execute_deep_analysis(self, plan: DeepAnalysisPlan) -> DeepAnalysisResponse:
+        """Run the analysis with the data product registry loaded once, at the start.
+
+        Every query the analysis builds used to reload the data products table
+        (about 60 reloads a run, ~10 s against production Supabase). The Data
+        Product Agent's registry_snapshot() loads it once for the whole run.
+        """
+        from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
+
+        dpa = getattr(self, "data_product_agent", None)
+        if isinstance(dpa, A9_Data_Product_Agent):
+            async with dpa.registry_snapshot():
+                return await self._execute_deep_analysis(plan)
+        return await self._execute_deep_analysis(plan)
+
+    async def _execute_deep_analysis(self, plan: DeepAnalysisPlan) -> DeepAnalysisResponse:
         req_id = str(uuid.uuid4())
         try:
             try:

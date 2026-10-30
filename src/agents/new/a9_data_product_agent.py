@@ -18,6 +18,8 @@ Protocol compliance:
 """
 
 import asyncio
+import contextlib
+import contextvars
 import datetime
 import json
 import logging
@@ -31,6 +33,12 @@ from dotenv import load_dotenv
 import yaml
 
 from src.agents.agent_config_models import A9_Data_Product_Agent_Config
+
+# True inside A9_Data_Product_Agent.registry_snapshot(): the data product registry was
+# loaded at the start of the scope, so per-request refreshes are skipped.
+_REGISTRY_LOADED_FOR_SCOPE: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "dpa_registry_loaded_for_scope", default=False
+)
 from src.agents.protocols.data_product_protocol import DataProductProtocol
 from src.agents.shared.a9_agent_base_model import A9AgentBaseModel
 from src.database.backends.duckdb_manager import DuckDBManager
@@ -537,10 +545,31 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         if not self.data_product_provider:
             return
+        if _REGISTRY_LOADED_FOR_SCOPE.get():
+            return  # inside registry_snapshot(): loaded once at the start, reused here
         try:
             await self.data_product_provider.load()
         except Exception as e:
             self.logger.warning(f"Data product provider refresh failed; using cached state: {e}")
+
+    @contextlib.asynccontextmanager
+    async def registry_snapshot(self):
+        """Load the data product registry once and reuse it for everything inside.
+
+        Deep Analysis builds about 60 queries per run, and each one reloaded the
+        data_products table (Infra A4-a). Against production Supabase that is
+        0.1-0.4 s a reload, about 10 s an analysis (Railway log, 2026-10-30).
+        Inside this scope the reload happens once, at the start; outside it every
+        call still reloads, so a newly onboarded data product is still visible
+        without a restart. The flag is a context variable, so tasks started inside
+        the scope (parallel queries) inherit it and other requests do not.
+        """
+        await self._refresh_data_product_registry()
+        token = _REGISTRY_LOADED_FOR_SCOPE.set(True)
+        try:
+            yield
+        finally:
+            _REGISTRY_LOADED_FOR_SCOPE.reset(token)
 
     def _get_data_product_by_id(self, data_product_id: str) -> Optional[Dict[str, Any]]:
         """

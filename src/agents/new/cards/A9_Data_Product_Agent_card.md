@@ -445,3 +445,14 @@ declared dimension) instead of the product's primary only. Until then only the m
 (declared on delivery date) by recognition month (88.3% vs 95.1%, from orders not yet due for
 delivery) while its card read delivery date (94.4% vs 94.9%). KPIs with no declaration are
 unchanged. Test: `tests/unit/test_time_dimension_comparison_basis.py::TestAnalysisQueriesUseTheDeclaredDimension`.
+
+## The registry loads once per Deep Analysis run (2026-10-30)
+
+`registry_snapshot()` is an async context manager: it loads the data product registry once and,
+for everything inside it, `_refresh_data_product_registry()` (Infra A4-a) skips its per-request
+reload. Deep Analysis builds about 60 queries a run and each reloaded `data_products`; against
+production Supabase that is 0.1-0.4 s a reload, about 10 s an analysis (Railway log). The flag
+is a context variable, so parallel-query tasks started inside the scope inherit it and other
+requests (scans, NL questions, onboarding) keep the per-request reload, which is what keeps a
+newly onboarded data product visible without a restart. Live (local, lubricants Gross Margin %):
+one reload per run instead of ~60, result identical. Tests: `tests/unit/test_dpa_registry_snapshot.py`.
