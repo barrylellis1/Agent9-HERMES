@@ -456,3 +456,13 @@ is a context variable, so parallel-query tasks started inside the scope inherit 
 requests (scans, NL questions, onboarding) keep the per-request reload, which is what keeps a
 newly onboarded data product visible without a restart. Live (local, lubricants Gross Margin %):
 one reload per run instead of ~60, result identical. Tests: `tests/unit/test_dpa_registry_snapshot.py`.
+
+## Snowflake connects once when queries start together (2026-10-30)
+
+`_ensure_snowflake_connected` takes a lock: one caller connects, the others wait for it and reuse
+the connection. Before, queries starting together (a parallel SA scan; Deep Analysis had the same
+exposure) each built a `SnowflakeManager` and replaced the shared one while another was still
+connecting, and queries in between failed with "Snowflake connection not established" — a local
+Apex scan lost every monthly series. The manager is now stored on the agent only once connected
+(`_connect_snowflake`), so no query can see a half-open one. Tests:
+`tests/unit/test_dpa_snowflake_connect_race.py` (fails without the lock).

@@ -4167,6 +4167,18 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         if self._sf_manager is not None and self._sf_manager.conn is not None:
             return True
+        # One caller connects; the others wait for it. Without the lock, queries starting
+        # together (a parallel SA scan, 2026-10-30) each built a manager and replaced the
+        # shared one while another was still connecting, and queries in between hit
+        # "Snowflake connection not established": an Apex scan lost every monthly series.
+        lock = self.__dict__.setdefault("_sf_connect_lock", asyncio.Lock())
+        async with lock:
+            if self._sf_manager is not None and self._sf_manager.conn is not None:
+                return True
+            return await self._connect_snowflake(data_product_id)
+
+    async def _connect_snowflake(self, data_product_id: Optional[str] = None) -> bool:
+        """Build and connect a SnowflakeManager; stored on the agent only once connected."""
         try:
             from src.database.backends.snowflake_manager import SnowflakeManager
             import os
@@ -4250,10 +4262,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 f"password_len={len(conn_params.get('password') or '')}"
             )
 
-            self._sf_manager = SnowflakeManager(config, logger=self.logger)
-            ok = await self._sf_manager.connect(conn_params)
-            if not ok:
-                self._sf_manager = None
+            manager = SnowflakeManager(config, logger=self.logger)
+            ok = await manager.connect(conn_params)
+            if ok:
+                self._sf_manager = manager
+            else:
                 self.logger.warning("SnowflakeManager failed to connect — check credentials")
             return ok
         except Exception as e:
