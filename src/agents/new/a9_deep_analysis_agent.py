@@ -4774,7 +4774,8 @@ If nothing relevant is found for a category, use an empty list."""
         other needs the same fix — see test_da_scqa_deferral.py.
         """
         def _basis_label(c: Optional[str]) -> str:
-            return "Budget/Plan" if c == "budget" else "the prior period"
+            from src.analysis.period_comparisons import prior_words
+            return "Budget/Plan" if c == "budget" else prior_words(getattr(plan, "timeframe", None))
 
         _rows_all = [r for r in ((getattr(kt, "where_is", []) or []) + (getattr(kt, "where_is_not", []) or [])) if isinstance(r, dict)]
         _confirmed = [r.get("key", "") for r in _rows_all if r.get("basis_agreement") == "confirmed"][:5]
@@ -4832,7 +4833,7 @@ If nothing relevant is found for a category, use an empty list."""
             _bs_str = ", ".join(_basis_specific) if _basis_specific else None
             parts = [
                 f"Situation: {plan.kpi_name} breached on two bases — vs {_prim} and vs {_sec}.",
-                (f"Complication: {_conf_str} are adverse on BOTH bases — the genuine problem to solve."
+                (f"Complication: {_conf_str} are worse than both {_prim} and {_sec}."
                  if _confirmed else
                  f"Complication: no segment is worse on both comparisons — every flagged segment is worse than {_prim} but better than {_sec}."),
             ]
@@ -4951,7 +4952,8 @@ If nothing relevant is found for a category, use an empty list."""
         import json as _json
 
         def _basis_label(c: Optional[str]) -> str:
-            return "Budget/Plan" if c == "budget" else "the prior period"
+            from src.analysis.period_comparisons import prior_words
+            return "Budget/Plan" if c == "budget" else prior_words(getattr(plan, "timeframe", None))
 
         # Percentage-point deltas need a "pp" suffix, not the bare "%" unit (which
         # reads as a percentage of the delta itself, not percentage points) or a
@@ -5027,7 +5029,7 @@ If nothing relevant is found for a category, use an empty list."""
                 _bs_str = ", ".join(_basis_specific) if _basis_specific else None
                 parts = [
                     f"Situation: {plan.kpi_name} breached on two bases — vs {_prim} and vs {_sec}.",
-                    (f"Complication: {_conf_str} are adverse on BOTH bases — the genuine problem to solve."
+                    (f"Complication: {_conf_str} are worse than both {_prim} and {_sec}."
                      if _confirmed else
                      f"Complication: no segment is worse on both comparisons — every flagged segment is worse than {_prim} but better than {_sec}."),
                 ]
@@ -5217,13 +5219,14 @@ If nothing relevant is found for a category, use an empty list."""
                     _alert_context = (
                         f"\n\nCRITICAL FRAMING — TWO-BASIS SEGMENT MATRIX: This KPI breached vs {_prim_l} AND vs {_sec_l}. "
                         f"Each segment has been cross-classified across both bases:\n"
-                        f"- CONFIRMED (adverse on both — the real problem): {', '.join(_confirmed) or 'none'}\n"
+                        f"- WORSE ON BOTH (worse than {_prim_l} and {_sec_l}): {', '.join(_confirmed) or 'none'}\n"
                         f"- WORSE ON ONE ONLY (worse than {_prim_l} but better than {_sec_l}): {', '.join(_basis_specific) or 'none'}\n"
                         f"- WORSE ON THE OTHER ONLY (better than {_prim_l} but worse than {_sec_l}): {', '.join(_secondary_only) or 'none'}\n"
-                        f"When there are CONFIRMED segments, the Complication MUST lead with them. Describe the other "
-                        f"segments in plain words, e.g. 'worse than {_prim_l} but better than {_sec_l}'. Do NOT call any "
-                        f"of them a timing effect or an artifact, and do NOT say they are confirmed on both. When there "
-                        f"are no CONFIRMED segments, the gap to {_prim_l} is the problem: name it as that gap."
+                        f"The Complication MUST lead with the largest gap, whichever group it is in, and say in plain "
+                        f"words which comparisons each group is worse on, e.g. 'worse than {_prim_l} but better than "
+                        f"{_sec_l}'. Do NOT call any group a timing effect or an artifact, and do NOT call one group "
+                        f"'the real' or 'the genuine' problem. When no segment is worse on both, the gap to {_prim_l} "
+                        f"is the problem: name it as that gap."
                     )
                 elif compound_pattern:
                     _alert_context = (

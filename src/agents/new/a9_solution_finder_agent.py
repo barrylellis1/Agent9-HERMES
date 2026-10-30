@@ -441,7 +441,8 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
                 _other = str(ctx.get("comparator_secondary") or _exd.get("comparator_secondary") or "").lower()
 
                 def _words(c: str) -> str:
-                    return "budget" if c == "budget" else "the prior period"
+                    from src.analysis.period_comparisons import prior_words
+                    return "budget" if c == "budget" else prior_words((plan or {}).get("timeframe") if isinstance(plan, dict) else None)
 
                 if _main in ("budget", "previous") and _other in ("budget", "previous"):
                     summary["basis_specific_meaning"] = (

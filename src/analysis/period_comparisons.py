@@ -333,6 +333,24 @@ def period_words(value: object) -> str:
     return f"{LABELS[name]}, as of {ref.day} {ref:%b %Y}" if ref else LABELS[name]
 
 
+_PRIOR_WORDS = {
+    "ytd_vs_pytd": "last year", "year_vs_prev_year": "last year",
+    "mtd_vs_py_mtd": "the same month last year", "month_vs_py_month": "the same month last year",
+    "qtd_vs_py_qtd": "the same quarter last year", "quarter_vs_py_quarter": "the same quarter last year",
+    "qtd_vs_prev_qtd": "last quarter", "quarter_vs_prev_quarter": "last quarter",
+    "mtd_vs_prev_mtd": "last month", "month_vs_prev_month": "last month",
+    "ltm_vs_prior_ltm": "the prior 12 months",
+}
+
+
+def prior_words(value: object) -> str:
+    """What a comparison token sets the current span against, as a reader says it ("last year",
+    "the prior 12 months"). Anything that is not a token reads "the prior period". Mirrors
+    priorWords in the UI's DivergingBarChart.tsx."""
+    parsed = parse_token(value)
+    return _PRIOR_WORDS.get(parsed[0], "the prior period") if parsed else "the prior period"
+
+
 def basis_key(comparison: str) -> str:
     """What the current span is set against, as the short key the agents' wording uses:
     "yoy" (the same span a year earlier), "qoq" (the previous quarter), "mom" (the previous month)."""

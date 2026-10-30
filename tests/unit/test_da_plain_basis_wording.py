@@ -74,3 +74,40 @@ def test_solution_finder_instruction_no_longer_sets_these_segments_aside():
     assert "probable comparison-timing artifacts" not in src
     assert "do NOT build primary options around them" not in src
     assert "gap to plan across the business" in src
+
+
+# ---- 2026-10-29, second pass: no group is called "the genuine problem"; the prior period is named.
+
+def test_prior_words_name_the_comparison_period():
+    from src.analysis.period_comparisons import prior_words
+    assert prior_words("ytd_vs_pytd@2026-09-30") == "last year"
+    assert prior_words("ltm_vs_prior_ltm@2026-09-30") == "the prior 12 months"
+    assert prior_words("quarter_vs_prev_quarter") == "last quarter"
+    assert prior_words("year_to_date") == "the prior period"  # not a token: not guessed
+
+
+def test_worse_on_both_is_described_not_ranked():
+    plan = DeepAnalysisPlan(kpi_name="Net Revenue", client_id="lubricants", timeframe="ytd_vs_pytd@2026-09-30")
+    kt = KTIsIsNot(
+        where_is=[
+            {"key": "Retail Partners", "delta": -10.9, "secondary_delta": 1.7, "basis_agreement": "basis_specific"},
+            {"key": "Europe", "delta": -0.6, "secondary_delta": -0.2, "basis_agreement": "confirmed"},
+        ],
+        where_is_not=[],
+    )
+    text = _da()._build_situation_complication_facts(
+        plan=plan, kt=kt, change_points=[], spec={"comparison_type": "budget"},
+        analysis_mode="problem", matrix_ran=True, comparator_secondary="previous",
+    )
+    assert "Europe are worse than both Budget/Plan and last year." in text
+    assert "Retail Partners are worse than Budget/Plan but better than last year." in text
+    assert "genuine" not in text and "real problem" not in text
+
+
+def test_solution_finder_meaning_names_last_year_when_the_period_is_known():
+    summary = _extract_deep_analysis_summary({
+        "matrix_ran": True, "comparator": "budget", "comparator_secondary": "previous",
+        "plan": {"timeframe": "ytd_vs_pytd@2026-09-30"},
+        "kt_is_is_not": _budget_led_kt().model_dump(),
+    })
+    assert summary["basis_specific_meaning"] == "worse than budget but better than last year"
