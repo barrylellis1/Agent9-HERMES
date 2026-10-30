@@ -153,3 +153,12 @@ never built: the token route called a Value Assurance `approve_solution` method 
 exist, swallowed the error, and answered "Solution approved". An old approve link now returns
 `action_taken="review_redirect"` to the portfolio with a message that claims nothing. The email
 template never rendered the button, so no principal reached the false message.
+
+## Situation descriptions come from this client's cards only (Oct 2026, code review)
+
+New Situations borrow a description from the open card stored for the same KPI name. That read
+was unscoped: every client's open cards, indexed by KPI name, so a Lubricants briefing could show
+an Apex card's description (both clients have "Net Revenue"). The `situations` table now has a
+`client_id` column (migration `20261029000000`, RLS policy as for every tenant table), the SA
+route writes it, and `get_open_situations(config.client_id)` reads only that client's cards,
+newest winning. Cards written before the column existed have no client and are never read.

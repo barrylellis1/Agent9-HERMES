@@ -81,13 +81,14 @@ class SituationsStore:
     # Public API
     # ------------------------------------------------------------------
 
-    async def upsert_situation(self, situation: Situation) -> bool:
+    async def upsert_situation(self, situation: Situation, client_id: Optional[str] = None) -> bool:
         """
         Persist a problem Situation card to Supabase.
 
         Returns True on success, False on any failure.
         Re-running SA on the same data is safe: the upsert on situation_id
-        is idempotent.
+        is idempotent. The card records its client (migration
+        20261029000000), so reads can be limited to one client.
         """
         if not self.enabled:
             return False
@@ -110,6 +111,8 @@ class SituationsStore:
                 "kpi_value": kpi_value_num,
                 "full_payload": _safe_json(situation),
             }
+            if client_id:
+                row["client_id"] = client_id
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -155,6 +158,8 @@ class SituationsStore:
                 "opportunity_type": opportunity.opportunity_type,
                 "full_payload": _safe_json(opportunity),
             }
+            if client_id:
+                row["client_id"] = client_id
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -239,20 +244,31 @@ class SituationsStore:
             logger.warning("SituationsStore.update_status failed (non-fatal): %s", exc)
             return False
 
-    async def get_open_situations(
-        self, principal_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    async def get_open_situations(self, client_id: Optional[str]) -> List[Dict[str, Any]]:
         """
-        Return all OPEN situation rows, optionally filtered by principal_id.
+        Return one client's OPEN situation rows, oldest update first (so a caller that
+        indexes them lets the newest card win).
+
+        Strict match on client_id: rows written before the client column existed
+        (client_id NULL) belong to no client and are never returned, and no client_id
+        returns nothing. It used to return every client's cards, so a briefing could
+        describe one client's KPI with another client's card (code review 2026-10-29).
+        The table has no principal_id column; the old filter on it could only fail.
 
         Returns an empty list on any error.
         """
         if not self.enabled:
             return []
+        if not client_id:
+            logger.warning("SituationsStore.get_open_situations: no client_id — returning nothing")
+            return []
         try:
-            params: Dict[str, Any] = {"status": "eq.OPEN", "select": "*"}
-            if principal_id:
-                params["principal_id"] = f"eq.{principal_id}"
+            params: Dict[str, Any] = {
+                "status": "eq.OPEN",
+                "client_id": f"eq.{client_id}",
+                "select": "*",
+                "order": "updated_at.asc",
+            }
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(

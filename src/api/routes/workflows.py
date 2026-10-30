@@ -1394,7 +1394,7 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
                 _situations = response.situations if hasattr(response, "situations") else (response.get("situations") or [])
                 _opportunities = response.opportunities if hasattr(response, "opportunities") else (response.get("opportunities") or [])
                 for situation in _situations:
-                    await store.upsert_situation(situation)
+                    await store.upsert_situation(situation, request.client_id)
                 for opportunity in _opportunities:
                     await store.upsert_opportunity(opportunity, request.client_id)
                 _situations_logger.info(

@@ -175,6 +175,7 @@ _RLS_TABLES = [
     "sf_pending_decisions",
     "audit_events",
     "audit_events_daily_rollup",
+    "situations",
 ]
 
 

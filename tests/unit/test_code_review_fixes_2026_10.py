@@ -222,3 +222,74 @@ class TestVsPlanDirection:
     def test_within_two_percent_is_on_plan_and_no_plan_is_no_data(self):
         assert _vs_plan(101.0, 100.0, True)[1] == VsPlanVerdict.ON_PLAN
         assert _vs_plan(5.0, None, False) == (None, VsPlanVerdict.NO_PLAN_DATA)
+
+
+# ---------------------------------------------------------------- 1b. cards carry their client
+
+class _ReadClient:
+    params = None
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    async def get(self, url, headers=None, params=None):
+        _ReadClient.params = params
+        return SimpleNamespace(content=b"[]", raise_for_status=lambda: None)
+
+
+@pytest.mark.asyncio
+async def test_a_stored_card_records_its_client(monkeypatch):
+    from src.database import situations_store as ss
+
+    monkeypatch.setenv("SUPABASE_URL", "http://supabase.test")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "k")
+    _Client.posted = []
+    with patch.object(ss.httpx, "AsyncClient", _Client), patch.object(ss, "_safe_json", lambda o: {}):
+        store = ss.SituationsStore()
+        sit = SimpleNamespace(situation_id="sit_x", card_type="problem", kpi_name="Net Revenue",
+                              kpi_value=None, severity="medium", description="d")
+        assert await store.upsert_situation(sit, "lubricants")
+        assert await store.upsert_situation(sit)  # no client known: the column is left as it is
+    with_client, without_client = _Client.posted
+    assert with_client["client_id"] == "lubricants"
+    assert "client_id" not in without_client
+
+
+@pytest.mark.asyncio
+async def test_open_cards_are_read_for_one_client_only(monkeypatch):
+    from src.database import situations_store as ss
+
+    monkeypatch.setenv("SUPABASE_URL", "http://supabase.test")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "k")
+    with patch.object(ss.httpx, "AsyncClient", _ReadClient):
+        store = ss.SituationsStore()
+        _ReadClient.params = None
+        assert await store.get_open_situations("lubricants") == []
+        assert _ReadClient.params["client_id"] == "eq.lubricants"
+        assert "principal_id" not in _ReadClient.params
+        _ReadClient.params = None
+        assert await store.get_open_situations(None) == []
+        assert _ReadClient.params is None  # no client: no read at all, never every client's cards
+
+
+def test_the_briefing_reads_only_its_own_clients_cards():
+    import inspect
+    from src.agents.new import a9_pib_agent
+
+    src = inspect.getsource(a9_pib_agent)
+    assert "get_open_situations(config.client_id)" in src
+    assert "get_open_situations(principal_id=None)" not in src
+
+
+def test_the_situations_table_is_in_the_rls_check():
+    import importlib.util
+    import pathlib
+
+    path = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "verify_prod_registry.py"
+    spec = importlib.util.spec_from_file_location("verify_prod_registry", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert "situations" in mod._RLS_TABLES

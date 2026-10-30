@@ -264,10 +264,10 @@ class A9_PIB_Agent:
                 config.principal_id, len(assessments),
             )
 
-        # Load open situations from situations table for descriptions.
-        # Index by kpi_name (primary) and id (fallback) — no principal_id filter
-        # because the column may not be populated by the offline monitor.
-        raw_situations = await self._situations_store.get_open_situations(principal_id=None)
+        # Load this client's open situations for descriptions, indexed by kpi_name
+        # (primary) and id (fallback). Only this client's cards: two clients share KPI
+        # names, so an unscoped read described one client's KPI with another's card.
+        raw_situations = await self._situations_store.get_open_situations(config.client_id)
         open_situations: dict = {}
         for s in raw_situations:
             if s.get("kpi_name"):
