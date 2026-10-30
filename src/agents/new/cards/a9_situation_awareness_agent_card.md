@@ -872,3 +872,17 @@ ANALYZING / SOLUTION_APPROVED status survives the re-scan (it was reset to OPEN 
 Opportunity cards are stored with their own `card_type` (was hard-coded "problem");
 `upsert_opportunity` takes the client into its id. Verified live 2026-10-29: lubricants and Apex
 share no ids; a re-scan keeps ids and status. Test: `tests/unit/test_code_review_fixes_2026_10.py`.
+
+## Card text is written for several cards at once (2026-10-30)
+
+`key_observations` and `trend_note` (two cheap model calls per card) used to run one after
+another inside the KPI loop, so each KPI's queries waited behind the previous KPI's text: 23
+calls, ~20 s of a 65.8 s local Lubricants scan. The loop now only collects the cards;
+`_enrich_cards()` writes them after every KPI is read and the compound/dedupe steps have run,
+**before** `_merge_compound_kpi_situations` (which folds `key_observations`). Both calls for a
+card run together, at most `_ENRICH_CARDS_AT_ONCE` (4) cards at once, so at most 8 calls in
+flight. Cards dropped by dedupe are no longer written at all. One failed call leaves the card's
+other field and every other card untouched. `_detect_situations_from_kpi_values` uses the same
+helper. Live (local, Lubricants CFO, 13 KPIs): 65.8 s → 40.1 s (first scan after restart) and
+29.8 s (second); same 13 cards, same 23 calls. The warehouse queries are still one KPI at a
+time (~45 s of the old scan) — the larger, separate change. Tests: `tests/unit/test_sa_enrich_cards_parallel.py`.

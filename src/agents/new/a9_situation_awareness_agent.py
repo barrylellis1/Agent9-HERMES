@@ -9,6 +9,7 @@ MVP implementation focuses on the Finance KPIs from the FI Star Schema.
 """
 # doc-sync-skip
 
+import asyncio
 import os
 import re
 import json
@@ -75,6 +76,10 @@ def _kpi_coverage_outcome(registered: int, evaluated: int) -> Optional[str]:
 # Months asked for per KPI series. More than the 9 shown, because the most recent rows can be
 # the open month or later-dated rows, which closed_months_only() removes.
 _SERIES_FETCH_MONTHS = 13
+
+# Cards whose text (key observations + trend note) is written at once. Each card makes up
+# to two model calls, so at most twice this many calls are in flight.
+_ENRICH_CARDS_AT_ONCE = 4
 
 
 def _severity_for_band(evaluation: str) -> "SituationSeverity":
@@ -744,6 +749,8 @@ class A9_Situation_Awareness_Agent:
             # Readings that breached but may not raise a card under their data product's
             # period settings (Phase 26), each with the reason.
             readings_held: List[str] = []
+            # Cards whose text is written after every KPI has been read (see _enrich_cards).
+            to_enrich: List[tuple] = []
             # Process each relevant KPI to fetch actual values from database (no cap)
             opportunities: List[OpportunitySignal] = []
             for kpi_name, kpi_definition in relevant_kpis.items():
@@ -992,13 +999,9 @@ class A9_Situation_Awareness_Agent:
                         # Commit detected situations before enrichment so detection
                         # failures in LLM calls can never silently discard situations.
                         situations.extend(detected_situations)
-                        # Enrich with LLM-generated observations and trend note
-                        for sit in detected_situations:
-                            try:
-                                sit.key_observations = await self._generate_key_observations(kpi_definition, kpi_value, sit)
-                                sit.trend_note = await self._generate_trend_note(kpi_definition, kpi_value, sit)
-                            except Exception as _enrich_err:
-                                self.logger.warning(f"Enrichment failed for {kpi_name}/{sit.alert_type}: {_enrich_err}")
+                        # Their text (observations, trend note) is written after the loop,
+                        # all cards at once, so the next KPI's queries do not wait for it.
+                        to_enrich.extend((kpi_definition, kpi_value, sit) for sit in detected_situations)
 
                         # Detect positive opportunity signals
                         try:
@@ -1049,6 +1052,10 @@ class A9_Situation_Awareness_Agent:
             situations = await self._detect_compound_alerts(situations, client_id)
 
             situations = self._deduplicate_situations(situations)
+
+            # Write each surviving card's text now: the merge below folds key_observations.
+            _alive = {id(s) for s in situations}
+            await self._enrich_cards([item for item in to_enrich if id(item[2]) in _alive])
 
             # ── Consolidate multiple problem alert_types for the same KPI ──────
             # A single KPI can legitimately trigger several 11I-A/11I-B patterns in one
@@ -4450,6 +4457,39 @@ class A9_Situation_Awareness_Agent:
     
     # SQL generation methods have been moved to the Data Product Agent
         
+    async def _enrich_cards(self, items: List[tuple]) -> None:
+        """Write each card's key observations and trend note, several cards at once.
+
+        items: (kpi_definition, kpi_value, situation). The two model calls for a card run
+        together and up to _ENRICH_CARDS_AT_ONCE cards run at once. They used to run one
+        after another inside the KPI loop: 23 calls, ~20 s of a 65 s Lubricants scan
+        (local, 2026-10-30), with each KPI's queries waiting behind the previous KPI's text.
+        Both generators never raise and return [] / None on failure, so one card's failure
+        leaves the others untouched; a result is only assigned when it is not an error.
+        """
+        if not items:
+            return
+        slots = asyncio.Semaphore(_ENRICH_CARDS_AT_ONCE)
+
+        async def _one(kpi_definition, kpi_value, sit):
+            async with slots:
+                obs, note = await asyncio.gather(
+                    self._generate_key_observations(kpi_definition, kpi_value, sit),
+                    self._generate_trend_note(kpi_definition, kpi_value, sit),
+                    return_exceptions=True,
+                )
+            if isinstance(obs, BaseException) or isinstance(note, BaseException):
+                self.logger.warning(
+                    f"Enrichment failed for {getattr(kpi_definition, 'name', '?')}/"
+                    f"{getattr(sit, 'alert_type', '?')}: {obs if isinstance(obs, BaseException) else note}"
+                )
+            if not isinstance(obs, BaseException):
+                sit.key_observations = obs
+            if not isinstance(note, BaseException):
+                sit.trend_note = note
+
+        await asyncio.gather(*(_one(*item) for item in items))
+
     async def _generate_key_observations(
         self,
         kpi_definition: "KPIDefinition",
@@ -4637,7 +4677,8 @@ class A9_Situation_Awareness_Agent:
         
         # Store all detected situations
         all_situations = []
-        
+        to_enrich: List[tuple] = []
+
         # Process each KPI value
         for kpi_value in kpi_values:
             # Get the KPI definition from registry
@@ -4656,14 +4697,12 @@ class A9_Situation_Awareness_Agent:
             
             self.logger.info(f"Detected {len(kpi_situations)} situations for KPI {kpi_value.kpi_name}")
 
-            # Enrich each situation with lightweight Haiku observations and trend note
-            for sit in kpi_situations:
-                sit.key_observations = await self._generate_key_observations(kpi_definition, kpi_value, sit)
-                sit.trend_note = await self._generate_trend_note(kpi_definition, kpi_value, sit)
-
-            # Add to all situations
+            # Add to all situations; their text is written below, all cards at once
             all_situations.extend(kpi_situations)
-        
+            to_enrich.extend((kpi_definition, kpi_value, sit) for sit in kpi_situations)
+
+        await self._enrich_cards(to_enrich)
+
         # Sort situations by severity (critical first)
         all_situations.sort(key=lambda s: list(SituationSeverity).index(s.severity) if s.severity in SituationSeverity else 99)
         
