@@ -145,3 +145,11 @@ period_months: Optional[str]        # "Jan–Sep 2026 vs Jan–Sep 2025", from t
 **Token TTL:** Deep-link tokens (investigate, delegate, request_info) have a 7-day TTL. After expiration, clicking a link in the email returns a 401 or "expired token" message.
 
 **Email Rendering:** Uses Jinja2 template `src/templates/pib_briefing.html`. On template error, falls back to plain-text version.
+
+## No approve links (Oct 2026, code review finding 10)
+
+`_populate_solutions` no longer creates `TokenType.APPROVE` tokens. Approving from email was
+never built: the token route called a Value Assurance `approve_solution` method that does not
+exist, swallowed the error, and answered "Solution approved". An old approve link now returns
+`action_taken="review_redirect"` to the portfolio with a message that claims nothing. The email
+template never rendered the button, so no principal reached the false message.

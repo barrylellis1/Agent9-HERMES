@@ -415,7 +415,7 @@ Each statistical pattern runs **only if the KPI carries a registry `KPIThreshold
 - Fields set: `plan_value` (budget), `projected_breach_at_period`, `projection_confidence` (R²), `periods_until_breach`.
 
 #### Pattern 3: Rate-of-Change Acceleration (`alert_type = "acceleration"`)
-- Gated on `variance_thresholds['acceleration']`. `_compute_acceleration()` computes the second derivative of `monthly_values`; fires when `|second_derivative| > fire_multiplier × rolling std dev of velocity`.
+- Gated on `variance_thresholds['acceleration']`. `_compute_acceleration()` computes the second derivative of `monthly_values`; fires when `|second_derivative| > fire_multiplier × rolling std dev of velocity` **and** both the latest move and the change in pace are the bad way for the KPI (revenue falling faster; a cost, judged on size, rising faster). Improvements and slowing growth do not fire (Oct 2026, code review finding 4).
 - Sensitivity is per-KPI: `yellow` = fire floor multiplier (default 2.0), `red` = HIGH-severity cutoff on the normalised signal (default 3.0, else MEDIUM).
 - `Situation.acceleration_signal` = normalised second-derivative magnitude (signal / velocity_std).
 - Requires ≥4 periods of monthly history. Does not suppress for threshold breaches — a KPI can be in-threshold but accelerating toward it.
@@ -858,3 +858,17 @@ negative amounts: lubricants and Apex report COGS as positive amounts (SQL negat
 raw negatives. Verified against each warehouse's raw amounts by version. Live: lubricants COGS now "9.8%
 below the Budget baseline" (82.5M vs 91.6M), Apex COGS "117.6% above" (79.5M vs 36.5M); Hess unchanged.
 Tests: `tests/unit/test_sa_budget_direction.py`.
+
+## Card ids name client, KPI, kind and period (Oct 2026, code review finding 1)
+
+Ids used to be the KPI plus a rounded figure (`plan_net_revenue_16`), or a random uuid for
+threshold cards. Two clients with the same KPI wrote over each other's stored card, and a later
+month with the same rounded figure reused an earlier month's row. `_assign_card_ids` now runs once
+after `_merge_compound_kpi_situations`, giving every card `_card_id(client_id, situation)`: a
+hash of client, KPI, card type (plus the opportunity kind for opportunity cards) and the reading's
+period token (`sit_…` / `opp_…`, no client name, URL-safe). Re-scanning the same period lands on
+the same id, and `SituationsStore.upsert_situation` no longer sends `status`, so a card's
+ANALYZING / SOLUTION_APPROVED status survives the re-scan (it was reset to OPEN on every scan).
+Opportunity cards are stored with their own `card_type` (was hard-coded "problem");
+`upsert_opportunity` takes the client into its id. Verified live 2026-10-29: lubricants and Apex
+share no ids; a re-scan keeps ids and status. Test: `tests/unit/test_code_review_fixes_2026_10.py`.

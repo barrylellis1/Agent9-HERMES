@@ -232,6 +232,19 @@ def _actuals_are_stale(solution: "AcceptedSolution", today: Optional[str] = None
     return month_index(current_month(today)) - 1 > month_index(last)
 
 
+def _vs_plan(current: float, plan: Optional[float], lower_is_better: bool):
+    """(literal % from plan, verdict). The verdict follows the KPI's direction: "Ahead of Plan"
+    means better than plan. A cost is better when its amount is smaller, judged on size so both
+    sign conventions read alike. Within 2% either way is on plan."""
+    if plan is None or abs(plan) == 0:
+        return None, VsPlanVerdict.NO_PLAN_DATA
+    pct = (current - plan) / abs(plan)
+    better = (abs(plan) - abs(current)) / abs(plan) if lower_is_better else pct
+    if abs(better) < 0.02:
+        return pct, VsPlanVerdict.ON_PLAN
+    return pct, (VsPlanVerdict.AHEAD_OF_PLAN if better > 0 else VsPlanVerdict.BEHIND_PLAN)
+
+
 def _solution_id_from(hex32: str) -> str:
     """A solution id in the spelling the database returns: a dashed uuid.
 
@@ -751,11 +764,15 @@ class A9_Value_Assurance_Agent:
                     "%s: kpi_type lookup for covenant check failed (non-fatal): %s", self.name, exc
                 )
 
-        # Deterministic ID: same KPI + same situation always produces the same solution_id.
+        # Deterministic ID: same client + KPI + situation always produces the same solution_id.
         # Prevents duplicate rows when the same HITL approval fires more than once
         # (e.g. dev re-runs or retry paths). The upsert on `id` then merges rather than inserts.
+        # The client is part of the key (code review 2026-10-29, finding 2): two clients with the
+        # same KPI and situation id shared one solution row. Situation ids now name their period
+        # too, so a problem that recurs next quarter registers a new solution instead of
+        # resetting the earlier one. Solutions registered before keep their ids.
         import hashlib as _hashlib
-        _dedup_key = f"{request.kpi_id}:{request.situation_id or ''}"
+        _dedup_key = f"{request.client_id or ''}:{request.kpi_id}:{request.situation_id or ''}"
         solution_id = _solution_id_from(_hashlib.sha256(_dedup_key.encode()).hexdigest()[:32])
 
         # Build strategy snapshot if not supplied
@@ -999,19 +1016,15 @@ class A9_Value_Assurance_Agent:
             confidence, self.config.min_confidence_for_roi,
         )
 
-        # Plan/budget trajectory verdict (Phase 11I-C). Literal (actual - plan) / abs(plan) —
-        # this describes numeric position relative to plan, not a good/bad framing, so no
-        # inverse_logic flip (unlike the SA plan_variance severity computation).
-        vs_plan_pct: Optional[float] = None
-        vs_plan_verdict: VsPlanVerdict = VsPlanVerdict.NO_PLAN_DATA
-        if solution.plan_value_at_approval is not None and abs(solution.plan_value_at_approval) > 0:
-            vs_plan_pct = (current_kpi_value - solution.plan_value_at_approval) / abs(solution.plan_value_at_approval)
-            if abs(vs_plan_pct) < 0.02:
-                vs_plan_verdict = VsPlanVerdict.ON_PLAN
-            elif vs_plan_pct > 0:
-                vs_plan_verdict = VsPlanVerdict.AHEAD_OF_PLAN
-            else:
-                vs_plan_verdict = VsPlanVerdict.BEHIND_PLAN
+        # Plan/budget trajectory verdict (Phase 11I-C). vs_plan_pct stays the literal
+        # (actual - plan) / abs(plan). The verdict is a judgment ("Ahead of Plan" reads as good
+        # news), so it follows the KPI's direction (code review 2026-10-29, finding 6): it used to
+        # call a cost 10% over budget "Ahead of Plan". A cost is judged on its size, as SA's
+        # _over_budget does, so lubricants' positive and Hess's negative cost amounts read alike.
+        vs_plan_pct, vs_plan_verdict = _vs_plan(
+            current_kpi_value, solution.plan_value_at_approval,
+            bool(getattr(solution.strategy_snapshot, "kpi_lower_is_better", False)),
+        )
 
         # Attribution method description
         method_parts = ["Total change"]

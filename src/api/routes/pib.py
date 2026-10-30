@@ -194,7 +194,7 @@ async def execute_token_action(
     - deep_link     → returns redirect_url to the Decision Studio Deep Analysis view
     - request_info  → records a request-for-information action on the situation
     - delegate      → returns redirect_url to the /delegate/{token} confirmation page
-    - approve       → approves a pending HITL solution in Value Assurance
+    - approve       → an old email link: opens the portfolio to review; approves nothing
 
     Tokens are single-use and expire after 7 days. Returns 410 if expired or
     already used, 404 if the token is not recognised.
@@ -269,17 +269,19 @@ async def execute_token_action(
             message="Choose a delegate principal to complete delegation.",
         )
 
-    # --- approve (HITL solution approval) ---
+    # --- approve (an email link from before 2026-10-29) ---
+    # Approving from email was never built: this branch called a Value Assurance method that
+    # does not exist, swallowed the error, and told the principal the solution was approved
+    # (code review 2026-10-29, finding 10). Briefings no longer issue approve links; an old one
+    # opens the portfolio to review, and claims nothing.
     if token_type == TokenType.APPROVE.value:
-        kpi_assessment_id = row.get("kpi_assessment_id")
-        await _approve_solution_from_token(kpi_assessment_id, principal_id, runtime)
         return TokenActionResponse(
             token_type=token_type,
             situation_id=situation_id,
-            action_taken="solution_approved",
+            action_taken="review_redirect",
             redirect_url=f"{ds_url}/value-assurance",
             principal_id=row.get("principal_id", ""),
-            message="Solution approved and added to Value Assurance tracking.",
+            message="Approving from email is not available. Opening the portfolio so you can review the solution there.",
         )
 
     # Unknown token type — should not happen
@@ -517,38 +519,3 @@ async def get_principal_actions(
     except Exception as exc:
         logger.warning("get_principal_actions failed: %s", exc)
     return []
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-async def _approve_solution_from_token(
-    kpi_assessment_id: Optional[str],
-    principal_id: str,
-    runtime: Any,
-) -> None:
-    """
-    Approve a pending HITL solution via the Value Assurance agent.
-
-    This is a best-effort operation; failures are logged but not surfaced to
-    the caller (the token action response has already been committed).
-    """
-    if not kpi_assessment_id:
-        logger.warning("_approve_solution_from_token: no kpi_assessment_id in token row")
-        return
-    try:
-        orchestrator = runtime.get_orchestrator()
-        await orchestrator.execute_agent_method(
-            "A9_Value_Assurance_Agent",
-            "approve_solution",
-            {
-                "kpi_assessment_id": kpi_assessment_id,
-                "approved_by": principal_id,
-                "source": "pib_email_token",
-            },
-        )
-    except Exception as exc:
-        logger.warning(
-            "_approve_solution_from_token: VA approval failed (non-fatal): %s", exc
-        )

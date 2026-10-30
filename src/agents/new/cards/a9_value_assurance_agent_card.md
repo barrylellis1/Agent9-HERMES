@@ -192,7 +192,7 @@ Phase transitions are validated (must follow order). The `update_solution_phase(
 ### RegisterSolutionRequest → RegisterSolutionResponse
 **Input:** kpi_id, situation_id, principal_id, solution_description, expected_impact_lower/upper, measurement_window_days, optional strategy_snapshot, `analysis_mode` ("problem" | "opportunity")
 **Output:** solution_id (deterministic hash), phase=APPROVED, status=MEASURING
-**Idempotence:** Same (kpi_id, situation_id) always produces same solution_id; subsequent calls upsert rather than duplicate.
+**Idempotence:** Same (client_id, kpi_id, situation_id) always produces same solution_id; subsequent calls upsert rather than duplicate. The client joined the key in Oct 2026 (code review finding 2); with period-scoped situation ids, a recurrence next quarter registers a new solution instead of resetting the earlier one.
 
 **Opportunity mode inaction trend (May 2026):**
 - `analysis_mode = "opportunity"` → `pre_slope = 0.0` (flat inaction trend at baseline)
@@ -583,3 +583,11 @@ fixed verdicts, with no value recorded at approval. Production's Portfolio there
 validated, one partial and one failed decision that were never measured. The seed now reads each
 KPI's monthly values from the warehouse, records the last complete month before approval, draws the
 lines with `projection_lines()`, and leaves the verdict to the live evaluate endpoint.
+
+## "Ahead of Plan" follows the KPI's direction (Oct 2026, code review finding 6)
+
+`_vs_plan(current, plan, lower_is_better)` decides the plan verdict. `vs_plan_pct` stays the
+literal (actual − plan) / |plan|, but AHEAD_OF_PLAN now means better than plan: for a
+lower-is-better KPI (`strategy_snapshot.kpi_lower_is_better`), a smaller amount, judged on size so
+positive (lubricants) and negative (Hess) cost amounts read alike. It used to call a cost 10% over
+budget "Ahead of Plan". Within 2% either way is ON_PLAN.

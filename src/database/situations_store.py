@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 _TABLE = "situations"
 
 
-def _stable_opportunity_id(opportunity: OpportunitySignal) -> str:
+def _stable_opportunity_id(opportunity: OpportunitySignal, client_id: Optional[str] = None) -> str:
     """
     Generate a stable, deterministic ID for an OpportunitySignal.
 
@@ -33,7 +33,9 @@ def _stable_opportunity_id(opportunity: OpportunitySignal) -> str:
     kpi_name + opportunity_type so that re-running SA on the same data
     produces the same ID and the upsert deduplicates correctly.
     """
-    raw = f"{opportunity.kpi_name}::{opportunity.opportunity_type}"
+    # The client is part of the id: two clients with the same KPI name wrote over each other's
+    # row (code review 2026-10-29, finding 1).
+    raw = f"{client_id or ''}::{opportunity.kpi_name}::{opportunity.opportunity_type}"
     return "opp_" + hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
@@ -94,16 +96,18 @@ class SituationsStore:
             if situation.kpi_value is not None:
                 kpi_value_num = getattr(situation.kpi_value, "value", None)
 
+            # No "status": a new card takes the column default (OPEN), and a re-scan of the same
+            # card (same id, finding 1) keeps whatever status it has reached (ANALYZING,
+            # SOLUTION_APPROVED). Sending "OPEN" here reset it on every scan.
             row = {
                 "id": situation.situation_id,
-                "card_type": "problem",
+                "card_type": getattr(situation, "card_type", None) or "problem",
                 "kpi_id": situation.kpi_name,
                 "kpi_name": situation.kpi_name,
                 "severity": situation.severity.value if hasattr(situation.severity, "value") else str(situation.severity),
                 "title": situation.description[:255] if situation.description else situation.kpi_name,
                 "description": situation.description,
                 "kpi_value": kpi_value_num,
-                "status": "OPEN",
                 "full_payload": _safe_json(situation),
             }
 
@@ -125,7 +129,7 @@ class SituationsStore:
             logger.warning("SituationsStore.upsert_situation failed (non-fatal): %s", exc)
             return False
 
-    async def upsert_opportunity(self, opportunity: OpportunitySignal) -> bool:
+    async def upsert_opportunity(self, opportunity: OpportunitySignal, client_id: Optional[str] = None) -> bool:
         """
         Persist an OpportunitySignal to Supabase.
 
@@ -137,7 +141,7 @@ class SituationsStore:
         if not self.enabled:
             return False
         try:
-            opp_id = _stable_opportunity_id(opportunity)
+            opp_id = _stable_opportunity_id(opportunity, client_id)
 
             row = {
                 "id": opp_id,
@@ -149,7 +153,6 @@ class SituationsStore:
                 "kpi_value": opportunity.current_value,
                 "deviation_pct": opportunity.delta_pct,
                 "opportunity_type": opportunity.opportunity_type,
-                "status": "OPEN",
                 "full_payload": _safe_json(opportunity),
             }
 

@@ -1396,7 +1396,7 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
                 for situation in _situations:
                     await store.upsert_situation(situation)
                 for opportunity in _opportunities:
-                    await store.upsert_opportunity(opportunity)
+                    await store.upsert_opportunity(opportunity, request.client_id)
                 _situations_logger.info(
                     "Persisted %d situations and %d opportunities to Supabase",
                     len(_situations),

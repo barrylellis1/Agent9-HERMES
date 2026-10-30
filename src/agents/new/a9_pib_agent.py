@@ -358,13 +358,9 @@ class A9_PIB_Agent:
         try:
             va_solutions = await self._load_va_solutions(config.principal_id, config.client_id)
             for sol in va_solutions:
+                # No approve link: approving from email was never built, and the link it made
+                # reported an approval that did not happen (code review 2026-10-29, finding 10).
                 approve_token = None
-                if sol.get("status", "").upper() in ("ACCEPTED", "PENDING_APPROVAL"):
-                    approve_token = await self._create_token(
-                        TokenType.APPROVE, config.principal_id,
-                        sol.get("situation_id", sol.get("id", "")),
-                        None, briefing_run.id, expires_at, config.dry_run
-                    )
                 raw_kpi = sol.get("kpi_id") or sol.get("kpi_name", "")
                 content.solutions_in_progress.append(SolutionProgressItem(
                     solution_id=sol.get("id", ""),

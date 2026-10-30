@@ -241,6 +241,30 @@ def _budget_breach_level(monthly_budget: float, tolerance: float, lower_is_bette
 
 
 # The call to action that opens a problem card's business impact, by severity.
+def _card_id(client_id: Optional[str], situation: Any, extra: str = "") -> str:
+    """A card's id: the same client, KPI, kind of card and period always give the same id, and
+    nothing else does (code review 2026-10-29, finding 1).
+
+    Ids used to be the KPI plus a rounded figure ("plan_net_revenue_16"): two clients with the
+    same KPI wrote over each other's stored card, and a later month with the same rounded
+    figure reused an earlier month's row. Re-scanning the same period still lands on the same
+    card, so its status survives. The id is a hash, so it names no client and is URL-safe.
+    """
+    import hashlib
+
+    ctx = getattr(getattr(situation, "kpi_value", None), "context", None)
+    name, ref = getattr(ctx, "period_comparison", None), getattr(ctx, "reference_day", None)
+    period = f"{name}@{ref}" if name and ref else (name or getattr(situation, "comparison_label", None) or "")
+    card_type = getattr(situation, "card_type", None) or "problem"
+    kind = "" if card_type == "problem" else (getattr(situation, "alert_type", None) or getattr(situation, "dedupe_key", None) or "")
+    key = "|".join(str(x) for x in (
+        client_id or "", getattr(situation, "kpi_id", None) or getattr(situation, "kpi_name", ""),
+        card_type, kind, period, extra,
+    ))
+    prefix = "sit" if card_type == "problem" else "opp"
+    return f"{prefix}_{hashlib.sha256(key.encode()).hexdigest()[:24]}"
+
+
 _IMPACT_LEAD = {
     "critical": "Immediate attention required: ",
     "high": "Attention needed: ",
@@ -926,7 +950,10 @@ class A9_Situation_Awareness_Agent:
                             try:
                                 _fire_mult = float(_accel_cfg.get('yellow') if _accel_cfg.get('yellow') is not None else 2.0)
                                 _high_mult = float(_accel_cfg.get('red') if _accel_cfg.get('red') is not None else 3.0)
-                                accel_signal = self._compute_acceleration(_monthly, fire_multiplier=_fire_mult)
+                                accel_signal = self._compute_acceleration(
+                                    _monthly, fire_multiplier=_fire_mult,
+                                    lower_is_better=bool(getattr(kpi_value, 'inverse_logic', False)),
+                                )
                                 if accel_signal is not None and accel_signal > 0:
                                     accel_sit = Situation(
                                         situation_id=f"accel_{getattr(kpi_definition, 'id', None) or kpi_name}_{int(accel_signal*10)}",
@@ -946,7 +973,7 @@ class A9_Situation_Awareness_Agent:
                                         period_months=_series_months(_monthly),
                                         business_impact=(
                                             f"The rate of change in {kpi_name} is itself increasing — "
-                                            f"the period-over-period decline is accelerating at {accel_signal:.1f}× the historical pace."
+                                            f"the period-over-period {'rise' if getattr(kpi_value, 'inverse_logic', False) else 'decline'} is accelerating at {accel_signal:.1f}× the historical pace."
                                         ),
                                         hitl_required=False,
                                     )
@@ -1032,6 +1059,9 @@ class A9_Situation_Awareness_Agent:
             # merged_alert_types and its narrative folded into key_observations (capped
             # so a KPI with many simultaneous patterns doesn't produce an unbounded card).
             situations = self._merge_compound_kpi_situations(situations)
+
+            # Each card's id names its client, KPI, kind and period (finding 1, 2026-10-29).
+            self._assign_card_ids(situations, client_id)
 
             # Sort situations: primary = severity (critical first), secondary = |percent_change| descending
             situations.sort(key=lambda s: (
@@ -3035,12 +3065,19 @@ class A9_Situation_Awareness_Agent:
             self.logger.debug(f"_project_trend error: {e}")
             return None
 
-    def _compute_acceleration(self, monthly_values, fire_multiplier=2.0):
+    def _compute_acceleration(self, monthly_values, fire_multiplier=2.0, lower_is_better=False):
         """Return acceleration signal if second derivative exceeds `fire_multiplier`× rolling std of velocity, else None.
 
         The returned value is the normalised signal magnitude (|acceleration| / velocity_std).
         `fire_multiplier` is sourced from the KPI's registry 'acceleration' threshold (yellow band);
         defaults to 2.0 when unset.
+
+        Fires only for a deterioration that is getting faster: the latest move is the bad way AND
+        the change in pace is the bad way too (a revenue falling faster; a cost rising faster).
+        It used to test |acceleration| alone, so a sudden revenue jump was carded "deterioration
+        is accelerating" (code review 2026-10-29, finding 4). Growth that is only slowing, and
+        an improvement that is speeding up, do not fire. A cost is judged on its size, as
+        _over_budget does, so both sign conventions read the same way.
         """
         if not monthly_values or len(monthly_values) < 4:
             return None
@@ -3048,6 +3085,9 @@ class A9_Situation_Awareness_Agent:
             series = [float(m['value']) for m in monthly_values if m.get('value') is not None]
             if len(series) < 4:
                 return None
+            if lower_is_better:
+                series = [abs(v) for v in series]  # a cost's size: lubricants positive, Hess negative
+            bad = 1.0 if lower_is_better else -1.0  # the direction a worsening moves the series
             # First derivative (velocity): period-over-period delta
             velocity = [series[i] - series[i - 1] for i in range(1, len(series))]
             # Second derivative (acceleration): change in velocity
@@ -3063,7 +3103,8 @@ class A9_Situation_Awareness_Agent:
                 return None
             # Only signal if |acceleration| > fire_multiplier × std dev of velocity
             threshold = fire_multiplier * v_std
-            if abs(latest_accel) > threshold:
+            worsening = velocity[-1] * bad > 0 and latest_accel * bad > 0
+            if worsening and abs(latest_accel) > threshold:
                 return round(abs(latest_accel) / v_std, 3)  # normalised signal
             return None
         except Exception as e:
@@ -4281,6 +4322,21 @@ class A9_Situation_Awareness_Agent:
         """
         ctx = getattr(kpi_value, "context", None)
         return getattr(ctx, "period_short_label", None) or ""
+
+    @staticmethod
+    def _assign_card_ids(situations: List[Any], client_id: Optional[str]) -> None:
+        """Give every card its stable id (see _card_id). Two cards that would share one in the
+        same scan (two opportunity kinds on a KPI) are told apart by their alert type, then by
+        position."""
+        seen: Set[str] = set()
+        for i, s in enumerate(situations):
+            sid = _card_id(client_id, s)
+            if sid in seen:
+                sid = _card_id(client_id, s, extra=str(getattr(s, "alert_type", "") or ""))
+            if sid in seen:
+                sid = _card_id(client_id, s, extra=f"#{i}")
+            seen.add(sid)
+            s.situation_id = sid
 
     @staticmethod
     def _label_cards(situations: List[Any], kpi_value: Any) -> None:
