@@ -262,6 +262,9 @@ Then add the table to `_RLS_TABLES` in `scripts/verify_prod_registry.py` (the RL
    ```bash
    python scripts/verify_prod_registry.py --client <id>
    ```
+5. **Restart the production backend.** The registry providers cache at startup, so a running
+   backend keeps serving the old registry after a sync. Redeploy it (an empty commit pushed to
+   `master` does this), then check the served data: `GET /api/v1/registry/kpis?client_id=<id>`.
 
 The pre-push hook (`registry-sync-reminder`) fires automatically when `scripts/clients/*.py` changes and prints the exact commands needed.
 
