@@ -121,3 +121,61 @@ def test_no_segments_means_no_invented_segments(mode):
     assert _NO_SEGMENTS_SENTENCE in text
     for filler in ("leading segments", "remaining segments", "key contributors identified", "concentrated in"):
         assert filler not in text
+
+
+# ── Level checks (owner, 2026-10-31): the share is judged on its level, not its change ──
+
+from src.agents.new import a9_situation_awareness_agent as sa_mod  # noqa: E402
+
+
+@pytest.mark.parametrize("value,band", [(25.0, "green"), (30.0, "green"), (39.6, "yellow"), (45.0, "amber"), (55.0, "red")])
+def test_less_than_bands_judge_the_value(value, band):
+    assert sa_mod._level_band(value, {"green": 30.0, "yellow": 40.0, "red": 50.0}, "less_than") == band
+
+
+@pytest.mark.parametrize("value,band", [(95.0, "green"), (85.0, "yellow"), (75.0, "amber"), (60.0, "red")])
+def test_greater_than_bands_judge_the_value(value, band):
+    assert sa_mod._level_band(value, {"green": 90.0, "yellow": 80.0, "red": 70.0}, "greater_than") == band
+
+
+def test_the_level_sentence_says_where_it_stands():
+    assert sa_mod._level_sentence("Top 3 Customer Revenue Share", 39.5568, "less_than", 30.0, "%", "YTD") == \
+        "Top 3 Customer Revenue Share is 39.6%, above the 30.0% target, YTD"
+
+
+def _sa():
+    sa = sa_mod.A9_Situation_Awareness_Agent.__new__(sa_mod.A9_Situation_Awareness_Agent)
+    sa.logger = logging.getLogger("t")
+    sa._opportunity_threshold_multiplier = 1.5
+    return sa
+
+
+def _level_kpi():
+    from src.agents.models.situation_awareness_models import KPIDefinition
+    return KPIDefinition(name="Top 3 Customer Revenue Share", description="share", data_product_id="dp", unit="%", positive_trend_is_good=False,
+                         thresholds={"_inverse_logic": True},
+                         metadata={"variance_thresholds": {"less_than": {"green": 30.0, "yellow": 40.0, "red": 50.0, "inverse_logic": True}}})
+
+
+def _value(v, prev):
+    from src.agents.models.situation_awareness_models import KPIValue
+    return KPIValue(kpi_name="Top 3 Customer Revenue Share", value=v, comparison_value=prev,
+                    percent_change=(v - prev) / prev * 100, timeframe="year_to_date", inverse_logic=True)
+
+
+def test_a_share_above_target_raises_a_problem_card_even_when_it_fell():
+    sa = _sa()
+    sa._create_threshold_situation = lambda kd, kv, sev, desc, pc: SimpleNamespace(severity=sev, description=desc)
+    cards = sa._detect_kpi_situations(_level_kpi(), _value(39.56, 40.98), None)
+    assert [c.severity.value for c in cards] == ["medium"]
+    assert "above the 30.0% target" in cards[0].description
+
+
+def test_a_rise_within_the_green_band_raises_nothing():
+    sa = _sa()
+    sa._create_threshold_situation = lambda *a: pytest.fail("no card expected")
+    assert sa._detect_kpi_situations(_level_kpi(), _value(29.0, 20.0), None) == []  # +45% but under 30%
+
+
+def test_a_level_checked_kpi_raises_no_improvement_card():
+    assert _sa()._detect_opportunities(_level_kpi(), _value(25.0, 40.0)) == []

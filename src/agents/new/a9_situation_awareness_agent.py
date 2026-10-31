@@ -168,6 +168,37 @@ def _change_amount(percent_change: float, points: Optional[float]) -> str:
     return f"{p} points ({abs(percent_change):.1f}%)"
 
 
+_LEVEL_CHECKS = ("less_than", "greater_than")
+
+
+def _level_band(value: float, row: Dict[str, Any], kind: str) -> str:
+    """green / yellow / amber / red for a level check: the value itself against the bands, as
+    KPI.evaluate() reads them. `less_than`: lower is better; `greater_than`: higher is better.
+    The comparison type sets the direction, so a row's inverse_logic cannot contradict it."""
+    lower_is_better = kind == "less_than"
+    for band, key in (("green", "green"), ("yellow", "yellow"), ("amber", "red")):
+        limit = row.get(key)
+        if limit is None:
+            continue
+        if (value <= limit) if lower_is_better else (value >= limit):
+            return band
+    return "red"
+
+
+def _level_sentence(name: str, value: float, kind: str, green: Any, unit: str = "", period: str = "") -> str:
+    """The card sentence for a level check: "Top 3 Customer Revenue Share is 39.6%, above the
+    30.0% target, YTD". Says where the value stands, not how it moved: the movement is not
+    what is judged."""
+    u = unit if unit in ("%",) else (f" {unit}" if unit else "")
+    side = "above" if kind == "less_than" else "below"
+    tail = f", {period}" if period else ""
+    try:
+        target = f", {side} the {float(green):,.1f}{u} target" if green is not None else ""
+    except (TypeError, ValueError):
+        target = ""
+    return f"{name} is {value:,.1f}{u}{target}{tail}"
+
+
 def _threshold_sentence(name: str, percent_change: float, inverse: bool, green: Any, label: str = "",
                         points: Optional[float] = None) -> str:
     """The card sentence for a KPI that moved outside its green band.
@@ -3710,6 +3741,9 @@ class A9_Situation_Awareness_Agent:
             List of ``OpportunitySignal`` objects (may be empty).
         """
         signals: List[OpportunitySignal] = []
+        # A level-checked KPI raises no movement-based improvement card (owner, 2026-10-31).
+        if self._level_row(kpi_definition) is not None:
+            return signals
 
         current = kpi_value.value
         kpi_name = kpi_definition.name
@@ -4075,6 +4109,29 @@ class A9_Situation_Awareness_Agent:
                             principal_context
                         ))
         
+        # A level check (less_than / greater_than, 2026-10-31): the value itself is judged against
+        # the bands, not its change, and no change-based card is raised for the KPI. Without this a
+        # KPI with no row for its reading's comparison fell to the 5%-move heuristic below.
+        _level = self._level_row(kpi_definition)
+        if _level is not None:
+            _kind, _row = _level
+            if kpi_value.value is not None:
+                _band = _level_band(float(kpi_value.value), _row, _kind)
+                if _band in ('yellow', 'amber', 'red'):
+                    _ctx_l = getattr(kpi_value, "context", None)
+                    situations.append(self._create_threshold_situation(
+                        kpi_definition,
+                        kpi_value,
+                        _severity_for_band(_band),
+                        _level_sentence(
+                            kpi_definition.name, float(kpi_value.value), _kind, _row.get('green'),
+                            getattr(kpi_definition, 'unit', None) or getattr(kpi_value, 'unit', None) or "",
+                            getattr(_ctx_l, "period_current_short", None) or "",
+                        ),
+                        principal_context
+                    ))
+            return situations
+
         # Check for significant changes if comparison value exists
         if kpi_value.value is not None and kpi_value.comparison_value is not None and kpi_value.comparison_value != 0:
             # Use the sign-normalized percent_change from KPIValue — it has the inverse_logic
@@ -4179,6 +4236,18 @@ class A9_Situation_Awareness_Agent:
         
         return situations
     
+    @staticmethod
+    def _level_row(kpi_definition: Any) -> Optional[Tuple[str, Dict[str, Any]]]:
+        """(kind, row) when the KPI is judged on its level (a less_than / greater_than threshold
+        row, owner 2026-10-31), else None."""
+        meta = getattr(kpi_definition, 'metadata', None) or {}
+        vt_all = meta.get('variance_thresholds') or {} if isinstance(meta, dict) else {}
+        for kind in _LEVEL_CHECKS:
+            row = vt_all.get(kind)
+            if isinstance(row, dict):
+                return kind, row
+        return None
+
     @staticmethod
     def _threshold_row(kpi_definition: Any, kpi_value: Any) -> Optional[Dict[str, Any]]:
         """The threshold row a reading is judged on: the row for the comparison it used (Phase 26;

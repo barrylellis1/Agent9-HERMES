@@ -925,3 +925,17 @@ scan still passes the KPI's time dimension and warehouse type it resolved. The S
 `generate_monthly_series_from_sql`. This agent contains no SQL (guarded by
 `tests/unit/test_dpa_period_sql.py`). It still resolves each KPI's time dimension and warehouse
 type and passes them in; moving that lookup is a later step.
+
+## Level checks: `less_than` / `greater_than` threshold rows (2026-10-31, owner)
+
+The registry's `ComparisonType.LESS_THAN` / `GREATER_THAN` ("simple threshold check") were declared
+but read nowhere. A KPI with such a row (in `metadata.variance_thresholds` under `less_than` /
+`greater_than`, `_level_row`) is now judged on its **level**: `_detect_kpi_situations` bands the
+reading's value itself (`_level_band`: green / yellow / amber / red, direction from the type,
+severity via `_severity_for_band`) and returns before the change-based logic; the card sentence says
+where it stands (`_level_sentence`: "Top 3 Customer Revenue Share is 39.6%, above the 30.0% target,
+YTD"). It raises no movement-based card: `_detect_opportunities` returns nothing for it, and seeds give
+it no acceleration row. The level is judged on the data product's reading (Apex: year to date); the
+previous period stays on the card as context. First user: Apex Top 3 Customer Revenue Share, whose
+30/40/50 bands had been read as percentage changes (a rise from 40% to 50% counted as green). Live:
+medium problem card at 39.6% YTD, other Apex cards unchanged. Tests: `tests/unit/test_dpa_top_n_share.py`.

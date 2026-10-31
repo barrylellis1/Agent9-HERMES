@@ -557,9 +557,13 @@ KPIS: List[Dict[str, Any]] = [
         # customer_rank column that never existed. Ranked by revenue, B2B customers only.
         "sql_query": f"SELECT SUM(amount) AS value FROM {_VIEW} WHERE channel_name = 'B2B Direct Sales' AND account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"channel_name": "B2B Direct Sales", "account_type": "Revenue", "version": "Actual"},
+        # A level check, not a period-to-period comparison (owner, 2026-10-31): the share itself
+        # is judged, on the data product's reading (year to date). Green up to 30%, yellow up to
+        # 40%, amber up to 50%, red above 50%. The two change rows it replaces (quarter, YTD) held
+        # these same numbers but were read as percentage changes, so a rise from 40% to 50%
+        # concentration (+25%) counted as green.
         "thresholds": [
-            {"comparison_type": "quarter_vs_prev_quarter", "green_threshold": 30.0, "yellow_threshold": 40.0, "red_threshold": 50.0, "inverse_logic": True},
-            {"comparison_type": "ytd_vs_pytd", "green_threshold": 30.0, "yellow_threshold": 40.0, "red_threshold": 50.0, "inverse_logic": True},
+            {"comparison_type": "less_than", "green_threshold": 30.0, "yellow_threshold": 40.0, "red_threshold": 50.0, "inverse_logic": True},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "concentration-risk", "customer", "b2b", "lubricants", "snowflake"],
@@ -607,7 +611,10 @@ for _kpi in KPIS:
             "red_threshold": _pv.get("red_threshold"),
             "inverse_logic": _pv.get("inverse_logic", False),
         })
-    if not any(t.get("comparison_type") == "acceleration" for t in _ths):
+    # A level-checked KPI (less_than / greater_than) is judged on its level only, so it gets no
+    # acceleration row: acceleration is a period-to-period card (owner, 2026-10-31).
+    _level_checked = any(t.get("comparison_type") in ("less_than", "greater_than") for t in _ths)
+    if not _level_checked and not any(t.get("comparison_type") == "acceleration" for t in _ths):
         _ths.append(dict(_ACCEL_ROW))
 
 PRINCIPALS: List[Dict[str, Any]] = [
