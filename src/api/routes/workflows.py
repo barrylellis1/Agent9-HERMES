@@ -1624,6 +1624,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
                 general_deviation=_general_deviation,
                 business_context=_business_context_dict,
                 da_structural_context=_da_structural if _da_structural else None,
+                synthesis_length="paragraph",  # one small paragraph on screen (owner, 2026-10-30)
             )
             _ma_resp = await orchestrator.execute_agent_method(
                 "A9_Market_Analysis_Agent",

@@ -90,6 +90,56 @@ def _citation_quality_outcome(
 _SYNTHESIS_TASK = A9TaskType.SYNTHESIS
 
 
+def _synthesis_instruction(request: "MarketAnalysisRequest") -> str:
+    """What the synthesis field asks for. 'paragraph' (Deep Analysis, owner 2026-10-30): the
+    screen shows one small paragraph, and the 2-3 paragraph briefing (1,000-1,800 output tokens)
+    was most of the market research's time."""
+    if getattr(request, "synthesis_length", "briefing") == "paragraph":
+        return ("One paragraph, about 100 words, for an executive: the key external factors "
+                "driving this KPI movement, the competitive context, and the implication for the "
+                "business. Be specific and quantitative.")
+    return ("2-3 paragraph executive briefing covering: (1) key external factors driving this KPI "
+            "movement, (2) competitive context and industry benchmarks, (3) implications for the "
+            "business. Be specific and quantitative.")
+
+
+# ── Reuse (owner, 2026-10-30) ─────────────────────────────────────────────────────────────────
+# A repeat analysis of the same card asked the same two questions again: about 20-35 s of model
+# calls each time. The signal call never sees the analysis's conclusion (the firewall below), so
+# for the same client and business facts its prompt is identical; the synthesis prompt is
+# identical whenever the analysis came out the same. Successful answers are kept for 24 hours,
+# keyed by a hash of the exact prompt (or search query) and the client, so a changed input is a
+# new question. Kept in this process only: a restart or deploy starts empty.
+_REUSE_SECONDS = 24 * 3600
+_REUSE_MAX_ENTRIES = 256
+_REUSE: "Dict[str, Tuple[float, Any]]" = {}
+
+
+def _reuse_key(kind: str, client_id: Optional[str], text: str) -> str:
+    import hashlib
+    return hashlib.sha256(f"{kind}\x00{client_id or ''}\x00{text}".encode("utf-8")).hexdigest()
+
+
+def _reuse_get(key: str) -> Optional[Any]:
+    import copy
+    import time
+    hit = _REUSE.get(key)
+    if hit is None:
+        return None
+    if time.monotonic() - hit[0] > _REUSE_SECONDS:
+        _REUSE.pop(key, None)
+        return None
+    return copy.deepcopy(hit[1])
+
+
+def _reuse_put(key: str, value: Any) -> None:
+    import copy
+    import time
+    if len(_REUSE) >= _REUSE_MAX_ENTRIES and key not in _REUSE:
+        _REUSE.pop(min(_REUSE, key=lambda k: _REUSE[k][0]), None)  # oldest out
+    _REUSE[key] = (time.monotonic(), copy.deepcopy(value))
+
+
 
 
 def _parse_synthesis_reply(text: str) -> Optional[Dict[str, Any]]:
@@ -303,7 +353,18 @@ class A9_Market_Analysis_Agent:
                 sources_queried.append("perplexity")
                 logger.info("%s: Perplexity query: %s", self.name, query)
 
-                result = await self._perplexity.search(query, max_results=request.max_signals)
+                _search_key = _reuse_key("search", request.client_id, f"{query}\x00{request.max_signals}")
+                result = _reuse_get(_search_key)
+                if result is None:
+                    result = await self._perplexity.search(query, max_results=request.max_signals)
+                    # Only a search that found something: an empty one (no key, a quiet
+                    # failure) must not stand for a day.
+                    if isinstance(result, dict) and not result.get("error") and (
+                        result.get("citations") or (result.get("answer") or "").strip()
+                    ):
+                        _reuse_put(_search_key, result)
+                else:
+                    logger.info("%s: reused the web search from the last 24 hours", self.name)
                 raw_answer = result.get("answer", "")
                 citations = result.get("citations", [])
 
@@ -807,6 +868,12 @@ class A9_Market_Analysis_Agent:
             f"relevance_score must be a float between 0 and 1. Be specific and quantitative."
         )
 
+        _signals_key = _reuse_key("signals", request.client_id, f"{prompt}\x00{request.max_signals}")
+        _reused = _reuse_get(_signals_key)
+        if _reused:
+            logger.info("%s: reused %d signal(s) from the last 24 hours", self.name, len(_reused))
+            return _reused
+
         try:
             from src.agents.new.a9_llm_service_agent import A9_LLM_Request
 
@@ -856,6 +923,8 @@ class A9_Market_Analysis_Agent:
                     ))
                 except Exception:
                     continue
+            if signals:
+                _reuse_put(_signals_key, signals)
             return signals
 
         except Exception as exc:
@@ -958,9 +1027,7 @@ class A9_Market_Analysis_Agent:
             f"Market Signals:\n{formatted_signals}\n\n"
             f"Return a JSON object with exactly this structure:\n"
             f"{{\n"
-            f'  "synthesis": "2-3 paragraph executive briefing covering: (1) key external factors '
-            f'driving this KPI movement, (2) competitive context and industry benchmarks, '
-            f'(3) implications for the business. Be specific and quantitative.",\n'
+            f'  "synthesis": "{_synthesis_instruction(request)}",\n'
             f"  {conflict_json_schema}{shift_json_schema}\n"
             f"}}\n\n"
             f"Return only valid JSON. No markdown, no preamble."
@@ -971,6 +1038,20 @@ class A9_Market_Analysis_Agent:
                 "%s: LLM service unavailable — returning plain-text synthesis fallback", self.name
             )
             return self._plain_text_fallback(request, signals, raw_answer), None
+
+        # Reuse: an identical prompt (same signals, same analysis, same client) within 24 hours.
+        _synthesis_key = _reuse_key("synthesis", request.client_id, prompt)
+        _reused = _reuse_get(_synthesis_key)
+        if _reused is not None:
+            _text, _conflict, _shift = _reused
+            if extras_out is not None and _shift is not None:
+                extras_out["market_shift"] = _shift
+            logger.info("%s: reused the market synthesis from the last 24 hours", self.name)
+            return _text, _conflict
+
+        def _keep(text: str, conflict: Optional[Dict[str, Any]]) -> Tuple[str, Optional[Dict[str, Any]]]:
+            _reuse_put(_synthesis_key, (text, conflict, (extras_out or {}).get("market_shift")))
+            return text, conflict
 
         try:
             analysis_req = A9_LLM_AnalysisRequest(
@@ -1004,7 +1085,7 @@ class A9_Market_Analysis_Agent:
                     # If analysis dict itself has "synthesis" key, it may already be parsed
                     if "synthesis" in analysis:
                         _record_market_shift(extras_out, request, analysis, signals)
-                        return str(analysis["synthesis"]), analysis.get("conflict")
+                        return _keep(str(analysis["synthesis"]), analysis.get("conflict"))
                 else:
                     raw_text = str(analysis)
 
@@ -1013,7 +1094,7 @@ class A9_Market_Analysis_Agent:
                     parsed = _parse_synthesis_reply(str(raw_text))
                     if parsed is not None:
                         _record_market_shift(extras_out, request, parsed, signals)
-                        return str(parsed["synthesis"]), parsed.get("conflict")
+                        return _keep(str(parsed["synthesis"]), parsed.get("conflict"))
                     if "{" not in str(raw_text):
                         # LLM returned plain text despite instructions — use as-is
                         return str(raw_text), None

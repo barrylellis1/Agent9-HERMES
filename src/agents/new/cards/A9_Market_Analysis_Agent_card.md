@@ -313,3 +313,31 @@ had a source. In LLM-only mode four model-written signals gave 0.9, shown on the
 "90% confidence" under the note that nothing was cited. Only signals with a URL count now, and with
 none the confidence is None (`MarketAnalysisResponse.confidence` is Optional, default None), so no
 figure is shown.
+
+## Answers are reused for 24 hours; Deep Analysis asks for one paragraph (2026-10-30, owner)
+
+**Reuse.** `analyze_market` asks up to three questions — the web search (Perplexity), the signal
+call (`_llm_generate_signals`, when search is off or empty) and the synthesis (`_synthesize`). Each
+successful answer is kept for 24 hours (`_REUSE_SECONDS`) in a module-level store keyed by a hash of
+the exact query or prompt **and the client** (`_reuse_key`), so a changed input is a new question
+and one client's answer never reaches another. The signal prompt never sees the analysis's
+conclusion (the firewall above), so a repeat analysis of the same card reuses it; the synthesis is
+reused only when the whole prompt (signals + analysis) is identical. Not kept: failures, the
+plain-text fallback, and a web search that found nothing. Store: in this process only, at most
+256 entries, oldest out; a restart or deploy starts empty. Reused answers are copies. Live (local,
+lubricants Gross Margin %): a repeat analysis finished in 9.2 s against 33.8 s. **Revisit the 24 h
+once Perplexity is on in production** — a day-old market read may then be too stale.
+
+**Summary length.** `MarketAnalysisRequest.synthesis_length`: `"briefing"` (2-3 paragraphs, the
+default — company profile research keeps it) or `"paragraph"` (about 100 words); the Deep Analysis
+route asks for `"paragraph"`, which is what the Deep Focus view shows. Measured honestly: the
+summary is now ~100 words, but the synthesis call still writes ~1,000 output tokens, as the signal
+call writes ~1,150 for four short signals — most of each call's output is not its visible answer
+(likely the model's own thinking; `A9_LLM_EFFORT` is unset). So the shorter summary did not bring
+the expected 6-10 s; effort is the next lever, an owner decision since it may affect the conflict
+judgment.
+
+**Not changed:** the "Extra data" reply seen in production (2026-10-30) was not a lost summary —
+`_parse_synthesis_reply` already reads every object and keeps the last with a synthesis; only the
+shared parser's ERROR line is noise. Tests: `tests/unit/test_ma_reuse_and_summary_length.py`;
+`tests/unit/conftest.py` clears the store around every test.

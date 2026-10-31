@@ -94,6 +94,14 @@ class MarketAnalysisRequest(BaseModel):
             "WITHOUT revealing the DA conclusion (no analysis_mode or scqa here)."
         )
     )
+    synthesis_length: str = Field(
+        "briefing",
+        description=(
+            "'briefing' (2-3 paragraphs, the default) or 'paragraph' (about 100 words). Deep "
+            "Analysis asks for 'paragraph': the screen shows one small paragraph, and the "
+            "longer briefing was most of the market research's time (owner, 2026-10-30)."
+        )
+    )
 
 
 class MarketAnalysisResponse(BaseModel):
