@@ -23,12 +23,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run pre-commit (all files)
-        env:
-          SKIP: pydantic-v1-lint,pytest-architecture
+      # The commit hooks in .pre-commit-config.yaml point at this repo's local Windows
+      # venv (C:/Users/Blell/...), which does not exist on this runner. CI used to skip
+      # every hook to get around that; once architecture-lint was made blocking
+      # (2026-05-01) every push failed here. CI runs the same lint scripts with the
+      # runner's Python instead. Add a lint here when you add a hook.
+      - name: Run lints
         run: |
-          python -m pip install pre-commit
-          pre-commit run --all-files
+          python scripts/architecture_lint.py
+          python scripts/prd_content_lint.py
+          python scripts/severity_token_lint.py
 
       - name: Run architecture tests
         run: |
