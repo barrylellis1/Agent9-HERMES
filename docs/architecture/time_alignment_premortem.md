@@ -88,3 +88,71 @@ reads) multiplies warehouse queries.
   same inference family. A declared "actuals closed through" date from the source would be the
   contract version. Flagged here, not reopened.
 - **Phase 26 build choice 4** (reading on the declared date) fits the declared-and-thin side.
+
+## 2026-10-31: one period builder, and fiscal years that do not start in January (Phase 28)
+
+**Owner decision, 2026-10-31:** build it now, while the context is fresh. A then B steps 1–4, with
+unsupported calendars refused. Still open: year-end periods 13–16 (fold into period 12, or exclude
+and say so on the card).
+
+This stays on the "declared and thin" side above: Agent9 translates what a data product declares
+(its fiscal year start and naming) and refuses what it cannot translate; it infers nothing.
+
+### Where things stood
+
+- Every query the scan runs is built by the Data Product Agent (2026-10-31). Monthly series use three
+  builders: one canonical-key builder (BigQuery, `TimeFilter.period_key_expr`) and two moved verbatim
+  from the scan (`_build_ss_monthly_series_sql`, `_build_sf_monthly_series_sql`), which emit the same
+  `YYYY-PP` label but skip a non-numeric period where `period_key_expr` fails the query.
+- `period_key_expr` turns fiscal year + period straight into `YYYY-PP`. That is a calendar month only
+  when the fiscal year starts in January. Every reader of series labels (`monthly_series.py`:
+  closed months, the actuals cut-off; Value Assurance's lines; Deep Analysis's driver charts; the
+  screens) treats the label as a calendar month.
+- Period filters already honour `fiscal_year_start_month` (`TimeFilter._calendar_to_fiscal`,
+  `period_comparisons.fiscal_year_period`), assuming a fiscal year is named by the calendar year it
+  starts in. Many companies name it by the year it ends in.
+- Every client today (lubricants, Apex, Hess, bicycle) starts its fiscal year in January, and each
+  client's data products sit on one warehouse, so nothing is wrong today.
+
+### Plan and estimates (working days, verification included)
+
+**A. One period builder (~1 day).** SQL Server and Snowflake series rebuilt on `period_key_expr`
+(TOP on SQL Server, LIMIT elsewhere); the separate builders deleted. Bad period values skipped, with
+the dropped rows counted and logged, not hidden. Check: identical returned rows for every Apex and
+Hess series; the scan's other queries identical.
+
+**B. Fiscal years not starting in January (~3 days).**
+1. Declaration (½ day): the time dimension declares how its fiscal year is named (by the year it
+   starts or ends in); required, no default, when the year does not start in January. Filters and
+   comparison spans honour it. JSONB field, no migration.
+2. Canonical calendar label (½ day): `period_key_expr` converts fiscal year + period to the calendar
+   `YYYY-MM`. One place after A.
+3. Consumer audit (1 day): scan actuals cut-off and closed months, card quarter names, Value
+   Assurance lines, Deep Analysis driver charts, screens and briefing email.
+4. Test client (1 day): a local SQL Server copy of Hess relabelled to an April fiscal year, checked
+   against month totals computed from the raw rows, run through scan, analysis and Value Assurance.
+5. Year-end periods 13–16 (½ day): waits for the owner's rule.
+Without A first, step 2 touches three builders (+½ day).
+
+### Pre-mortem: October 2027, the first non-January client's numbers were wrong
+
+1. **The fiscal year was named the other way.** Every reading a year off, no error. *Mitigation:* the
+   naming declaration is required; onboarding checks one month's total against the client's report.
+2. **Year-end adjustments vanished.** Periods 13–16 (SAP) are outside today's "periods 1–12" filters,
+   so full-year figures differ from the ledger; a "2026-13" label makes the series checker drop the
+   whole chart. True today for any client with such periods. *Mitigation:* the owner's rule (step 5).
+3. **A 4-4-5 or 52/53-week calendar was read as months.** *Mitigation:* declared calendar type;
+   unsupported types are "not judged", with the reason.
+4. **A date-keyed and a fiscal-keyed product were months apart,** and a driver link was confirmed on
+   misaligned data, past the theory layer's own guard. *Mitigation:* steps 2–3; a test with one
+   product of each kind.
+5. **Our own test data agreed with us.** The relabelled Hess copy is ours. *Mitigation:* the
+   known-answer check against the client's own report at onboarding.
+6. **Readers were confused by correct numbers** ("Jul 2026" against the CFO's "P4 FY27").
+   *Mitigation:* show both labels.
+7. **A registry change did not show.** *Mitigation:* the sync, restart and served-data routine.
+8. **January clients regressed.** *Mitigation:* each step leaves today's clients identical (query
+   capture, returned rows).
+
+The top-N share wrapper built the same day (Data Product Agent, `top_n_share`) is in the same family:
+declared, and it refuses multi-step queries, but it is Agent9 composing SQL, so it should stay small.
