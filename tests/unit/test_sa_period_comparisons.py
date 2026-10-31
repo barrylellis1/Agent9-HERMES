@@ -36,6 +36,7 @@ class Warehouse:
     spec = FYP
     generate_period_sql = A9_Data_Product_Agent.generate_period_sql
     top_n_share = staticmethod(A9_Data_Product_Agent.top_n_share)
+    warehouse_for_kpi = A9_Data_Product_Agent.warehouse_for_kpi
     generate_monthly_series_sql = A9_Data_Product_Agent.generate_monthly_series_sql
     _bq_monthly_series_for_kpi = A9_Data_Product_Agent._bq_monthly_series_for_kpi
     _build_bq_monthly_series_sql = A9_Data_Product_Agent._build_bq_monthly_series_sql

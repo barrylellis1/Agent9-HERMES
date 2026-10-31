@@ -1877,46 +1877,20 @@ class A9_Situation_Awareness_Agent:
         return resp.get("sql", "") if isinstance(resp, dict) and resp.get("success") else ""
 
     async def _resolve_time_spec_sa(self, data_product_id: Optional[str]) -> dict:
-        """Return the TimeDimensionSpec dict for a data product (SA-side lookup).
-
-        Always does a fresh load from Supabase so the in-memory provider cache
-        cannot return stale data (e.g. after a seed run without a server restart).
-        Falls back to a generic date-column spec on any error.
-        """
+        """The data product's primary time dimension, from the Data Product Agent (2026-10-31: the
+        lookup lives there; this agent read the registry itself until then). The agent's registry
+        is refreshed first (a no-op inside a scan, which reads one snapshot), so a seed run is
+        seen without a server restart. Falls back to a generic date-column spec."""
         _fallback = {"type": "date", "column": "transaction_date"}
-        if not data_product_id:
+        dpa = self.data_product_agent
+        lookup = getattr(dpa, "time_spec_for", None)
+        if not data_product_id or not callable(lookup):
             return _fallback
         try:
-            registry_factory = self.config.get("registry_factory")
-            if not registry_factory:
-                from src.registry.factory import RegistryFactory
-                registry_factory = RegistryFactory()
-            dp_provider = registry_factory.get_provider("data_product")
-            if not dp_provider:
-                return _fallback
-            # Force a fresh Supabase fetch so we never read a stale startup cache
-            try:
-                await dp_provider.load()
-            except Exception as _le:
-                self.logger.debug(f"[SA] time_spec provider reload failed (using cache): {_le}")
-            dp = dp_provider.get(data_product_id)
-            if not dp:
-                return _fallback
-            time_dims = getattr(dp, "time_dimensions", None)
-            if not time_dims:
-                self.logger.warning(
-                    f"[SA] No time_dimensions on data product '{data_product_id}' — falling back "
-                    f"to a hardcoded 'transaction_date' guess; QoQ/YoY/MoM queries will fail at "
-                    f"execution if that column doesn't exist in the real schema."
-                )
-                return _fallback
-            # time_dimensions may be a list of dicts or objects
-            first = time_dims[0] if isinstance(time_dims, list) else time_dims
-            if hasattr(first, "model_dump"):
-                return first.model_dump()
-            if isinstance(first, dict):
-                return first
-            return _fallback
+            refresh = getattr(dpa, "_refresh_data_product_registry", None)
+            if callable(refresh):
+                await refresh()
+            return lookup(data_product_id) or _fallback
         except Exception as e:
             self.logger.debug(f"[SA] Could not resolve time spec for {data_product_id}: {e}")
             return _fallback
@@ -1924,37 +1898,14 @@ class A9_Situation_Awareness_Agent:
     # ──────────────────────────────────────────────────────────────────────────
 
     def _resolve_source_system(self, data_product_id: Optional[str]) -> Optional[str]:
-        """
-        Look up source_system for a data product from the registry.
-
-        Tier 1 routing: direct registry lookup via data_product_id.
-        Used to route SQL execution to the correct backend (BigQuery, Snowflake, SQL Server, DuckDB).
-
-        Args:
-            data_product_id: The data product ID to look up
-
-        Returns:
-            The source_system (bigquery, snowflake, sqlserver, duckdb) or None if not found
-        """
-        if not data_product_id:
+        """The data product's source_system (bigquery, snowflake, sqlserver, duckdb), from the Data
+        Product Agent (2026-10-31: the lookup lives there with the SQL; this agent kept its own
+        copy until then). None when it cannot be resolved."""
+        lookup = getattr(self.data_product_agent, "source_system_for", None)
+        if not callable(lookup) or not data_product_id:
             return None
         try:
-            registry_factory = self.config.get("registry_factory")
-            if not registry_factory:
-                from src.registry.factory import RegistryFactory
-                registry_factory = RegistryFactory()
-            dp_provider = registry_factory.get_provider("data_product")
-            if not dp_provider:
-                return None
-            dp = dp_provider.get(data_product_id)
-            if not dp:
-                return None
-            # Try direct source_system field first
-            ss = getattr(dp, "source_system", None)
-            # Fallback to metadata dict if not present as direct attribute
-            if not ss and hasattr(dp, "metadata") and isinstance(getattr(dp, "metadata", None), dict):
-                ss = dp.metadata.get("source_system")
-            return ss.lower() if ss else None
+            return lookup(data_product_id)
         except Exception as e:
             self.logger.debug(f"Error resolving source_system for {data_product_id}: {e}")
             return None
@@ -3108,24 +3059,20 @@ class A9_Situation_Awareness_Agent:
             except Exception:
                 pass
 
-            # Single-source SQL generation (for both execution and later UI display)
-            # Tier 1: Look up source_system from data product registry
-            # Tier 2: Fallback to regex detection if data_product_id is missing or unresolvable
-            # Tier 3: Default to DuckDB path
+            # The KPI's warehouse decides the path (the Data Product Agent's warehouse_for_kpi:
+            # registry source_system, else the SQL's quoting style); anything else takes the
+            # DuckDB path.
             _raw_kpi_sql = (getattr(kpi_definition, 'calculation', None) or
                             getattr(kpi_definition, 'sql_query', None) or '')
             _gen_dp_id = getattr(kpi_definition, 'data_product_id', None)
             _source_system = self._resolve_source_system(_gen_dp_id)
-
-            if _source_system:
-                _is_bq_kpi = _source_system == 'bigquery'
-                _is_ss_kpi = _source_system in ('sqlserver', 'sql_server', 'mssql')
-                _is_sf_kpi = _source_system == 'snowflake'
-            else:
-                # Tier 2 fallback: regex detection for unlinked queries
-                _is_bq_kpi = bool(re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', _raw_kpi_sql))
-                _is_ss_kpi = (not _is_bq_kpi) and bool(re.search(r'\[[A-Za-z][\w\s]*\]', _raw_kpi_sql))
-                _is_sf_kpi = False
+            # The KPI's warehouse, from the Data Product Agent: its source_system, or the SQL's
+            # quoting style when that is unresolvable (2026-10-31; this agent guessed it itself).
+            _wh_lookup = getattr(self.data_product_agent, "warehouse_for_kpi", None)
+            _warehouse = (_wh_lookup(kpi_definition) if callable(_wh_lookup) else None) or ""
+            _is_bq_kpi = _warehouse == 'bigquery'
+            _is_ss_kpi = _warehouse in ('sqlserver', 'sql_server', 'mssql')
+            _is_sf_kpi = _warehouse == 'snowflake'
             # ── Phase 26: the named comparison this reading uses ──
             # A request may name it (period_comparison, optionally with the reference day an
             # earlier reading used, so the plan is read over exactly the actuals' spans);

@@ -109,3 +109,27 @@ def test_a_date_keyed_warehouse_series_groups_on_the_date_column():
 def test_a_series_around_generated_sql():
     out = _series_dpa(FYP).generate_monthly_series_from_sql(SF_RAW, date_col="transaction_date", num_months=9)
     assert out["success"] and "LIMIT 9" in out["sql"]
+
+
+# ── The scan's warehouse and time-dimension lookups moved here too (2026-10-31) ──
+
+def _lookup_dpa(source):
+    agent = DPA.__new__(DPA)
+    agent._resolve_source_system = lambda dp: source
+    return agent
+
+
+def test_the_registry_source_system_decides_the_warehouse():
+    assert _lookup_dpa("snowflake").warehouse_for_kpi(_kpi("SELECT x AS value FROM `p.d.v`")) == "snowflake"
+
+
+def test_without_a_source_system_the_quoting_style_decides():
+    assert _lookup_dpa(None).warehouse_for_kpi(_kpi("SELECT SUM(a) AS value FROM `p.d.v`")) == "bigquery"
+    assert _lookup_dpa(None).warehouse_for_kpi(_kpi("SELECT SUM([a]) AS value FROM [dbo].[V]")) == "sqlserver"
+    assert _lookup_dpa(None).warehouse_for_kpi(_kpi("SELECT SUM(a) AS value FROM V")) is None
+
+
+def test_the_scan_no_longer_detects_warehouses_or_reads_time_dimensions_itself():
+    src = inspect.getsource(sa_mod)
+    assert "`[a-zA-Z0-9_-]+" not in src          # the BigQuery quoting guess
+    assert "time_dimensions" not in src.split("def _resolve_time_spec_sa", 1)[1].split("\n    def ", 1)[0]

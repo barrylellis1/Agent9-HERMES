@@ -939,3 +939,14 @@ it no acceleration row. The level is judged on the data product's reading (Apex:
 previous period stays on the card as context. First user: Apex Top 3 Customer Revenue Share, whose
 30/40/50 bands had been read as percentage changes (a rise from 40% to 50% counted as green). Live:
 medium problem card at 39.6% YTD, other Apex cards unchanged. Tests: `tests/unit/test_dpa_top_n_share.py`.
+
+## Warehouse and time-dimension lookups come from the Data Product Agent (2026-10-31)
+
+`_resolve_source_system` asks `A9_Data_Product_Agent.source_system_for`; `_resolve_time_spec_sa`
+refreshes that agent's registry and asks `time_spec_for` (the product's PRIMARY time dimension; this
+agent took the first listed, identical in every local and production data product checked); the
+Tier 2 guess from the SQL's quoting style is `warehouse_for_kpi`. This agent no longer detects
+warehouses or reads time dimensions itself (Phase 10C: "SA must not contain SQL generation or backend
+detection"). It still reads the data product's card settings (`_period_settings_cached`), which are
+its own card policy. Verified: same 148 scan queries before and after on Lubricants, Apex and Hess,
+identical results.

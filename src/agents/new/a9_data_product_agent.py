@@ -5396,6 +5396,32 @@ class A9_Data_Product_Agent(DataProductProtocol):
             latest = f"SELECT period, value FROM shares ORDER BY period DESC LIMIT {num_months}"
         return shares + f"SELECT period, value FROM ({latest}) t ORDER BY period ASC"
 
+    # ── Lookups other agents use (2026-10-31): which warehouse a data product or KPI is on, and
+    # its time dimension. The scan kept its own copies of these; they live here with the SQL.
+
+    def source_system_for(self, data_product_id: Optional[str]) -> Optional[str]:
+        """The data product's source_system (lower case), or None when it cannot be resolved."""
+        return self._resolve_source_system(data_product_id)
+
+    def time_spec_for(self, data_product_id: Optional[str], kpi_definition: Any = None) -> dict:
+        """The time dimension a KPI is read on (its declared one, else the product's primary)."""
+        return self._resolve_time_spec(data_product_id, kpi_definition)
+
+    def warehouse_for_kpi(self, kpi_definition: Any) -> Optional[str]:
+        """The KPI's warehouse: its data product's source_system (Tier 1, CLAUDE.md §9), else,
+        only when that is unresolvable, the SQL's quoting style (Tier 2): a backtick-quoted
+        project.dataset.table is BigQuery, a [bracketed] name SQL Server."""
+        import re as _re
+        source = self._resolve_source_system(getattr(kpi_definition, "data_product_id", None))
+        if source:
+            return source
+        raw = (getattr(kpi_definition, "calculation", None) or getattr(kpi_definition, "sql_query", None) or "")
+        if _re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', raw):
+            return "bigquery"
+        if _re.search(r'\[[A-Za-z][\w\s]*\]', raw):
+            return "sqlserver"
+        return None
+
     def _dialect_for(self, data_product_id: Optional[str]) -> str:
         source = self._resolve_source_system(data_product_id) or ""
         return ("bigquery" if source == "bigquery"
