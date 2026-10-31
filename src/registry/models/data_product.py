@@ -72,6 +72,22 @@ class TimeDimensionSpec(BaseModel):
     period_type: str = Field("month", description="Period granularity within a year: 'month' (1-12) or 'quarter' (1-4).")
     period_column_type: str = Field("integer", description="Storage type of the period column: 'integer' (default) or 'string'. Set to 'string' when the DB stores periods as VARCHAR (e.g. SAP-derived BigQuery views). TimeFilter will CAST to INT before comparisons.")
     fiscal_year_start_month: int = Field(1, description="Calendar month (1-12) when the fiscal year begins. 1=January (default/SAP standard). 4=April (UK/Indian FY). Changes fiscal period and quarter mapping in TimeFilter.")
+    fiscal_year_named_by: str = Field(
+        "",
+        description=(
+            "How a fiscal year is named when it does not start in January: 'start' (FY2026 starts "
+            "in 2026) or 'end' (FY2026 ends in 2026). Required when fiscal_year_start_month is not 1, "
+            "with no default: a guess reads every period a year off with no error, so an undeclared "
+            "one is refused (TimeFilter.fiscal_naming; Phase 28, 2026-10-31)."
+        ),
+    )
+    calendar: str = Field(
+        "months",
+        description=(
+            "'months' (periods are calendar months, the only supported calendar). A 4-4-5 or "
+            "52/53-week calendar is refused rather than read as months (Phase 28, 2026-10-31)."
+        ),
+    )
     source_columns: List[str] = Field(default_factory=list, description="Constituent columns that compose this dimension (e.g. ['fiscal_year', 'fiscal_period']). Documentation only.")
     display_expr: str = Field("", description="SQL expression for SELECT / GROUP BY. Overrides column when set (e.g. \"CONCAT(CAST(fiscal_year AS VARCHAR), '-', fiscal_period)\").")
     sort_expr: str = Field("", description="SQL expression for ORDER BY to ensure chronological ordering. Defaults to display_expr or column if empty.")

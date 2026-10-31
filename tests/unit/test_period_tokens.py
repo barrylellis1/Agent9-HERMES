@@ -116,7 +116,7 @@ class TestTimeFilter:
             "fiscal_year = 2026 AND CAST(fiscal_period AS INT) BETWEEN 1 AND 9"
 
     def test_april_fiscal_year(self):
-        spec = dict(FYP, fiscal_year_start_month=4)
+        spec = dict(FYP, fiscal_year_start_month=4, fiscal_year_named_by="start")  # required since Phase 28
         assert TimeFilter.current_condition(spec, "ytd_vs_pytd@2026-09-30") == \
             "fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 6"
 

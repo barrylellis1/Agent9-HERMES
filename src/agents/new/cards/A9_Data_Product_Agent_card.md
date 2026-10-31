@@ -538,3 +538,21 @@ series checker (`monthly_series.trusted_months`) then rejected along with the wh
 was lost either way. Verified: every Lubricants (23), Apex (15) and Hess (11 with data) KPI's series
 returned identical rows from both builders on the live warehouses; full scans of the three clients
 identical, chart values included; the scan's 82 other queries unchanged.
+
+## Fiscal years that do not start in January (2026-10-31, Phase 28 B)
+
+`TimeFilter.fiscal_naming(spec)` is the one place fiscal-year rules are decided: the start month and
+whether a fiscal year is named by the year it starts or ends in (`TimeDimensionSpec.fiscal_year_named_by`,
+'start' | 'end', required with no default when `fiscal_year_start_month` is not 1). Every filter that
+computes a fiscal-year number uses it (comparison tokens, the legacy words, annual data). A calendar other
+than plain months (`TimeDimensionSpec.calendar`, e.g. 4-4-5) is refused for every dimension type.
+Refusals are ValueErrors: period SQL returns `success: False` with the reason and the scan reports the KPI
+unread; series builders return the reason. `period_key_expr` converts a non-January fiscal (year,
+period) to the calendar `YYYY-MM` (`_fiscal_to_calendar_key`, integer arithmetic on every dialect),
+so closed months, the actuals cut-off, Value Assurance and the driver charts read real months; a January
+year's label is unchanged. A period outside 1-12 gets no label (year-end periods 13-16: owner rule
+pending). Verified locally on a test copy of Hess relabelled to an April year named by its end year
+(`hess_aprilfy`, local only): all 11 cards read April-July 2026 against April-July 2025 and equal the
+same calendar months summed from Hess's own data; every chart equals Hess's; Deep Analysis agrees; with
+the naming undeclared all 16 KPIs are unread with the reason. Lubricants, Apex and Hess unchanged.
+Tests: `tests/unit/test_fiscal_year_not_january.py` (label mapping executed in DuckDB for every start month).

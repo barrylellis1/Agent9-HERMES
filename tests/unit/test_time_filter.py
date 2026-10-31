@@ -336,6 +336,7 @@ FYP_APR = {
     "year_column": "fiscal_year",
     "period_column": "fiscal_period",
     "fiscal_year_start_month": 4,
+    "fiscal_year_named_by": "start",  # required since Phase 28 (2026-10-31); these cases assume it
 }
 
 

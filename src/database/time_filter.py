@@ -68,6 +68,34 @@ class TimeFilter:
             return year - 1, 12
         return year, month - 1
 
+    SUPPORTED_CALENDARS = ("months",)
+
+    @staticmethod
+    def fiscal_naming(spec: dict) -> Tuple[int, int]:
+        """(fiscal year start month, year offset) for a time dimension (Phase 28, 2026-10-31).
+
+        The offset is 1 when the data product names a fiscal year by the calendar year it ENDS in
+        (FY2026 = April 2025 to March 2026) and 0 when by the year it starts in. A January year is
+        both, so needs no declaration. Any other start month must declare
+        `fiscal_year_named_by` ('start' | 'end'): guessing reads every period a year off with no
+        error. A calendar other than plain months (4-4-5, 52/53 weeks) is refused: its periods
+        are not calendar months. Raises ValueError, which callers report as "not judged"."""
+        cal = str(spec.get("calendar") or "months").lower()
+        if cal not in TimeFilter.SUPPORTED_CALENDARS:
+            raise ValueError(f"the {cal!r} calendar is not supported: its periods are not calendar months")
+        fy_start = int(spec.get("fiscal_year_start_month") or 1)
+        if not 1 <= fy_start <= 12:
+            raise ValueError(f"fiscal_year_start_month must be 1 to 12, got {fy_start}")
+        if fy_start == 1:
+            return 1, 0
+        named = str(spec.get("fiscal_year_named_by") or "").lower()
+        if named not in ("start", "end"):
+            raise ValueError(
+                f"the fiscal year starts in month {fy_start}; declare fiscal_year_named_by "
+                f"('start' or 'end': is FY2026 the year starting or ending in 2026?)"
+            )
+        return fy_start, 1 if named == "end" else 0
+
     @staticmethod
     def _calendar_to_fiscal(cal_year: int, cal_month: int, fy_start: int) -> Tuple[int, int]:
         """Convert calendar year+month to (fiscal_year, fiscal_period).
@@ -102,9 +130,11 @@ class TimeFilter:
     # ── fiscal_year_period: current ─────────────────────────────────────────
 
     @classmethod
-    def _fyp_current(cls, year_col: str, period_col: str, tf: str, today: date, fy_start: int = 1) -> Optional[str]:
+    def _fyp_current(cls, year_col: str, period_col: str, tf: str, today: date, fy_start: int = 1,
+                     fy_offset: int = 0) -> Optional[str]:
         y, m = today.year, today.month
         fy, fp = cls._calendar_to_fiscal(y, m, fy_start)
+        fy += fy_offset  # named by the year it ends in (fiscal_naming)
         fq = cls._quarter_of(fp)
         fqs, fqe = cls._quarter_months(fq)
 
@@ -133,9 +163,11 @@ class TimeFilter:
     # ── fiscal_year_period: previous ────────────────────────────────────────
 
     @classmethod
-    def _fyp_previous(cls, year_col: str, period_col: str, tf: str, today: date, fy_start: int = 1) -> Optional[str]:
+    def _fyp_previous(cls, year_col: str, period_col: str, tf: str, today: date, fy_start: int = 1,
+                      fy_offset: int = 0) -> Optional[str]:
         y, m = today.year, today.month
         fy, fp = cls._calendar_to_fiscal(y, m, fy_start)
+        fy += fy_offset
         fq = cls._quarter_of(fp)
 
         # *-to-date → SAME to-date window, prior year (YoY). Comparing a partial
@@ -152,11 +184,11 @@ class TimeFilter:
 
         # full current period → previous = last equivalent full period (sequential)
         if tf in ("current_quarter", "this_quarter"):
-            return cls._fyp_current(year_col, period_col, "last_quarter", today, fy_start)
+            return cls._fyp_current(year_col, period_col, "last_quarter", today, fy_start, fy_offset)
         if tf in ("current_year", "this_year"):
-            return cls._fyp_current(year_col, period_col, "last_year", today, fy_start)
+            return cls._fyp_current(year_col, period_col, "last_year", today, fy_start, fy_offset)
         if tf in ("current_month", "this_month"):
-            return cls._fyp_current(year_col, period_col, "last_month", today, fy_start)
+            return cls._fyp_current(year_col, period_col, "last_month", today, fy_start, fy_offset)
 
         # last_* → two periods back (in fiscal space)
         if tf == "last_quarter":
@@ -332,6 +364,9 @@ class TimeFilter:
         if not parsed:
             return None
         comparison, ref = parsed
+        cal = str(spec.get("calendar") or "months").lower()
+        if cal not in cls.SUPPORTED_CALENDARS:  # any time dimension, date-keyed included
+            raise ValueError(f"the {cal!r} calendar is not supported: its periods are not calendar months")
         keyed = is_period_keyed(spec)
         fy_start = int(spec.get("fiscal_year_start_month") or 1)
         if ref is None:
@@ -347,6 +382,8 @@ class TimeFilter:
         if spec_type == "date" and not spec.get("column") and spec.get("year_column"):
             spec_type = "fiscal_year_period"
         fy_start = int(spec.get("fiscal_year_start_month") or 1)
+        if spec_type in ("fiscal_year_period", "fiscal_year"):
+            fy_start, fy_offset = cls.fiscal_naming(spec)
 
         if spec_type == "fiscal_year_period":
             year_col = spec.get("year_column", "fiscal_year")
@@ -355,6 +392,7 @@ class TimeFilter:
             )
             fy1, p1 = pc.fiscal_year_period(span.start, fy_start)
             fy2, p2 = pc.fiscal_year_period(span.end, fy_start)
+            fy1, fy2 = fy1 + fy_offset, fy2 + fy_offset
             if fy1 == fy2:
                 return f"{year_col} = {fy1} AND {period_col} BETWEEN {p1} AND {p2}"
             # A span across fiscal years (the last 12 months): one running period key.
@@ -365,7 +403,7 @@ class TimeFilter:
             # Annual data can only answer a comparison of years (a year to date is its year).
             if sp.comparison not in ("ytd_vs_pytd", "year_vs_prev_year"):
                 return None
-            fy = span.start.year if span.start.month >= fy_start else span.start.year - 1
+            fy = (span.start.year if span.start.month >= fy_start else span.start.year - 1) + fy_offset
             return f"{spec.get('year_column', 'fiscal_year')} = {fy}"
         col = spec.get("column") or "transaction_date"
         quoted = f"`{col}`" if dialect == "bigquery" else col
@@ -404,11 +442,12 @@ class TimeFilter:
                 dialect,
                 spec.get("period_column_type", "integer"),
             )
+            _fy_start, _fy_offset = cls.fiscal_naming(spec)
             return cls._fyp_current(
                 spec.get("year_column", "fiscal_year"),
                 period_col,
                 tf, today,
-                fy_start=spec.get("fiscal_year_start_month", 1),
+                fy_start=_fy_start, fy_offset=_fy_offset,
             )
         if spec_type == "fiscal_year":
             return cls._fy_current(spec.get("year_column", "fiscal_year"), tf, today)
@@ -439,11 +478,12 @@ class TimeFilter:
                 dialect,
                 spec.get("period_column_type", "integer"),
             )
+            _fy_start, _fy_offset = cls.fiscal_naming(spec)
             return cls._fyp_previous(
                 spec.get("year_column", "fiscal_year"),
                 period_col,
                 tf, today,
-                fy_start=spec.get("fiscal_year_start_month", 1),
+                fy_start=_fy_start, fy_offset=_fy_offset,
             )
         if spec_type == "fiscal_year":
             return cls._fy_previous(spec.get("year_column", "fiscal_year"), tf, today)
@@ -463,6 +503,31 @@ class TimeFilter:
         non-overlapping axes, not an error.
         """
         return "year" if (spec.get("type") or "date").lower() == "fiscal_year" else "month"
+
+    @staticmethod
+    def _fiscal_to_calendar_key(year_col: str, period_col: str, fy_start: int, fy_offset: int, d: str) -> str:
+        """The calendar YYYY-MM of fiscal (year, period) when the fiscal year starts in month
+        `fy_start` (Phase 28, 2026-10-31). Period p of fiscal year Y falls in calendar month
+        (fy_start - 1 + p - 1) mod 12 + 1 of the year Y starts in, plus one when that wraps.
+        Integer arithmetic only, the same on every dialect. A period outside 1-12 (SAP year-end
+        periods 13-16) gets no label (NULL), as "2026-13" was never a month: the series checker
+        rejects the chart, which is what happens to such periods today (owner rule pending)."""
+        if d == "bigquery":
+            p, y, s_ = f"CAST({period_col} AS INT64)", f"CAST({year_col} AS INT64)", "STRING"
+        elif d in ("sqlserver", "sql_server", "mssql"):
+            p, y, s_ = f"CAST({period_col} AS INT)", f"CAST({year_col} AS INT)", "VARCHAR(4)"
+        else:
+            p, y, s_ = f"CAST({period_col} AS INTEGER)", f"CAST({year_col} AS INTEGER)", "VARCHAR"
+        m0 = f"({fy_start - 1} + {p} - 1)"
+        cal_year = f"({y} - {fy_offset} + CASE WHEN {m0} >= 12 THEN 1 ELSE 0 END)"
+        cal_month = f"(CASE WHEN {m0} >= 12 THEN {m0} - 11 ELSE {m0} + 1 END)"
+        if d == "bigquery":
+            label = f"CONCAT(CAST({cal_year} AS STRING), '-', LPAD(CAST({cal_month} AS STRING), 2, '0'))"
+        elif d in ("sqlserver", "sql_server", "mssql"):
+            label = f"CAST({cal_year} AS VARCHAR(4)) + '-' + RIGHT('0' + CAST({cal_month} AS VARCHAR(2)), 2)"
+        else:
+            label = f"CAST({cal_year} AS VARCHAR) || '-' || LPAD(CAST({cal_month} AS VARCHAR), 2, '0')"
+        return f"(CASE WHEN {p} BETWEEN 1 AND 12 THEN {label} END)"
 
     @classmethod
     def period_key_expr(cls, spec: dict, dialect: str = "bigquery") -> Optional[str]:
@@ -503,6 +568,9 @@ class TimeFilter:
         if spec_type == "fiscal_year_period":
             year_col = spec.get("year_column") or "fiscal_year"
             period_col = spec.get("period_column") or "fiscal_period"
+            fy_start, fy_offset = cls.fiscal_naming(spec)
+            if fy_start != 1:
+                return cls._fiscal_to_calendar_key(year_col, period_col, fy_start, fy_offset, d)
             if d == "bigquery":
                 p = f"LPAD(CAST(CAST({period_col} AS INT64) AS STRING), 2, '0')"
                 return f"CONCAT(CAST({year_col} AS STRING), '-', {p})"

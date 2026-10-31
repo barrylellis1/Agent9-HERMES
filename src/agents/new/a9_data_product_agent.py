@@ -5436,7 +5436,10 @@ class A9_Data_Product_Agent(DataProductProtocol):
         raw_sql = getattr(kpi_definition, "calculation", None) or getattr(kpi_definition, "sql_query", None) or ""
         dialect = dialect or self._dialect_for(dp_id)
         spec = time_spec or self._resolve_time_spec(dp_id, kpi_definition)
-        period_expr = TimeFilter.period_key_expr(spec, dialect)
+        try:
+            period_expr = TimeFilter.period_key_expr(spec, dialect)
+        except ValueError as e:
+            return {"success": False, "sql": "", "kpi_name": kpi_name, "message": str(e), "error": str(e)}
         sql = self._build_top_n_share_series_sql(raw_sql, top_n[0], top_n[1], period_expr, dialect, num_months)
         if not sql:
             return {"success": False, "sql": "", "kpi_name": kpi_name, "message": "Could not build the top-N share series"}
@@ -5576,7 +5579,10 @@ class A9_Data_Product_Agent(DataProductProtocol):
             spec = {"type": "date", "column": explicit_date_col}
         else:
             spec = time_spec or self._resolve_time_spec(dp_id, kpi_definition)
-        period_expr = TimeFilter.period_key_expr(spec, dialect)
+        try:
+            period_expr = TimeFilter.period_key_expr(spec, dialect)
+        except ValueError as e:  # an undeclared fiscal year name, an unsupported calendar
+            return {"success": False, "sql": "", "kpi_name": kpi_name, "message": str(e), "error": str(e)}
         if not period_expr:
             return {"success": False, "sql": "", "kpi_name": kpi_name, "message": "No usable time dimension for this KPI's data product"}
         # Columns carrying a recency filter in the KPI's stored SQL, which the LIMIT / TOP
