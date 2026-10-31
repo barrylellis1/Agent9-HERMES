@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 
 # Import service layer
-from src.llm_services.claude_service import ClaudeService, create_claude_service, get_claude_model_for_task, ClaudeTaskType
+from src.llm_services.claude_service import ClaudeService, create_claude_service, get_claude_model_for_task, ClaudeTaskType, CALL_EFFORTS
 from src.llm_services.response_parsing import parse_llm_json
 from src.llm_services.openai_service import (
     OpenAIService, create_openai_service, TaskType, get_model_for_task
@@ -61,7 +61,11 @@ class A9_LLM_Request(A9AgentBaseRequest):
     tool_name: Optional[str] = Field(None, description="Tool name for the forced tool_choice call")
     reasoning_effort: Optional[str] = Field(
         None,
-        description="OpenAI gpt-5.x/gpt-6 reasoning budget: none|low|medium|high|xhigh. Ignored by Anthropic.",
+        description=(
+            "How hard the model thinks before answering. low|medium|high work on both providers "
+            "(Anthropic output_config.effort, OpenAI reasoning_effort); OpenAI also takes none|xhigh, "
+            "which Anthropic ignores. None = the provider default."
+        ),
     )
     task_type: Optional[str] = Field(
         None,
@@ -97,6 +101,9 @@ class A9_LLM_AnalysisRequest(A9AgentBaseRequest):
     tool_name: Optional[str] = Field(None, description="Tool name for the forced tool_choice call")
     task_type: Optional[str] = Field(
         None, description="Provider-neutral task type (see model_routing.TaskType)."
+    )
+    reasoning_effort: Optional[str] = Field(
+        None, description="Passed through to A9_LLM_Request.reasoning_effort."
     )
 
 
@@ -438,6 +445,11 @@ class A9_LLM_Service_Agent:
                 try:
                     # Phase 15 Stage A: forced tool-use structured output when a
                     # response_schema is provided; otherwise unchanged free-text path.
+                    # Effort is only passed when a caller set it, so services that
+                    # predate the parameter keep working.
+                    _effort_kw = {}
+                    if getattr(request, "reasoning_effort", None) in CALL_EFFORTS:
+                        _effort_kw["effort"] = request.reasoning_effort
                     if getattr(request, "response_schema", None):
                         result = await self.llm_service.generate_structured(
                             prompt=request.prompt,
@@ -447,6 +459,7 @@ class A9_LLM_Service_Agent:
                             max_tokens=max_tokens,
                             temperature=temperature,
                             model=model,
+                            **_effort_kw,
                         )
                     else:
                         # Use the service layer to generate the response - await the coroutine
@@ -456,6 +469,7 @@ class A9_LLM_Service_Agent:
                             max_tokens=max_tokens,
                             temperature=temperature,
                             model=model,
+                            **_effort_kw,
                         )
 
                     # Extract response text and usage from service result
@@ -737,6 +751,7 @@ class A9_LLM_Service_Agent:
                 # analyze(), so dropping it here would silently fall back to the
                 # service's configured default model for every one of them.
                 task_type=getattr(request, "task_type", None),
+                reasoning_effort=getattr(request, "reasoning_effort", None),
             )
 
             # Process using the standard generate method

@@ -341,3 +341,25 @@ judgment.
 `_parse_synthesis_reply` already reads every object and keeps the last with a synthesis; only the
 shared parser's ERROR line is noise. Tests: `tests/unit/test_ma_reuse_and_summary_length.py`;
 `tests/unit/conftest.py` clears the store around every test.
+
+## Signals and summary think at low effort (2026-10-31, owner)
+
+`_MARKET_EFFORT = "low"` is set as `reasoning_effort` on the signal request (`_llm_generate_signals`)
+and the summary request (`_synthesize`); it reaches Anthropic's `output_config.effort` for those two
+calls only (see the LLM Service card, "Per-call effort"). Company research (`_llm_json_call`) keeps
+the default.
+
+Measured live (claude-sonnet-5, no reuse, three cases x three runs each — Gross Margin % problem,
+Gross Margin % opportunity, Net Revenue problem):
+
+| | Default (high) | Low |
+|---|---|---|
+| Both calls together | 17.8 s average, 12.9-27.3 s | 9.8 s average, 9.1-11.7 s |
+| Output tokens per call | 485-1,455 | 304-528 |
+| Summary length | 98-117 words | 93-109 words |
+
+The conflict judgment already varies between runs at the default: the same case flipped once in
+nine runs at high and twice in nine at low; nine runs per setting cannot tell those apart. The low-effort
+flips read as reasoned (e.g. a North American tailwind judged not relevant to a European decline),
+not careless. Watch the conflict rate in use; raise `_MARKET_EFFORT` to `"medium"` if it drifts.
+Tests: `tests/unit/test_per_call_effort.py`.

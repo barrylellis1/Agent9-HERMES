@@ -88,6 +88,10 @@ def _citation_quality_outcome(
 # agent, so env-var overrides work and the agent is not pinned to one vendor.
 # ---------------------------------------------------------------------------
 _SYNTHESIS_TASK = A9TaskType.SYNTHESIS
+# The signals and the summary think at low effort (owner, 2026-10-31). At the default (high)
+# most of each call's ~1,000 output tokens were thinking, not the answer: four short signals
+# and one paragraph do not need it. Company research (_llm_json_call) keeps the default.
+_MARKET_EFFORT = "low"
 
 
 def _synthesis_instruction(request: "MarketAnalysisRequest") -> str:
@@ -885,6 +889,7 @@ class A9_Market_Analysis_Agent:
                 task_type=_SYNTHESIS_TASK,
                 operation="generate",
                 temperature=0.3,
+                reasoning_effort=_MARKET_EFFORT,
             )
 
             if self.orchestrator is not None:
@@ -1061,6 +1066,7 @@ class A9_Market_Analysis_Agent:
                 analysis_type="custom",
                 context="",
                 task_type=_SYNTHESIS_TASK,
+                reasoning_effort=_MARKET_EFFORT,
             )
 
             # Route through orchestrator when available, otherwise call directly

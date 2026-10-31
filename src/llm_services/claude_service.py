@@ -169,12 +169,18 @@ def get_model_capabilities(model_id: str) -> ModelCapabilities:
     return MODEL_CAPABILITIES[best]
 
 
+# Effort levels a call site may ask for. Common to Anthropic's output_config.effort and
+# OpenAI's reasoning_effort, so one request field works on either provider.
+CALL_EFFORTS = ("low", "medium", "high")
+
+
 def build_messages_kwargs(
     model: str,
     max_tokens: int,
     temperature: Optional[float],
     system: str,
     messages: List[Dict[str, Any]],
+    effort: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Build kwargs for client.messages.create() that are valid for the target model.
@@ -184,6 +190,8 @@ def build_messages_kwargs(
       (unset = API default "high"). Sent via extra_body for SDK-version tolerance.
       (Deliberately NOT named CLAUDE_EFFORT — the Claude Code harness injects that
       name into its shell sessions, which would silently leak into local test runs.)
+      A per-call `effort` (low|medium|high) wins over the env var, so one call site can
+      think less without changing every other call (Market Analysis, 2026-10-31).
     - For Fable 5, opts into server-side refusal fallbacks so classifier false-positives
       are re-served by FABLE_FALLBACK_MODEL instead of failing the request.
     - Clamps max_tokens to the model's output ceiling (warns when clamping).
@@ -208,7 +216,10 @@ def build_messages_kwargs(
         kwargs["temperature"] = temperature
 
     extra_body: Dict[str, Any] = {}
-    effort = os.environ.get("A9_LLM_EFFORT")
+    if effort is not None and effort not in CALL_EFFORTS:
+        logger.warning(f"effort must be one of {CALL_EFFORTS}, got {effort!r}; ignoring it")
+        effort = None
+    effort = effort or os.environ.get("A9_LLM_EFFORT")
     if effort and caps.supports_effort:
         extra_body["output_config"] = {"effort": effort}
     if caps.server_fallbacks:
@@ -384,6 +395,7 @@ class ClaudeService:
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         model: Optional[str] = None,
+        effort: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a response from Claude using the Messages API.
@@ -394,6 +406,7 @@ class ClaudeService:
             max_tokens:    Override max tokens.
             temperature:   Override temperature.
             model:         Override model (e.g. 'claude-haiku-4-5-20251001' for Stage 1 calls).
+            effort:        low|medium|high for this call only (see build_messages_kwargs).
         """
         try:
             _system = system_prompt or self.get_system_prompt()
@@ -424,6 +437,7 @@ class ClaudeService:
                     temperature=_temperature,
                     system=_system,
                     messages=[{"role": "user", "content": prompt}],
+                    effort=effort,
                 )
             ) as _stream:
                 message = await _stream.get_final_message()
@@ -487,6 +501,7 @@ class ClaudeService:
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         model: Optional[str] = None,
+        effort: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a schema-guaranteed JSON response via forced Anthropic tool-use
@@ -516,6 +531,7 @@ class ClaudeService:
                 temperature=_temperature,
                 system=_system,
                 messages=[{"role": "user", "content": prompt}],
+                effort=effort,
             )
             kwargs["tools"] = [{
                 "name": tool_name,
