@@ -30,9 +30,20 @@ class Warehouse:
         self.last_month_by_table = last_month_by_table or {}  # a quieter KPI's own table
         self.sql = []
 
-    def generate_period_sql(self, *args, **kwargs):
-        # The Data Product Agent builds the period SQL (2026-10-31); the real builder runs here.
-        return A9_Data_Product_Agent.generate_period_sql(self, *args, **kwargs)
+    # The Data Product Agent builds the scan's SQL (2026-10-31); its real builders run here,
+    # on this warehouse's time dimension.
+    logger = logging.getLogger("t")
+    spec = FYP
+    generate_period_sql = A9_Data_Product_Agent.generate_period_sql
+    generate_monthly_series_sql = A9_Data_Product_Agent.generate_monthly_series_sql
+    _bq_monthly_series_for_kpi = A9_Data_Product_Agent._bq_monthly_series_for_kpi
+    _build_bq_monthly_series_sql = A9_Data_Product_Agent._build_bq_monthly_series_sql
+
+    def _resolve_source_system(self, data_product_id):
+        return "bigquery"
+
+    def _resolve_time_spec(self, data_product_id, kpi_definition=None):
+        return self.spec
 
     async def execute_sql(self, sql, parameters=None, principal_context=None, data_product_id=None):
         self.sql.append(sql)
@@ -51,6 +62,7 @@ def _sa(warehouse, spec=FYP):
     sa = SA.__new__(SA)
     sa.logger = logging.getLogger("t")
     sa.data_product_agent = warehouse
+    warehouse.spec = spec
     sa._last_sql_cache = {}
     sa._resolve_source_system = lambda dp: "bigquery"
     sa.kpi_registry = {"hess:Production Revenue": _kpi()}  # the product's KPIs, for its actuals cut-off

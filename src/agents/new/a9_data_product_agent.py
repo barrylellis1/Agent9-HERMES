@@ -5345,7 +5345,54 @@ class A9_Data_Product_Agent(DataProductProtocol):
             return {"success": False, "sql": "", "error": "no period filter on the KPI's time dimension"}
         return {"success": True, "sql": TimeFilter.append_condition(raw_sql, cond)}
 
-    def generate_monthly_series_sql(self, kpi_definition: Any, num_months: int = 9) -> Dict[str, Any]:
+    def generate_monthly_series_sql(
+        self,
+        kpi_definition: Any,
+        num_months: int = 9,
+        time_spec: Optional[dict] = None,
+        dialect: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """The monthly series SQL for a warehouse KPI. `dialect` "sqlserver" / "snowflake" (with
+        the KPI's `time_spec`, as the caller resolved it) takes the fiscal-period builders moved
+        here from the scan on 2026-10-31; otherwise the BigQuery path documented below."""
+        if dialect in ("sqlserver", "snowflake"):
+            return self._fiscal_monthly_series_sql(kpi_definition, num_months, time_spec, dialect)
+        return self._bq_monthly_series_for_kpi(kpi_definition, num_months)
+
+    def _fiscal_monthly_series_sql(
+        self, kpi_definition: Any, num_months: int, time_spec: Optional[dict], dialect: str,
+    ) -> Dict[str, Any]:
+        """SQL Server / Snowflake series, exactly as the scan built it until 2026-10-31: grouped on
+        the fiscal year and period columns when that is the declared dimension, else on the
+        KPI's date column (metadata.date_column, default transaction_date)."""
+        kpi_name = getattr(kpi_definition, "name", None) or getattr(kpi_definition, "id", "unknown")
+        raw_sql = getattr(kpi_definition, "calculation", None) or getattr(kpi_definition, "sql_query", None) or ""
+        if not raw_sql:
+            return {"success": False, "sql": "", "kpi_name": kpi_name, "message": "No stored SQL for this KPI"}
+        ts = time_spec or self._resolve_time_spec(getattr(kpi_definition, "data_product_id", None), kpi_definition)
+        sql = ""
+        if ts.get("type") == "fiscal_year_period":
+            builder = self._build_ss_monthly_series_sql if dialect == "sqlserver" else self._build_sf_monthly_series_sql
+            sql = builder(
+                raw_sql,
+                year_col=ts.get("year_column", "fiscal_year"),
+                period_col=ts.get("period_column", "fiscal_period"),
+                num_months=num_months,
+            )
+        if not sql:
+            meta = getattr(kpi_definition, "metadata", None)
+            date_col = (meta or {}).get("date_column", "transaction_date") if isinstance(meta, dict) else "transaction_date"
+            sql = self._build_date_monthly_series_sql(raw_sql, date_col=date_col, num_months=num_months)
+        if not sql:
+            return {"success": False, "sql": "", "kpi_name": kpi_name, "message": "Could not parse base SQL for monthly series"}
+        return {"success": True, "sql": sql, "kpi_name": kpi_name, "source_system": dialect}
+
+    def generate_monthly_series_from_sql(self, base_sql: str, date_col: str = "transaction_date", num_months: int = 9) -> Dict[str, Any]:
+        """A monthly series around SQL this agent already generated (the scan's DuckDB path)."""
+        sql = self._build_date_monthly_series_sql(base_sql, date_col=date_col, num_months=num_months)
+        return {"success": bool(sql), "sql": sql}
+
+    def _bq_monthly_series_for_kpi(self, kpi_definition: Any, num_months: int = 9) -> Dict[str, Any]:
         """Phase 20 cleanup (2026-08-19) — monthly time-series SQL generation
         belongs here, not in a calling agent. Found live: DA's original
         implementation built this SQL directly via regex on the KPI's raw
@@ -5433,6 +5480,188 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.warning(f"generate_monthly_series_sql failed for '{kpi_name}': {e}")
             return {"success": False, "sql": "", "kpi_name": kpi_name, "message": str(e), "error": str(e)}
 
+    # The three builders below moved here verbatim from the scan on 2026-10-31 (SQL is
+    # generated in this agent only). _build_date_monthly_series_sql was the scan's
+    # _bq_monthly_series_sql: a date-column series on any dialect with LIMIT.
+
+    def _build_date_monthly_series_sql(self, base_sql: str, date_col: str = "transaction_date", num_months: int = 9) -> str:
+        """Generate SQL returning the most recent N monthly aggregates for a KPI.
+
+        Approach: no hard-coded date window. Let the data determine which months
+        exist by using ORDER BY period DESC LIMIT N, then wrap to return ascending.
+        This works regardless of what calendar period the dataset covers.
+
+        Non-date WHERE conditions (version, account_type, etc.) are preserved.
+        Any existing date range filter is stripped — the subquery LIMIT handles recency.
+        """
+        import re as _re
+
+        # Match: SELECT <agg> AS <alias> FROM <table_ref> [rest]
+        # table_ref may be backtick-quoted (`project.dataset.view`),
+        # double-quoted ("ViewName"), or unquoted (ViewName).
+        match = _re.match(
+            r'SELECT\s+(.+?)\s+AS\s+\w+\s+FROM\s+'
+            r'((?:`[^`]+`|"[^"]+"|\w+)(?:\.(?:`[^`]+`|"[^"]+"|\w+))*)'
+            r'(.*)',
+            base_sql,
+            _re.IGNORECASE | _re.DOTALL,
+        )
+        if not match:
+            self.logger.warning(f"[Monthly] Could not parse base SQL for monthly series: {base_sql[:200]}")
+            return ""
+
+        agg_expr = match.group(1).strip()
+        table_ref = match.group(2).strip()
+        rest = match.group(3).strip()
+
+        # If DPA injected a time_dim JOIN (DuckDB pattern), extract just the WHERE
+        # portion and drop the JOIN — BigQuery resolves the view via default_dataset.
+        where_match = _re.search(r'\bWHERE\b(.*)', rest, _re.IGNORECASE | _re.DOTALL)
+        where_clause = ("WHERE" + where_match.group(1)) if where_match else rest
+
+        # Normalise date_col: strip surrounding double-quotes
+        bare_date_col = date_col.strip('"')
+
+        # Strip ALL date range conditions — recency is handled by LIMIT, not a WHERE filter
+        if where_clause.upper().startswith("WHERE"):
+            existing_conditions = where_clause[5:].strip()
+            date_col_pattern = rf'"?{_re.escape(bare_date_col)}"?'
+            cleaned = _re.sub(
+                rf'(?:\bAND\s+)?{date_col_pattern}\s+'
+                rf'(?:BETWEEN\s+[\'"\d\-T]+\s+AND\s+[\'"\d\-T]+|[<>]=?\s*[\'"\d\-T]+)',
+                '',
+                existing_conditions,
+                flags=_re.IGNORECASE,
+            ).strip().lstrip(',').strip()
+            cleaned = _re.sub(r'^AND\s+', '', cleaned, flags=_re.IGNORECASE).strip()
+            non_date_where = f"WHERE {cleaned}" if cleaned else ""
+        else:
+            non_date_where = ""
+
+        # transaction_date is stored as STRING (YYYY-MM-DD) in BigQuery.
+        # LEFT(..., 7) extracts YYYY-MM from any ISO date string.
+        # Outer query re-orders to ascending so the chart reads left→right chronologically.
+        monthly_sql = (
+            f"SELECT period, value FROM ("
+            f"SELECT LEFT({bare_date_col}, 7) AS period, "
+            f"{agg_expr} AS value "
+            f"FROM {table_ref} "
+            f"{non_date_where} "
+            f"GROUP BY period "
+            f"ORDER BY period DESC "
+            f"LIMIT {num_months}"
+            f") ORDER BY period ASC"
+        )
+        return monthly_sql
+
+    def _build_ss_monthly_series_sql(
+        self,
+        base_sql: str,
+        year_col: str = "fiscal_year",
+        period_col: str = "fiscal_period",
+        num_months: int = 9,
+    ) -> str:
+        """T-SQL monthly series using fiscal_year + fiscal_period integer columns.
+
+        Uses TOP n subquery so no date-window filter is needed — the most recent
+        N periods are returned and then reordered ascending for the sparkline.
+        Non-date WHERE conditions (account_type, version, etc.) are preserved.
+        Returns period as 'YYYY-PP' (zero-padded, e.g. '2026-03').
+        """
+        import re as _re
+
+        match = _re.match(
+            r'SELECT\s+(.+?)\s+AS\s+\w+\s+FROM\s+'
+            r'((?:\[[^\]]+\]|\w+)(?:\.(?:\[[^\]]+\]|\w+))*)'
+            r'(.*)',
+            base_sql,
+            _re.IGNORECASE | _re.DOTALL,
+        )
+        if not match:
+            self.logger.warning(f"[Monthly-SS] Could not parse base SQL: {base_sql[:200]}")
+            return ""
+
+        agg_expr = match.group(1).strip()
+        table_ref = match.group(2).strip()
+        rest = match.group(3).strip()
+
+        where_match = _re.search(r'\bWHERE\b(.*)', rest, _re.IGNORECASE | _re.DOTALL)
+        non_date_where = ("WHERE " + where_match.group(1).strip()) if where_match else ""
+
+        y = f"[{year_col.strip('[]')}]"
+        p = f"[{period_col.strip('[]')}]"
+        # The period is read as a NUMBER before it is padded. Hess stores it as text
+        # ('001'..'012'); cutting that to two characters gave '00' for every month, so
+        # the series came back as '2026-00' nine times, no month could be told from
+        # another, and no baseline could be recorded at approval (found 2026-10-13).
+        period_expr = (
+            f"CAST({y} AS VARCHAR(4)) + '-' + "
+            f"RIGHT('0' + CAST(TRY_CAST({p} AS INT) AS VARCHAR(2)), 2)"
+        )
+
+        return (
+            f"SELECT period, value FROM ("
+            f"SELECT TOP {num_months} "
+            f"{period_expr} AS period, "
+            f"{agg_expr} AS value "
+            f"FROM {table_ref} "
+            f"{non_date_where} "
+            f"GROUP BY {y}, {p} "
+            f"ORDER BY {y} DESC, {p} DESC"
+            f") t ORDER BY period ASC"
+        )
+
+    def _build_sf_monthly_series_sql(
+        self,
+        base_sql: str,
+        year_col: str = "fiscal_year",
+        period_col: str = "fiscal_period",
+        num_months: int = 9,
+    ) -> str:
+        """Snowflake monthly series using fiscal_year + fiscal_period integer columns.
+
+        Uses LIMIT n subquery (Snowflake syntax). String concatenation via ||.
+        Returns period as 'YYYY-PP' (zero-padded, e.g. '2026-03').
+        """
+        import re as _re
+
+        match = _re.match(
+            r'SELECT\s+(.+?)\s+AS\s+\w+\s+FROM\s+'
+            r'((?:`[^`]+`|"[^"]+"|\w+)(?:\.(?:`[^`]+`|"[^"]+"|\w+))*)'
+            r'(.*)',
+            base_sql,
+            _re.IGNORECASE | _re.DOTALL,
+        )
+        if not match:
+            self.logger.warning(f"[Monthly-SF] Could not parse base SQL: {base_sql[:200]}")
+            return ""
+
+        agg_expr = match.group(1).strip()
+        table_ref = match.group(2).strip()
+        rest = match.group(3).strip()
+
+        where_match = _re.search(r'\bWHERE\b(.*)', rest, _re.IGNORECASE | _re.DOTALL)
+        non_date_where = ("WHERE " + where_match.group(1).strip()) if where_match else ""
+
+        # Read the period as a number before padding: LPAD(…, 2) CUTS a longer text
+        # value, so a period stored as '007' would become '00' (the SQL Server fault).
+        period_expr = (
+            f"CAST({year_col} AS VARCHAR) || '-' || "
+            f"LPAD(CAST(TRY_TO_NUMBER(CAST({period_col} AS VARCHAR)) AS VARCHAR), 2, '0')"
+        )
+
+        return (
+            f"SELECT period, value FROM ("
+            f"SELECT {period_expr} AS period, "
+            f"{agg_expr} AS value "
+            f"FROM {table_ref} "
+            f"{non_date_where} "
+            f"GROUP BY {year_col}, {period_col} "
+            f"ORDER BY {year_col} DESC, {period_col} DESC "
+            f"LIMIT {num_months}"
+            f") AS t ORDER BY period ASC"
+        )
+
     def _build_bq_monthly_series_sql(
         self,
         base_sql: str,
@@ -5441,11 +5670,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
         strip_cols: Optional[List[str]] = None,
     ) -> str:
         """Generate SQL returning the most recent N monthly aggregates for a
-        KPI. Same technique as A9_Situation_Awareness_Agent's identically-named
-        (module-private) method — that duplicate is pre-existing, separately
-        tracked, deliberately untouched in this pass (see
-        generate_monthly_series_sql's docstring above). This IS the
-        DPA-owned copy going forward for any new caller.
+        KPI. The scan's own copy (its `_bq_monthly_series_sql`) moved here on
+        2026-10-31 as `_build_date_monthly_series_sql`; this canonical-period-key
+        builder is the BigQuery path.
 
         No hard-coded date window — ORDER BY period DESC LIMIT N, then wrap
         to ascending, so it works regardless of what calendar period the

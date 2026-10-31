@@ -246,9 +246,9 @@ class SituationDetectionResponse(BaseResponse):
 - Situations sorted: severity desc, then `abs(percent_change)` desc within each severity bucket.
 
 ## Monthly Series for Trend Visualization (Apr 2026)
-- `_bq_monthly_series_sql(base_sql, date_col, num_months=9)` — generates BigQuery/Snowflake/DuckDB SQL returning monthly aggregates for the last N months via `LEFT(date_col, 7)` + `LIMIT n`
-- `_ss_monthly_series_sql(base_sql, year_col, period_col, num_months=9)` — T-SQL equivalent: `TOP n` subquery grouping on fiscal_year + fiscal_period integer columns; period returned as `YYYY-PP`; used for SQL Server (Hess) KPIs when `TimeDimensionSpec.type == "fiscal_year_period"`
-- `_sf_monthly_series_sql(base_sql, year_col, period_col, num_months=9)` — Snowflake equivalent: `LIMIT n` subquery, `||` concatenation, bare column names; used for Snowflake (Apex Lubricants) KPIs when `TimeDimensionSpec.type == "fiscal_year_period"`
+- (Moved to the Data Product Agent 2026-10-31 as `_build_date_monthly_series_sql`) `_bq_monthly_series_sql(base_sql, date_col, num_months=9)` — generated BigQuery/Snowflake/DuckDB SQL returning monthly aggregates for the last N months via `LEFT(date_col, 7)` + `LIMIT n`
+- (Moved to the Data Product Agent 2026-10-31 as `_build_ss_monthly_series_sql`) `_ss_monthly_series_sql(base_sql, year_col, period_col, num_months=9)` — T-SQL equivalent: `TOP n` subquery grouping on fiscal_year + fiscal_period integer columns; period returned as `YYYY-PP`; used for SQL Server (Hess) KPIs when `TimeDimensionSpec.type == "fiscal_year_period"`
+- (Moved to the Data Product Agent 2026-10-31 as `_build_sf_monthly_series_sql`) `_sf_monthly_series_sql(base_sql, year_col, period_col, num_months=9)` — Snowflake equivalent: `LIMIT n` subquery, `||` concatenation, bare column names; used for Snowflake (Apex Lubricants) KPIs when `TimeDimensionSpec.type == "fiscal_year_period"`
 - `_resolve_time_spec_sa(data_product_id)` — reads `TimeDimensionSpec` dict from the data product registry; used to determine year/period column names for the SS monthly builder
 - Monthly series query runs after current + comparison queries in `_get_kpi_value()` for BQ, SF, and SS KPIs
 - Results stored as `KPIValue.monthly_values: Optional[List[Dict[str, Any]]]` — each entry: `{period: str, value: float}`
@@ -920,6 +920,8 @@ This agent no longer builds a warehouse KPI's period SQL: `_period_sql` asks
 `A9_Data_Product_Agent.generate_period_sql` for the current and comparison readings, and
 `_fetch_plan_value` uses `A9_Data_Product_Agent.derive_plan_sql` (`_derive_plan_sql` deleted). The
 scan still passes the KPI's time dimension and warehouse type it resolved. The SQL text is unchanged
-(verified: same 146 queries across Lubricants, Apex and Hess, identical results). Still here, to move
-next: the monthly-series builders `_bq_monthly_series_sql` / `_ss_monthly_series_sql` /
-`_sf_monthly_series_sql`.
+(verified: same 146 queries across Lubricants, Apex and Hess, identical results). Step 2 (same day): the monthly-series builders moved too —
+`_native_monthly_series_sql` and `_series_from_sql` ask `generate_monthly_series_sql` /
+`generate_monthly_series_from_sql`. This agent contains no SQL (guarded by
+`tests/unit/test_dpa_period_sql.py`). It still resolves each KPI's time dimension and warehouse
+type and passes them in; moving that lookup is a later step.

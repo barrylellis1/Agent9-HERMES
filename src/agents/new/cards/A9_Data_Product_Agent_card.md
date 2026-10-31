@@ -9,6 +9,8 @@ The `A9_Data_Product_Agent` is responsible for contract-driven SQL orchestration
 - Query execution:
   - `generate_sql_for_kpi(kpi_definition, timeframe, filters, topn, breakdown, override_group_by) -> Dict`
   - `generate_period_sql(kpi_definition, period_token, previous=False, time_spec=None, dialect=None) -> Dict` — a warehouse KPI's own SQL filtered on its time dimension for one period (2026-10-31; the scan's period reads)
+  - `generate_monthly_series_sql(kpi_definition, num_months=9, time_spec=None, dialect=None) -> Dict` — a warehouse KPI's monthly series: BigQuery on the canonical period key; `dialect="sqlserver"|"snowflake"` on the fiscal year + period columns (else the date column) (2026-10-31)
+  - `generate_monthly_series_from_sql(base_sql, date_col, num_months) -> Dict` — a series around SQL this agent already generated (the scan's DuckDB path)
   - `derive_plan_sql(sql_query, plan_version_value) -> Optional[str]` (static) — the Budget/plan variant of a KPI's actuals SQL (2026-10-31; the scan's plan readings and Deep Analysis's budget pass)
   - `execute_sql(sql, parameters=None, principal_context=None, data_product_id=None) -> Dict`  — routes to BigQuery, SQL Server (bracket-quoted T-SQL detection), Snowflake, or DuckDB. **Infra B3 (Jul 2026):** when principal_context carries a client_id AND data_product_id is given, DGA `validate_data_access` gates execution before routing — cross-client access returns `success: False` with an "Access denied by Data Governance" message; a scoped principal with `data_governance_agent=None` is denied fail-closed.
   - `create_view(view_name, sql_query, metadata=None) -> Dict` — generic; takes a SQL string directly, no contract file involved. (`register_tables_from_contract`/`create_view_from_contract`, the YAML-contract-file variants, were **deleted Phase 16 step 5, Aug 2026** — confirmed zero callers anywhere; see the dated entry below.)
@@ -487,3 +489,16 @@ Verified live: full scans of Lubricants (BigQuery), Apex (Snowflake) and Hess (S
 after sent the same 146 queries, character for character (81 period reads, 29 plan reads, 65 monthly
 series), and returned identical results. Tests: `tests/unit/test_dpa_period_sql.py` (includes a guard
 that the scan and Deep Analysis no longer contain this SQL).
+
+## Monthly series for SQL Server and Snowflake moved here too (2026-10-31, step 2)
+
+The scan's three series builders moved here verbatim: `_bq_monthly_series_sql` →
+`_build_date_monthly_series_sql` (date-column series, any dialect, LIMIT), `_ss_monthly_series_sql` →
+`_build_ss_monthly_series_sql` (T-SQL TOP n, fiscal year + period, the Hess text-period fix kept),
+`_sf_monthly_series_sql` → `_build_sf_monthly_series_sql`. `generate_monthly_series_sql` takes
+`time_spec` + `dialect` from the scan and picks between them with the scan's old rules; without a
+dialect it is the unchanged BigQuery path (Deep Analysis and Value Assurance call it that way).
+Moved, not rebuilt: rebuilding the SQL Server / Snowflake series on `TimeFilter.period_key_expr` is a
+separate step. Verified live: the same 146 scan queries before and after (25 SQL Server and 17
+Snowflake series among them), identical results. The scan now contains no SQL; guarded by
+`tests/unit/test_dpa_period_sql.py::test_the_scan_contains_no_sql_at_all`.

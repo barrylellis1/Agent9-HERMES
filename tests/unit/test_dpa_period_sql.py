@@ -70,3 +70,42 @@ def test_the_scan_and_deep_analysis_no_longer_build_this_sql():
     for needle in ("append_condition(", "current_condition(", "previous_condition(", "def _derive_plan_sql"):
         assert needle not in sa_src, needle
     assert "def _derive_budget_sql" not in da_src
+
+
+# ── Step 2 (2026-10-31): the monthly-series builders moved too ──
+
+def test_the_scan_contains_no_sql_at_all():
+    src = inspect.getsource(sa_mod)
+    for needle in ("def _bq_monthly_series_sql", "def _ss_monthly_series_sql", "def _sf_monthly_series_sql",
+                   "SELECT ", "GROUP BY", "ORDER BY"):
+        assert needle not in src, needle
+
+
+def _series_dpa(spec):
+    import logging
+    agent = DPA.__new__(DPA)
+    agent.logger = logging.getLogger("t")
+    agent._resolve_time_spec = lambda dp, kpi=None: spec
+    return agent
+
+
+SF_RAW = "SELECT SUM(amount) AS value FROM STAR_VIEW WHERE account_type = 'Revenue' AND version = 'Actual'"
+SS_RAW = "SELECT SUM([amount]) AS value FROM [dbo].[HessView] WHERE [version] = 'Actual'"
+
+
+def test_snowflake_and_sql_server_series_use_the_fiscal_period_builders():
+    sf = _series_dpa(FYP).generate_monthly_series_sql(_kpi(SF_RAW), num_months=9, time_spec=FYP, dialect="snowflake")
+    ss = _series_dpa(FYP).generate_monthly_series_sql(_kpi(SS_RAW), num_months=9, time_spec=FYP, dialect="sqlserver")
+    assert sf["success"] and sf["sql"] == _series_dpa(FYP)._build_sf_monthly_series_sql(SF_RAW, num_months=9)
+    assert ss["success"] and ss["sql"] == _series_dpa(FYP)._build_ss_monthly_series_sql(SS_RAW, num_months=9)
+
+
+def test_a_date_keyed_warehouse_series_groups_on_the_date_column():
+    spec = {"type": "date", "column": "transaction_date"}
+    out = _series_dpa(spec).generate_monthly_series_sql(_kpi(SF_RAW), num_months=9, time_spec=spec, dialect="snowflake")
+    assert out["sql"] == _series_dpa(spec)._build_date_monthly_series_sql(SF_RAW, date_col="transaction_date", num_months=9)
+
+
+def test_a_series_around_generated_sql():
+    out = _series_dpa(FYP).generate_monthly_series_from_sql(SF_RAW, date_col="transaction_date", num_months=9)
+    assert out["success"] and "LIMIT 9" in out["sql"]
