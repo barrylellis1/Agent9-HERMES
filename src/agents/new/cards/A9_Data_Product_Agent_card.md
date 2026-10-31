@@ -8,6 +8,8 @@ The `A9_Data_Product_Agent` is responsible for contract-driven SQL orchestration
 ## Protocol Entrypoints
 - Query execution:
   - `generate_sql_for_kpi(kpi_definition, timeframe, filters, topn, breakdown, override_group_by) -> Dict`
+  - `generate_period_sql(kpi_definition, period_token, previous=False, time_spec=None, dialect=None) -> Dict` — a warehouse KPI's own SQL filtered on its time dimension for one period (2026-10-31; the scan's period reads)
+  - `derive_plan_sql(sql_query, plan_version_value) -> Optional[str]` (static) — the Budget/plan variant of a KPI's actuals SQL (2026-10-31; the scan's plan readings and Deep Analysis's budget pass)
   - `execute_sql(sql, parameters=None, principal_context=None, data_product_id=None) -> Dict`  — routes to BigQuery, SQL Server (bracket-quoted T-SQL detection), Snowflake, or DuckDB. **Infra B3 (Jul 2026):** when principal_context carries a client_id AND data_product_id is given, DGA `validate_data_access` gates execution before routing — cross-client access returns `success: False` with an "Access denied by Data Governance" message; a scoped principal with `data_governance_agent=None` is denied fail-closed.
   - `create_view(view_name, sql_query, metadata=None) -> Dict` — generic; takes a SQL string directly, no contract file involved. (`register_tables_from_contract`/`create_view_from_contract`, the YAML-contract-file variants, were **deleted Phase 16 step 5, Aug 2026** — confirmed zero callers anywhere; see the dated entry below.)
 - Data factory onboarding:
@@ -466,3 +468,22 @@ connecting, and queries in between failed with "Snowflake connection not establi
 Apex scan lost every monthly series. The manager is now stored on the agent only once connected
 (`_connect_snowflake`), so no query can see a half-open one. Tests:
 `tests/unit/test_dpa_snowflake_connect_race.py` (fails without the lock).
+
+## Period and plan SQL moved here from the scan (2026-10-31, owner)
+
+SQL is generated in this agent only (`docs/product/decision_studio_vision.md`: "SA never generates
+SQL"; Phase 10C). The scan still built two kinds itself; both moved here, step 1 of moving all of the
+scan's SQL into this agent (step 2: its monthly-series builders for SQL Server and Snowflake; step 3:
+top-N share KPIs).
+
+- `generate_period_sql` — the KPI's `calculation`/`sql_query` plus `TimeFilter.current_condition`
+  (or `previous_condition` with `previous=True`) via `TimeFilter.append_condition`, exactly the text
+  the scan built. `time_spec`/`dialect` are what the caller resolved; omitted, they are resolved here
+  (`_resolve_time_spec`, `_resolve_source_system`). Never returns a query without a period filter.
+- `derive_plan_sql` — the version = 'Actual' to version = '<plan>' substitution that existed twice
+  (the scan's `_derive_plan_sql`, Deep Analysis's `_derive_budget_sql`, both deleted).
+
+Verified live: full scans of Lubricants (BigQuery), Apex (Snowflake) and Hess (SQL Server) before and
+after sent the same 146 queries, character for character (81 period reads, 29 plan reads, 65 monthly
+series), and returned identical results. Tests: `tests/unit/test_dpa_period_sql.py` (includes a guard
+that the scan and Deep Analysis no longer contain this SQL).

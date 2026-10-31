@@ -1,7 +1,7 @@
 # A9_Situation_Awareness_Agent Card
 
 ## Agent Description
-The Situation Awareness Agent provides automated KPI monitoring and situation detection based on principal context and business processes. It analyzes KPIs from any registered data product (BigQuery, SQL Server, DuckDB) to detect anomalies, trends, and insights, presenting them as actionable situations with severity levels, business impact analysis, and suggested next steps. Propagates `data_product_id` through the generate→execute pipeline for correct backend routing. DGA is mandatory for `process_nl_query` — raises `RuntimeError` if not wired via `_wire_governance_dependencies()`. SQL Server KPIs (bracket-quoted T-SQL) receive ISO date filters via `_bq_apply_period` directly in `_get_kpi_value`, bypassing DPA's comparison SQL generation which cannot inject timeframe conditions into stored T-SQL without an existing date filter.
+The Situation Awareness Agent provides automated KPI monitoring and situation detection based on principal context and business processes. It analyzes KPIs from any registered data product (BigQuery, SQL Server, DuckDB) to detect anomalies, trends, and insights, presenting them as actionable situations with severity levels, business impact analysis, and suggested next steps. Propagates `data_product_id` through the generate→execute pipeline for correct backend routing. DGA is mandatory for `process_nl_query` — raises `RuntimeError` if not wired via `_wire_governance_dependencies()`. Warehouse KPIs (BigQuery, Snowflake, SQL Server) get their period SQL from `A9_Data_Product_Agent.generate_period_sql` (2026-10-31; this agent builds none itself — see the section of that date below).
 
 ## Primary Purpose
 To provide personalized situation awareness for Finance KPIs, enabling principals to quickly understand the current state of their business metrics, identify anomalies, and take appropriate action.
@@ -178,7 +178,7 @@ for situation in response.situations:
 
 ## Recent Updates (Feb 2026)
 - Multi-tenant `client_id` support: KPI scan filters by `client_id` from request; passes `client_id` to SA request model
-- BigQuery KPI detection: checks `sql_query`/`calculation` for backtick-qualified table refs; bypasses DuckDB/time_dim path and uses `_bq_apply_period()` for date filtering
+- BigQuery KPI detection: checks `sql_query`/`calculation` for backtick-qualified table refs; bypasses DuckDB/time_dim path. (Historical: date filtering was `_bq_apply_period()`; since 2026-10-31 the period SQL comes from `A9_Data_Product_Agent.generate_period_sql`.)
 
 ## Opportunity Detection (Mar 2026, updated Phase 11C)
 
@@ -913,3 +913,13 @@ is logged per scan. The whole scan runs inside the Data Product Agent's `registr
   The first parallel Apex run lost every monthly series to a Snowflake connect race in the Data
   Product Agent (fixed the same day, see its card) — which the field comparison caught.
 - Tests: `tests/unit/test_sa_parallel_kpi_scan.py`.
+
+## Period and plan SQL come from the Data Product Agent (2026-10-31, owner)
+
+This agent no longer builds a warehouse KPI's period SQL: `_period_sql` asks
+`A9_Data_Product_Agent.generate_period_sql` for the current and comparison readings, and
+`_fetch_plan_value` uses `A9_Data_Product_Agent.derive_plan_sql` (`_derive_plan_sql` deleted). The
+scan still passes the KPI's time dimension and warehouse type it resolved. The SQL text is unchanged
+(verified: same 146 queries across Lubricants, Apex and Hess, identical results). Still here, to move
+next: the monthly-series builders `_bq_monthly_series_sql` / `_ss_monthly_series_sql` /
+`_sf_monthly_series_sql`.

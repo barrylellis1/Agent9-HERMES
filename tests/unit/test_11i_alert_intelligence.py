@@ -11,6 +11,8 @@ Covers four new SA detection patterns:
 All tests use lightweight mocks — no real DPA/SA instances or network calls.
 """
 import pytest
+
+from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
@@ -560,19 +562,19 @@ class TestModelFields:
         assert kdef.kpi_type == "covenant"
 
     def test_derive_plan_sql_substitutes_version(self):
-        """_derive_plan_sql should replace version = 'Actual' with version = 'Budget'."""
+        """derive_plan_sql (Data Product Agent; was SA's _derive_plan_sql) should replace version = 'Actual' with version = 'Budget'."""
         sa = _make_sa_stub()
         sql = "SELECT SUM(amount) AS value FROM View WHERE version = 'Actual'"
-        result = sa._derive_plan_sql(sql, "Budget")
+        result = A9_Data_Product_Agent.derive_plan_sql(sql, "Budget")
         assert result is not None
         assert "Budget" in result
         assert "Actual" not in result
 
     def test_derive_plan_sql_returns_none_when_no_filter(self):
-        """_derive_plan_sql should return None when no version filter is present."""
+        """derive_plan_sql (Data Product Agent; was SA's _derive_plan_sql) should return None when no version filter is present."""
         sa = _make_sa_stub()
         sql = "SELECT SUM(amount) AS value FROM View WHERE account_type = 'Revenue'"
-        result = sa._derive_plan_sql(sql, "Budget")
+        result = A9_Data_Product_Agent.derive_plan_sql(sql, "Budget")
         assert result is None
 
 
@@ -584,18 +586,18 @@ class TestSQLServerSQLHelpers:
     """Tests for T-SQL-specific SA helper methods used by the Hess (SQL Server) path."""
 
     # -----------------------------------------------------------------------
-    # _derive_plan_sql — bracket-quoted and backtick-quoted column variants
+    # derive_plan_sql (Data Product Agent) — bracket-quoted and backtick-quoted column variants
     # -----------------------------------------------------------------------
 
     def test_derive_plan_sql_bracket_quoted_version(self):
-        """_derive_plan_sql handles T-SQL bracket-quoted [version] = 'Actual'."""
+        """derive_plan_sql (Data Product Agent; was SA's _derive_plan_sql) handles T-SQL bracket-quoted [version] = 'Actual'."""
         sa = _make_sa_stub()
         sql = (
             "SELECT SUM([amount]) AS value "
             "FROM [dbo].[HessStarSchemaView] "
             "WHERE [account_type] = 'Revenue' AND [version] = 'Actual'"
         )
-        result = sa._derive_plan_sql(sql, "Budget")
+        result = A9_Data_Product_Agent.derive_plan_sql(sql, "Budget")
         assert result is not None, "Should match bracket-quoted [version]"
         assert "[version] = 'Budget'" in result
         assert "'Actual'" not in result
@@ -604,24 +606,24 @@ class TestSQLServerSQLHelpers:
         """Backslash must NOT appear in the replacement — SQL Server rejects \\' as invalid T-SQL."""
         sa = _make_sa_stub()
         sql = "SELECT SUM([amount]) AS value FROM [dbo].[View] WHERE [version] = 'Actual'"
-        result = sa._derive_plan_sql(sql, "Budget")
+        result = A9_Data_Product_Agent.derive_plan_sql(sql, "Budget")
         assert result is not None
         assert "\\" not in result, "Backslash escape in T-SQL output would cause a syntax error"
 
     def test_derive_plan_sql_backtick_quoted_version(self):
-        """_derive_plan_sql handles BigQuery backtick-quoted `version` = 'Actual'."""
+        """derive_plan_sql (Data Product Agent; was SA's _derive_plan_sql) handles BigQuery backtick-quoted `version` = 'Actual'."""
         sa = _make_sa_stub()
         sql = "SELECT SUM(amount) AS value FROM `project.dataset.view` WHERE `version` = 'Actual'"
-        result = sa._derive_plan_sql(sql, "Budget")
+        result = A9_Data_Product_Agent.derive_plan_sql(sql, "Budget")
         assert result is not None, "Should match backtick-quoted version"
         assert "Budget" in result
         assert "'Actual'" not in result
 
     def test_derive_plan_sql_case_insensitive(self):
-        """_derive_plan_sql is case-insensitive on the column name."""
+        """derive_plan_sql (Data Product Agent; was SA's _derive_plan_sql) is case-insensitive on the column name."""
         sa = _make_sa_stub()
         sql = "SELECT SUM(amount) AS value FROM View WHERE VERSION = 'Actual'"
-        result = sa._derive_plan_sql(sql, "Budget")
+        result = A9_Data_Product_Agent.derive_plan_sql(sql, "Budget")
         assert result is not None
         assert "Budget" in result
 

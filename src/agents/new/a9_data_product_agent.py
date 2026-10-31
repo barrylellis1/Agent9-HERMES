@@ -5286,6 +5286,65 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.error(f"[TXN:{transaction_id}] Error generating SQL for KPI {kpi_name}: {str(e)}\n{traceback.format_exc()}")
             return {"sql": "", "kpi_name": kpi_name, "transaction_id": transaction_id, "success": False, "message": str(e), "error": str(e)}
 
+    # Matches: "version", [version], `version`, or bare version = 'Actual' (case-insensitive).
+    _ACTUAL_VERSION_FILTER = r'((?:"version"|\[version\]|`version`|version))\s*=\s*\'Actual\''
+
+    @staticmethod
+    def derive_plan_sql(sql_query: Optional[str], plan_version_value: Optional[str]) -> Optional[str]:
+        """The plan (budget) variant of a KPI's actuals SQL: its version = 'Actual' filter
+        becomes version = '<plan_version_value>'. None when either is missing or the SQL has no
+        version filter.
+
+        Moved here 2026-10-31 from two identical copies (the scan's `_derive_plan_sql` and Deep
+        Analysis's `_derive_budget_sql`): SQL is generated in this agent only. Handles
+        double-quoted, bracket, backtick and bare column styles. The replacement is built without
+        backslash-escaped quotes: re.sub would pass \\' through literally, which SQL Server rejects.
+        """
+        import re as _re
+        if not sql_query or not plan_version_value:
+            return None
+        replacement = r'\1' + f" = '{plan_version_value}'"
+        result, count = _re.subn(
+            A9_Data_Product_Agent._ACTUAL_VERSION_FILTER, replacement, sql_query, flags=_re.IGNORECASE,
+        )
+        return result if count else None
+
+    def generate_period_sql(
+        self,
+        kpi_definition: Any,
+        period_token: Any,
+        previous: bool = False,
+        time_spec: Optional[dict] = None,
+        dialect: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """The SQL that reads a warehouse KPI over one period: the KPI's own SQL filtered on its
+        time dimension for the current span of `period_token` (or the previous span).
+
+        Moved here 2026-10-31 from the scan, which built this text itself (SQL is generated in
+        this agent only, docs/product/decision_studio_vision.md). The text is unchanged.
+        `time_spec` and `dialect` are what the caller already resolved for the KPI; when omitted
+        they are resolved here. Returns {"success", "sql"} or {"success": False, "error"}; never
+        a query without a period filter (an unfiltered total would be judged as the period's).
+        """
+        raw_sql = (getattr(kpi_definition, "calculation", None)
+                   or getattr(kpi_definition, "sql_query", None) or "")
+        if not raw_sql:
+            return {"success": False, "sql": "", "error": "the KPI has no SQL"}
+        dp_id = getattr(kpi_definition, "data_product_id", None)
+        spec = time_spec or self._resolve_time_spec(dp_id, kpi_definition)
+        if dialect is None:
+            source = self._resolve_source_system(dp_id) or ""
+            dialect = ("bigquery" if source == "bigquery"
+                       else "sqlserver" if source in ("sqlserver", "sql_server", "mssql") else "snowflake")
+        try:
+            cond = (TimeFilter.previous_condition(spec, period_token, dialect=dialect) if previous
+                    else TimeFilter.current_condition(spec, period_token, dialect=dialect))
+        except ValueError as e:
+            return {"success": False, "sql": "", "error": str(e)}
+        if not cond:
+            return {"success": False, "sql": "", "error": "no period filter on the KPI's time dimension"}
+        return {"success": True, "sql": TimeFilter.append_condition(raw_sql, cond)}
+
     def generate_monthly_series_sql(self, kpi_definition: Any, num_months: int = 9) -> Dict[str, Any]:
         """Phase 20 cleanup (2026-08-19) — monthly time-series SQL generation
         belongs here, not in a calling agent. Found live: DA's original

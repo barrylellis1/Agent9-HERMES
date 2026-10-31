@@ -16,6 +16,7 @@ import pytest
 from src.agents.models.situation_awareness_models import ComparisonType, MeasurementContext, TimeFrame
 from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent as SA
 from src.agents.new.a9_situation_awareness_agent import _latest_month_end
+from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
 
 RAW_SQL = "SELECT SUM(amount) AS value FROM `p.d.HessView` WHERE version = 'Actual'"
 FYP = {"type": "fiscal_year_period", "year_column": "fiscal_year", "period_column": "fiscal_period"}
@@ -28,6 +29,10 @@ class Warehouse:
         self.last_month = last_month
         self.last_month_by_table = last_month_by_table or {}  # a quieter KPI's own table
         self.sql = []
+
+    def generate_period_sql(self, *args, **kwargs):
+        # The Data Product Agent builds the period SQL (2026-10-31); the real builder runs here.
+        return A9_Data_Product_Agent.generate_period_sql(self, *args, **kwargs)
 
     async def execute_sql(self, sql, parameters=None, principal_context=None, data_product_id=None):
         self.sql.append(sql)

@@ -2809,27 +2809,17 @@ class A9_Situation_Awareness_Agent:
 
     # ─── Phase 11I-A: Advanced Alert Intelligence helpers ────────────────────
 
-    def _derive_plan_sql(self, sql_query: str, plan_version_value: str):
-        """Substitute the version filter in the actuals SQL to produce a plan/budget SQL.
-
-        Handles double-quoted ("Version"), bracket-quoted ([version]), and unquoted (version)
-        column name styles. Returns None when no version filter is found in the query.
-        """
-        import re as _re
-        if not sql_query or not plan_version_value:
-            return None
-        # Matches: "version", [version], `version`, or bare version — all case-insensitive
-        pattern = r'((?:"version"|\[version\]|`version`|version))\s*=\s*\'Actual\''
-        # Build replacement without backslash-escaped quotes — re.sub passes \' through as
-        # literal backslash+quote which SQL Server rejects as invalid T-SQL.
-        replacement = r'\1' + f" = '{plan_version_value}'"
-        result, count = _re.subn(pattern, replacement, sql_query, flags=_re.IGNORECASE)
-        if count == 0:
-            self.logger.debug(
-                "_derive_plan_sql: no version filter found in SQL — cannot derive plan SQL"
-            )
-            return None
-        return result
+    def _period_sql(self, kpi_definition, period_token, previous: bool, time_spec, dialect) -> Dict[str, Any]:
+        """Ask the Data Product Agent for a warehouse KPI's SQL over one period. SQL is
+        generated there only (2026-10-31); this agent never builds it."""
+        builder = getattr(self.data_product_agent, "generate_period_sql", None)
+        if not callable(builder):
+            return {"success": False, "error": "the Data Product Agent cannot build period SQL"}
+        try:
+            resp = builder(kpi_definition, period_token, previous=previous, time_spec=time_spec, dialect=dialect)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+        return resp if isinstance(resp, dict) else {"success": False, "error": "no SQL returned"}
 
     @staticmethod
     def _deduplicate_situations(situations: List['Situation']) -> List['Situation']:
@@ -3076,8 +3066,10 @@ class A9_Situation_Awareness_Agent:
         original_sql = getattr(kpi_def, 'calculation', None) or ''
         if not plan_version or not original_sql:
             return None
-        plan_sql = self._derive_plan_sql(original_sql, plan_version)
+        from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent as _DPA
+        plan_sql = _DPA.derive_plan_sql(original_sql, plan_version)
         if not plan_sql:
+            self.logger.debug(f"{kpi_def.name}: no version filter in its SQL; no plan reading")
             return None
         try:
             plan_def = kpi_def.model_copy(update={'calculation': plan_sql})
@@ -3410,25 +3402,23 @@ class A9_Situation_Awareness_Agent:
                 _p = _has_evidence(_spans.current, _settings, "Actual vs plan")
                 _plan_hold = None if _p.may_raise else _p.reason
 
-            # 1) Base SQL: the current span. Warehouse KPIs carry their own SQL, filtered here on
-            # their declared time dimension through TimeFilter (the comparison and reference day
-            # travel as a token, src/analysis/period_comparisons.py); the DPA path (DuckDB)
+            # 1) Base SQL: the current span. Warehouse KPIs carry their own SQL, which the Data
+            # Product Agent filters on their declared time dimension (the comparison and reference
+            # day travel as a token, src/analysis/period_comparisons.py); the DPA path (DuckDB)
             # generates SQL from the old words.
-            from src.database.time_filter import TimeFilter as _TF
             _period_tok = _pc.token(_comparison, _spans.reference_day)
             base_sql = ""
             if _native:
-                try:
-                    _cur_cond = _TF.current_condition(_kpi_time_spec, _period_tok, dialect=_dialect)
-                except ValueError as _ce:
-                    _cur_cond = None
-                    self.logger.error(f"KPI {kpi_name}: {_ce}")
-                if not _cur_cond:
-                    # Never read without a period filter: an unfiltered total would be judged
-                    # as if it were the period's.
-                    self.logger.error(f"KPI {kpi_name}: no period filter for {_comparison} on its time dimension; reported as unread")
+                # The Data Product Agent builds the SQL (2026-10-31); it never returns a query
+                # without a period filter: an unfiltered total would be judged as the period's.
+                _cur = self._period_sql(kpi_definition, _period_tok, False, _kpi_time_spec, _dialect)
+                if not _cur.get("success"):
+                    self.logger.error(
+                        f"KPI {kpi_name}: no period filter for {_comparison} on its time dimension "
+                        f"({_cur.get('error')}); reported as unread"
+                    )
                     return None
-                base_sql = _TF.append_condition(_raw_kpi_sql, _cur_cond)
+                base_sql = _cur["sql"]
                 self.logger.info(f"[{_source_system or 'native'} path] base_sql for '{kpi_name}' ({_spans.describe()}): {base_sql[:140]}")
             else:
                 try:
@@ -3509,11 +3499,8 @@ class A9_Situation_Awareness_Agent:
             comp_sql = ""
             if comparison_type:
                 if _native:
-                    try:
-                        _prev_cond = _TF.previous_condition(_kpi_time_spec, _period_tok, dialect=_dialect)
-                    except ValueError:
-                        _prev_cond = None
-                    comp_sql = _TF.append_condition(_raw_kpi_sql, _prev_cond) if _prev_cond else ""
+                    _prev = self._period_sql(kpi_definition, _period_tok, True, _kpi_time_spec, _dialect)
+                    comp_sql = _prev["sql"] if _prev.get("success") else ""
                     self.logger.info(f"[{_source_system or 'native'} path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
                 else:
                     try:

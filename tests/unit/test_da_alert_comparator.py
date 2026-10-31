@@ -16,6 +16,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from src.agents.new.a9_deep_analysis_agent import A9_Deep_Analysis_Agent
+from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
 from src.agents.models.deep_analysis_models import (
     DeepAnalysisRequest,
     DeepAnalysisPlan,
@@ -68,7 +69,7 @@ class TestKpiHasBudgetData:
 
 
 # ---------------------------------------------------------------------------
-# 1b. _derive_budget_sql / _budget_variant_kpi — version substitution
+# 1b. derive_plan_sql (Data Product Agent) / _budget_variant_kpi — version substitution
 #     (fixes the $0 secondary column: DPA drops its `filters` arg, so the
 #      budget dimensional pass must pre-substitute version in the stored SQL)
 # ---------------------------------------------------------------------------
@@ -76,30 +77,30 @@ class TestKpiHasBudgetData:
 class TestDeriveBudgetSql:
     def test_bracket_quoted_sqlserver(self):
         ss = "SELECT SUM([amount]) AS value FROM [dbo].[V] WHERE [version] = 'Actual'"
-        out = A9_Deep_Analysis_Agent._derive_budget_sql(ss, "Budget")
+        out = A9_Data_Product_Agent.derive_plan_sql(ss, "Budget")
         assert "[version] = 'Budget'" in out
         assert "Actual" not in out
 
     def test_bare_column_bigquery(self):
         bq = "SELECT SUM(amount) FROM `x.y.z` WHERE account_type = 'Revenue' AND version = 'Actual'"
-        out = A9_Deep_Analysis_Agent._derive_budget_sql(bq, "Budget")
+        out = A9_Data_Product_Agent.derive_plan_sql(bq, "Budget")
         assert "version = 'Budget'" in out
         assert "account_type = 'Revenue'" in out  # untouched
 
     def test_custom_plan_version_value(self):
-        out = A9_Deep_Analysis_Agent._derive_budget_sql("WHERE version = 'Actual'", "Plan")
+        out = A9_Data_Product_Agent.derive_plan_sql("WHERE version = 'Actual'", "Plan")
         assert "version = 'Plan'" in out
 
     def test_no_version_filter_returns_none(self):
-        assert A9_Deep_Analysis_Agent._derive_budget_sql("SELECT 1", "Budget") is None
+        assert A9_Data_Product_Agent.derive_plan_sql("SELECT 1", "Budget") is None
 
     def test_empty_inputs_return_none(self):
-        assert A9_Deep_Analysis_Agent._derive_budget_sql("", "Budget") is None
-        assert A9_Deep_Analysis_Agent._derive_budget_sql("WHERE version='Actual'", "") is None
+        assert A9_Data_Product_Agent.derive_plan_sql("", "Budget") is None
+        assert A9_Data_Product_Agent.derive_plan_sql("WHERE version='Actual'", "") is None
 
     def test_no_backslash_escaping_in_output(self):
         # re.sub must not emit \' (SQL Server rejects it) — regression guard.
-        out = A9_Deep_Analysis_Agent._derive_budget_sql("WHERE [version] = 'Actual'", "Budget")
+        out = A9_Data_Product_Agent.derive_plan_sql("WHERE [version] = 'Actual'", "Budget")
         assert "\\'" not in out
 
 

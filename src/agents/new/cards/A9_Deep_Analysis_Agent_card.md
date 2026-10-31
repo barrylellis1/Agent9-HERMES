@@ -1349,3 +1349,7 @@ being readable yet. Live 2026-10-23 (local, lubricants Gross Margin %): analysis
 market research and the conversation's first request at 29.5 s. Tests:
 `tests/unit/test_da_analysis_ready_state.py`.
 
+## Budget SQL comes from the Data Product Agent (2026-10-31)
+
+`_derive_budget_sql` (a copy of the scan's `_derive_plan_sql`) is deleted; `_budget_variant_kpi` uses
+`A9_Data_Product_Agent.derive_plan_sql`. Same substitution, one place.

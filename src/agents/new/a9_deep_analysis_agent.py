@@ -762,34 +762,19 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             pass
         return spec
 
-    @staticmethod
-    def _derive_budget_sql(sql_query: Optional[str], plan_version_value: Optional[str]) -> Optional[str]:
-        """Substitute the version filter in the actuals SQL to produce budget SQL.
-
-        Mirrors SA's `_derive_plan_sql` exactly (same regex, same quoting styles).
-        The DPA's `generate_sql_for_kpi` silently DROPS its `filters` argument, so the
-        budget-dimensional pass cannot get a Budget query by passing filters={"Version":
-        "Budget"} — both passes would produce the actuals SQL and every segment delta
-        would be 0. Instead we pre-substitute the version in the stored sql_query and
-        feed the DPA a proxy whose sql_query is already the budget variant. Handles
-        double-quoted ("version"), bracket-quoted ([version]), backtick and bare styles.
-        Returns None when no version='Actual' filter is present.
-        """
-        import re as _re
-        if not sql_query or not plan_version_value:
-            return None
-        pattern = r'((?:"version"|\[version\]|`version`|version))\s*=\s*\'Actual\''
-        replacement = r'\1' + f" = '{plan_version_value}'"
-        result, count = _re.subn(pattern, replacement, sql_query, flags=_re.IGNORECASE)
-        if count == 0:
-            return None
-        return result
-
     def _budget_variant_kpi(self, kpi_def: Any) -> Optional[Any]:
         """Clone `kpi_def` with its sql_query rewritten to the Budget version, or None
-        if no budget SQL can be derived (no plan_version_value / no version filter)."""
+        if no budget SQL can be derived (no plan_version_value / no version filter).
+
+        The DPA's `generate_sql_for_kpi` silently DROPS its `filters` argument, so the
+        budget-dimensional pass cannot get a Budget query by passing filters={"Version":
+        "Budget"}: both passes would produce the actuals SQL and every segment delta would
+        be 0. Instead the DPA's own `derive_plan_sql` (2026-10-31: moved there, SQL is
+        generated in that agent only) gives the budget variant of the stored sql_query and
+        the DPA is fed a proxy carrying it."""
+        from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent as _DPA
         pvv = getattr(kpi_def, "plan_version_value", None) or "Budget"
-        budget_sql = self._derive_budget_sql(
+        budget_sql = _DPA.derive_plan_sql(
             getattr(kpi_def, "sql_query", None) or getattr(kpi_def, "calculation", None),
             pvv,
         )
