@@ -57,6 +57,14 @@ def _make_dpa_stub():
     return stub
 
 
+def _ss_series(base_sql):
+    """A SQL Server series from the shared builder, on a fiscal year + period dimension."""
+    from src.database.time_filter import TimeFilter
+    fyp = {"type": "fiscal_year_period", "year_column": "fiscal_year", "period_column": "fiscal_period"}
+    return _make_dpa_stub()._build_monthly_series_sql(
+        base_sql, TimeFilter.period_key_expr(fyp, "sqlserver"), 9, ["fiscal_year", "fiscal_period"], "sqlserver")
+
+
 # ---------------------------------------------------------------------------
 # Helper: build minimal KPIDefinition
 # ---------------------------------------------------------------------------
@@ -673,7 +681,7 @@ class TestSQLServerSQLHelpers:
         assert from_request(TimeFrame.CURRENT_QUARTER, ComparisonType.YEAR_OVER_YEAR, True) == "qtd_vs_py_qtd"
 
     # -----------------------------------------------------------------------
-    # _build_ss_monthly_series_sql (Data Product Agent; moved from SA 2026-10-31) — T-SQL TOP N monthly series
+    # SQL Server monthly series — the Data Product Agent's shared builder (Phase 28 A, 2026-10-31)
     # -----------------------------------------------------------------------
 
     def test_ss_monthly_series_sql_contains_top_n(self):
@@ -684,7 +692,7 @@ class TestSQLServerSQLHelpers:
             "FROM [dbo].[HessStarSchemaView] "
             "WHERE [account_type] = 'Revenue' AND [version] = 'Actual'"
         )
-        result = _make_dpa_stub()._build_ss_monthly_series_sql(base_sql)
+        result = _ss_series(base_sql)
         assert "TOP 9" in result.upper()
         assert "ORDER BY" in result.upper()
 
@@ -696,7 +704,7 @@ class TestSQLServerSQLHelpers:
             "FROM [dbo].[HessStarSchemaView] "
             "WHERE [account_type] = 'Revenue' AND [version] = 'Actual'"
         )
-        result = _make_dpa_stub()._build_ss_monthly_series_sql(base_sql)
+        result = _ss_series(base_sql)
         assert "[account_type] = 'Revenue'" in result
         assert "[version] = 'Actual'" in result
 
@@ -708,11 +716,10 @@ class TestSQLServerSQLHelpers:
             "FROM [dbo].[HessStarSchemaView] "
             "WHERE [account_type] = 'Revenue'"
         )
-        result = _make_dpa_stub()._build_ss_monthly_series_sql(base_sql)
-        assert "GROUP BY [fiscal_year], [fiscal_period]" in result
-        # Period column must produce YYYY-PP format via CAST + RIGHT + zero-pad
-        assert "CAST([fiscal_year] AS VARCHAR" in result
-        assert "RIGHT(" in result
+        result = _ss_series(base_sql)
+        # Grouped on the canonical YYYY-PP expression itself (SQL Server rejects an alias there)
+        assert "GROUP BY CAST(fiscal_year AS VARCHAR(4)) + '-' + RIGHT(" in result
+        assert "CAST(CAST(fiscal_period AS INT) AS VARCHAR(2))" in result
 
     def test_ss_monthly_series_sql_outer_order_ascending(self):
         """Outer query must ORDER BY period ASC so sparkline reads left to right."""
@@ -721,14 +728,14 @@ class TestSQLServerSQLHelpers:
             "SELECT SUM([amount]) AS value FROM [dbo].[HessStarSchemaView] "
             "WHERE [version] = 'Actual'"
         )
-        result = _make_dpa_stub()._build_ss_monthly_series_sql(base_sql)
+        result = _ss_series(base_sql)
         # Outer ORDER BY must be ASC; inner ORDER BY must be DESC (newest-first for TOP)
         assert result.upper().rstrip().endswith("ORDER BY PERIOD ASC")
 
     def test_ss_monthly_series_sql_returns_empty_on_unparseable(self):
         """Completely unparseable SQL should return empty string, not raise."""
         sa = _make_sa_stub()
-        result = _make_dpa_stub()._build_ss_monthly_series_sql("NOT VALID SQL AT ALL")
+        result = _ss_series("NOT VALID SQL AT ALL")
         assert result == ""
 
 

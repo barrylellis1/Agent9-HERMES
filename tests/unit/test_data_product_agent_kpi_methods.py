@@ -113,7 +113,8 @@ class TestGenerateMonthlySeriesSql:
         kpi = _bq_kpi_def("SELECT SUM(amount) AS value FROM `proj.dataset.financials` WHERE transaction_date BETWEEN '2026-01-01' AND '2026-08-31'")
         result = agent.generate_monthly_series_sql(kpi, num_months=9)
         assert result["success"] is True
-        assert "GROUP BY period" in result["sql"]
+        # Grouped on the period expression itself (Phase 28 A: one builder; SQL Server rejects an alias)
+        assert "GROUP BY FORMAT_DATE('%Y-%m', CAST(transaction_date AS DATE))" in result["sql"]
         assert "LIMIT 9" in result["sql"]
         # The hard date-range filter must be stripped — recency comes from LIMIT, not a fixed window.
         assert "BETWEEN" not in result["sql"]

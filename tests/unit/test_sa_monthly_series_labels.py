@@ -18,14 +18,22 @@ def _agent():
     return a
 
 
+def _series(sql, dialect):
+    from src.database.time_filter import TimeFilter
+    fyp = {"type": "fiscal_year_period", "year_column": "fiscal_year", "period_column": "fiscal_period"}
+    return _agent()._build_monthly_series_sql(sql, TimeFilter.period_key_expr(fyp, dialect), 9,
+                                              ["fiscal_year", "fiscal_period"], dialect)
+
+
 def test_sql_server_reads_the_period_as_a_number_before_padding():
-    sql = _agent()._build_ss_monthly_series_sql(SS)
-    assert "TRY_CAST([fiscal_period] AS INT)" in sql
-    assert "CAST([fiscal_period] AS VARCHAR(2))" not in sql      # the cut that produced '00'
-    assert "GROUP BY [fiscal_year], [fiscal_period]" in sql and "[version] = 'Actual'" in sql
+    sql = _series(SS, "sqlserver")
+    assert "CAST(CAST(fiscal_period AS INT) AS VARCHAR(2))" in sql
+    assert "CAST(fiscal_period AS VARCHAR(2))" not in sql.replace("CAST(CAST(fiscal_period AS INT)", "")  # the cut that produced '00'
+    assert "[version] = 'Actual'" in sql and "TOP 9" in sql
 
 
 def test_snowflake_reads_the_period_as_a_number_before_padding():
-    sql = _agent()._build_sf_monthly_series_sql(SF)
-    assert "TRY_TO_NUMBER(CAST(fiscal_period AS VARCHAR))" in sql
+    sql = _series(SF, "snowflake")
+    assert "TO_VARCHAR(CAST(fiscal_period AS INTEGER))" in sql
     assert "LPAD(CAST(fiscal_period AS VARCHAR), 2, '0')" not in sql
+    assert "LIMIT 9" in sql

@@ -523,3 +523,18 @@ Verified live (Apex, Snowflake): YTD, previous YTD, quarter and previous quarter
 computed independently in Python from per-customer totals (39.5568% YTD 2026, 40.9795% YTD 2025, 8
 B2B customers); the monthly series has 9 points; the scan reads it (was unread since it was added)
 and the other Apex cards are unchanged. Tests: `tests/unit/test_dpa_top_n_share.py`.
+
+## One period builder for every warehouse (2026-10-31, Phase 28 A)
+
+`_build_monthly_series_sql(base_sql, period_expr, num_months, strip_cols, dialect)` is the only series
+builder: grouped on `TimeFilter.period_key_expr` (the expression itself, which SQL Server requires),
+TOP on SQL Server, LIMIT elsewhere, recency filters on the time columns stripped. `_kpi_monthly_series_sql`
+resolves the KPI's spec (an explicit `metadata.date_column` wins) and calls it for BigQuery, Snowflake and
+SQL Server; `generate_monthly_series_from_sql` uses it for the DuckDB path. Deleted:
+`_build_bq_monthly_series_sql`, `_build_ss_monthly_series_sql`, `_build_sf_monthly_series_sql`,
+`_build_date_monthly_series_sql`, `_fiscal_monthly_series_sql`. A non-numeric period now fails the
+series query (logged) where the old SQL Server / Snowflake builders returned a blank label, which the
+series checker (`monthly_series.trusted_months`) then rejected along with the whole chart: the chart
+was lost either way. Verified: every Lubricants (23), Apex (15) and Hess (11 with data) KPI's series
+returned identical rows from both builders on the live warehouses; full scans of the three clients
+identical, chart values included; the scan's 82 other queries unchanged.

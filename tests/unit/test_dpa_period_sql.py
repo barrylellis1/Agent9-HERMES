@@ -93,17 +93,17 @@ SF_RAW = "SELECT SUM(amount) AS value FROM STAR_VIEW WHERE account_type = 'Reven
 SS_RAW = "SELECT SUM([amount]) AS value FROM [dbo].[HessView] WHERE [version] = 'Actual'"
 
 
-def test_snowflake_and_sql_server_series_use_the_fiscal_period_builders():
+def test_snowflake_and_sql_server_series_use_the_shared_period_key():
     sf = _series_dpa(FYP).generate_monthly_series_sql(_kpi(SF_RAW), num_months=9, time_spec=FYP, dialect="snowflake")
     ss = _series_dpa(FYP).generate_monthly_series_sql(_kpi(SS_RAW), num_months=9, time_spec=FYP, dialect="sqlserver")
-    assert sf["success"] and sf["sql"] == _series_dpa(FYP)._build_sf_monthly_series_sql(SF_RAW, num_months=9)
-    assert ss["success"] and ss["sql"] == _series_dpa(FYP)._build_ss_monthly_series_sql(SS_RAW, num_months=9)
+    assert sf["success"] and "LIMIT 9" in sf["sql"] and TimeFilter.period_key_expr(FYP, "snowflake") in sf["sql"]
+    assert ss["success"] and "TOP 9" in ss["sql"] and TimeFilter.period_key_expr(FYP, "sqlserver") in ss["sql"]
 
 
 def test_a_date_keyed_warehouse_series_groups_on_the_date_column():
     spec = {"type": "date", "column": "transaction_date"}
     out = _series_dpa(spec).generate_monthly_series_sql(_kpi(SF_RAW), num_months=9, time_spec=spec, dialect="snowflake")
-    assert out["sql"] == _series_dpa(spec)._build_date_monthly_series_sql(SF_RAW, date_col="transaction_date", num_months=9)
+    assert TimeFilter.period_key_expr(spec, "snowflake") in out["sql"]  # TO_CHAR(... 'YYYY-MM')
 
 
 def test_a_series_around_generated_sql():

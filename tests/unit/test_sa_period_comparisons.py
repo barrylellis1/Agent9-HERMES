@@ -39,7 +39,8 @@ class Warehouse:
     warehouse_for_kpi = A9_Data_Product_Agent.warehouse_for_kpi
     generate_monthly_series_sql = A9_Data_Product_Agent.generate_monthly_series_sql
     _bq_monthly_series_for_kpi = A9_Data_Product_Agent._bq_monthly_series_for_kpi
-    _build_bq_monthly_series_sql = A9_Data_Product_Agent._build_bq_monthly_series_sql
+    _kpi_monthly_series_sql = A9_Data_Product_Agent._kpi_monthly_series_sql
+    _build_monthly_series_sql = A9_Data_Product_Agent._build_monthly_series_sql
 
     def _resolve_source_system(self, data_product_id):
         return "bigquery"
