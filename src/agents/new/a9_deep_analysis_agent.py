@@ -53,6 +53,9 @@ logger = logging.getLogger(__name__)
 # segment genuinely named "None" or "Total" is never mistaken for the total.
 _ROLLUP_TOTAL_KEY = "\x00__rollup_total__"
 
+_NO_SEGMENTS_SENTENCE = (
+    "No segment breakdown is available for this KPI, so where the change came from is not shown."
+)
 _MIXED_MODE_PURITY_THRESHOLD = 0.80  # fraction of top-N items that must be one direction to be "pure"
 
 # ── Parallel queries (owner, 2026-10-23) ─────────────────────────────────────────────────────────
@@ -1338,6 +1341,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # where no KPI resolves).
             _denied_dims: Dict[str, Dict[str, Any]] = {}  # dimension name -> {reason_class, source, note}
             _dimensions_excluded: List[Dict[str, Any]] = []
+            _top_n_reason: Optional[Dict[str, Any]] = None  # set for a top-N share KPI (2026-10-31)
 
             # If DP Agent is available, compute where/when by executing grouped queries
             if self.data_product_agent is not None and getattr(plan, "kpi_name", None):
@@ -1431,6 +1435,23 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # _dimensions_excluded, never silent (§4.5's "one rule that must not be
                     # broken" — a deny list that quietly shrinks the investigation is the
                     # preferred-literal defect wearing better clothes).
+                    # A top-N share (2026-10-31): a segment's share would need ranking within the
+                    # segment, which is not built, so every dimension is excluded with the reason
+                    # (the Data Product Agent declines such a breakdown anyway). Recorded here so
+                    # the analysis says so instead of reporting segments it never read.
+                    try:
+                        from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent as _DPA_tn
+                        _top_n = _DPA_tn.top_n_share(kpi_def)
+                    except ValueError:
+                        _top_n = None
+                    _top_n_reason = (
+                        {"reason_class": "structural", "source": "declared",
+                         "note": f"a top-{_top_n[1]} share by {_top_n[0]} is not split by dimension"}
+                        if _top_n else None
+                    )
+                    if _top_n_reason:
+                        for _d in dims:
+                            _denied_dims.setdefault(_d, dict(_top_n_reason))
                     if _denied_dims and dims:
                         _kept_dims = []
                         for _d in dims:
@@ -1911,6 +1932,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
                     # Primary path: hierarchical drill per vector if hierarchies present
                     hmap = _hierarchies_from_contract()
+                    if _top_n_reason:
+                        for _lvls in hmap.values():
+                            for _lvl in (_lvls or []):
+                                _denied_dims.setdefault(_lvl, dict(_top_n_reason))
                     used_hierarchical = False
                     # Set by whichever path runs; surfaced on the response.
                     dimensions_analyzed: List[str] = []
@@ -4841,6 +4866,15 @@ If nothing relevant is found for a category, use an empty list."""
                 )
             return " ".join(parts)
 
+        # No segment was read at all (2026-10-31: a top-N share is never split; any KPI whose
+        # breakdown came back empty). The fillers below ("leading segments", "key contributors
+        # identified") would then describe segments that were never analysed.
+        if not (is_items or is_not_items or _display_cps) and not compound_pattern:
+            return (
+                f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}. "
+                f"Complication: {_NO_SEGMENTS_SENTENCE}"
+            )
+
         if analysis_mode == "opportunity":
             return (
                 f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}. "
@@ -5043,6 +5077,13 @@ If nothing relevant is found for a category, use an empty list."""
                     )
                 )
                 return " ".join(parts)
+            # No segment read at all: same guard as the Situation+Complication builder.
+            if not (is_items or is_not_items or _display_cps) and not compound_pattern:
+                return (
+                    f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}. "
+                    f"Complication: {_NO_SEGMENTS_SENTENCE} "
+                    f"{_question_line(f'Question: What is behind the change in {plan.kpi_name}?')}"
+                )
             if analysis_mode == "opportunity":
                 return (
                     f"Situation: {plan.kpi_name} has {movement_verb} vs. {comparator_words}. "

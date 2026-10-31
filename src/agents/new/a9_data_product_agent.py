@@ -5179,6 +5179,25 @@ class A9_Data_Product_Agent(DataProductProtocol):
             # Order Fulfillment Rate (declared on delivery date) was analysed by recognition month.
             _time_spec = self._resolve_time_spec(_dp_id, kpi_definition)
 
+            # A top-N share (2026-10-31): the overall figure is the ranked share; a breakdown by
+            # dimension is declined, never a plain total by segment presented as the share.
+            _top_n = self.top_n_share(kpi_definition)
+            if _top_n:
+                if breakdown or override_group_by:
+                    return {"sql": "", "kpi_name": kpi_name, "transaction_id": transaction_id, "success": False,
+                            "message": f"{kpi_name} is a top-{_top_n[1]} share; it is not broken down by dimension"}
+                _dialect = ("bigquery" if _source_system == "bigquery"
+                            else "sqlserver" if _source_system in ("sqlserver", "sql_server", "mssql") else "snowflake")
+                _cond = (TimeFilter.previous_condition(_time_spec, timeframe, dialect=_dialect) if comparison_period
+                         else TimeFilter.current_condition(_time_spec, timeframe, dialect=_dialect))
+                _tn_sql = self._build_top_n_share_sql(TimeFilter.append_condition(_raw_sql, _cond), *_top_n) if _cond else ""
+                if not _tn_sql:
+                    return {"sql": "", "kpi_name": kpi_name, "transaction_id": transaction_id, "success": False,
+                            "message": f"No top-N share SQL for {kpi_name} over {timeframe}"}
+                return {"sql": _tn_sql, "kpi_name": kpi_name, "transaction_id": transaction_id, "success": True,
+                        "message": f"Top-{_top_n[1]} share SQL generated for {kpi_name}",
+                        "data_product_id": _dp_id, "source_system": _dialect}
+
             # Route by source_system
             if _source_system == 'bigquery':
                 bq_sql = self._build_bq_dimensional_sql(
@@ -5309,6 +5328,94 @@ class A9_Data_Product_Agent(DataProductProtocol):
         )
         return result if count else None
 
+    # ── Top-N share KPIs (2026-10-31, owner) ──────────────────────────────────────────────────
+    # A KPI such as "Top 3 Customer Revenue Share" cannot be written as one SELECT the period
+    # filter can be appended to: the period has to be chosen before members are ranked. Such a
+    # KPI stores a plain single-step query (the total being shared, e.g. B2B revenue) and
+    # declares metadata.top_n ("3") and metadata.rank_by (a bare column, "customer_name"); this
+    # agent wraps the period-filtered query in the ranking. Deep Analysis does not break it down
+    # by dimension: a top-N share of a region needs ranking within the region (not built).
+
+    @staticmethod
+    def top_n_share(kpi_definition: Any) -> Optional[Tuple[str, int]]:
+        """(rank_by, n) when the KPI is a declared top-N share, else None. A half or invalid
+        declaration raises ValueError: read as a plain total it would report the wrong number."""
+        import re as _re
+        md = getattr(kpi_definition, "metadata", None)
+        if not isinstance(md, dict) or not (md.get("top_n") or md.get("rank_by")):
+            return None
+        rank_by, top_n = str(md.get("rank_by") or ""), str(md.get("top_n") or "")
+        if not _re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", rank_by) or not top_n.isdigit() or int(top_n) < 1:
+            raise ValueError(
+                f"top-N share needs metadata.rank_by (a column name) and metadata.top_n (a whole "
+                f"number), got rank_by={rank_by!r} top_n={top_n!r}"
+            )
+        return rank_by, int(top_n)
+
+    @staticmethod
+    def _split_single_select(sql: str) -> Optional[Tuple[str, str]]:
+        """('SUM(amount)', 'FROM view WHERE ...') from 'SELECT SUM(amount) AS value FROM view WHERE ...'."""
+        import re as _re
+        m = _re.match(r'^\s*SELECT\s+(.+?)\s+AS\s+value\s+(FROM\s+.+?)\s*;?\s*$', sql or "", _re.IGNORECASE | _re.DOTALL)
+        return (m.group(1).strip(), m.group(2).strip()) if m else None
+
+    def _build_top_n_share_sql(self, period_sql: str, rank_by: str, n: int) -> str:
+        """The top-N share of the total, over the rows `period_sql` (the KPI's SQL with its period
+        condition) selects. ROW_NUMBER, not RANK: exactly N members even when two tie for Nth.
+        100.0 first, so SQL Server never divides integers."""
+        parts = self._split_single_select(period_sql)
+        if not parts:
+            return ""
+        agg, from_rest = parts
+        return (
+            f"WITH per_member AS (SELECT {rank_by}, {agg} AS value {from_rest} GROUP BY {rank_by}), "
+            f"ranked AS (SELECT value, ROW_NUMBER() OVER (ORDER BY value DESC) AS rn FROM per_member) "
+            f"SELECT 100.0 * SUM(CASE WHEN rn <= {n} THEN value ELSE 0 END) / NULLIF(SUM(value), 0) AS value "
+            f"FROM ranked"
+        )
+
+    def _build_top_n_share_series_sql(
+        self, raw_sql: str, rank_by: str, n: int, period_expr: str, dialect: str, num_months: int,
+    ) -> str:
+        """The top-N share per month, members ranked within each month, latest `num_months`."""
+        parts = self._split_single_select(raw_sql)
+        if not parts or not period_expr:
+            return ""
+        agg, from_rest = parts
+        shares = (
+            f"WITH per_member AS (SELECT {period_expr} AS period, {rank_by}, {agg} AS value {from_rest} "
+            f"GROUP BY {period_expr}, {rank_by}), "
+            f"ranked AS (SELECT period, value, ROW_NUMBER() OVER (PARTITION BY period ORDER BY value DESC) AS rn "
+            f"FROM per_member), "
+            f"shares AS (SELECT period, 100.0 * SUM(CASE WHEN rn <= {n} THEN value ELSE 0 END) / NULLIF(SUM(value), 0) "
+            f"AS value FROM ranked GROUP BY period) "
+        )
+        if dialect == "sqlserver":
+            latest = f"SELECT TOP {num_months} period, value FROM shares ORDER BY period DESC"
+        else:
+            latest = f"SELECT period, value FROM shares ORDER BY period DESC LIMIT {num_months}"
+        return shares + f"SELECT period, value FROM ({latest}) t ORDER BY period ASC"
+
+    def _dialect_for(self, data_product_id: Optional[str]) -> str:
+        source = self._resolve_source_system(data_product_id) or ""
+        return ("bigquery" if source == "bigquery"
+                else "sqlserver" if source in ("sqlserver", "sql_server", "mssql") else "snowflake")
+
+    def _top_n_monthly_series_sql(
+        self, kpi_definition: Any, top_n: Tuple[str, int], num_months: int,
+        time_spec: Optional[dict], dialect: Optional[str],
+    ) -> Dict[str, Any]:
+        kpi_name = getattr(kpi_definition, "name", None) or getattr(kpi_definition, "id", "unknown")
+        dp_id = getattr(kpi_definition, "data_product_id", None)
+        raw_sql = getattr(kpi_definition, "calculation", None) or getattr(kpi_definition, "sql_query", None) or ""
+        dialect = dialect or self._dialect_for(dp_id)
+        spec = time_spec or self._resolve_time_spec(dp_id, kpi_definition)
+        period_expr = TimeFilter.period_key_expr(spec, dialect)
+        sql = self._build_top_n_share_series_sql(raw_sql, top_n[0], top_n[1], period_expr, dialect, num_months)
+        if not sql:
+            return {"success": False, "sql": "", "kpi_name": kpi_name, "message": "Could not build the top-N share series"}
+        return {"success": True, "sql": sql, "kpi_name": kpi_name, "data_product_id": dp_id, "source_system": dialect}
+
     def generate_period_sql(
         self,
         kpi_definition: Any,
@@ -5333,17 +5440,21 @@ class A9_Data_Product_Agent(DataProductProtocol):
         dp_id = getattr(kpi_definition, "data_product_id", None)
         spec = time_spec or self._resolve_time_spec(dp_id, kpi_definition)
         if dialect is None:
-            source = self._resolve_source_system(dp_id) or ""
-            dialect = ("bigquery" if source == "bigquery"
-                       else "sqlserver" if source in ("sqlserver", "sql_server", "mssql") else "snowflake")
+            dialect = self._dialect_for(dp_id)
         try:
+            top_n = self.top_n_share(kpi_definition)
             cond = (TimeFilter.previous_condition(spec, period_token, dialect=dialect) if previous
                     else TimeFilter.current_condition(spec, period_token, dialect=dialect))
         except ValueError as e:
             return {"success": False, "sql": "", "error": str(e)}
         if not cond:
             return {"success": False, "sql": "", "error": "no period filter on the KPI's time dimension"}
-        return {"success": True, "sql": TimeFilter.append_condition(raw_sql, cond)}
+        sql = TimeFilter.append_condition(raw_sql, cond)
+        if top_n:
+            sql = self._build_top_n_share_sql(sql, *top_n)
+            if not sql:
+                return {"success": False, "sql": "", "error": "a top-N share needs a single SELECT ... AS value FROM ... query"}
+        return {"success": True, "sql": sql}
 
     def generate_monthly_series_sql(
         self,
@@ -5355,6 +5466,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """The monthly series SQL for a warehouse KPI. `dialect` "sqlserver" / "snowflake" (with
         the KPI's `time_spec`, as the caller resolved it) takes the fiscal-period builders moved
         here from the scan on 2026-10-31; otherwise the BigQuery path documented below."""
+        try:
+            top_n = self.top_n_share(kpi_definition)
+        except ValueError as e:
+            return {"success": False, "sql": "", "kpi_name": getattr(kpi_definition, "name", "?"), "message": str(e), "error": str(e)}
+        if top_n:
+            return self._top_n_monthly_series_sql(kpi_definition, top_n, num_months, time_spec, dialect)
         if dialect in ("sqlserver", "snowflake"):
             return self._fiscal_monthly_series_sql(kpi_definition, num_months, time_spec, dialect)
         return self._bq_monthly_series_for_kpi(kpi_definition, num_months)

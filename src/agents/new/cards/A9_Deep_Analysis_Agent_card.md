@@ -1353,3 +1353,16 @@ market research and the conversation's first request at 29.5 s. Tests:
 
 `_derive_budget_sql` (a copy of the scan's `_derive_plan_sql`) is deleted; `_budget_variant_kpi` uses
 `A9_Data_Product_Agent.derive_plan_sql`. Same substitution, one place.
+
+## Top-N share KPIs and analyses with no segments (2026-10-31)
+
+- A declared top-N share KPI (`A9_Data_Product_Agent.top_n_share`) has every dimension and hierarchy
+  level added to the deny list (reason_class `structural`, source `declared`, note "a top-3 share by
+  customer_name is not split by dimension"), so it shows in `dimensions_excluded` with the reason and
+  is never queried; the overall current/previous figures come from the Data Product Agent's ranked SQL.
+- When no segment was read at all (no IS / IS NOT rows, no change points) and there is no compound
+  or two-basis finding, `_build_situation_complication_facts` and the SCQA `_fallback` say
+  `_NO_SEGMENTS_SENTENCE` ("No segment breakdown is available for this KPI, so where the change came
+  from is not shown."). Before, the fillers "leading segments" / "remaining segments" / "key
+  contributors identified" described segments that were never analysed — found live on the top-3 KPI.
+- Deep Focus's "Not sliced" line shows the declared note when every exclusion is declared.

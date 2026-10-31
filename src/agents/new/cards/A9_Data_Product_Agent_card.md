@@ -11,6 +11,7 @@ The `A9_Data_Product_Agent` is responsible for contract-driven SQL orchestration
   - `generate_period_sql(kpi_definition, period_token, previous=False, time_spec=None, dialect=None) -> Dict` — a warehouse KPI's own SQL filtered on its time dimension for one period (2026-10-31; the scan's period reads)
   - `generate_monthly_series_sql(kpi_definition, num_months=9, time_spec=None, dialect=None) -> Dict` — a warehouse KPI's monthly series: BigQuery on the canonical period key; `dialect="sqlserver"|"snowflake"` on the fiscal year + period columns (else the date column) (2026-10-31)
   - `generate_monthly_series_from_sql(base_sql, date_col, num_months) -> Dict` — a series around SQL this agent already generated (the scan's DuckDB path)
+  - `top_n_share(kpi_definition) -> Optional[(rank_by, n)]` (static) — a declared top-N share KPI (metadata.top_n + metadata.rank_by); a half/invalid declaration raises ValueError (2026-10-31)
   - `derive_plan_sql(sql_query, plan_version_value) -> Optional[str]` (static) — the Budget/plan variant of a KPI's actuals SQL (2026-10-31; the scan's plan readings and Deep Analysis's budget pass)
   - `execute_sql(sql, parameters=None, principal_context=None, data_product_id=None) -> Dict`  — routes to BigQuery, SQL Server (bracket-quoted T-SQL detection), Snowflake, or DuckDB. **Infra B3 (Jul 2026):** when principal_context carries a client_id AND data_product_id is given, DGA `validate_data_access` gates execution before routing — cross-client access returns `success: False` with an "Access denied by Data Governance" message; a scoped principal with `data_governance_agent=None` is denied fail-closed.
   - `create_view(view_name, sql_query, metadata=None) -> Dict` — generic; takes a SQL string directly, no contract file involved. (`register_tables_from_contract`/`create_view_from_contract`, the YAML-contract-file variants, were **deleted Phase 16 step 5, Aug 2026** — confirmed zero callers anywhere; see the dated entry below.)
@@ -502,3 +503,22 @@ Moved, not rebuilt: rebuilding the SQL Server / Snowflake series on `TimeFilter.
 separate step. Verified live: the same 146 scan queries before and after (25 SQL Server and 17
 Snowflake series among them), identical results. The scan now contains no SQL; guarded by
 `tests/unit/test_dpa_period_sql.py::test_the_scan_contains_no_sql_at_all`.
+
+## Top-N share KPIs (2026-10-31, owner; step 3)
+
+A KPI like Apex's Top 3 Customer Revenue Share cannot be one SELECT with the period condition
+appended: customers must be ranked after the period is chosen. Such a KPI stores the plain total
+being shared (B2B revenue) and declares `metadata.top_n` ("3") and `metadata.rank_by`
+("customer_name", a bare column; validated). This agent then builds:
+- **period reads** (`generate_period_sql`, and `generate_sql_for_kpi` without a breakdown for Deep
+  Analysis): the KPI SQL + period condition, grouped by `rank_by`, ranked with ROW_NUMBER (exactly N,
+  ties included), `100.0 * top-N / total` (100.0 first so SQL Server never divides integers);
+- **monthly series** (`generate_monthly_series_sql`): the same per month, ranked within each month,
+  grouped on `TimeFilter.period_key_expr`; LIMIT, or TOP on SQL Server;
+- **breakdowns**: declined (`success: False`, "not broken down by dimension"). A segment's share needs
+  ranking within the segment, which is not built.
+The stored `sql_query` alone therefore reads the total, not the share; the metadata is required.
+Verified live (Apex, Snowflake): YTD, previous YTD, quarter and previous quarter each equal the share
+computed independently in Python from per-customer totals (39.5568% YTD 2026, 40.9795% YTD 2025, 8
+B2B customers); the monthly series has 9 points; the scan reads it (was unread since it was added)
+and the other Apex cards are unchanged. Tests: `tests/unit/test_dpa_top_n_share.py`.

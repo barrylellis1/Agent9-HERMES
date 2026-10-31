@@ -680,8 +680,10 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                             {currentAnalysis.dimensions_excluded && currentAnalysis.dimensions_excluded.length > 0 && (
                                 <div className="text-xs text-severity-warning/90 bg-severity-warning/20 border border-severity-warning/20 rounded-lg px-3 py-2">
                                     <span className="font-semibold">Not sliced:</span>{' '}
-                                    {currentAnalysis.dimensions_excluded.map((e: any) => e.dimension).join(', ')} — flagged by
-                                    slice-validity as unreliable for this KPI, excluded rather than shown with a wrong number.
+                                    {currentAnalysis.dimensions_excluded.map((e: any) => e.dimension).join(', ')} —{' '}
+                                    {currentAnalysis.dimensions_excluded.every((e: any) => e.source === 'declared' && e.note)
+                                        ? `${currentAnalysis.dimensions_excluded[0].note}.`
+                                        : 'flagged by slice-validity as unreliable for this KPI, excluded rather than shown with a wrong number.'}
                                 </div>
                             )}
 

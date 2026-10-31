@@ -542,29 +542,21 @@ KPIS: List[Dict[str, Any]] = [
         "client_id": CLIENT_ID,
         "name": "Top 3 Customer Revenue Share",
         "domain": "Finance",
-        "description": "Percentage of total B2B revenue from the top 3 customers by volume — measures customer concentration risk.",
+        "description": "Share of B2B Direct Sales revenue from the 3 largest B2B customers by revenue in the period — measures customer concentration risk.",
         "unit": "%",
         "data_product_id": _DP_ID,
         "view_name": _VIEW,
         "business_process_ids": ["finance_revenue_growth_analysis"],
         "kpi_type": "concentration",
-        "sql_query": (
-            # customer_rank is not a stored column anywhere in LubricantsStarSchemaView
-            # (verified against scripts/load_lubricants_to_snowflake.py's CREATE VIEW —
-            # no such column, and no RANK()/ROW_NUMBER() precedent elsewhere in this
-            # codebase computed it either). The KPI was authored assuming a column that
-            # was never materialized. Fixed 2026-08-15 by ranking customers inline via a
-            # window function over the same view, ANSI SQL, valid on Snowflake.
-            f"WITH customer_totals AS ("
-            f"SELECT customer_name, SUM(amount) AS customer_revenue FROM {_VIEW} "
-            f"WHERE account_type = 'Revenue' AND version = 'Actual' GROUP BY customer_name"
-            f"), ranked_customers AS ("
-            f"SELECT customer_revenue, RANK() OVER (ORDER BY customer_revenue DESC) AS customer_rank "
-            f"FROM customer_totals"
-            f") SELECT (SUM(CASE WHEN customer_rank <= 3 THEN customer_revenue ELSE 0 END) "
-            f"/ NULLIF(SUM(customer_revenue), 0)) * 100 AS value FROM ranked_customers"
-        ),
-        "filters": {"account_type": "Revenue", "version": "Actual"},
+        # A top-N share (2026-10-31, owner): the stored query is the plain total being shared
+        # (B2B revenue, same filters as b2b_revenue); metadata.top_n + metadata.rank_by make the
+        # Data Product Agent rank customers WITHIN the period and return the top 3's share. The
+        # period has to be chosen before ranking, so a hand-written ranking query cannot work: the
+        # 2026-08-15 version (a WITH ... RANK() query) had the period condition appended after the
+        # last step and never read ("unexpected 'AND'" on Snowflake); before that it referenced a
+        # customer_rank column that never existed. Ranked by revenue, B2B customers only.
+        "sql_query": f"SELECT SUM(amount) AS value FROM {_VIEW} WHERE channel_name = 'B2B Direct Sales' AND account_type = 'Revenue' AND version = 'Actual'",
+        "filters": {"channel_name": "B2B Direct Sales", "account_type": "Revenue", "version": "Actual"},
         "thresholds": [
             {"comparison_type": "quarter_vs_prev_quarter", "green_threshold": 30.0, "yellow_threshold": 40.0, "red_threshold": 50.0, "inverse_logic": True},
             {"comparison_type": "ytd_vs_pytd", "green_threshold": 30.0, "yellow_threshold": 40.0, "red_threshold": 50.0, "inverse_logic": True},
@@ -573,7 +565,8 @@ KPIS: List[Dict[str, Any]] = [
         "tags": ["finance", "concentration-risk", "customer", "b2b", "lubricants", "snowflake"],
         "owner_role": "CFO",
         "stakeholder_roles": ["CEO", "COO"],
-        "metadata": {"line": "top", "altitude": "strategic", "positive_trend_is_good": "false"},
+        "metadata": {"line": "top", "altitude": "strategic", "positive_trend_is_good": "false",
+                     "top_n": "3", "rank_by": "customer_name"},
     },
 ]
 
