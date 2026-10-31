@@ -95,6 +95,13 @@ reads) multiplies warehouse queries.
 unsupported calendars refused. Still open: year-end periods 13–16 (fold into period 12, or exclude
 and say so on the card).
 
+**Status, 2026-10-31:** A and B steps 1–4 built (`eaf677d`, `0fb102f`), not pushed. Checks: every
+Lubricants, Apex and Hess series returned identical rows from the old and new builders; a local copy of
+Hess relabelled to an April year named by its end year (`hess_aprilfy`) read April–July 2026 against
+April–July 2025 on all 11 cards, each equal to the same calendar months summed from Hess's own data, with
+charts identical to Hess's and Deep Analysis in agreement; with the naming undeclared, all 16 KPIs were
+unread with the reason. Open: step 5 (year-end periods), fiscal labels on screens (mitigation 6).
+
 This stays on the "declared and thin" side above: Agent9 translates what a data product declares
 (its fiscal year start and naming) and refuses what it cannot translate; it infers nothing.
 
