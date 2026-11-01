@@ -139,7 +139,7 @@ export function KPIGridAnimation() {
     >
       <div className="flex items-center gap-2">
         <div className="w-1.5 h-1.5 rounded-full bg-severity-opportunity animate-pulse" />
-        <span className="text-xs text-slate-500 font-mono tracking-wider">LIVE MONITORING</span>
+        <span className="text-xs text-slate-500 font-mono tracking-wider">KPI ASSESSMENT</span>
       </div>
 
       <motion.div
@@ -281,7 +281,7 @@ export function MarketContextAnimation() {
       <div className="flex items-center gap-2">
         <div className="w-5 h-5 rounded bg-blue-600/20 flex items-center justify-center text-xs text-blue-400 font-bold">MA</div>
         <span className="text-xs font-semibold text-blue-400">Market Intelligence</span>
-        <span className="text-xs text-slate-500 ml-auto">Perplexity + Claude synthesis</span>
+        <span className="text-xs text-slate-500 ml-auto">Market context</span>
       </div>
 
       <div className="flex-1 flex flex-col gap-2">

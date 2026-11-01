@@ -467,11 +467,10 @@ export function InsightsBIModernization() {
                     Automated detection that distinguishes signal from noise
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Not more alerts — contextualized situations that arrive with the analysis
-                    already started. The system watches your KPIs continuously, filters out
-                    the seasonal and statistical noise, and surfaces only the changes that
-                    warrant a decision. When something meaningful happens, you hear about it
-                    with context, not just a number.
+                    Each assessment checks your KPIs against their thresholds and recent history,
+                    separates one-off blips from developing trends, and raises a situation only
+                    when a change warrants a decision. The situation arrives with the analysis
+                    already started and the context attached.
                   </p>
                 </div>
               </motion.div>
@@ -616,17 +615,13 @@ export function InsightsBIModernization() {
       <footer className="border-t border-slate-800/40 py-10 px-6" style={font}>
         <div className="max-w-6xl mx-auto">
           <p className="text-center text-xs text-slate-600 mb-6">
-            This project is currently in development and seeking input from Decision
-            Intelligence practitioners and consumers for awe and wonder.
+            Decision Studio is in development. Examples on this site use illustrative data.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
             <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
               <Link to="/" className="font-bold text-white hover:text-slate-200 transition-colors" style={font}>
                 Decision Studio
               </Link>
-              <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
-                info@trydecisionstudio.com
-              </a>
               <span>&copy; 2026 Decision Studio</span>
             </div>
             <div className="flex items-center gap-6">

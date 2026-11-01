@@ -202,7 +202,7 @@ function PlatformBadge({
   }
   const statusLabel = {
     production: 'Implemented',
-    supported: 'Available',
+    supported: 'In development',
     local: 'Local dev',
   }
   return (
@@ -224,7 +224,7 @@ function PlatformBadge({
 export function DataOnboarding() {
   useSatoshiFont()
   usePageMeta({
-    title: 'Data Onboarding for Decision Studio | Scoped Analysis in Days',
+    title: 'Data Onboarding for Decision Studio | No Migration Project',
     description: 'Connect Decision Studio to governed warehouse views, tables, and KPIs without broad migration or rebuilding your BI stack.',
     path: '/data-onboarding',
   })
@@ -318,7 +318,7 @@ export function DataOnboarding() {
               variants={fadeUp}
               className="text-4xl sm:text-5xl lg:text-[3.25rem] font-bold leading-[1.1] tracking-tight text-white mb-6"
             >
-              Your data, scoped for analysis in days — not quarters
+              Your data, ready for analysis without a migration project
             </motion.h1>
 
             <motion.p
@@ -425,9 +425,9 @@ export function DataOnboarding() {
               variants={fadeUp}
               className="text-slate-200 text-lg leading-relaxed mb-4"
             >
-              Decision Studio guides you through a structured seven-step onboarding workflow.
-              Each step has a job. At the end, you have a registered data product, validated
-              KPIs, and continuous monitoring — without writing a single ETL pipeline.
+              Decision Studio guides you through a structured onboarding workflow. Each step has
+              a job. At the end, you have a registered data product and validated KPIs ready for
+              assessment, with no ETL pipeline to write.
             </motion.p>
 
             <motion.p
@@ -445,7 +445,7 @@ export function DataOnboarding() {
                 number="1"
                 icon={<Database className="w-4 h-4" />}
                 title="Connect"
-                body="Point Decision Studio at your existing data warehouse — BigQuery, SQL Server / Azure SQL, Snowflake, Databricks, or PostgreSQL. Your data stays where it is; the system stores a connection profile, not a copy."
+                body="Point Decision Studio at your existing data warehouse: BigQuery, Snowflake or SQL Server / Azure SQL, with Databricks and PostgreSQL in development. Your data stays where it is. The system stores a connection profile, not a copy."
               />
               <WorkflowStep
                 number="2"
@@ -603,7 +603,7 @@ export function DataOnboarding() {
               className="text-slate-400 leading-relaxed mb-10"
             >
               Bring your own warehouse. The onboarding workflow works identically regardless
-              of which platform your data lives on — the same seven steps, the same AI-assisted
+              of which platform your data lives on: the same steps, the same AI-assisted
               KPI definition, the same registry output.
             </motion.p>
 
@@ -620,8 +620,7 @@ export function DataOnboarding() {
               className="mt-6 rounded-lg bg-slate-900/60 border border-slate-800/60 px-5 py-4"
             >
               <p className="text-sm text-slate-400 leading-relaxed">
-                Additional warehouse integrations are added based on customer need. If your
-                platform isn't listed, mention it when you request a conversation.
+                Additional warehouse integrations are added based on customer need.
               </p>
             </motion.div>
           </motion.div>
@@ -751,10 +750,6 @@ export function DataOnboarding() {
               </Link>
             </div>
 
-            <p className="mt-5 text-xs text-slate-600">
-              Questions about a specific warehouse or integration? Reach out via the
-              email in the footer below.
-            </p>
           </motion.div>
         </div>
       </section>
@@ -765,8 +760,7 @@ export function DataOnboarding() {
       <footer className="border-t border-slate-800/40 py-10 px-6" style={font}>
         <div className="max-w-6xl mx-auto">
           <p className="text-center text-xs text-slate-600 mb-6">
-            This project is currently in development and seeking input from Decision
-            Intelligence practitioners and consumers for awe and wonder.
+            Decision Studio is in development. Examples on this site use illustrative data.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
             <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
@@ -777,9 +771,6 @@ export function DataOnboarding() {
               >
                 Decision Studio
               </Link>
-              <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
-                info@trydecisionstudio.com
-              </a>
               <span>&copy; 2026 Decision Studio</span>
             </div>
             <div className="flex items-center gap-6">

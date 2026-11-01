@@ -58,45 +58,30 @@ function scrollTo(id: string) {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-// ─────────────────────────────────────────────────
-// Animated counter (counts up on scroll)
-// ─────────────────────────────────────────────────
-function AnimatedStat({ value, suffix, label }: { value: string; suffix?: string; label: string }) {
-  return (
-    <motion.div variants={fadeUp} className="text-center">
-      <div className="text-3xl sm:text-4xl font-bold text-white tracking-tight" style={{ fontFamily: 'Satoshi, sans-serif' }}>
-        {value}
-        {suffix && <span className="text-indigo-400">{suffix}</span>}
-      </div>
-      <div className="text-sm text-slate-400 mt-1">{label}</div>
-    </motion.div>
-  )
-}
-
 const closedLoopProofPoints = [
   {
-    label: 'A KPI moves',
-    title: 'Decision Studio explains why it moved.',
-    copy: 'Dimensional IS/IS NOT analysis isolates where, when, and what changed against the underlying data.',
-    icon: <Search className="w-5 h-5 text-indigo-400" />,
-  },
-  {
-    label: 'Generic AI writes answers',
-    title: 'Decision Studio preserves the evidence.',
-    copy: 'Structured inputs, traceable outputs, visible disagreement, and human approval keep recommendations defensible.',
-    icon: <Shield className="w-5 h-5 text-indigo-400" />,
-  },
-  {
     label: 'Consultants recommend action',
-    title: 'Decision Studio tracks whether it worked.',
-    copy: 'Value Assurance compares inaction, expected recovery, and actual results so impact is measured after approval.',
+    title: 'Decision Studio measures whether it worked.',
+    copy: 'Each approved action is tracked against what inaction would have cost, what was expected, and what actually happened, compared with the parts of the business it did not touch.',
     icon: <LineChart className="w-5 h-5 text-emerald-400" />,
+  },
+  {
+    label: 'Decisions go unrecorded',
+    title: 'Decision Studio keeps the decision record.',
+    copy: 'What was decided, by whom, on what evidence, and what it was betting on. The record is written at approval, before the result is known.',
+    icon: <Shield className="w-5 h-5 text-indigo-400" />,
   },
   {
     label: 'Decision ownership drifts',
     title: 'Decision Studio names the accountable owner.',
-    copy: 'KPI ownership is captured before monitoring begins, so surfaced situations route to the right principal.',
+    copy: 'Every KPI has a named owner before monitoring begins, so each situation reaches the person responsible for it.',
     icon: <Users className="w-5 h-5 text-emerald-400" />,
+  },
+  {
+    label: 'A KPI moves',
+    title: 'Decision Studio finds where the change came from.',
+    copy: 'Dimensional IS/IS NOT analysis isolates where, when, and what changed in the underlying data.',
+    icon: <Search className="w-5 h-5 text-indigo-400" />,
   },
 ]
 
@@ -105,8 +90,8 @@ const closedLoopProofPoints = [
 export function LandingPageAlternate() {
   useSatoshiFont()
   usePageMeta({
-    title: 'Decision Studio | Decision Assurance for Executive Teams',
-    description: 'Decision Studio closes the loop from KPI movement to diagnosed cause, human-approved action, and measured outcome tracking.',
+    title: 'Decision Studio | An Independent Record of Whether Decisions Worked',
+    description: 'Decision Studio records each business decision, what it was based on and what it was betting on, then measures whether it worked.',
     path: '/',
   })
   const councilCaseStudyVideoSrc = 'https://customer-erkp1ybr2e8wokyn.cloudflarestream.com/ab19f3317eeb53efeeb3a6dd516b6ae9/iframe'
@@ -191,20 +176,20 @@ export function LandingPageAlternate() {
         >
           <motion.h1
             variants={fadeUp}
-            className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6"
+            className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6 text-balance"
           >
-            From KPI breach to measured outcome.{' '}
-            <span className="text-indigo-400">With measurement built in.</span>
+            An independent record of{' '}
+            <span className="text-indigo-400">whether each decision worked.</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed"
           >
-            Decision Studio helps mid-market leadership teams close the loop from KPI breach
-            to measured outcome: continuous monitoring, structured root-cause diagnosis,
-            competing action options, human approval, and Value Assurance that measures whether
-            the action actually moved the metric.
+            When a KPI moves, Decision Studio finds where the change came from, sets out
+            options, and records the decision your team approves. Then it measures the result
+            against the parts of the business the decision did not touch, so you can tell your
+            effect from the market&apos;s. Built for mid-market leadership teams.
           </motion.p>
 
           <motion.div
@@ -249,10 +234,10 @@ export function LandingPageAlternate() {
                 Your board wants measurable impact. Not another AI experiment.
               </motion.h2>
               <motion.p variants={fadeUp} className="text-slate-300 text-sm leading-relaxed mb-4">
-                Every executive team is under pressure to show return on AI investment. Most options —
-                copilots, assistants, prompt playgrounds — generate text but stop short of financial
-                accountability. Decision Studio is different. It creates an unbroken chain from KPI
-                movement to diagnosis, approved action, and measured outcome.
+                Every executive team is under pressure to show a return on AI investment. Most AI
+                tools, from copilots to assistants, produce text and stop there. Decision Studio
+                links each KPI movement to its diagnosis, the action you approved, and the measured
+                result.
               </motion.p>
               <motion.a
                 variants={fadeUp}
@@ -373,13 +358,13 @@ export function LandingPageAlternate() {
                 The closed loop
               </p>
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                The integration is the product.
+                One record, from KPI movement to measured result.
               </h2>
               <p className="text-slate-300 leading-relaxed">
-                Decision Studio is not trying to replace executive judgment. It makes the
-                evidence, decision, and outcome visible in one accountable workflow: the issue
-                is detected, the cause is isolated, options are debated, the human decision is
-                recorded, and the result is measured.
+                Decision Studio leaves the judgment to your executives. It keeps the evidence,
+                the decision and the outcome together: what changed, what caused it, which options
+                were weighed, what you approved, and what happened next. It measures decisions it
+                did not make, so the verdict is independent of the people who made them.
               </p>
             </motion.div>
 
@@ -444,11 +429,11 @@ export function LandingPageAlternate() {
             >
               <div className="max-w-3xl">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-indigo-400">
-                  Narrated case study
+                  Illustrative scenario
                 </p>
                 <h3 className="mb-3 text-2xl font-bold text-white">Watch the full decision loop</h3>
                 <p className="text-sm leading-relaxed text-slate-300">
-                  This NotebookLM walkthrough follows a 50-location coffee chain from dashboard
+                  This narrated walkthrough follows a fictional 50-location coffee chain from dashboard
                   symptom to measured outcome: the drop is detected, the cause is isolated,
                   the council debates conflicting actions, a human approves the move, and
                   Value Assurance measures whether it worked.
@@ -462,14 +447,14 @@ export function LandingPageAlternate() {
                     onClick={() => setShowCouncilVideo(true)}
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-700/60 bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
                   >
-                    Open narrated case study
+                    Watch the scenario
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div className="mt-6 overflow-hidden rounded-xl border border-slate-800/60 bg-black">
                   <iframe
-                    title="Narrated decision loop case study video"
+                    title="Illustrative scenario: the full decision loop"
                     src={councilCaseStudyVideoSrc}
                     className="aspect-video w-full"
                     style={{ border: 'none' }}
@@ -512,9 +497,10 @@ export function LandingPageAlternate() {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-3">Situation Detection</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  Decision Studio monitors the KPI set continuously. When something meaningful
-                  changes — not just a threshold breach, but a contextual shift — it surfaces
-                  a situation card with the diagnostic work already started.
+                  Each assessment checks every KPI you have enabled against its thresholds and its
+                  own recent history. When something meaningful changes, including a trend that
+                  has not yet crossed a threshold, it raises a situation with the diagnosis
+                  already started.
                 </p>
               </div>
               <KPIGridAnimation />
@@ -552,10 +538,9 @@ export function LandingPageAlternate() {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-3">External Context</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  Relevant external signals — competitor moves, industry trends, regulatory
-                  shifts — are woven directly into the analysis. You see
-                  whether a problem is internal or part of a broader market pattern, without
-                  commissioning separate research.
+                  The analysis adds market context relevant to the KPI: industry trends, competitor
+                  behavior and regulatory factors. You see whether a problem looks internal or part
+                  of a broader market pattern before you decide what to do about it.
                 </p>
               </div>
               <MarketContextAnimation />
@@ -593,9 +578,9 @@ export function LandingPageAlternate() {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-3">Decision Options</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  Three independent strategic perspectives evaluate the best path forward, with visible
-                  disagreement and trade-off analysis. You see where they agree, where they
-                  don't, and why. Then you approve, reject, or refine.
+                  Three perspectives, each working from a different angle, propose options and
+                  compare their trade-offs. You see where they agree, where they don&apos;t, and why.
+                  Then you approve, reject, or refine.
                 </p>
               </div>
               <CouncilDebateAnimation />
@@ -667,74 +652,23 @@ export function LandingPageAlternate() {
               </div>
 
               <motion.div variants={fadeUp} className="md:col-span-2 mt-6 pt-8 border-t border-slate-800/40">
-                <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3">
-                  The compounding effect
+                <h3 className="text-xl font-bold text-white mb-3">
+                  Every decision leaves a record.
+                </h3>
+                <p className="text-slate-300 text-sm leading-relaxed max-w-2xl mb-4">
+                  When you approve a recommendation, Decision Studio writes down what it is betting
+                  on: which driver should move, by how much, and why. When the result comes in, each
+                  bet is marked as held up or did not hold. A link between two KPIs counts as tested
+                  only after a measured decision supports it.
                 </p>
-                <p className="text-slate-300 text-sm leading-relaxed max-w-2xl">
-                  Over time, this feedback loop does something more powerful than any single
-                  measurement. Every approved solution, tracked outcome, and measured result becomes
-                  part of the Registry — a compounding institutional memory. Executive intuition,
-                  trained on measured outcomes rather than market noise, becomes progressively more
-                  accurate. When leadership changes, the organization doesn't reset. It inherits a
-                  record of what held up when measured, and the evidence to tell strategy from
-                  luck. Decision quality compounds.
+                <p className="text-slate-400 text-sm leading-relaxed max-w-2xl">
+                  Where this is heading: those records add up to a map of what drives your
+                  business, built from your own decisions and their measured outcomes. The map
+                  starts nearly empty and fills with use, and it always shows which links are
+                  tested and which are still assumptions.
                 </p>
               </motion.div>
 
-            </motion.div>
-
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── Stats bar ── */}
-      <section className="py-16 px-6 border-y border-slate-800/40 bg-slate-900/30">
-        <motion.div
-          className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8"
-          variants={stagger}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          <AnimatedStat value="5 days" suffix="" label="Onboarding to first insight" />
-          <AnimatedStat value="3" suffix="×" label="Strategic perspectives" />
-          <AnimatedStat value="100" suffix="%" label="Decision audit trail" />
-          <AnimatedStat value="Measured" suffix="" label="Outcomes" />
-        </motion.div>
-      </section>
-
-      {/* ═══════════════════════════════════════════
-          5. REQUEST A CONVERSATION
-      ═══════════════════════════════════════════ */}
-      <section id="conversation" className="py-28 px-6">
-        <div className="max-w-2xl mx-auto">
-          <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}>
-
-            <motion.div variants={fadeUp} className="text-center mb-12">
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Request Founder Background or Share Framing Feedback
-              </h2>
-              <p className="text-slate-400 max-w-lg mx-auto mb-6">
-                This is a pre-commercial project, not a solicitation. If you'd like
-                founder background, or want to share feedback on the framing, reach
-                out by email.
-              </p>
-              <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
-                <Shield className="w-3.5 h-3.5 text-slate-600" />
-                <span>Human-in-the-loop by design. The system does the analytical work — you make the decisions.</span>
-              </div>
-            </motion.div>
-
-            <motion.div variants={fadeUp} className="rounded-2xl bg-slate-900/80 border border-slate-800/60 p-8 text-center">
-              <a
-                href="mailto:info@trydecisionstudio.com"
-                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
-              >
-                info@trydecisionstudio.com
-              </a>
-              <p className="mt-4 text-slate-500 text-xs">
-                No sales pitch. Just a conversation about whether this fits.
-              </p>
             </motion.div>
 
           </motion.div>
@@ -747,15 +681,11 @@ export function LandingPageAlternate() {
       <footer className="border-t border-slate-800/40 py-10 px-6">
         <div className="max-w-6xl mx-auto">
           <p className="text-center text-xs text-slate-600 mb-6">
-            This project is currently in development and seeking input from Decision
-            Intelligence practitioners and consumers for awe and wonder.
+            Decision Studio is in development. Examples on this site use illustrative data.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
             <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
               <span className="font-bold text-white" style={font}>Decision Studio</span>
-              <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
-                info@trydecisionstudio.com
-              </a>
               <span>&copy; 2026 Decision Studio</span>
             </div>
             <div className="flex items-center gap-6">

@@ -582,16 +582,15 @@ export function HowItWorks() {
               icon={<UserCircle className="w-4 h-4" />}
               color="indigo"
               title="Context before analysis"
-              whatItDoes="Maps each executive's role, responsibilities, and business context. The same data gets framed differently for a CFO vs. a COO — because they care about different things."
+              whatItDoes="Records each executive's role, the KPIs they own and the business processes they are responsible for, so every analysis starts from the right context."
               methodology={
                 <span>
-                  Principal profiles define KPI ownership, business process mapping, and contextual
-                  priorities. The system personalizes every output to the decision-maker — not by
-                  changing the underlying data, but by surfacing what's relevant to their remit
-                  and filtering out noise that doesn't belong in their view.
+                  Executive profiles hold KPI ownership, business process mapping and each
+                  executive&apos;s priorities. Every agent downstream reads them, so a situation
+                  reaches the person who owns the KPI, framed around the processes they run.
                 </span>
               }
-              whatItProduces="Contextualized views — the same situation card looks different depending on who's reading it. A margin problem surfaces differently for Finance than for Operations."
+              whatItProduces="Situations routed to the accountable owner, with their business context attached."
             />
 
             {/* SA */}
@@ -601,7 +600,7 @@ export function HowItWorks() {
               label="Situation Awareness Agent"
               icon={<Eye className="w-4 h-4" />}
               color="indigo"
-              title="Continuous, automatic monitoring"
+              title="Every KPI, every assessment"
               animation={<KPIGridAnimation />}
               whatItDoes="Monitors enabled KPIs against thresholds and historical patterns, then surfaces situation cards when a meaningful change needs attention."
               methodology={
@@ -663,18 +662,15 @@ export function HowItWorks() {
               color="indigo"
               title="Is this internal or systemic?"
               animation={<MarketContextAnimation />}
-              whatItDoes="Scans external sources for competitor moves, industry trends, and regulatory changes — answering whether the situation is your problem or everyone's problem."
+              whatItDoes="Looks for competitor moves, industry trends and regulatory changes that bear on the situation, to answer whether it is your problem or everyone's."
               methodology={
                 <span>
-                  Web search synthesis via{' '}
-                  <span className="text-white font-medium">Perplexity</span>
-                  {' '}(real-time web retrieval) combined with Claude synthesis — external context
-                  generated at analysis time, not pulled from a static database that went stale
-                  six months ago. The agent identifies signals relevant to the specific situation
-                  being analyzed, not a generic industry overview.
+                  Model synthesis of external context for the specific situation being analyzed,
+                  rather than a generic industry overview. Live web research can be switched on
+                  for a deployment, so signals cite current sources.
                 </span>
               }
-              whatItProduces="Market signals woven directly into the analysis — competitor pricing moves, category volume trends, regulatory developments. If the same problem is happening industry-wide, that changes the strategic response."
+              whatItProduces="Market signals added to the analysis: competitor pricing moves, category volume trends, regulatory developments. If the same problem is happening industry-wide, that changes the strategic response."
             />
 
             {/* SF */}
@@ -686,22 +682,19 @@ export function HowItWorks() {
               color="indigo"
               title="Three perspectives, visible disagreement"
               animation={<CouncilDebateAnimation />}
-              whatItDoes="Generates recommendations from three independent analytical perspectives — then synthesizes them with the disagreements left visible, not smoothed over."
+              whatItDoes="Generates recommendations from three analytical perspectives, then combines them and keeps the disagreements visible."
               methodology={
                 <span>
                   <span className="text-white font-medium">Multi-lens analytical architecture</span>
-                  {' '}— three parallel AI calls, each reasoning from a different analytical
-                  territory: commercial (pricing, mix, channel economics), operational (cost
-                  structure, cost-to-serve), and structural (portfolio participation). These run
-                  in parallel, then a fourth synthesis call
-                  reads all three outputs and produces a unified briefing that explicitly calls out
-                  consensus, dissent, and the trade-offs involved in choosing between approaches.
+                  : three AI calls run in parallel, each told to reason from a different angle on
+                  the problem. A fourth call reads all three and writes one briefing that sets out
+                  where they agree, where they differ, and the trade-offs between approaches.
                   <br /><br />
-                  This is not consensus-by-averaging. The synthesis preserves real disagreement
-                  because strategic ambiguity is information, not noise.
+                  Disagreement stays in the briefing, because it shows you where the decision is
+                  genuinely hard.
                 </span>
               }
-              whatItProduces="Three independent solution proposals, a trade-off matrix comparing them on impact, cost, risk, and time-to-result, quantified impact estimates with confidence ranges, and a synthesized executive briefing. The decision-maker sees where the perspectives agree, where they diverge, and the reasoning behind each position."
+              whatItProduces="Three solution options compared on impact, cost, risk and time to result, an impact estimate for each, and a combined executive briefing. The decision-maker sees where the perspectives agree, where they diverge, and the reasoning behind each position."
               hitlNote="This is where you step in. Approve a solution, reject it, or ask follow-up questions to challenge assumptions. The system adapts to your input — your domain expertise shapes the final recommendation."
             />
 
@@ -751,7 +744,7 @@ export function HowItWorks() {
                 </span>
               }
               whatItProduces="Composite verdict (Held up / Partly held up / Did not hold / Measuring), a breakdown separating your impact from external factors, strategy alignment assessment comparing actual outcomes to original intent, and a portfolio-level ROI view across all tracked decisions."
-              differentiator="No other system connects diagnosis → recommendation → measured result in a single pipeline. The audit trail runs from the original situation card through the approved solution to the measured outcome — so you can answer 'did that work?' with data, not instinct."
+              differentiator="The audit trail runs from the original situation through the approved solution to the measured outcome, so you can answer 'did that work?' with data."
             />
           </motion.div>
         </div>
@@ -790,10 +783,10 @@ export function HowItWorks() {
                   {[
                     'Situation context interpretation and framing',
                     'SCQA narrative construction from dimensional data',
-                    'Market signal synthesis from live web search',
+                    'Market context synthesis',
                     'Multi-perspective strategic recommendations',
-                    'Synthesis across three independent viewpoints',
-                    'Impact estimation with confidence ranges',
+                    'Synthesis across three perspectives',
+                    'Impact estimates for each option',
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-sm text-slate-300 leading-relaxed">
                       <span className="w-1 h-1 rounded-full bg-indigo-500/60 mt-2 flex-shrink-0" />
@@ -929,7 +922,7 @@ export function HowItWorks() {
           >
             <motion.div variants={fadeUp} className="mb-10">
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-                The registry — why it gets smarter over time
+                The registry: what every run reads
               </h2>
               <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
                 Most knowledge management systems are passive storage. The registry is an operational layer.
@@ -959,11 +952,9 @@ export function HowItWorks() {
 
               <div className="rounded-xl border border-indigo-600/20 bg-indigo-950/30 px-6 py-5">
                 <p className="text-indigo-200 leading-relaxed text-sm">
-                  When key people leave, the knowledge stays. The institutional context that usually
-                  walks out the door with a departing CFO or VP of Strategy is encoded in the
-                  registry — which KPIs they owned, how they weighted different business processes,
-                  what decisions were made and why. That context informs the next person in the role
-                  from day one.
+                  When someone leaves, the record stays: which KPIs they owned, which decisions
+                  they approved and why, and how those decisions turned out. The next person in the
+                  role starts with that history.
                 </p>
               </div>
             </motion.div>
@@ -999,8 +990,8 @@ export function HowItWorks() {
                 </div>
                 <p className="text-white text-sm font-semibold mb-2">Direct warehouse connection</p>
                 <p className="text-slate-400 text-sm leading-relaxed">
-                  Native SDK connectors for Snowflake, BigQuery, Databricks, SQL Server,
-                  PostgreSQL, and DuckDB. Your data stays in your warehouse.
+                  Direct connections to Snowflake, BigQuery and SQL Server, with Databricks and
+                  PostgreSQL in development. Your data stays in your warehouse.
                 </p>
               </div>
 
@@ -1008,11 +999,11 @@ export function HowItWorks() {
                 <div className="w-9 h-9 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center mb-4">
                   <Layers className="w-4 h-4" />
                 </div>
-                <p className="text-white text-sm font-semibold mb-2">Works with your semantic layer</p>
+                <p className="text-white text-sm font-semibold mb-2">Your semantic layer (planned)</p>
                 <p className="text-slate-400 text-sm leading-relaxed">
-                  If you've already built Cortex Analyst views or Databricks Genie Spaces,
-                  Decision Studio routes KPI queries through them. Your business definitions,
-                  our analytics pipeline.
+                  Routing KPI queries through Snowflake Cortex Analyst or Databricks Genie is on
+                  the roadmap, so business definitions you have already built can drive the
+                  analysis.
                 </p>
               </div>
 
@@ -1033,10 +1024,9 @@ export function HowItWorks() {
               className="rounded-lg border border-slate-700/40 bg-slate-900/60 px-5 py-4"
             >
               <p className="text-sm text-slate-400 leading-relaxed">
-                These three modes are not mutually exclusive. A single deployment can use direct
-                SDK connections for transactional data, route through Cortex Analyst for curated
-                metrics, and fall back to Decision Studio's own contracts for KPIs that don't yet
-                live in a semantic layer. Routing is configured around the customer's data products.
+                Today a deployment uses direct connections and Decision Studio&apos;s own KPI
+                contracts. Semantic-layer routing will sit alongside them, configured per data
+                product.
               </p>
             </motion.div>
           </motion.div>
@@ -1057,7 +1047,7 @@ export function HowItWorks() {
             <motion.p variants={fadeUp} className="text-xs font-semibold uppercase tracking-widest text-slate-500 text-center mb-12">
               The full operating sequence
             </motion.p>
-            <motion.div variants={fadeUp} className="flex items-center justify-center gap-0">
+            <motion.div variants={fadeUp} className="grid grid-cols-3 gap-y-6 sm:flex sm:items-center sm:justify-center sm:gap-0">
               {[
                 { label: 'Monitor',   color: 'bg-blue-500' },
                 { label: 'Detect',    color: 'bg-red-500' },
@@ -1066,13 +1056,13 @@ export function HowItWorks() {
                 { label: 'Decide',    color: 'bg-indigo-500' },
                 { label: 'Measure',   color: 'bg-emerald-500' },
               ].map((step, i, arr) => (
-                <div key={step.label} className="flex items-center">
+                <div key={step.label} className="flex items-center justify-center">
                   <div className="flex flex-col items-center gap-3">
-                    <div className={`w-14 h-14 rounded-full ${step.color} shadow-lg`} />
+                    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full ${step.color} shadow-lg`} />
                     <span className="text-xs text-slate-400 font-medium tracking-wide">{step.label}</span>
                   </div>
                   {i < arr.length - 1 && (
-                    <div className="w-10 sm:w-16 border-t-2 border-dashed border-slate-700 mb-5 mx-1" />
+                    <div className="hidden sm:block w-16 border-t-2 border-dashed border-slate-700 mb-5 mx-1" />
                   )}
                 </div>
               ))}
@@ -1097,8 +1087,8 @@ export function HowItWorks() {
                 Want to see it in action?
               </h2>
               <p className="text-slate-400 max-w-lg mx-auto">
-                The walkthrough on the landing page runs through the full pipeline
-                with a real scenario — from situation detection to outcome tracking.
+                The walkthrough on the home page runs through the full pipeline with an example
+                scenario, from situation detection to outcome tracking.
               </p>
             </motion.div>
 
@@ -1120,15 +1110,11 @@ export function HowItWorks() {
       <footer className="border-t border-slate-800/40 py-10 px-6" style={font}>
         <div className="max-w-6xl mx-auto">
           <p className="text-center text-xs text-slate-600 mb-6">
-            This project is currently in development and seeking input from Decision
-            Intelligence practitioners and consumers for awe and wonder.
+            Decision Studio is in development. Examples on this site use illustrative data.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
             <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
               <span className="font-bold text-white">Decision Studio</span>
-              <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
-                info@trydecisionstudio.com
-              </a>
               <span>&copy; 2026 Decision Studio</span>
             </div>
             <div className="flex items-center gap-6">
