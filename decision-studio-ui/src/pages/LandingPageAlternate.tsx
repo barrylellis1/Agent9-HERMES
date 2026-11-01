@@ -231,7 +231,7 @@ export function LandingPageAlternate() {
                 The decision execution gap
               </motion.p>
               <motion.h2 variants={fadeUp} className="text-2xl font-bold text-white mb-4 leading-snug">
-                Your board wants measurable impact. Not another AI experiment.
+                Your board wants measurable impact from AI spend.
               </motion.h2>
               <motion.p variants={fadeUp} className="text-slate-300 text-sm leading-relaxed mb-4">
                 Every executive team is under pressure to show a return on AI investment. Most AI
@@ -261,7 +261,7 @@ export function LandingPageAlternate() {
               <motion.p variants={fadeUp} className="text-slate-300 text-sm leading-relaxed mb-4">
                 When executives don't have time for a twelve-week consulting engagement, they revert to instinct. 
                 Decision Studio changes the economics. It orchestrates structured root-cause isolation and 
-                weighed action options — with you guiding every step — in the time it takes to finish a cup of coffee.
+                weighed action options, with you guiding every step.
               </motion.p>
             </motion.div>
           </div>
@@ -278,7 +278,7 @@ export function LandingPageAlternate() {
             <div className="text-center mb-16">
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">The mid-market reality</h2>
               <p className="text-slate-400 max-w-2xl mx-auto text-lg">
-                You have governed data, but you don't have an army of analysts. That creates three critical gaps in how decisions get made.
+                You have governed data, but you don't have a large analytics team. That creates three critical gaps in how decisions get made.
               </p>
             </div>
 
@@ -290,7 +290,7 @@ export function LandingPageAlternate() {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-3">The monitoring gap</h3>
                 <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                  You're always reacting, never anticipating. Your KPIs get reviewed monthly. Periodic reporting shows what happened, but nobody is proactively watching for the moment that needs action. By the time someone spots a margin drop, it's already expensive.
+                  Problems are found after they grow. Your KPIs get reviewed monthly. Periodic reporting shows what happened, but nobody is proactively watching for the moment that needs action. By the time someone spots a margin drop, it's already expensive.
                 </p>
                 <div className="mt-auto pt-5 border-t border-slate-800/50 flex items-center gap-2 text-xs text-slate-500">
                   <span className="w-1 h-1 rounded-full bg-slate-600" />
@@ -343,8 +343,8 @@ export function LandingPageAlternate() {
           transition={{ duration: 0.8 }}
         >
           <p className="text-2xl sm:text-3xl font-bold text-white leading-snug">
-            What if you could close all three gaps —{' '}
-            <span className="text-indigo-400">and measure the result?</span>
+            Close all three gaps{' '}
+            <span className="text-indigo-400">and measure the result.</span>
           </p>
         </motion.div>
       </section>
@@ -472,11 +472,11 @@ export function LandingPageAlternate() {
                     <Users className="w-4 h-4 text-emerald-400" />
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
-                    Setup — Before Step 01
+                    Setup, before Step 01
                   </span>
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">
-                  Every KPI gets an owner — before the first scan.
+                  Every KPI gets an owner before the first scan.
                 </h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
                   A guided accountability interview walks an administrator through assigning every
@@ -518,8 +518,8 @@ export function LandingPageAlternate() {
                 <h3 className="text-xl font-bold text-white mb-3">Diagnostic Isolation</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
                   Dimensional IS/IS NOT analysis isolates exactly where, when, and what
-                  changed — deterministically, against your real data. Not a chatbot
-                  guessing. A structured diagnostic exhibit you can audit and challenge.
+                  changed, deterministically, against your real data. It produces
+                  a structured diagnostic exhibit you can audit and challenge.
                 </p>
               </div>
               <div className="md:order-1">
@@ -557,9 +557,9 @@ export function LandingPageAlternate() {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-3">Executive Review</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  This isn't a black box. You ask follow-up questions, challenge assumptions,
+                  You ask follow-up questions, challenge assumptions,
                   and steer the analysis with your domain knowledge. The briefing adapts as
-                  your expertise shapes the outcome. Human-in-the-loop by design, not as an afterthought.
+                  your expertise shapes the outcome. A person approves every recommendation.
                 </p>
               </div>
               <div className="md:order-1">
@@ -608,7 +608,7 @@ export function LandingPageAlternate() {
                 Measure whether it worked.
               </h2>
               <p className="text-slate-300 max-w-2xl leading-relaxed">
-                After you approve a solution, Decision Studio tracks three trajectories — so you
+                After you approve a solution, Decision Studio tracks three trajectories, so you
                 know whether your decision actually moved the KPI, or whether the market recovered
                 on its own. Most tools stop at the recommendation. This closes the loop.
               </p>
@@ -627,7 +627,7 @@ export function LandingPageAlternate() {
                   <div>
                     <p className="text-white font-semibold text-sm mb-1">Inaction trajectory</p>
                     <p className="text-slate-400 text-sm leading-relaxed">
-                      What would have happened if you did nothing. Projected at approval, frozen — the cost of delay made visible.
+                      What would have happened if you did nothing. Projected at approval and frozen, so the cost of delay is visible.
                     </p>
                   </div>
                 </div>
@@ -645,7 +645,7 @@ export function LandingPageAlternate() {
                   <div>
                     <p className="text-white font-semibold text-sm mb-1">Actual results</p>
                     <p className="text-slate-400 text-sm leading-relaxed">
-                      What really happened — measured monthly, and compared with segments the decision did not touch, to separate its effect from market noise.
+                      What really happened, measured monthly and compared with segments the decision did not touch, to separate its effect from market noise.
                     </p>
                   </div>
                 </div>
@@ -667,6 +667,19 @@ export function LandingPageAlternate() {
                   starts nearly empty and fills with use, and it always shows which links are
                   tested and which are still assumptions.
                 </p>
+                <figure className="mt-8 m-0">
+                  <img
+                    src="/concept/kpi-drivers.png"
+                    alt="Concept illustration of the KPI Drivers screen. Margin rate has three drivers: one tested, one assumed from a template, one assumed from a correlation, plus the calculated parts. Illustrative data."
+                    width={1600}
+                    height={1200}
+                    loading="lazy"
+                    className="w-full h-auto rounded-xl border border-slate-800/60"
+                  />
+                  <figcaption className="mt-3 text-xs leading-relaxed text-slate-500 max-w-2xl">
+                    Concept: how Decision Studio will show what drives your business once enough decisions have been measured.
+                  </figcaption>
+                </figure>
               </motion.div>
 
             </motion.div>

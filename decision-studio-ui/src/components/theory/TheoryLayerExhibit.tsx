@@ -318,6 +318,11 @@ export function TheoryLayerExhibit({ kpiId, clientId, includeValues = false }: P
     );
   }
 
+  return <TheoryLayerView data={data} />;
+}
+
+/** The rendered exhibit for a loaded payload. The live page and the concept image both use it. */
+export function TheoryLayerView({ data }: { data: TheoryLayerPayload }) {
   const { spine, causal_edges, ports, epistemic_summary: es } = data;
   const orderedEdges = [...causal_edges].sort(
     (a, b) => STATE_ORDER[linkTrust(a, null).state] - STATE_ORDER[linkTrust(b, null).state],

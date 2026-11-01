@@ -325,7 +325,7 @@ export function DataOnboarding() {
               variants={fadeUp}
               className="text-lg sm:text-xl text-slate-300 max-w-2xl leading-relaxed"
             >
-              Decision Studio connects to your governed data layer — views, tables, and KPIs
+              Decision Studio connects to your governed data layer: views, tables and KPIs
               you've already defined at the database level. For a scoped pilot, there is no
               required data migration and no need to reverse-engineer BI reports. Your data stays
               where it is while the first decision loop is configured.
@@ -434,7 +434,7 @@ export function DataOnboarding() {
               variants={fadeUp}
               className="text-slate-400 leading-relaxed mb-12"
             >
-              This isn't a wizard that asks you to fill in forms. It's an active process:
+              The process is active rather than a form:
               the system inspects your schema, infers relationships, profiles column semantics,
               and validates queries against your live data before anything is registered.
             </motion.p>
@@ -457,7 +457,7 @@ export function DataOnboarding() {
                 number="3"
                 icon={<Layers className="w-4 h-4" />}
                 title="Select"
-                body="Choose which tables form your data product. Group related tables — typically a fact table and its dimension tables — into a logical unit that represents a business domain: finance, operations, sales, supply chain. One data product can serve multiple KPIs and business processes."
+                body="Choose which tables form your data product. Group related tables, typically a fact table and its dimension tables, into a logical unit that represents a business domain: finance, operations, sales, supply chain. One data product can serve multiple KPIs and business processes."
               />
               <WorkflowStep
                 number="4"
@@ -469,13 +469,13 @@ export function DataOnboarding() {
                 number="5"
                 icon={<Bot className="w-4 h-4" />}
                 title="Define KPIs"
-                body="An AI assistant helps define KPIs conversationally. Describe what you want to measure in plain language — 'gross margin by product line' or 'revenue variance against prior year.' The assistant generates SQL, validates it against your actual data, and adds strategic metadata: thresholds, comparison periods, business process mappings, and ownership. Non-technical stakeholders can define what matters."
+                body="An AI assistant helps define KPIs conversationally. Describe what you want to measure in plain language, such as 'gross margin by product line' or 'revenue variance against prior year.' The assistant generates SQL, validates it against your actual data, and adds strategic metadata: thresholds, comparison periods, business process mappings, and ownership. Non-technical stakeholders can define what matters."
               />
               <WorkflowStep
                 number="6"
                 icon={<CheckCircle2 className="w-4 h-4" />}
                 title="Validate"
-                body="Every KPI query is tested against your live data source before it's registered. You see actual results — real numbers from your warehouse — so you know the query is correct before monitoring begins. No surprises in production. No silent failures discovered three weeks later."
+                body="Every KPI query is tested against your live data source before it's registered. You see actual results, real numbers from your warehouse, so you know the query is correct before monitoring begins. Problems show up before monitoring starts, not three weeks later."
               />
               <motion.div variants={fadeUp} className="flex gap-5">
                 <div className="flex-shrink-0 flex flex-col items-center">
@@ -507,8 +507,7 @@ export function DataOnboarding() {
             >
               <p className="text-white font-semibold text-sm mb-2">Prerequisite: governed KPIs at the database level</p>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Decision Studio works best when KPIs are defined as database views or tables —
-                the governed layer your data team maintains. If your KPIs only exist in reporting
+                Decision Studio works best when KPIs are defined as database views or tables: the governed layer your data team maintains. If your KPIs only exist in reporting
                 tools like Power BI or Tableau, we recommend a short data readiness engagement to
                 establish governed definitions before onboarding.
               </p>
@@ -557,12 +556,12 @@ export function DataOnboarding() {
               <DifferentiatorCard
                 icon={<Bot className="w-4 h-4" />}
                 title="AI-assisted KPI definition"
-                body="You don't write SQL. You describe what you want to measure. The AI generates, validates, and refines queries conversationally. Non-technical stakeholders — CFOs, COOs, heads of commercial — can define what matters without going through a developer and waiting for the next sprint."
+                body="You don't write SQL. You describe what you want to measure. The AI generates, validates, and refines queries conversationally. Non-technical stakeholders, such as CFOs, COOs and heads of commercial, can define what matters without going through a developer and waiting for the next sprint."
               />
               <DifferentiatorCard
                 icon={<BookOpen className="w-4 h-4" />}
-                title="Registry, not just a connection"
-                body="Every KPI gets strategic metadata: thresholds, ownership, business process mapping, comparison period logic. This isn't a connection string — it's a knowledge asset. The same metadata that defines the KPI informs every downstream analysis, briefing, and outcome measurement."
+                title="A registry, not only a connection"
+                body="Every KPI gets strategic metadata: thresholds, ownership, business process mapping, comparison period logic. The same metadata that defines the KPI informs every downstream analysis, briefing, and outcome measurement."
               />
             </motion.div>
           </motion.div>
@@ -595,7 +594,7 @@ export function DataOnboarding() {
               variants={fadeUp}
               className="text-slate-200 text-lg leading-relaxed mb-4"
             >
-              Decision Studio adapts to your infrastructure, not the other way around.
+              Decision Studio adapts to your infrastructure.
             </motion.p>
 
             <motion.p
@@ -653,7 +652,7 @@ export function DataOnboarding() {
               variants={fadeUp}
               className="text-slate-200 text-lg leading-relaxed mb-5"
             >
-              Registration isn't the end of the process — it's the start of the analytical pipeline.
+              Registration starts the analytical pipeline.
             </motion.p>
 
             <motion.p
@@ -661,9 +660,7 @@ export function DataOnboarding() {
               className="text-slate-400 leading-relaxed mb-10"
             >
               Once a data product is registered, Decision Studio's Situation Awareness agent
-              can begin monitoring those KPIs. The metadata you defined during onboarding —
-              thresholds, comparison periods, business process mappings — drives every subsequent
-              analysis. There's no separate configuration step for monitoring. The onboarding
+              can begin monitoring those KPIs. The metadata you defined during onboarding (thresholds, comparison periods and business process mappings) drives every subsequent analysis. There is no separate configuration step for monitoring. The onboarding
               workflow produces everything the system needs.
             </motion.p>
 
@@ -671,7 +668,7 @@ export function DataOnboarding() {
               {[
                 {
                   label: 'Threshold breaches',
-                  desc: 'Surface as situation cards for the enabled KPI set — without building a separate alerting project.',
+                  desc: 'Surface as situation cards for the enabled KPI set, with no separate alerting project to build.',
                 },
                 {
                   label: 'Root-cause analysis',
@@ -683,7 +680,7 @@ export function DataOnboarding() {
                 },
                 {
                   label: 'Outcome measurement',
-                  desc: 'Value Assurance tracks whether approved decisions worked — using the same KPI definitions as a baseline. The onboarding data closes the accountability loop.',
+                  desc: 'Value Assurance tracks whether approved decisions worked, using the same KPI definitions as a baseline. The onboarding data closes the accountability loop.',
                 },
               ].map(({ label, desc }) => (
                 <div
@@ -736,7 +733,7 @@ export function DataOnboarding() {
 
             <p className="text-slate-400 max-w-lg mx-auto mb-8 leading-relaxed">
               Decision Studio inspects your schema, infers relationships, and validates
-              queries against live data before anything is registered — regardless of
+              queries against live data before anything is registered, regardless of
               which warehouse it's connecting to.
             </p>
 

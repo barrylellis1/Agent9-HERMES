@@ -22,7 +22,7 @@ website files in it.
   come off every page.
 - 2026-11-01: the coffee-chain video stays, relabelled as an illustrative scenario.
 
-**Status (2026-11-01):** A1, A2 and D built locally, not pushed. B and C open.
+**Status (2026-11-01):** A1, A2, B, C and D built locally, not pushed. Waiting for the owner's go-ahead to push.
 
 ---
 
@@ -49,7 +49,9 @@ footer and the two "reach out" lines on Data Onboarding; the video labelled "Ill
 and its chain described as fictional. The footer now reads "Decision Studio is in development.
 Examples on this site use illustrative data."
 
-## Step B: copy pass
+## Step B: copy pass (built 2026-11-01)
+
+Done across the four pages. Visible em dashes removed (only JSX comments keep them). Slogans, "isn't X, it's Y" framings and "reckoning" / "honeymoon" phrasing replaced. Internal terms on public pages: not yet done (see the list below); left for the next pass.
 
 Across all four pages, keeping the facts and the approachable tone:
 
@@ -61,7 +63,9 @@ Across all four pages, keeping the facts and the approachable tone:
 - internal terms on public pages ("principal", "situation card", "control point", "outcome
   receipt", "9-cell matrix") replaced with plain words.
 
-## Step C: the vision section and the concept image
+## Step C: the vision section and the concept image (built 2026-11-01)
+
+Built: `TheoryLayerExhibit.tsx` split into a loader and `TheoryLayerView`; illustrative payload in `components/theory/theoryLayerConcept.ts` (generic names, invented values); concept frame at `/concept/kpi-drivers` (`pages/ConceptKpiDrivers.tsx`) with a "Concept" badge; image in `public/concept/kpi-drivers.png`, shown under the record paragraph on the landing page. On phones the image is small and its chart text is hard to read; a phone-specific crop is a later task.
 
 **Copy.** Built features in the present tense, the vision as a direction:
 

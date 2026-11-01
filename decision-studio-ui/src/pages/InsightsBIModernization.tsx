@@ -241,8 +241,7 @@ export function InsightsBIModernization() {
             >
               Most organizations bought in. They migrated to cloud warehouses, deployed Tableau
               or Power BI, hired data teams, and declared themselves "data-driven." The investment
-              was real. The intention was genuine. The expectation — that better access to data
-              would produce better decisions — was reasonable.
+              was real. The intention was genuine. The expectation that better access to data would produce better decisions was reasonable.
             </motion.p>
           </motion.div>
         </div>
@@ -275,7 +274,7 @@ export function InsightsBIModernization() {
               className="text-slate-200 text-lg leading-relaxed mb-4"
             >
               Many organizations reach the same uncomfortable plateau: dashboards exist,
-              reporting is cleaner, and the data team is busier than ever — yet leaders still
+              reporting is cleaner, and the data team is busier than ever, yet leaders still
               struggle to turn KPI movement into timely action.
             </motion.p>
 
@@ -306,19 +305,19 @@ export function InsightsBIModernization() {
               <ProblemBlock
                 icon={<BarChart2 className="w-4 h-4 text-amber-400" />}
                 heading="Reporting stops before the decision is proven"
-                body="Reporting shows what happened. Executives need to know why it happened, what to do about it, and whether the action worked. The gap between a chart and a decision is still filled by meetings, gut feel, and whoever argues loudest. A beautiful visualization of a margin decline doesn't tell you whether it's a pricing problem, a mix problem, or a regional anomaly — and it certainly doesn't tell you what to do Monday morning."
+                body="Reporting shows what happened. Executives need to know why it happened, what to do about it, and whether the action worked. The gap between a chart and a decision is still filled by meetings, gut feel, and whoever argues loudest. A chart of a margin decline does not say whether the cause is pricing, product mix or a regional anomaly, or what to do on Monday."
               />
 
               <ProblemBlock
                 icon={<Clock className="w-4 h-4 text-amber-400" />}
                 heading="The analyst bottleneck"
-                body="Every insight requires a human analyst to pull data, build context, and tell the story. With a small analytics team serving many business stakeholders, the queue can stretch for weeks. By the time the analysis lands, the moment has passed — the quarter has closed, the competitor has moved, the window to act has narrowed. The bottleneck isn't laziness or lack of skill. It's structural: there are not enough hours in the day."
+                body="Every insight requires a human analyst to pull data, build context, and tell the story. With a small analytics team serving many business stakeholders, the queue can stretch for weeks. By the time the analysis lands, the moment has passed: the quarter has closed, the competitor has moved, the window to act has narrowed. The bottleneck is capacity, not skill: there are not enough hours in the day."
               />
 
               <ProblemBlock
                 icon={<BellOff className="w-4 h-4 text-amber-400" />}
                 heading="Alert fatigue killed monitoring"
-                body="You set up threshold alerts. Now the team gets too many of them. Many get ignored — not because people are careless, but because alerts without context are indistinguishable from noise. Is this a blip or a trend? Is it one product line or systemic? Is it seasonal or structural? The alert doesn't know. Neither do you, without an analyst."
+                body="You set up threshold alerts. Now the team gets too many of them. Many get ignored because alerts without context look the same as noise. An alert can't tell a one-off blip from a developing trend, or one product line's problem from a system-wide one. Answering that takes an analyst."
               />
 
             </motion.div>
@@ -356,7 +355,7 @@ export function InsightsBIModernization() {
               className="text-slate-200 text-lg leading-relaxed mb-5"
             >
               Copilots arrived promising to democratize analysis. But asking a language model
-              "why did margin decline?" gets you a plausible-sounding story — not a diagnosis.
+              "why did margin decline?" gets you a plausible-sounding story rather than a diagnosis.
             </motion.p>
 
             <motion.p
@@ -373,8 +372,8 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-slate-400 leading-relaxed"
             >
-              The problem isn't access to answers. It's access to structured, auditable,
-              repeatable analysis that connects cause to effect — the kind of work that
+              The gap is not access to answers. It is access to structured, auditable,
+              repeatable analysis that connects cause to effect. That is the kind of work that
               actually holds up when a CFO asks "how do you know?"
             </motion.p>
 
@@ -407,10 +406,10 @@ export function InsightsBIModernization() {
                   </p>
                   <p className="text-slate-300 text-sm leading-relaxed">
                     Most "upload your report" workflows fail for the same reason. Charts
-                    are pre-aggregated outputs of choices an analyst already made — which dimensions
+                    are pre-aggregated outputs of choices an analyst already made. Which dimensions
                     to show, what to filter, how to roll up. The high-dimensional reality that
                     root-cause analysis requires is hidden by the time the chart is rendered.
-                    Feeding a summary back into a model produces a smooth, plausible recommendation —
+                    Feeding a summary back into a model produces a smooth, plausible recommendation:
                     not a diagnosis. The IS/IS NOT method needs raw segment-level granularity
                     across all dimensions, including the ones the report didn't show.
                   </p>
@@ -450,8 +449,7 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-slate-200 text-lg leading-relaxed mb-12"
             >
-              The organizations that break through share three things. Not a different tool.
-              A different architecture for how decisions get made.
+              The organizations that break through share one thing: an architecture for how decisions get made, rather than a new tool.
             </motion.p>
 
             <motion.div variants={stagger} className="space-y-10">
@@ -486,8 +484,7 @@ export function InsightsBIModernization() {
                     Structured diagnosis, not narrative generation
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Deterministic root cause isolation against real data — not language model
-                    guessing. Dimensional IS/IS NOT analysis that identifies exactly where,
+                    Deterministic root cause isolation against real data. Language models explain the result; they do not produce the numbers. Dimensional IS/IS NOT analysis that identifies exactly where,
                     when, and what changed. The kind of work that, historically, required a
                     consulting engagement. Auditable. Repeatable. Explainable when someone
                     challenges the conclusion.
@@ -507,7 +504,7 @@ export function InsightsBIModernization() {
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
                     Trajectory tracking and outcome measurement that close the accountability
-                    loop. Not a lagging report — a forward-looking comparison of what
+                    loop. It is a forward-looking comparison of what
                     actually happened versus what would have happened without action.
                     The discipline to ask "did it work?" forces better decisions at the
                     start, because the team knows they'll be measured.
@@ -551,7 +548,7 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-5"
             >
-              The accountability reckoning
+              The accountability question
             </motion.p>
 
             <motion.p
@@ -568,18 +565,16 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-slate-400 leading-relaxed mb-5"
             >
-              The honeymoon period for enterprise AI is ending. Boards that approved
+              Enterprise AI is past its early phase. Boards that approved
               transformation budgets in 2023 and 2024 are now asking for the evidence.
-              The tools that survive this reckoning won't be the most capable ones —
-              they'll be the ones that can show a direct line from analysis output to business outcome.
+              The tools that last will not be the most capable ones. They will be the ones that show a direct line from analysis output to business outcome.
             </motion.p>
 
             <motion.p
               variants={fadeUp}
               className="text-slate-400 leading-relaxed"
             >
-              The companies that survive this reckoning won't be the ones with the best
-              reporting packs. They'll be the ones that can prove their decisions worked.
+              The companies that come through will not be the ones with the best reporting packs. They will be the ones that can prove their decisions worked.
             </motion.p>
 
             <motion.div

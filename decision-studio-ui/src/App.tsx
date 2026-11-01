@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Login } from './pages/Login'
 import { LandingPageAlternate as LandingPage } from './pages/LandingPageAlternate'
+import { ConceptKpiDrivers } from './pages/ConceptKpiDrivers'
 
 // Route-based code splitting (2026-08-29 audit item #3) — every page used to
 // be a static top-level import, so the whole app (dashboard, every settings
@@ -88,6 +89,7 @@ function App() {
       <Routes>
         <Route path="/" element={isCorporateDomain ? <LandingPage /> : <Login />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/concept/kpi-drivers" element={<ConceptKpiDrivers />} />
         <Route path="/dashboard" element={<AdminGuard><DecisionStudio /></AdminGuard>} />
         <Route path="/debate/:situationId" element={<CouncilDebatePage />} />
         <Route path="/briefing/:situationId" element={<ExecutiveBriefing />} />

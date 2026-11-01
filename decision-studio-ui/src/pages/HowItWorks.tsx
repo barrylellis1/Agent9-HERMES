@@ -439,14 +439,14 @@ export function HowItWorks() {
               <div className="flex items-start gap-3 rounded-lg bg-indigo-950/40 border border-indigo-600/20 px-5 py-4">
                 <div className="w-3 h-3 rounded-sm bg-indigo-600/60 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  <span className="text-indigo-300 font-medium">Indigo nodes</span> — analysis and synthesis controls.
+                  <span className="text-indigo-300 font-medium">Indigo nodes</span>: analysis and synthesis controls.
                   Each control point has a single, well-defined job.
                 </p>
               </div>
               <div className="flex items-start gap-3 rounded-lg bg-emerald-950/40 border border-emerald-600/20 px-5 py-4">
                 <div className="w-3 h-3 rounded-sm bg-emerald-600/60 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  <span className="text-emerald-300 font-medium">Emerald node</span> — the accountability
+                  <span className="text-emerald-300 font-medium">Emerald node</span>: the accountability
                   layer. Tracks whether decisions actually worked.
                 </p>
               </div>
@@ -520,7 +520,7 @@ export function HowItWorks() {
           >
             <motion.div variants={fadeUp} className="mb-8">
               <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3">
-                Setup — Before the pipeline runs
+                Setup, before the pipeline runs
               </p>
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
                 Every KPI gets an owner
@@ -528,7 +528,7 @@ export function HowItWorks() {
               <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
                 Before any KPI is monitored, a guided accountability interview assigns each KPI
                 to a named owner across the leadership team. The system uses process-to-KPI
-                inference and gap-resolution dialogue to build a complete ownership graph — so
+                inference and gap-resolution dialogue to build a complete ownership graph, so
                 when a situation surfaces later, the owner is already named.
               </p>
             </motion.div>
@@ -538,7 +538,7 @@ export function HowItWorks() {
               className="rounded-xl border border-emerald-600/20 bg-emerald-950/20 px-6 py-5"
             >
               <p className="text-emerald-200 text-sm leading-relaxed">
-                The most common reason data-driven recommendations stall isn't analytical — it's
+                The most common reason data-driven recommendations stall is rarely analytical. It is
                 that nobody owns the KPI in the first place. The accountability interview happens
                 once at setup and produces a registry that flows into every downstream agent.
                 Delegation tokens in the executive briefing layer reuse this graph for one-click
@@ -605,13 +605,13 @@ export function HowItWorks() {
               whatItDoes="Monitors enabled KPIs against thresholds and historical patterns, then surfaces situation cards when a meaningful change needs attention."
               methodology={
                 <span>
-                  Threshold monitoring with contextual filtering — not just a simple "value &lt;
+                  Threshold monitoring with contextual filtering, beyond a simple "value &lt;
                   target" alert, but pattern detection that distinguishes one-off blips from
                   developing trends. KPI definitions, ownership mappings, and severity thresholds
                   all live in the registry and inform every detection pass.
                 </span>
               }
-              whatItProduces="Situation cards — each with severity level, affected KPIs, business process context, and enough initial framing to kick off deep analysis without starting from zero."
+              whatItProduces="Situation cards, each with severity level, affected KPIs, business process context, and enough initial framing to kick off deep analysis without starting from zero."
               note="The goal is to reduce manual KPI watching: when something meaningful changes in the monitored KPI set, a situation is surfaced for review."
             />
 
@@ -624,17 +624,17 @@ export function HowItWorks() {
               color="indigo"
               title="Structured root cause, not narrative guessing"
               animation={<IsIsNotAnimation />}
-              whatItDoes="Isolates exactly where, when, and what changed — using structured IS/IS NOT analysis against your actual data, not a plausible-sounding guess."
+              whatItDoes="Isolates exactly where, when and what changed, using structured IS/IS NOT analysis against your actual data."
               methodology={
                 <span>
                   <span className="text-white font-medium">Kepner-Tregoe IS/IS NOT analysis</span>
-                  {' '}— a structured problem-analysis framework that separates what IS true from
+                  {' '}is a structured problem-analysis framework that separates what IS true from
                   what IS NOT true across multiple dimensions (product, region, channel, time
                   period). Automated against your data, this produces a dimensional isolation matrix
                   rather than a guess. Results are then framed using{' '}
                   <span className="text-white font-medium">SCQA narrative structure</span>
-                  {' '}(Situation — what's the context; Complication — what changed; Question —
-                  what should we do; Answer — the recommended path), the long-standing
+                  {' '}(Situation: what's the context; Complication: what changed; Question:
+                  what should we do; Answer: the recommended path), the long-standing
                   convention for executive communication because it leads with impact rather
                   than background.
                   <br /><br />
@@ -645,7 +645,7 @@ export function HowItWorks() {
               whatItProduces="Diverging bar charts showing which dimensions are affected vs. unaffected, change-point detection pinpointing when the shift began, and a structured diagnostic narrative ready for executive review."
               differentiator={
                 <span>
-                  The IS NOT segments — the dimensions that are <em>not</em> affected — become
+                  The IS NOT segments, the dimensions that are <em>not</em> affected, become
                   natural comparison groups for Value Assurance measurement later. The same analysis
                   that finds the problem creates the measurement framework for proving the fix worked.
                   This connection is designed in, not bolted on after the fact.
@@ -695,7 +695,7 @@ export function HowItWorks() {
                 </span>
               }
               whatItProduces="Three solution options compared on impact, cost, risk and time to result, an impact estimate for each, and a combined executive briefing. The decision-maker sees where the perspectives agree, where they diverge, and the reasoning behind each position."
-              hitlNote="This is where you step in. Approve a solution, reject it, or ask follow-up questions to challenge assumptions. The system adapts to your input — your domain expertise shapes the final recommendation."
+              hitlNote="This is where you step in. Approve a solution, reject it, or ask follow-up questions to challenge assumptions. The system adapts to your input, and your domain expertise shapes the final recommendation."
             />
 
             {/* VA */}
@@ -709,18 +709,17 @@ export function HowItWorks() {
               animation={
                 <div className="rounded-xl border border-emerald-500/30 bg-slate-900/60 p-6 flex flex-col items-center justify-center gap-4">
                   <TrajectoryMiniChart />
-                  <p className="text-xs text-slate-500 text-center">Inaction vs. expected vs. actual — from approval date forward</p>
+                  <p className="text-xs text-slate-500 text-center">Inaction vs. expected vs. actual, from approval date forward</p>
                 </div>
               }
               whatItDoes="Tracks whether approved decisions produced the expected results, and separates your impact from market noise. This is the part most systems skip entirely."
               methodology={
                 <span>
                   <span className="text-white font-medium">A difference-in-differences comparison</span>
-                  {' '}— a standard method for estimating the effect of a decision by comparing
+                  {' '}is a standard method for estimating the effect of a decision by comparing
                   the change in the affected segments with the change in segments the decision
                   did not touch, over the same period. Those comparison segments come directly
-                  from the IS NOT segments identified during Deep Analysis — this is why that
-                  connection matters.
+                  from the IS NOT segments identified during Deep Analysis. That is why this connection matters.
                   <br /><br />
                   Three trajectories are tracked from the approval date forward:{' '}
                   <span className="text-white font-medium">inaction</span> (what would have happened
@@ -728,8 +727,8 @@ export function HowItWorks() {
                   <span className="text-white font-medium">expected</span> (what the analysis predicted
                   with the approved solution), and{' '}
                   <span className="text-white font-medium">actual</span> (what the data shows really
-                  happened). The gap between inaction and actual — adjusted for market movement using
-                  the comparison segments — is the estimated effect of the decision.
+                  happened). The gap between inaction and actual, adjusted for market movement using
+                  the comparison segments. That gap is the estimated effect of the decision.
                   <br /><br />
                   At approval, a{' '}
                   <span className="text-white font-medium">strategy snapshot</span>{' '}
@@ -763,7 +762,7 @@ export function HowItWorks() {
           >
             <motion.div variants={fadeUp} className="mb-12">
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-                Where synthesis is used — and where the math is fixed
+                Where synthesis is used, and where the math is fixed
               </h2>
               <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
                 Models synthesize context. Structure ensures rigor. The combination is what makes this work.
@@ -808,7 +807,7 @@ export function HowItWorks() {
                   {[
                     'KPI threshold monitoring against historical baselines',
                     'IS/IS NOT dimensional isolation against real data',
-                    'SQL execution — actual numbers, not approximations',
+                    'SQL execution against your data, with actual numbers',
                     'Change-point detection (statistical, not generative)',
                     'Trajectory projection math (inaction / expected / actual)',
                     'Outcome comparison against segments the decision did not touch',
@@ -867,7 +866,7 @@ export function HowItWorks() {
                   },
                   {
                     title: 'Unprecedented situations',
-                    desc: 'When the situation has no historical precedent — a category that has never existed before, a regulatory change with no comparable prior — structured analysis has limited leverage.',
+                    desc: 'When the situation has no historical precedent, such as a category that has never existed or a regulatory change with no comparable prior, structured analysis has limited leverage.',
                   },
                   {
                     title: 'Relationship-driven insights',
@@ -899,8 +898,7 @@ export function HowItWorks() {
               <div className="rounded-lg bg-indigo-950/30 border border-indigo-600/20 px-5 py-4">
                 <p className="text-indigo-200 text-sm leading-relaxed">
                   Decision Studio handles the analytical heavy lifting so your team can focus on
-                  the decisions that require human judgment. The goal is not to automate decision-making
-                  — it's to make structured analysis fast enough that executives can use it on every
+                  the decisions that require human judgment. The goal is not to automate decision-making. It is to make structured analysis fast enough that executives can use it on every
                   significant decision, not just the ones that justify a consulting engagement.
                 </p>
               </div>
@@ -933,8 +931,7 @@ export function HowItWorks() {
               <div className="rounded-xl border border-slate-700/40 bg-slate-900/60 px-6 py-5">
                 <p className="text-slate-300 leading-relaxed text-sm">
                   Every KPI definition, business process mapping, principal profile, decision
-                  rationale, and outcome measurement is stored in a living registry. This isn't a
-                  wiki — it actively informs every future analysis. When the system monitors KPIs,
+                  rationale, and outcome measurement is stored in a living registry. It actively informs every future analysis. When the system monitors KPIs,
                   it reads the registry. When it frames a situation for a specific executive, it
                   reads their principal profile. When it measures outcomes, it reads the original
                   approved solution.
@@ -945,7 +942,7 @@ export function HowItWorks() {
                 <p className="text-slate-300 leading-relaxed text-sm">
                   Unlike a consultant's deck that sits on a shared drive or a wiki that goes stale
                   three months after it's written, the registry is used every time the system runs.
-                  That usage keeps it current and creates pressure to keep it accurate — because
+                  That usage keeps it current and creates pressure to keep it accurate, because
                   inaccurate registry entries produce visibly wrong outputs.
                 </p>
               </div>
